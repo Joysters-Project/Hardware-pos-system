@@ -1,2 +1,22 @@
+# Dependency folders (very large, no need to upload)
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Secret files (CRITICAL: keeps your passwords private)
 .env
 server/.env
+
+# Build files (generated automatically)
+dist/
+client/dist/
+build/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
