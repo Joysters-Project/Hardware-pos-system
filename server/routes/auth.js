@@ -1,18 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcrypt');
-const User = require('../models/user'); // adjust to your User model
+// Import the functions you wrote in the controller
+const authController = require('../controllers/authController'); 
 
-// Login route
-router.post('/login', async (req, res) => {
-    const { username, password } = req.body;
-    const user = await User.findOne({ where: { username } });
-    if (!user) return res.status(400).json({ message: 'Invalid credentials' });
+// When someone POSTs to /register, run the register function from controller
+router.post('/register', authController.register);
 
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(400).json({ message: 'Invalid credentials' });
-
-    res.json({ message: 'Success' });
-});
+// When someone POSTs to /login, run the login function from controller
+router.post('/login', authController.login);
 
 module.exports = router;
