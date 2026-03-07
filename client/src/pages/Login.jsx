@@ -1,10 +1,11 @@
 import { useState } from "react";
-import "./Login.css";
+import "../styles/Login.css";
 
 function Login() {
   return (
+    
     <div className="container">
-
+      
       <div className="login-box">
 
         <div className="avatar">
@@ -13,7 +14,7 @@ function Login() {
 
         <h2>Admin</h2>
         <h1>Welcome</h1>
-        <p>Login with Username</p>
+        <p className="subtext">Login with Username</p>
 
         <form>
 
