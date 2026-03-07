@@ -1,47 +1,36 @@
-require('dotenv').config(); // Loads .env variables
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { Sequelize } = require('sequelize');
+const db = require('./models'); // This automatically looks for models/index.js
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(cors()); // Allow cross-origin requests
-app.use(express.json()); // Parse incoming JSON data
+// 1. Middleware
+app.use(cors()); // Allows React to talk to this server
+app.use(express.json()); // Allows server to read JSON from requests
 
-// Database Connection via Sequelize
-const sequelize = new Sequelize(
-  process.env.DB_NAME,
-  process.env.DB_USER,
-  process.env.DB_PASS,
-  {
-    host: process.env.DB_HOST,
-    dialect: process.env.DB_DIALECT,
-    logging: false, // Keeps terminal clean
-  }
-);
+// 2. Database Sync
+// This ensures all 17 tables from your models folder are ready in MySQL
+db.sequelize.sync({ alter: true })
+  .then(() => {
+    console.log('✅ Database synced successfully');
+  })
+  .catch((err) => {
+    console.error('❌ Database sync failed:', err.message);
+  });
 
-// Test database connection
-const connectDB = async () => {
-  try {
-    await sequelize.authenticate();
-    console.log('✅ MySQL Database connected successfully.');
-    // Sync models (creates tables if they don't exist)
-    await sequelize.sync();
-  } catch (error) {
-    console.error('❌ Unable to connect to the database:', error);
-  }
-};
+// 3. API Routes (Assignments for your team)
+// Member B's Product API
+// const productRoutes = require('./routes/productRoutes');
+// app.use('/api/products', productRoutes);
 
-connectDB();
-
-// Default Route for Testing
+// 4. Default Route
 app.get('/', (req, res) => {
-  res.json({ message: "Welcome to your POS System API!" });
+  res.send('POS Backend Server is Running...');
 });
 
-// Start Server
+// 5. Start Server
 app.listen(PORT, () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`);
+  console.log(`🚀 Server is listening on http://localhost:${PORT}`);
 });
