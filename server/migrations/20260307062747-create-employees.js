@@ -2,7 +2,7 @@
 
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('Employee', {
+    await queryInterface.createTable('employees', {
       employee_id:   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true, allowNull: false },
       first_name:    { type: Sequelize.STRING(50),  allowNull: false },
       last_name:     { type: Sequelize.STRING(50),  allowNull: false },
@@ -13,12 +13,12 @@ module.exports = {
       phone_no:      { type: Sequelize.STRING(20),  unique: true },
       department_id: {
         type: Sequelize.INTEGER, allowNull: false,
-        references: { model: 'Department', key: 'department_id' },
+        references: { model: 'departments', key: 'department_id' },
         onUpdate: 'CASCADE', onDelete: 'RESTRICT'
       }
     });
   },
   async down(queryInterface) {
-    await queryInterface.dropTable('Employee');
+    await queryInterface.dropTable('employees');
   }
 };

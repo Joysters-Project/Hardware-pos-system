@@ -1,7 +1,7 @@
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
-  return sequelize.define('Products', {
+  return sequelize.define('products', {
     product_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     product_name: { type: DataTypes.STRING(200), allowNull: false },
     unit_price: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
@@ -14,5 +14,5 @@ module.exports = (sequelize) => {
     category_id: { type: DataTypes.INTEGER, allowNull: false },
     brand_id: { type: DataTypes.INTEGER, allowNull: true },
     unit_id: { type: DataTypes.INTEGER, allowNull: false }
-  }, { tableName: 'Products', timestamps: false });
+  }, { tableName: 'products', timestamps: false });
 };

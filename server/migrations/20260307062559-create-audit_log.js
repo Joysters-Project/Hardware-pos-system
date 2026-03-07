@@ -2,11 +2,11 @@
 
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('AuditLog', {
+    await queryInterface.createTable('audit_log', {
       log_id:  { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true, allowNull: false },
       user_id: {
         type: Sequelize.INTEGER, allowNull: false,
-        references: { model: 'User', key: 'user_id' },
+        references: { model: 'users', key: 'user_id' },
         onUpdate: 'CASCADE', onDelete: 'RESTRICT'
       },
       action:  { type: Sequelize.STRING(200), allowNull: false },
@@ -15,6 +15,6 @@ module.exports = {
     });
   },
   async down(queryInterface) {
-    await queryInterface.dropTable('AuditLog');
+    await queryInterface.dropTable('audit_log');
   }
 };

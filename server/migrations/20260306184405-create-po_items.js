@@ -8,7 +8,7 @@ module.exports = {
         allowNull: false,
         primaryKey: true,
         references: {
-          model: 'purchase_order',
+          model: 'purchase_orders',
           key: 'po_id'
         },
         onUpdate: 'CASCADE',
