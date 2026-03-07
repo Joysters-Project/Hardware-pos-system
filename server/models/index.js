@@ -1,4 +1,19 @@
-// 1. Import all model files (Ensure these .js files exist in the folder!)
+const { Sequelize } = require('sequelize');
+require('dotenv').config();
+
+// 1. Initialize Sequelize Connection
+const sequelize = new Sequelize(
+  process.env.DB_NAME,
+  process.env.DB_USER,
+  process.env.DB_PASS,
+  {
+    host: process.env.DB_HOST,
+    dialect: 'mysql',
+    logging: false,
+  }
+);
+
+// 2. Import all model files
 const departments     = require('./departments');
 const employees       = require('./employees');
 const users           = require('./users');
@@ -17,68 +32,70 @@ const alerts          = require('./alerts');
 const purchase_orders = require('./purchase_orders');
 const po_items        = require('./po_items');
 
-module.exports = (sequelize) => {
-  const models = {
-    departments:     departments(sequelize),
-    employees:       employees(sequelize),
-    users:           users(sequelize),
-    audit_log:       audit_log(sequelize),
-    category:        category(sequelize),
-    brands:          brands(sequelize),
-    units:           units(sequelize),
-    products:        products(sequelize),
-    suppliers:       suppliers(sequelize),
-    customers:       customers(sequelize),
-    bills:           bills(sequelize),
-    bill_items:      bill_items(sequelize),
-    payments:        payments(sequelize),
-    returns:         returns(sequelize),
-    alerts:          alerts(sequelize),
-    purchase_orders: purchase_orders(sequelize),
-    po_items:        po_items(sequelize),
-  };
-
-  // ── HR Module ──────────────────────────────────────────────
-  models.departments.hasMany(models.employees,  { foreignKey: 'department_id' });
-  models.employees.belongsTo(models.departments, { foreignKey: 'department_id' });
-  models.employees.hasOne(models.users,   { foreignKey: 'employee_id' });
-  models.users.belongsTo(models.employees, { foreignKey: 'employee_id' });
-  models.users.hasMany(models.audit_log,  { foreignKey: 'user_id' });
-  models.audit_log.belongsTo(models.users, { foreignKey: 'user_id' });
-
-  // ── Product Module ─────────────────────────────────────────
-  models.category.hasMany(models.products,  { foreignKey: 'category_id' });
-  models.products.belongsTo(models.category, { foreignKey: 'category_id' });
-  models.brands.hasMany(models.products,  { foreignKey: 'brand_id' });
-  models.products.belongsTo(models.brands, { foreignKey: 'brand_id' });
-  models.units.hasMany(models.products,  { foreignKey: 'unit_id' });
-  models.products.belongsTo(models.units, { foreignKey: 'unit_id' });
-  models.products.hasMany(models.alerts,  { foreignKey: 'product_id' });
-  models.alerts.belongsTo(models.products, { foreignKey: 'product_id' });
-
-  // ── Sales Module ───────────────────────────────────────────
-  models.users.hasMany(models.bills,     { foreignKey: 'user_id' });
-  models.bills.belongsTo(models.users,   { foreignKey: 'user_id' });
-  models.customers.hasMany(models.bills, { foreignKey: 'customer_id' });
-  models.bills.belongsTo(models.customers, { foreignKey: 'customer_id' });
-  models.bills.hasMany(models.bill_items,    { foreignKey: 'bill_id' });
-  models.bill_items.belongsTo(models.bills,  { foreignKey: 'bill_id' });
-  models.products.hasMany(models.bill_items,    { foreignKey: 'product_id' });
-  models.bill_items.belongsTo(models.products,  { foreignKey: 'product_id' });
-  models.bills.hasMany(models.payments,   { foreignKey: 'bill_id' });
-  models.payments.belongsTo(models.bills, { foreignKey: 'bill_id' });
-  models.bills.hasMany(models.returns,   { foreignKey: 'bill_id' });
-  models.returns.belongsTo(models.bills, { foreignKey: 'bill_id' });
-  models.products.hasMany(models.returns,   { foreignKey: 'product_id' });
-  models.returns.belongsTo(models.products, { foreignKey: 'product_id' });
-
-  // ── Procurement Module ─────────────────────────────────────
-  models.suppliers.hasMany(models.purchase_orders,    { foreignKey: 'supplier_id' });
-  models.purchase_orders.belongsTo(models.suppliers,  { foreignKey: 'supplier_id' });
-  models.purchase_orders.hasMany(models.po_items,    { foreignKey: 'po_id' });
-  models.po_items.belongsTo(models.purchase_orders,  { foreignKey: 'po_id' });
-  models.products.hasMany(models.po_items,   { foreignKey: 'product_id' });
-  models.po_items.belongsTo(models.products, { foreignKey: 'product_id' });
-
-  return models;
+// 3. Initialize the DB object
+const db = {
+  sequelize, // CRITICAL: This allows index.js to call .sync()
+  Sequelize,
+  departments:     departments(sequelize),
+  employees:       employees(sequelize),
+  users:           users(sequelize),
+  audit_log:       audit_log(sequelize),
+  category:        category(sequelize),
+  brands:          brands(sequelize),
+  units:           units(sequelize),
+  products:        products(sequelize),
+  suppliers:       suppliers(sequelize),
+  customers:       customers(sequelize),
+  bills:           bills(sequelize),
+  bill_items:      bill_items(sequelize),
+  payments:        payments(sequelize),
+  returns:         returns(sequelize),
+  alerts:          alerts(sequelize),
+  purchase_orders: purchase_orders(sequelize),
+  po_items:        po_items(sequelize),
 };
+
+// 4. Define Relationships
+// HR Module
+db.departments.hasMany(db.employees,  { foreignKey: 'department_id' });
+db.employees.belongsTo(db.departments, { foreignKey: 'department_id' });
+db.employees.hasOne(db.users,   { foreignKey: 'employee_id' });
+db.users.belongsTo(db.employees, { foreignKey: 'employee_id' });
+db.users.hasMany(db.audit_log,  { foreignKey: 'user_id' });
+db.audit_log.belongsTo(db.users, { foreignKey: 'user_id' });
+
+// Product Module
+db.category.hasMany(db.products,  { foreignKey: 'category_id' });
+db.products.belongsTo(db.category, { foreignKey: 'category_id' });
+db.brands.hasMany(db.products,  { foreignKey: 'brand_id' });
+db.products.belongsTo(db.brands, { foreignKey: 'brand_id' });
+db.units.hasMany(db.products,  { foreignKey: 'unit_id' });
+db.products.belongsTo(db.units, { foreignKey: 'unit_id' });
+db.products.hasMany(db.alerts,  { foreignKey: 'product_id' });
+db.alerts.belongsTo(db.products, { foreignKey: 'product_id' });
+
+// Sales Module
+db.users.hasMany(db.bills, { foreignKey: 'user_id' });
+db.bills.belongsTo(db.users, { foreignKey: 'user_id' });
+db.customers.hasMany(db.bills, { foreignKey: 'customer_id' });
+db.bills.belongsTo(db.customers, { foreignKey: 'customer_id' });
+db.bills.hasMany(db.bill_items, { foreignKey: 'bill_id' });
+db.bill_items.belongsTo(db.bills, { foreignKey: 'bill_id' });
+db.products.hasMany(db.bill_items, { foreignKey: 'product_id' });
+db.bill_items.belongsTo(db.products, { foreignKey: 'product_id' });
+db.bills.hasMany(db.payments, { foreignKey: 'bill_id' });
+db.payments.belongsTo(db.bills, { foreignKey: 'bill_id' });
+db.bills.hasMany(db.returns, { foreignKey: 'bill_id' });
+db.returns.belongsTo(db.bills, { foreignKey: 'bill_id' });
+db.products.hasMany(db.returns, { foreignKey: 'product_id' });
+db.returns.belongsTo(db.products, { foreignKey: 'product_id' });
+
+// Procurement Module
+db.suppliers.hasMany(db.purchase_orders, { foreignKey: 'supplier_id' });
+db.purchase_orders.belongsTo(db.suppliers, { foreignKey: 'supplier_id' });
+db.purchase_orders.hasMany(db.po_items, { foreignKey: 'po_id' });
+db.po_items.belongsTo(db.purchase_orders, { foreignKey: 'po_id' });
+db.products.hasMany(db.po_items, { foreignKey: 'product_id' });
+db.po_items.belongsTo(db.products, { foreignKey: 'product_id' });
+
+module.exports = db;
