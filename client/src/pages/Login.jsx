@@ -1,44 +1,78 @@
-import { useState } from "react";
+import React, { useState } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import "../styles/Login.css";
+import logo from "../assets/logo.png";
 
 function Login() {
+
+  const navigate = useNavigate();
+  const { role } = useParams();
+
+  const [userName,setUserName] = useState("");
+  const [password,setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleSubmit = (e) =>{
+    e.preventDefault();
+
+    if(userName && password){
+      navigate("/dashboard/" + role);
+    }else{
+      alert("Enter username and password");
+    }
+  }
+
   return (
-    
-    <div className="container">
-      
-      <div className="login-box">
 
-        <div className="avatar">
-          <img src="https://as2.ftcdn.net/jpg/01/43/35/17/1000_F_143351711_VWYefgK2ZXVpWtTDpFKIiShRc88vcTiy.jpg" />
-        </div>
-
-        <h2>Admin</h2>
-        <h1>Welcome</h1>
-        <p className="subtext">Login with Username</p>
-
-        <form>
-
-          <label>Username</label>
-          <input type="text" placeholder="Enter your username"/>
-
-          <label>Password</label>
-          <div className="password-row">
-            <input type="password" placeholder="Enter your password"/>
-            <span>Forgot password?</span>
-          </div>
-
-          <button type="submit">Login</button>
-
-          <p className="signup">
-            Don't have an account? <a href="#">Sign up</a>
-          </p>
-
-        </form>
-
+    <div className="login-page">
+      <div className="login-left">
+        <img src={logo} alt="background"/>
       </div>
 
+      <div className="login-right">
+        <div className="login-card">
+
+          <h1 className="title">{role} Login</h1>
+          <p className="subtitle">login with username</p>
+
+          <img src={logo} alt="logo" className="logo"/>
+
+          <form onSubmit={handleSubmit}>
+
+            <div className="input-box">
+              <input
+              type="text"
+              placeholder="Username"
+              value={userName}
+              onChange={(e)=>setUserName(e.target.value)}
+              required
+              />
+            </div>
+
+            <div className="input-box">
+              <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e)=>setPassword(e.target.value)}
+              reduired
+              />
+            </div>
+
+            <button className="login-btn">
+              LOGIN
+            </button>
+
+            <div className="links">
+              <Link to="/forgot-password">Forgot Password?</Link>
+              <Link to="/signup">Signup</Link>
+            </div>
+
+          </form>
+        </div>
+      </div>
     </div>
-  )
+  );
 }
 
-export default Login
+export default Login;
