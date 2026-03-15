@@ -25,12 +25,18 @@ db.sequelize.sync({ alter: true })
 // const productRoutes = require('./routes/productRoutes');
 // app.use('/api/products', productRoutes);
 
-// 4. Default Route
+// 4. API Routes
+app.use('/api/sales', require('./routes/billRoutes'));
+
+// 5. Default Route
 app.get('/', (req, res) => {
   res.send('POS Backend Server is Running...');
 });
 
-// 5. Start Server
+// 6. Start Server
 app.listen(PORT, () => {
   console.log(`🚀 Server is listening on http://localhost:${PORT}`);
 });
+
+const billRoutes = require('./routes/billRoutes');
+app.use('/api/bills', billRoutes);
