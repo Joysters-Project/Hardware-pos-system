@@ -9,4 +9,6 @@ router.post('/register', authController.register);
 // When someone POSTs to /login, run the login function from controller
 router.post('/login', authController.login);
 
+// When someone locked the system through invalid passwords, Admin also can unlock system
+router.post('/unlock', authController.unlockUser);
 module.exports = router;

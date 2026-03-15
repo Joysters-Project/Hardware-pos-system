@@ -17,6 +17,32 @@ const register = async (req, res) => {
     try {
         //Get data from the request body (match these with your Postman input)
         const { user_name, first_name, last_name, password, role, employee_id } = req.body;
+        
+        //employee validation
+        const employees= models.employees;
+        
+        // Check if employee exists
+        const employee = await employees.findByPk(employee_id);
+        if (!employee) {
+            return res.status(400).json({ message: "Employee ID not found" });
+        }
+
+        // Check if names match employee record
+        if (employee.first_name !== first_name || employee.last_name !== last_name) {
+            return res.status(400).json({message: "Employee details do not match the provided employee ID"});
+        }
+         // 3 Check if employee already has a user account
+        const existingUser = await users.findOne({ where: { employee_id } });
+        if (existingUser) {
+            return res.status(400).json({ message: "This employee already has a user account" });
+        }
+        // 4 Check if role is unique (Manager, Admin, Cashier)
+        if (["Manager", "Admin", "Cashier"].includes(role)) {
+            const roleTaken = await users.findOne({ where: { role } });
+            if (roleTaken) {
+            return res.status(400).json({ message: `${role} role is already assigned` });
+            }
+        }
         //Hash the password
         const saltRounds = 10;
 
@@ -31,11 +57,24 @@ const register = async (req, res) => {
             password: hashedPassword, // Scrambled password
             role: role,
             employee_id: employee_id,
-            status: 'Active' // Default value
+            status: 'Active', // Default value
+            failed_attempts: 0,
+            is_locked: false
         });
 
         res.status(201).json({ message: "User registered successfully", user: newUser.user_id});
     } catch (error) {
+        console.log(error);
+        //Handle DB-level validation errors properly
+        if (error.name === "SequelizeForeignKeyConstraintError") {
+            return res.status(400).json({ message: "Employee ID not found (foreign key constraint)" });
+        }
+        if (error.name === "SequelizeUniqueConstraintError") {
+            return res.status(400).json({ message: "This employee already has a user account" });
+        }
+        if (error.errors) {
+            return res.status(400).json({ message: error.errors.map(e => e.message).join(", ") });
+        }
         res.status(500).json({ error: error.message });
     }
 };
@@ -44,23 +83,83 @@ const login = async (req, res) => {
         const { user_name, password } = req.body;
 
         // 1. Find the user in MySQL
-        const user = await users.findOne({ where: { user_name: user_name } });
+        const user = await users.findOne({ where: { user_name: user_name },include: [{model: models.employees}]});
 
         if (!user) {
             return res.status(404).send("User not found");
         }
+        // if the user is exist but not active
+        if (user.status !== 'Active') {
+        return res.status(403).send("User is inactive");
+        }
 
+        if (user.is_locked) {
+            const lockTime = new Date(user.lock_time);
+            const now = new Date();
+            const diffMinutes = (now - lockTime) / (1000 * 60);
+
+            // Auto unlock after 15 minutes
+            if (diffMinutes >= 15) {
+               await user.update({
+                is_locked: false,
+                failed_attempts: 0,
+                lock_time: null
+                });
+
+            } else {
+                const remaining = Math.ceil(15 - diffMinutes);
+                return res.status(403).send(`Account locked. Try again after ${remaining} minutes`);
+            }
+        }
         // 2. Use bcrypt to compare the typed password with the scrambled one in DB
         const isMatch = await bcrypt.compare(password, user.password);
-
         if (isMatch) {
-            // GOAL: Task B Success Message
-            return res.status(200).send("Success"); 
-        } else {
-            return res.status(401).send("Invalid credentials");
+            // Reset failed attempts on successful login
+            await user.update({ failed_attempts: 0, lock_time: null });
+            //return res.status(200).send("Success");
+            return res.status(200).json({message:"Success",user: user});
+            } 
+        else {
+            // Increment failed attempts
+            let attempts = (user.failed_attempts || 0) + 1;
+            let updates = { failed_attempts: attempts };
+
+            // Lock account if attempts >= 5
+        if (attempts >= 5) {
+            updates.is_locked = true;
+            updates.lock_time = new Date(); // save lock time
         }
+        await user.update(updates);
+        return res.status(401).send(attempts >= 5 
+            ? "Account locked due to 5 failed login attempts" 
+            : `Invalid credentials. You have ${5 - attempts} attempts left`
+            );
+        }
+
     } catch (error) {
         res.status(500).send(error.message);
     }
 };
-module.exports = { register,login };
+const unlockUser = async (req, res) => {
+    try {
+        // Check if the logged-in user is Admin
+        if (req.user.role !== "Admin") {
+            return res.status(403).json({ message: "Only admin can unlock accounts" });
+        }
+        const { user_id } = req.body;
+
+        const user = await users.findByPk(user_id);
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        await user.update({failed_attempts: 0, is_locked: false, lock_time: null });
+
+        res.status(200).json({ message: "User account unlocked successfully" });
+
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+module.exports = { register,login,unlockUser};
