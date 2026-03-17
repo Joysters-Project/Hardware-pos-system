@@ -1,30 +1,21 @@
 require('dotenv').config();
 const express = require('express');
-const { Sequelize } = require('sequelize');
 const cors = require('cors');
-//const db = require('./models'); // This automatically looks for models/index.js
-// Setup Sequelize Connection
-const sequelize = new Sequelize(
-  process.env.DB_NAME, 
-  process.env.DB_USER, 
-  process.env.DB_PASSWORD, 
-  {
-    host: process.env.DB_HOST,
-    dialect: 'mysql'
-  }
-);
-const models = require('./models')(sequelize); 
+
+//1. just require the DB object
+// These files rely on the .env variables being ready
+const db = require('./models');// This automatically looks for models/index.js
 const authRoutes = require('./routes/auth'); // Path to your routes/auth.js file
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// 1. Middleware
+// 2. Middleware
 app.use(cors()); // Allows React to talk to this server
 app.use(express.json()); // Allows server to read JSON from requests
 
-// 2. Database Sync
+// 3. Database Sync
 // This ensures all 17 tables from your models folder are ready in MySQL
-sequelize.sync({ alter: true })
+db.sequelize.sync({ alter: false })
   .then(() => {
     console.log('✅ Database synced successfully');
   })
@@ -32,11 +23,8 @@ sequelize.sync({ alter: true })
     console.error('❌ Database sync failed:', err.message);
   });
 
-// 3. API Routes (Assignments for your team)
+// 4. API Routes (Assignments for your team)
 app.use('/api/auth',authRoutes);
-// Member B's Product API
-// const productRoutes = require('./routes/productRoutes');
-// app.use('/api/products', productRoutes);
 
 const departmentRoutes = require('./routes/departmentRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
@@ -85,4 +73,4 @@ app.listen(PORT, () => {
 });
 
 // Save models for global access if needed
-app.set('models', models);
+app.set('models', db);

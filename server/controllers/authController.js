@@ -1,18 +1,11 @@
 const bcrypt = require('bcrypt');
-const { Sequelize } = require('sequelize');
 
-// 1. Setup the connection for this controller
-const sequelize = new Sequelize(
-    process.env.DB_NAME, 
-    process.env.DB_USER, 
-    process.env.DB_PASSWORD, 
-    { host: process.env.DB_HOST, dialect: 'mysql' }
-);
+// Just require the db object directly from your team's index.js
+const db = require('../models'); 
+const users = db.users; 
+const models = db; // This keeps your existing logic working
 
-// 2. Initialize the models by passing sequelize
-const models = require('../models')(sequelize); 
-const users = models.users; // Now 'users' is the actual database table
-
+const jwt=require('jsonwebtoken');
 const register = async (req, res) => {
     try {
         //Get data from the request body (match these with your Postman input)
@@ -30,6 +23,11 @@ const register = async (req, res) => {
         // Check if names match employee record
         if (employee.first_name !== first_name || employee.last_name !== last_name) {
             return res.status(400).json({message: "Employee details do not match the provided employee ID"});
+        }
+
+        //does the role matches with the employee's position
+        if(employee.position!==role){
+            return res.status(400).json({message: `Role mismatch. This Employee is assigned as '${employee.position}', but you tried to register as a '${role}'.`})
         }
          // 3 Check if employee already has a user account
         const existingUser = await users.findOne({ where: { employee_id } });
@@ -81,12 +79,10 @@ const register = async (req, res) => {
 const login = async (req, res) => {
     try {
         const { user_name, password } = req.body;
-
         // 1. Find the user in MySQL
-        const user = await users.findOne({ where: { user_name: user_name },include: [{model: models.employees}]});
-
+        const user = await users.findOne({ where: { user_name: user_name },include: [{model: models.employees, attributes: ['department_id']}]});
         if (!user) {
-            return res.status(404).send("User not found");
+            return res.status(401).send("Invalid Username or Password");
         }
         // if the user is exist but not active
         if (user.status !== 'Active') {
@@ -117,7 +113,15 @@ const login = async (req, res) => {
             // Reset failed attempts on successful login
             await user.update({ failed_attempts: 0, lock_time: null });
             //return res.status(200).send("Success");
-            return res.status(200).json({message:"Success",user: user});
+            //return res.status(200).json({message:"Success",user: user});
+            const department_id=(user.employee && user.employee.department_id)?user.employee.department_id: null;
+            const secret = process.env.JWT_SECRET || "MySuperSecretKey123!";
+            const token = jwt.sign({user_id: user.user_id, role: user.role, department_id: department_id },
+                secret,{ expiresIn: "1h" }
+            );
+            console.log("DEBUG - JWT Secret:", process.env.JWT_SECRET);
+            // send the token to the client
+            return res.status(200).json({message: "Login successful",token: token});
             } 
         else {
             // Increment failed attempts
@@ -132,7 +136,7 @@ const login = async (req, res) => {
         await user.update(updates);
         return res.status(401).send(attempts >= 5 
             ? "Account locked due to 5 failed login attempts" 
-            : `Invalid credentials. You have ${5 - attempts} attempts left`
+            : `Invalid Username or Password. You have only ${5 - attempts} attempts left`
             );
         }
 
@@ -143,7 +147,7 @@ const login = async (req, res) => {
 const unlockUser = async (req, res) => {
     try {
         // Check if the logged-in user is Admin
-        if (req.user.role !== "Admin") {
+        if (req.user.role !== "Admin") {    //JWT
             return res.status(403).json({ message: "Only admin can unlock accounts" });
         }
         const { user_id } = req.body;
