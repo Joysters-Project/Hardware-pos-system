@@ -16,4 +16,10 @@ router.post('/login', authController.login);
 // When someone locked the system through invalid passwords, Admin also can unlock system
 router.post('/unlock',authMiddleware,roleGuard(['Admin']),authController.unlockUser);
 
+// logout route
+router.post('/logout', authController.logout);
+
+// reset password
+router.post('/reset-password',authController.resetPassword);
+
 module.exports = router;

@@ -10,6 +10,15 @@ const sequelize = new Sequelize(
     host: process.env.DB_HOST,
     dialect: 'mysql',
     logging: false,
+    //set the global time for Sequalize
+    timezone: '+05:30',
+    dialectOptions: {
+      // 2. Ensure the MySQL driver handles date strings correctly
+      dateStrings: true,
+      typeCast: true,
+      // 3. Set the timezone for the specific MySQL session
+      timezone: '+05:30' 
+    }
   }
 );
 

@@ -166,4 +166,42 @@ const unlockUser = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
-module.exports = { register,login,unlockUser};
+const logout = async (req, res) => {
+    const { user_id } = req.body; // or req.user.id if using middleware
+
+    try {
+        // 1. Write the Audit Log
+        await models.audit_log.create({user_id: user_id, action:'LOGOUT', timestamp: new Date()});  // Sequalize handle this automatically
+        
+        res.status(200).json({ message: "Logout successful and log recorded" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Logout failed", details: err.message });
+    }
+};
+const resetPassword=async(req,res)=>{
+    try{
+        const {user_id, newPassword }=req.body;
+
+        const user= await users.findByPk(user_id);
+         if (!user) return res.status(404).json({ message: "User not found" });
+
+        // Hash the new password before saving
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await user.update({ password: hashedPassword });
+
+        // Add to audit log
+        await models.audit_log.create({
+            user_id: user_id, 
+            action: 'PASSWORD_RESET', 
+            timestamp: sequelize.fn('NOW')
+        });
+
+        res.status(200).json({ message: "Password updated successfully" });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+module.exports = { register,login,unlockUser,logout,resetPassword};
+
