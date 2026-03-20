@@ -194,7 +194,7 @@ const resetPassword=async(req,res)=>{
         await models.audit_log.create({
             user_id: user_id, 
             action: 'PASSWORD_RESET', 
-            timestamp: sequelize.fn('NOW')
+            timestamp: models.sequelize.fn('NOW')
         });
 
         res.status(200).json({ message: "Password updated successfully" });
