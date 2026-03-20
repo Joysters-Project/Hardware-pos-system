@@ -18,7 +18,7 @@ function Login() {
     if(userName && password){
       navigate("/dashboard/" + role);
     }else{
-      alert("Enter username and password");
+      alert("Enter password");
     }
   }
 

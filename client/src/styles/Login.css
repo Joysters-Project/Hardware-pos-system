@@ -35,7 +35,9 @@ flex:1;
 display:flex;
 justify-content:center;
 align-items:center;
-background:linear-gradient(135deg,#3a0505,#5a0909);
+background-image: url("../assets/tool.png");
+background-repeat: no-repeat;
+background-size:cover;
 }
 
 
