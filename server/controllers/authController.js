@@ -1,17 +1,5 @@
 const bcrypt = require('bcrypt');
-const { Sequelize } = require('sequelize');
-
-// 1. Setup the connection for this controller
-const sequelize = new Sequelize(
-    process.env.DB_NAME, 
-    process.env.DB_USER, 
-    process.env.DB_PASSWORD, 
-    { host: process.env.DB_HOST, dialect: 'mysql' }
-);
-
-// 2. Initialize the models by passing sequelize
-const models = require('../models')(sequelize); 
-const users = models.users; // Now 'users' is the actual database table
+const { users } = require('../models');
 
 const register = async (req, res) => {
     try {

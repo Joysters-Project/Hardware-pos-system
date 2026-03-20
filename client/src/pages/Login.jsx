@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import "../styles/Login.css";
 import logo from "../assets/logo.png";
+import api from "../api";
 
 function Login() {
 
@@ -11,14 +12,33 @@ function Login() {
   const [userName,setUserName] = useState("");
   const [password,setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e) =>{
+  const handleSubmit = async (e) =>{
     e.preventDefault();
+    setError("");
 
-    if(userName && password){
-      navigate("/dashboard/" + role);
-    }else{
-      alert("Enter username and password");
+    if(!userName || !password){
+      setError("Enter username and password");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await api.post('/auth/login', {
+        user_name: userName,
+        password: password
+      });
+      
+      if(response.status === 200) {
+        alert("✅ Login successful!");
+        navigate("/dashboard/" + role);
+      }
+    } catch (err) {
+      setError("❌ " + (err.response?.data || "Login failed. Try again."));
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -39,6 +59,8 @@ function Login() {
 
           <form onSubmit={handleSubmit}>
 
+            {error && <div className="error-message" style={{color: 'red', marginBottom: '10px'}}>{error}</div>}
+
             <div className="input-box">
               <input
               type="text"
@@ -55,12 +77,12 @@ function Login() {
               placeholder="Password"
               value={password}
               onChange={(e)=>setPassword(e.target.value)}
-              reduired
+              required
               />
             </div>
 
-            <button className="login-btn">
-              LOGIN
+            <button className="login-btn" type="submit" disabled={loading}>
+              {loading ? "LOGGING IN..." : "LOGIN"}
             </button>
 
             <div className="links">

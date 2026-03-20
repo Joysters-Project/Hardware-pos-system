@@ -1,43 +1,12 @@
 require('dotenv').config();
 const express = require('express');
-const { Sequelize } = require('sequelize');
 const cors = require('cors');
-//const db = require('./models'); // This automatically looks for models/index.js
-// Setup Sequelize Connection
-const sequelize = new Sequelize(
-  process.env.DB_NAME, 
-  process.env.DB_USER, 
-  process.env.DB_PASSWORD, 
-  {
-    host: process.env.DB_HOST,
-    dialect: 'mysql'
-  }
-);
-const models = require('./models')(sequelize); 
-const authRoutes = require('./routes/auth'); // Path to your routes/auth.js file
-const app = express();
-const PORT = process.env.PORT || 5000;
 
-// 1. Middleware
-app.use(cors()); // Allows React to talk to this server
-app.use(express.json()); // Allows server to read JSON from requests
+// Import models (which includes sequelize connection)
+const db = require('./models');
 
-// 2. Database Sync
-// This ensures all 17 tables from your models folder are ready in MySQL
-sequelize.sync({ alter: true })
-  .then(() => {
-    console.log('✅ Database synced successfully');
-  })
-  .catch((err) => {
-    console.error('❌ Database sync failed:', err.message);
-  });
-
-// 3. API Routes (Assignments for your team)
-app.use('/api/auth',authRoutes);
-// Member B's Product API
-// const productRoutes = require('./routes/productRoutes');
-// app.use('/api/products', productRoutes);
-
+// Import all routes
+const authRoutes = require('./routes/auth');
 const departmentRoutes = require('./routes/departmentRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -56,6 +25,30 @@ const alertRoutes = require('./routes/alertRoutes');
 const purchaseOrderRoutes = require('./routes/purchaseOrderRoutes');
 const poItemsRoutes = require('./routes/poItemsRoutes');
 
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// 1. Middleware - Configure CORS to allow frontend requests
+const corsOptions = {
+  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true
+};
+app.use(cors(corsOptions)); // Allows React to talk to this server
+app.use(express.json()); // Allows server to read JSON from requests
+
+// 2. Database Sync
+// This ensures all tables from your models folder are ready in MySQL
+db.sequelize.sync({ alter: true })
+  .then(() => {
+    console.log('✅ Database synced successfully');
+  })
+  .catch((err) => {
+    console.error('❌ Database sync failed:', err.message);
+  });
+
+// 3. API Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/users', userRoutes);
@@ -76,7 +69,7 @@ app.use('/api/po_items', poItemsRoutes);
 
 // 4. Default Route
 app.get('/', (req, res) => {
-  res.send('POS Backend Server is Running...');
+  res.send('✅ POS Backend Server is Running...');
 });
 
 // 5. Start Server
@@ -85,4 +78,4 @@ app.listen(PORT, () => {
 });
 
 // Save models for global access if needed
-app.set('models', models);
+app.set('db', db);
