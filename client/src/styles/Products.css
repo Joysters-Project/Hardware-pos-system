@@ -1,0 +1,72 @@
+.products-container{
+background:white;
+padding:25px;
+border-radius:10px;
+box-shadow:0 5px 15px rgba(0,0,0,0.08);
+width:100%;
+}
+
+.search{
+width:100%;
+padding:10px;
+margin-bottom:20px;
+border:1px solid #ccc;
+border-radius:6px;
+}
+
+.product-form{
+display:grid;
+grid-template-columns:repeat(4,1fr);
+gap:10px;
+margin-bottom:20px;
+}
+
+.product-form input{
+padding:10px;
+border:1px solid #ccc;
+border-radius:6px;
+}
+
+.product-form button{
+grid-column:span 4;
+padding:10px;
+background:#007bff;
+color:white;
+border:none;
+border-radius:6px;
+cursor:pointer;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+}
+
+th,td{
+padding:10px;
+border:1px solid #ddd;
+text-align:center;
+}
+
+th{
+background:#6c63ff;
+color:white;
+}
+
+.edit-btn{
+background:#ffc107;
+border:none;
+padding:6px 10px;
+margin-right:5px;
+border-radius:5px;
+cursor:pointer;
+}
+
+.delete-btn{
+background:#dc3545;
+color:white;
+border:none;
+padding:6px 10px;
+border-radius:5px;
+cursor:pointer;
+}
