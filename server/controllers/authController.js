@@ -203,5 +203,54 @@ const resetPassword=async(req,res)=>{
     }
 };
 
-module.exports = { register,login,unlockUser,logout,resetPassword};
+// Simple registration for basic user signups (no employee validation)
+const simpleRegister = async (req, res) => {
+    try {
+        const { username, email, password } = req.body;
+
+        // Validate input
+        if (!username || !password) {
+            return res.status(400).json({ message: "Username and password are required" });
+        }
+
+        // Check if username already exists
+        const existingUser = await users.findOne({ where: { user_name: username } });
+        if (existingUser) {
+            return res.status(400).json({ message: "Username already exists" });
+        }
+
+        // Hash the password
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+        // Create user with default role "Cashier"
+        const newUser = await users.create({
+            user_name: username,
+            first_name: username, // Use username as first_name for now
+            last_name: "User",
+            password: hashedPassword,
+            role: "Cashier", // Default role
+            status: "Active",
+            failed_attempts: 0,
+            is_locked: false
+        });
+
+        res.status(201).json({ 
+            message: "Account created successfully", 
+            user_id: newUser.user_id,
+            username: newUser.user_name
+        });
+    } catch (error) {
+        console.log(error);
+        if (error.name === "SequelizeUniqueConstraintError") {
+            return res.status(400).json({ message: "Username already exists" });
+        }
+        if (error.errors) {
+            return res.status(400).json({ message: error.errors.map(e => e.message).join(", ") });
+        }
+        res.status(500).json({ error: error.message });
+    }
+};
+
+module.exports = { register, login, unlockUser, logout, resetPassword, simpleRegister };
 

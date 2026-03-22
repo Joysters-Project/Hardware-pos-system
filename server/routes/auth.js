@@ -7,6 +7,9 @@ const authController = require('../controllers/authController');
 const authMiddleware = require('../middleware/authMiddleware'); 
 const roleGuard = require('../middleware/roleGuard');    
 
+// Simple signup endpoint for basic user registration
+router.post('/signup', authController.simpleRegister);
+
 // When someone POSTs to /register, run the register function from controller
 router.post('/register', authController.register);
 
