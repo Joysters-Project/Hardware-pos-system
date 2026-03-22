@@ -1,19 +1,38 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import { useAuth } from "../context/AuthContext";
 import "../styles/Dashboard.css";
 
 function CashierDashboard() {
   const navigate = useNavigate();
-  const [userName] = useState(localStorage.getItem("userName") || "Cashier User");
+  const { logout, user } = useAuth();
+  const [userName] = useState(user?.name || "Cashier User");
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("userName");
-    localStorage.removeItem("role");
+    // Prevent back button navigation
+    window.history.pushState(null, null, window.location.href);
+    window.addEventListener("popstate", () => {
+      window.history.pushState(null, null, window.location.href);
+    });
+
+    logout();
     toast.success("Logged out successfully!");
-    navigate("/");
+    navigate("/", { replace: true });
   };
+
+  useEffect(() => {
+    // Prevent back button after logout
+    window.history.pushState(null, null, window.location.href);
+    const handleBackButton = () => {
+      window.history.pushState(null, null, window.location.href);
+    };
+    
+    window.addEventListener("popstate", handleBackButton);
+    return () => {
+      window.removeEventListener("popstate", handleBackButton);
+    };
+  }, []);
 
   return (
     <div className="dashboard">

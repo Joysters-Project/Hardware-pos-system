@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import toast from "react-hot-toast";
+import { useAuth } from "../context/AuthContext";
 import "../styles/Login.css";
 import logo from "../assets/logo.png";
 
 function Login() {
   const navigate = useNavigate();
   const { role } = useParams();
+  const { login } = useAuth();
 
   const [userName, setUserName] = useState("");
   const [password, setPassword] = useState("");
@@ -34,12 +36,10 @@ function Login() {
       if (response.ok) {
         toast.success(" Login successful!");
 
+        // Use AuthContext instead of direct localStorage
         if (data.token) {
-          localStorage.setItem("token", data.token);
+          login(data.user_name || userName, data.token, (role || "").toLowerCase());
         }
-
-        localStorage.setItem("role", (role || "").toLowerCase());
-        localStorage.setItem("userName", data.user_name || userName);
 
         setTimeout(() => navigate("/dashboard/" + role.toLowerCase()), 1500);
       } else {

@@ -172,7 +172,9 @@ const logout = async (req, res) => {
     try {
         // 1. Write the Audit Log
         await models.audit_log.create({user_id: user_id, action:'LOGOUT', timestamp: new Date()});  // Sequalize handle this automatically
-        
+        localStorage.removeItem("token"); 
+        localStorage.removeItem("role"); 
+        localStorage.removeItem("userName");
         res.status(200).json({ message: "Logout successful and log recorded" });
     } catch (err) {
         console.error(err);

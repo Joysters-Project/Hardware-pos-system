@@ -1,20 +1,39 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import { useAuth } from "../context/AuthContext";
 import "../styles/Dashboard.css";
 
 function AdminDashboard({ children, active }) {
 
   const navigate = useNavigate();
-  const userName = localStorage.getItem("userName") || "Admin User";
+  const { logout, user } = useAuth();
+  const userName = user?.name || "Admin User";
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("userName");
-    localStorage.removeItem("role");
+    // Prevent back button navigation
+    window.history.pushState(null, null, window.location.href);
+    window.addEventListener("popstate", () => {
+      window.history.pushState(null, null, window.location.href);
+    });
+
+    logout();
     toast.success("Logged out successfully!");
-    navigate("/");
+    navigate("/", { replace: true });
   };
+
+  useEffect(() => {
+    // Prevent back button after logout
+    window.history.pushState(null, null, window.location.href);
+    const handleBackButton = () => {
+      window.history.pushState(null, null, window.location.href);
+    };
+    
+    window.addEventListener("popstate", handleBackButton);
+    return () => {
+      window.removeEventListener("popstate", handleBackButton);
+    };
+  }, []);
 
   return (
     <div className="dashboard">
