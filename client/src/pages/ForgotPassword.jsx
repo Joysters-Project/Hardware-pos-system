@@ -25,8 +25,11 @@ function ForgotPassword() {
                         type="email"
                         placeholder="Enter your email"
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
+                        //value={number}
+                        //onChange={(e) => setNumber(e.target.value)}
+                        //required
+                       onChange={(e) => setEmail(e.target.value)}
+                       required
                     />
                 </div>
             <button type="submit">Reset Password</button>
