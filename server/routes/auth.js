@@ -11,7 +11,7 @@ const roleGuard = require('../middleware/roleGuard');
 router.post('/signup', authController.simpleRegister);
 
 // When someone POSTs to /register, run the register function from controller
-router.post('/register', authController.register);
+//router.post('/register', authController.register);
 
 // When someone POSTs to /login, run the login function from controller
 router.post('/login', authController.login);

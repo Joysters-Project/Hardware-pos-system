@@ -7,9 +7,13 @@ import logo from "../assets/logo.png";
 function Signup() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
     username: "",
     email: "",
-    password: ""
+    password: "",
+    role: "",
+    employee_id: ""
   });
   const [loading, setLoading] = useState(false);
 
@@ -37,7 +41,15 @@ function Signup() {
 
       if (response.ok) {
         toast.success("Account created successfully!");
-        setFormData({ username: "", email: "", password: "" });
+        setFormData({
+          firstName: "",
+          lastName: "",
+          username: "",
+          email: "",
+          password: "",
+          role: "",
+          employee_id: ""
+        });
         setTimeout(() => navigate("/login/user"), 1500);
       } else {
         toast.error(data.message || "Failed to create account");
@@ -57,6 +69,24 @@ function Signup() {
         <h2>Create Account</h2>
         <form onSubmit={handleSubmit}>
           <div className="input-box">
+            <input
+              type="text"
+              name="firstName"
+              placeholder="First Name"
+              value={formData.firstName}
+              onChange={handleChange}
+              required
+              disabled={loading}
+            />
+            <input
+              type="text"
+              name="lastName"
+              placeholder="Last Name"
+              value={formData.lastName}
+              onChange={handleChange}
+              required
+              disabled={loading}
+            />
             <input
               type="text"
               name="username"
@@ -80,6 +110,24 @@ function Signup() {
               name="password"
               placeholder="Password"
               value={formData.password}
+              onChange={handleChange}
+              required
+              disabled={loading}
+            />
+            <input
+              type="text"
+              name="role"
+              placeholder="Role (Admin, Manager, Cashier)"
+              value={formData.role}
+              onChange={handleChange}
+              required
+              disabled={loading}
+            />
+            <input
+              type="number"
+              name="employee_id"
+              placeholder="Employee ID"
+              value={formData.employee_id}
               onChange={handleChange}
               required
               disabled={loading}

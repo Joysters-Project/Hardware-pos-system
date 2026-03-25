@@ -55,9 +55,9 @@ function Login() {
 
   return (
     <div className="login-page">
-      <div className="login-left">
+      {/* <div className="login-left">
         <img src={logo} alt="background" />
-      </div>
+      </div> */}
 
       <div className="login-right">
         <div className="login-card">
