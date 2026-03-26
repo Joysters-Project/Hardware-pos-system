@@ -81,6 +81,10 @@ db.customers.hasMany(db.bills, { foreignKey: 'customer_id' });
 db.bills.belongsTo(db.customers, { foreignKey: 'customer_id' });
 db.bills.hasMany(db.bill_items, { foreignKey: 'bill_id' });
 db.bill_items.belongsTo(db.bills, { foreignKey: 'bill_id' });
+db.bill_items.addScope('forBill', {
+  unique: 'bill_product_unique',
+  fields: ['bill_id', 'product_id']
+});
 db.products.hasMany(db.bill_items, { foreignKey: 'product_id' });
 db.bill_items.belongsTo(db.products, { foreignKey: 'product_id' });
 db.bills.hasMany(db.payments, { foreignKey: 'bill_id' });

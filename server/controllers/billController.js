@@ -1,8 +1,27 @@
-const { bills } = require('../models');
+const { bills, users, customers } = require('../models');
 
 // CREATE Bill
 exports.createBill = async (req, res) => {
   try {
+    const { user_id } = req.body;
+
+    if (!user_id) {
+      return res.status(400).json({ error: "user_id is required" });
+    }
+
+    const user = await users.findByPk(user_id);
+    if (!user) {
+      return res.status(400).json({ error: `User with id ${user_id} not found. Please create a user first.` });
+    }
+
+    const { customer_id } = req.body;
+    if (customer_id) {
+      const customer = await customers.findByPk(customer_id);
+      if (!customer) {
+        return res.status(400).json({ error: "Customer not found" });
+      }
+    }
+
     const bill = await bills.create(req.body);
 
     res.status(201).json({
@@ -10,6 +29,7 @@ exports.createBill = async (req, res) => {
       data: bill
     });
   } catch (error) {
+    console.error("Create bill error:", error);
     res.status(500).json({ error: error.message });
   }
 };

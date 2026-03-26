@@ -3,6 +3,7 @@ const { DataTypes } = require('sequelize');
 module.exports = (sequelize) => {
   return sequelize.define('purchase_orders', {
     po_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    po_number: { type: DataTypes.STRING(50), allowNull: true, unique: true },
     po_date: { type: DataTypes.DATEONLY, allowNull: false, defaultValue: DataTypes.NOW },
     expected_delivery: { type: DataTypes.DATEONLY, allowNull: true },
     status: { type: DataTypes.STRING(50), allowNull: false },

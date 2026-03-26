@@ -1,14 +1,20 @@
-require('dotenv').config();
+require('dotenv').config({ path: __dirname + '/.env' });
 const express = require('express');
 const cors = require('cors');
-const db = require('./models'); // This automatically looks for models/index.js
-
+const db = require('./models');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // 1. Middleware
 app.use(cors()); // Allows React to talk to this server
 app.use(express.json()); // Allows server to read JSON from requests
+
+
+
+console.log(process.env.DB_HOST);
+console.log(process.env.DB_USER);
+console.log(process.env.DB_PASS);
+console.log(process.env.DB_NAME);
 
 // 2. Database Sync
 // This ensures all 17 tables from your models folder are ready in MySQL
@@ -42,6 +48,8 @@ const returnRoutes = require('./routes/returnRoutes');
 const alertRoutes = require('./routes/alertRoutes');
 const purchaseOrderRoutes = require('./routes/purchaseOrderRoutes');
 const poItemsRoutes = require('./routes/poItemsRoutes');
+const RR_supplierRoutes = require('./routes/RR_supplierRoutes');
+const RR_purchaseOrderRoutes = require('./routes/RR_purchaseOrderRoutes');
 
 app.use('/api/departments', departmentRoutes);
 app.use('/api/employees', employeeRoutes);
@@ -60,6 +68,10 @@ app.use('/api/returns', returnRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/purchase_orders', purchaseOrderRoutes);
 app.use('/api/po_items', poItemsRoutes);
+
+// Custom Isolated Procurement Modules
+app.use('/api/RR_suppliers', RR_supplierRoutes);
+app.use('/api/RR_purchase_orders', RR_purchaseOrderRoutes);
 
 // 4. Default Route
 app.get('/', (req, res) => {
