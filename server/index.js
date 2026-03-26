@@ -133,6 +133,13 @@ cron.schedule('0 8 * * *', async () => {
       console.log(`🔔 Salary Reminder: ${pending} pending salary payment(s). Due in ${daysLeft} day(s) (${dueDay}th).`);
     }
   } catch (e) { console.error('Cron error:', e.message); }
+// Custom Isolated Procurement Modules
+app.use('/api/RR_suppliers', RR_supplierRoutes);
+app.use('/api/RR_purchase_orders', RR_purchaseOrderRoutes);
+
+// 4. Default Route
+app.get('/', (req, res) => {
+  res.send('POS Backend Server is Running...');
 });
 
 // Daily 07:00 — Check all products for auto-reorder suggestions

@@ -23,9 +23,7 @@ exports.createBill = async (req, res) => {
       data: bill,
     });
   } catch (error) {
-    console.error('Billing createBill error — message:', error.message);
-    console.error('Billing createBill error — SQL:', error.sql || '(no SQL)');
-    console.error('Billing createBill error — stack:', error.stack);
+    console.error('Billing createBill error:', error);
     res.status(500).json({ error: error.message });
   }
 };
