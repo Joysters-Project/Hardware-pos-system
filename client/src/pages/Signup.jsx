@@ -6,6 +6,7 @@ import logo from "../assets/logo.png";
 
 function Signup() {
   const navigate = useNavigate();
+  const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -65,78 +66,97 @@ function Signup() {
   return (
     <div className="signup-container">
       <div className="signup-page">
-        <img src={logo} alt="Mathumithan Logo" className="singup-logo" />
+        <img src={logo} alt="Mathumithan Logo" className="signup-logo" />
         <h2>Create Account</h2>
+        {/* <p>Step {step} of 2</p> */}
+
         <form onSubmit={handleSubmit}>
-          <div className="input-box">
-            <input
-              type="text"
-              name="firstName"
-              placeholder="First Name"
-              value={formData.firstName}
-              onChange={handleChange}
-              required
-              disabled={loading}
-            />
-            <input
-              type="text"
-              name="lastName"
-              placeholder="Last Name"
-              value={formData.lastName}
-              onChange={handleChange}
-              required
-              disabled={loading}
-            />
-            <input
-              type="text"
-              name="username"
-              placeholder="Username"
-              value={formData.username}
-              onChange={handleChange}
-              required
-              disabled={loading}
-            />
-            <input
-              type="email"
-              name="email"
-              placeholder="Email"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              disabled={loading}
-            />
-            <input
-              type="password"
-              name="password"
-              placeholder="Password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              disabled={loading}
-            />
-            <input
-              type="text"
-              name="role"
-              placeholder="Role (Admin, Manager, Cashier)"
-              value={formData.role}
-              onChange={handleChange}
-              required
-              disabled={loading}
-            />
-            <input
-              type="number"
-              name="employee_id"
-              placeholder="Employee ID"
-              value={formData.employee_id}
-              onChange={handleChange}
-              required
-              disabled={loading}
-            />
-          </div>
-          <button type="submit" disabled={loading}>
-            {loading ? "Creating Account..." : "Sign Up"}
-          </button>
+          {step ===1&& (
+            <div className="input-box">
+              <input
+                type="text"
+                name="firstName"
+                placeholder="First Name"
+                value={formData.firstName}
+                onChange={handleChange}
+                required
+                disabled={loading}
+              />
+              <input
+                type="text"
+                name="lastName"
+                placeholder="Last Name"
+                value={formData.lastName}
+                onChange={handleChange}
+                required
+                disabled={loading}
+              />
+                <input
+                type="email"
+                name="email"
+                placeholder="Email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                disabled={loading}
+              />
+              <input
+                type="password"
+                name="password"
+                placeholder="Password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                disabled={loading}
+              />
+              <button type="button" onClick={() => setStep(2)} disabled={loading}>
+                  Next
+              </button>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="input-box">
+              <input
+                type="text"
+                name="username"
+                placeholder="Username"
+                value={formData.username}
+                onChange={handleChange}
+                required
+                disabled={loading}
+              />
+              
+              <select name="role"
+                value={formData.role}
+                onChange={handleChange}
+                required
+                disabled={loading}
+              >
+                <option value="" disabled hidden>Select Role</option>
+                <option value="Admin">Admin</option>
+                <option value="Manager">Manager</option>
+                <option value="Cashier">Cashier</option>
+              </select>
+              <input
+                type="number"
+                name="employee_id"
+                placeholder="Employee ID"
+                value={formData.employee_id}
+                onChange={handleChange}
+                required
+                disabled={loading}
+              />
+              <button type="button" onClick={() => setStep(1)} disabled={loading}>
+                  Back
+              </button>
+            <button type="submit" disabled={loading}>
+              {loading ? "Creating Account..." : "Sign Up"}
+            </button>
+            </div>
+          )}
         </form>
+
         <p style={{ marginTop: "15px", textAlign: "center" }}>
           Already have an account? <Link to="/login/user">Login here</Link>
         </p>
