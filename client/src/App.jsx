@@ -1,35 +1,75 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'react-hot-toast';
+import Layout from './components/Layout';
+import SupplierList from './pages/suppliers/SupplierList';
+import SupplierForm from './pages/suppliers/SupplierForm';
+import ProductList from './pages/products/ProductList';
+import ProductForm from './pages/products/ProductForm';
+import PurchaseOrderList from './pages/procurement/PurchaseOrderList';
+import CreatePurchaseOrder from './pages/procurement/CreatePurchaseOrder';
+import PurchaseOrderDetail from './pages/procurement/PurchaseOrderDetail';
+
+// Create QueryClient instance
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: 1,
+    },
+  },
+});
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 3000,
+            style: {
+              background: 'hsl(var(--card))',
+              color: 'hsl(var(--card-foreground))',
+              border: '1px solid hsl(var(--border))',
+            },
+            success: {
+              iconTheme: {
+                primary: '#10b981',
+                secondary: 'white',
+              },
+            },
+            error: {
+              iconTheme: {
+                primary: '#ef4444',
+                secondary: 'white',
+              },
+            },
+          }}
+        />
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Navigate to="/suppliers" replace />} />
+            
+            {/* Suppliers */}
+            <Route path="suppliers" element={<SupplierList />} />
+            <Route path="suppliers/add" element={<SupplierForm />} />
+            <Route path="suppliers/edit/:id" element={<SupplierForm />} />
+            
+            {/* Products */}
+            <Route path="products" element={<ProductList />} />
+            <Route path="products/add" element={<ProductForm />} />
+            <Route path="products/edit/:id" element={<ProductForm />} />
+            
+            {/* Procurement */}
+            <Route path="procurement" element={<PurchaseOrderList />} />
+            <Route path="procurement/create" element={<CreatePurchaseOrder />} />
+            <Route path="procurement/:id" element={<PurchaseOrderDetail />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </QueryClientProvider>
+  );
 }
 
-export default App
+export default App;
