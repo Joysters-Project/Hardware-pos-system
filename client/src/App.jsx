@@ -12,21 +12,30 @@ import CashierDashboard from "./pages/CashierDashboard";
 import ManagerDashboard from "./pages/ManagerDashboard";
 import Departments from "./pages/Departments";
 import Products from "./pages/Products";
+import Employees from "./pages/Employees";
 
 function AppRoutes() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return <div style={{ 
+      display: 'flex', 
+      justifyContent: 'center', 
+      alignItems: 'center', 
+      height: '100vh',
+      backgroundColor: '#f5f5f5',
+      fontSize: '18px',
+      color: '#333'
+    }}>Loading...</div>;
+  }
 
   return (
     <Routes>
-      {/* Public routes */}
-      {!isAuthenticated && (
-        <>
-          <Route path="/" element={<RoleSelect />} />
-          <Route path="/login/:role" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-        </>
-      )}
+      {/* Public routes - always available */}
+      <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard/admin" replace /> : <RoleSelect />} />
+      <Route path="/login/:role" element={isAuthenticated ? <Navigate to="/dashboard/admin" replace /> : <Login />} />
+      <Route path="/signup" element={isAuthenticated ? <Navigate to="/dashboard/admin" replace /> : <Signup />} />
+      <Route path="/forgot-password" element={isAuthenticated ? <Navigate to="/dashboard/admin" replace /> : <ForgotPassword />} />
 
       {/* Protected routes for Admin */}
       <Route 
@@ -56,12 +65,20 @@ function AppRoutes() {
         element={<ProtectedRoute><Products /></ProtectedRoute>} 
       />
       <Route 
+        path="/employees" 
+        element={<ProtectedRoute><Employees /></ProtectedRoute>} 
+      />
+      <Route 
         path="/manager/departments" 
         element={<ProtectedRoute requiredRole="manager"><Departments /></ProtectedRoute>} 
       />
       <Route 
         path="/manager/products" 
         element={<ProtectedRoute requiredRole="manager"><Products /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/manager/employees" 
+        element={<ProtectedRoute requiredRole="manager"><Employees /></ProtectedRoute>} 
       />
 
       {/* Fallback redirect */}

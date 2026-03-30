@@ -91,7 +91,7 @@
 }
 
 .dashboard-home p {
-  color: #ddd;
+  color: #dddddd;
 }html, body {
   height: 100%;
   margin: 0;
@@ -111,7 +111,7 @@
 /* Sidebar */
 .sidebar {
   width: 220px;
-  background: #1e293b;
+  background: #410101;
   color: white;
   display: flex;
   flex-direction: column;
@@ -155,7 +155,7 @@
 }
 
 .sidebar-menu li.active {
-  background: #2563eb;
+  background: #482702;
 }
 
 /* Logout button */
@@ -178,7 +178,7 @@
   overflow-y: auto; /* scroll content */
   height: 100vh; /* fill height */
   box-sizing: border-box;
-  background: #f4f6f9;
+  background: #4c0e0e;
 }
 
 /* Dashboard home */
