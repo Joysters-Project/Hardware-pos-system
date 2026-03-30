@@ -15,6 +15,16 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const roleParam = role || "User";  // fallback if undefined
+
+  const handleBack = () => {
+  if (window.history.length > 1) {
+    navigate(-1); // go back
+  } else {
+    navigate("/"); // fallback to role selection
+  }
+  };
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -27,7 +37,8 @@ function Login() {
         },
         body: JSON.stringify({
           user_name: userName,
-          password: password
+          password: password,
+          role: role //Role is sending to backend
         })
       });
 
@@ -58,10 +69,10 @@ function Login() {
       {/* <div className="login-left">
         <img src={logo} alt="background" />
       </div> */}
-
+      <button type="button" className="back-btn" onClick={handleBack}>← Back</button>
       <div className="login-right">
         <div className="login-card">
-          <h1 className="title">{role} Login</h1>
+          <h1 className="title">{roleParam} Login</h1>
           <p className="subtitle">login with username</p>
 
           <img src={logo} alt="logo" className="logo" />
@@ -88,9 +99,8 @@ function Login() {
                 disabled={loading}
               />
             </div>
-            
 
-            <button className="login-btn" type="submit" disabled={loading}>
+            <button  className="login-btn" type="submit" disabled={loading}>
               {loading ? "Logging in..." : "LOGIN"}
             </button>
 

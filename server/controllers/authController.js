@@ -6,83 +6,19 @@ const users = db.users;
 const models = db; // This keeps your existing logic working
 
 const jwt=require('jsonwebtoken');
-const register = async (req, res) => {
-    try {
-        //Get data from the request body (match these with your Postman input)
-        const { user_name, first_name, last_name, password, role, employee_id } = req.body;
-        
-        //employee validation
-        const employees= models.employees;
-        
-        // Check if employee exists
-        const employee = await employees.findByPk(employee_id);
-        if (!employee) {
-            return res.status(400).json({ message: "Employee ID not found" });
-        }
 
-        // Check if names match employee record
-        if (employee.first_name !== first_name || employee.last_name !== last_name) {
-            return res.status(400).json({message: "Employee details do not match the provided employee ID"});
-        }
-
-        //does the role matches with the employee's position
-        if(employee.position!==role){
-            return res.status(400).json({message: `Role mismatch. This Employee is assigned as '${employee.position}', but you tried to register as a '${role}'.`})
-        }
-         // 3 Check if employee already has a user account
-        const existingUser = await users.findOne({ where: { employee_id } });
-        if (existingUser) {
-            return res.status(400).json({ message: "This employee already has a user account" });
-        }
-        // 4 Check if role is unique (Manager, Admin, Cashier)
-        if (["Manager", "Admin", "Cashier"].includes(role)) {
-            const roleTaken = await users.findOne({ where: { role } });
-            if (roleTaken) {
-            return res.status(400).json({ message: `${role} role is already assigned` });
-            }
-        }
-        //Hash the password
-        const saltRounds = 10;
-
-        // --- TYPE THE BCRYPT CODE HERE ---
-        const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-        // Save the user with the HASHED password, NOT the plain one
-        const newUser = await users.create({
-            user_name: user_name,
-            first_name: first_name,
-            last_name: last_name,
-            password: hashedPassword, // Scrambled password
-            role: role,
-            employee_id: employee_id,
-            status: 'Active', // Default value
-            failed_attempts: 0,
-            is_locked: false
-        });
-
-        res.status(201).json({ message: "User registered successfully", user: newUser.user_id});
-    } catch (error) {
-        console.log(error);
-        //Handle DB-level validation errors properly
-        if (error.name === "SequelizeForeignKeyConstraintError") {
-            return res.status(400).json({ message: "Employee ID not found (foreign key constraint)" });
-        }
-        if (error.name === "SequelizeUniqueConstraintError") {
-            return res.status(400).json({ message: "This employee already has a user account" });
-        }
-        if (error.errors) {
-            return res.status(400).json({ message: error.errors.map(e => e.message).join(", ") });
-        }
-        res.status(500).json({ error: error.message });
-    }
-};
 const login = async (req, res) => {
     try {
-        const { user_name, password } = req.body;
+        const { user_name, password, role } = req.body;
         // 1. Find the user in MySQL
         const user = await users.findOne({ where: { user_name: user_name },include: [{model: models.employees, attributes: ['department_id']}]});
         if (!user) {
             return res.status(401).send("Invalid Username or Password");
+        }
+        
+        // if the role selected is wrong
+        if (!role || user.role.toLowerCase() !== role.toLowerCase()) {
+        return res.status(403).json({ message: "Access denied: Wrong role" });
         }
         // if the user is exist but not active
         if (user.status !== 'Active') {
@@ -114,7 +50,8 @@ const login = async (req, res) => {
             await user.update({ failed_attempts: 0, lock_time: null });
             //return res.status(200).send("Success");
             //return res.status(200).json({message:"Success",user: user});
-            const department_id=(user.employee && user.employee.department_id)?user.employee.department_id: null;
+            const department_id=(user.employees && user.employee.department_id)?user.employee.department_id: null;
+           // const department_id = user.employees?.department_id || null;
             const secret = process.env.JWT_SECRET || "MySuperSecretKey123!";
             const token = jwt.sign({user_id: user.user_id, role: user.role, department_id: department_id },
                 secret,{ expiresIn: "1h" }
@@ -183,10 +120,15 @@ const logout = async (req, res) => {
 };
 const resetPassword=async(req,res)=>{
     try{
-        const {user_id, newPassword }=req.body;
+        const {email, newPassword }=req.body;
 
-        const user= await users.findByPk(user_id);
-         if (!user) return res.status(404).json({ message: "User not found" });
+        // 1. Find employee by email
+        const employee = await models.employees.findOne({ where: { email } });
+        if (!employee) return res.status(404).json({ message: "Employee not found" });
+
+        // 2. Find user linked to this employee
+        const user = await users.findOne({ where: { employee_id: employee.employee_id } });
+        if (!user) return res.status(404).json({ message: "User account not found for this email" });
 
         // Hash the new password before saving
         const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -194,7 +136,7 @@ const resetPassword=async(req,res)=>{
 
         // Add to audit log
         await models.audit_log.create({
-            user_id: user_id, 
+            user_id: user.user_id, 
             action: 'PASSWORD_RESET', 
             timestamp: models.sequelize.fn('NOW')
         });
@@ -208,11 +150,36 @@ const resetPassword=async(req,res)=>{
 // Simple registration for basic user signups (no employee validation)
 const simpleRegister = async (req, res) => {
     try {
-        const { username, email, password } = req.body;
+        const { firstName, lastName, username, email, password, role, employee_id } = req.body;
 
-        // Validate input
-        if (!username || !password) {
-            return res.status(400).json({ message: "Username and password are required" });
+        // Validate required fields
+        if (!username || !password || !firstName || !lastName || !email || !role || !employee_id) {
+            return res.status(400).json({ message: "All fields are required" });
+        }
+
+        // Validate employee exists
+        const employees = models.employees;
+        const employee = await employees.findByPk(employee_id);
+        
+        if (!employee) {
+            return res.status(400).json({ message: "Employee ID not found" });
+        }
+
+        // Check if email matches employee record
+        if (employee.email !== email) {
+            return res.status(400).json({ message: "Email does not match the employee record" });
+        }
+
+        // Check if first name and last name match employee record
+        if (employee.first_name !== firstName || employee.last_name !== lastName) {
+            return res.status(400).json({ message: "Employee details do not match the provided employee ID" });
+        }
+
+        // Check if role matches employee's position
+        if (employee.position !== role) {
+            return res.status(400).json({ 
+                message: `Role mismatch. This Employee is assigned as '${employee.position}', but you tried to register as a '${role}'.` 
+            });
         }
 
         // Check if username already exists
@@ -221,17 +188,32 @@ const simpleRegister = async (req, res) => {
             return res.status(400).json({ message: "Username already exists" });
         }
 
+        // Check if employee already has a user account
+        const existingEmployeeUser = await users.findOne({ where: { employee_id } });
+        if (existingEmployeeUser) {
+            return res.status(400).json({ message: "This employee already has a user account" });
+        }
+
+        // Check if role is unique (for Manager, Admin roles)
+        if (["Manager", "Admin"].includes(role)) {
+            const roleTaken = await users.findOne({ where: { role } });
+            if (roleTaken) {
+                return res.status(400).json({ message: `${role} role is already assigned` });
+            }
+        }
+
         // Hash the password
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-        // Create user with default role "Cashier"
+        // Create user with all fields
         const newUser = await users.create({
             user_name: username,
-            first_name: username, // Use username as first_name for now
-            last_name: "User",
+            first_name: firstName,
+            last_name: lastName,
             password: hashedPassword,
-            role: "Cashier", // Default role
+            role: role,
+            employee_id: employee_id,
             status: "Active",
             failed_attempts: 0,
             is_locked: false
@@ -244,8 +226,12 @@ const simpleRegister = async (req, res) => {
         });
     } catch (error) {
         console.log(error);
+        // Handle DB-level validation errors properly
+        if (error.name === "SequelizeForeignKeyConstraintError") {
+            return res.status(400).json({ message: "Employee ID not found (foreign key constraint)" });
+        }
         if (error.name === "SequelizeUniqueConstraintError") {
-            return res.status(400).json({ message: "Username already exists" });
+            return res.status(400).json({ message: "Username or employee already has an account" });
         }
         if (error.errors) {
             return res.status(400).json({ message: error.errors.map(e => e.message).join(", ") });
@@ -254,5 +240,5 @@ const simpleRegister = async (req, res) => {
     }
 };
 
-module.exports = { register, login, unlockUser, logout, resetPassword, simpleRegister };
+module.exports = { login, unlockUser, logout, resetPassword, simpleRegister };
 
