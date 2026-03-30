@@ -59,6 +59,10 @@ function AdminDashboard({ children, active }) {
             <Link to="/products">📦 Products</Link>
           </li>
 
+          <li className={active === "catalog" ? "active" : ""}>
+            <Link to="/catalog">📋 Catalog</Link>
+          </li>
+
           <li className={active === "customers" ? "active" : ""}>
             <Link to="/customers">👥 Customers</Link>
           </li>
