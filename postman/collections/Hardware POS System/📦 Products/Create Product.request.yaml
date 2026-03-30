@@ -1,0 +1,23 @@
+$kind: http-request
+name: Create Product
+method: POST
+url: '{{baseUrl}}/api/products'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "product_name": "Hammer",
+      "sku": "HMR-001",
+      "category_id": 1,
+      "brand_id": 1,
+      "unit_id": 1,
+      "stock_quantity": 50,
+      "reorder_level": 10,
+      "cost_price": 200.00,
+      "selling_price": 350.00,
+      "status": "active"
+    }

@@ -1,0 +1,29 @@
+$kind: http-request
+name: Create Bill
+method: POST
+url: '{{baseUrl}}/api/bills'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "customer": {
+        "name": "John Doe",
+        "phone": "0771234567"
+      },
+      "items": [
+        {
+          "product_id": 1,
+          "quantity": 2,
+          "price": 150.00
+        }
+      ],
+      "subtotal": 300.00,
+      "discount": 0,
+      "total_amount": 300.00,
+      "amount_paid": 300.00,
+      "balance_due": 0
+    }

@@ -35,6 +35,18 @@ module.exports = (sequelize) => {
       allowNull: false,
       defaultValue: 0.00
     },
+    // Balance due for partial payments
+    balance_due: { 
+      type: DataTypes.DECIMAL(15, 2), 
+      allowNull: false, 
+      defaultValue: 0.00 
+    },
+    // Bill status (PAID, PARTIAL, etc.)
+    status: { 
+      type: DataTypes.STRING(20), 
+      allowNull: false, 
+      defaultValue: 'PAID' 
+    },
     // Foreign Keys (Ensure these match your User and Customer table PKs)
     user_id: { 
       type: DataTypes.INTEGER, 

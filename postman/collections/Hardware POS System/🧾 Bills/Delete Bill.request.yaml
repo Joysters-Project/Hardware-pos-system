@@ -1,0 +1,5 @@
+$kind: http-request
+name: Delete Bill
+method: DELETE
+url: '{{baseUrl}}/api/bills/1'
+order: 5000

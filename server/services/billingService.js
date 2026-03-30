@@ -1,6 +1,25 @@
-const { bills, bill_items, products, audit_log, customers, payments, sequelize } = require('../models');
+const { bills, bill_items, products, audit_log, customers, payments, users, sequelize } = require('../models');
 
 class BillingService {
+    static async getSystemUserId(transaction = null) {
+        const [user] = await users.findOrCreate({
+            where: { user_name: 'system' },
+            defaults: {
+                first_name: 'System',
+                last_name: 'User',
+                password: 'system',
+                role: 'ADMIN',
+                status: 'Active'
+            },
+            transaction
+        });
+        return user.user_id;
+    }
+
+    static async findUserById(userId) {
+        return await users.findByPk(userId);
+    }
+
     static async createInvoice(saleData, userId) {
         return await sequelize.transaction(async (t) => {
             
@@ -8,8 +27,8 @@ class BillingService {
             let customerId = null;
             if (saleData.customer && saleData.customer.phone) {
                 const [customer] = await customers.findOrCreate({
-                    where: { phone: saleData.customer.phone },
-                    defaults: { name: saleData.customer.name },
+                    where: { phone_no: saleData.customer.phone },
+                    defaults: { customer_name: saleData.customer.name },
                     transaction: t
                 });
                 customerId = customer.customer_id;
@@ -18,7 +37,8 @@ class BillingService {
             // 2. Pre-Check Stock & Active Status
             for (const item of saleData.items) {
                 const product = await products.findByPk(item.product_id, { transaction: t });
-                if (!product || product.status !== 'active') throw new Error(`Product ${item.product_id} is unavailable.`);
+                const isActiveStatus = [0, '0', 'active', 'Active', 'ACTIVE'].includes(product?.status);
+                if (!product || !isActiveStatus) throw new Error(`Product ${item.product_id} is unavailable.`);
                 if (product.stock_quantity < item.quantity) throw new Error(`Low stock for ${product.product_name}.`);
             }
 
@@ -40,15 +60,22 @@ class BillingService {
 
             // 5. Update Inventory & Items
             for (const item of saleData.items) {
+                const quantity = Number(item.quantity) || 0;
+                const pricePerUnit = parseFloat(item.price) || 0;
+                const discount = parseFloat(item.discount) || 0;
+                const totalPrice = (quantity * pricePerUnit) - discount;
+
                 await bill_items.create({
                     bill_id: bill.bill_id,
                     product_id: item.product_id,
-                    quantity: item.quantity,
-                    price_per_unit: item.price
+                    quantity,
+                    price_per_unit: pricePerUnit,
+                    discount,
+                    total_price: totalPrice
                 }, { transaction: t });
 
                 await products.decrement('stock_quantity', {
-                    by: item.quantity,
+                    by: quantity,
                     where: { product_id: item.product_id },
                     transaction: t
                 });
@@ -58,8 +85,7 @@ class BillingService {
             await payments.create({
                 bill_id: bill.bill_id,
                 amount_paid: saleData.amount_paid,
-                payment_method: 'CASH',
-                transaction: t
+                payment_status: 'CASH'
             }, { transaction: t });
 
             // 7. Final Audit Log
