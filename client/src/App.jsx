@@ -28,6 +28,8 @@ function AppRoutes() {
         </>
       )}
 
+      <Route path="/login/:role" element={<Login />} />
+      
       {/* Protected routes for Admin */}
       <Route 
         path="/dashboard/admin" 
