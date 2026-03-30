@@ -43,6 +43,7 @@ const returnRoutes = require('./routes/returnRoutes');
 const alertRoutes = require('./routes/alertRoutes');
 const purchaseOrderRoutes = require('./routes/purchaseOrderRoutes');
 const poItemsRoutes = require('./routes/poItemsRoutes');
+const schemaRoutes = require('./routes/schemaRoutes');
 
 app.use('/api/departments', departmentRoutes);
 app.use('/api/employees', employeeRoutes);
@@ -61,6 +62,7 @@ app.use('/api/returns', returnRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/purchase_orders', purchaseOrderRoutes);
 app.use('/api/po_items', poItemsRoutes);
+app.use('/api/schema', schemaRoutes);
 
 // 4. Default Route
 app.get('/', (req, res) => {
