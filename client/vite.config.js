@@ -17,5 +17,11 @@ export default defineConfig({
         ws: true,
       }
     }
-  }
+  },
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
 })

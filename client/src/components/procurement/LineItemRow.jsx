@@ -58,7 +58,7 @@ export function LineItemRow({
 
       <td className="py-3 px-6 text-right">
         <div className="flex items-center justify-end gap-1 font-semibold text-slate-800">
-          <span className="text-slate-500">LKR</span>
+          <span className="text-slate-500">$</span>
           <span className="font-mono">{lineTotal.toFixed(2)}</span>
         </div>
       </td>
