@@ -6,6 +6,8 @@ router.post('/', purchaseOrderController.createPurchaseOrder);
 router.get('/', purchaseOrderController.getAllPurchaseOrders);
 router.get('/:id', purchaseOrderController.getPurchaseOrderById);
 router.put('/:id', purchaseOrderController.updatePurchaseOrder);
+router.put('/:id/cancel', purchaseOrderController.cancelPurchaseOrder);
+router.get('/:id/export-pdf', purchaseOrderController.exportPurchaseOrderPDF);
 router.delete('/:id', purchaseOrderController.deletePurchaseOrder);
 
 module.exports = router;
