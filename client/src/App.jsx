@@ -13,6 +13,7 @@ import ManagerDashboard from "./pages/ManagerDashboard";
 import Departments from "./pages/Departments";
 import Products from "./pages/Products";
 import Employees from "./pages/Employees";
+import Catalog from "./pages/Catalog";
 
 function AppRoutes() {
   const { isAuthenticated, loading, role } = useAuth();
@@ -69,6 +70,10 @@ function AppRoutes() {
         element={<ProtectedRoute><Employees /></ProtectedRoute>} 
       />
       <Route 
+        path="/catalog" 
+        element={<ProtectedRoute><Catalog /></ProtectedRoute>} 
+      />
+      <Route 
         path="/manager/departments" 
         element={<ProtectedRoute requiredRole="manager"><Departments /></ProtectedRoute>} 
       />
@@ -79,6 +84,10 @@ function AppRoutes() {
       <Route 
         path="/manager/employees" 
         element={<ProtectedRoute requiredRole="manager"><Employees /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/manager/catalog" 
+        element={<ProtectedRoute requiredRole="manager"><Catalog /></ProtectedRoute>} 
       />
 
       {/* Fallback redirect */}
