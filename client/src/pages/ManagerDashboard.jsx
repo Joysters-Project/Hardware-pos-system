@@ -58,6 +58,10 @@ function ManagerDashboard({ children, active }) {
             <Link to="/manager/employees">Employees</Link>
           </li>
 
+          <li className={active === "catalog" ? "active" : ""}>
+            <Link to="/manager/catalog">Catalog</Link>
+          </li>
+
           <li className={active === "customers" ? "active" : ""}>
             <Link to="/customers">Customers</Link>
           </li>

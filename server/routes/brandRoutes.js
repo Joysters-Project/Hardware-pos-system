@@ -11,8 +11,9 @@ router.get('/', brandController.getAllBrands);
 // GET Brand by ID
 router.get('/:id', brandController.getBrandById);
 
-// UPDATE Brand
+// UPDATE Brand (supports both PUT and PATCH)
 router.put('/:id', brandController.updateBrand);
+router.patch('/:id', brandController.updateBrand);
 
 // DELETE Brand
 router.delete('/:id', brandController.deleteBrand);
