@@ -15,7 +15,7 @@ import Products from "./pages/Products";
 import Employees from "./pages/Employees";
 
 function AppRoutes() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, role } = useAuth();
 
   if (loading) {
     return <div style={{ 
@@ -32,10 +32,10 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Public routes - always available */}
-      <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard/admin" replace /> : <RoleSelect />} />
-      <Route path="/login/:role" element={isAuthenticated ? <Navigate to="/dashboard/admin" replace /> : <Login />} />
-      <Route path="/signup" element={isAuthenticated ? <Navigate to="/dashboard/admin" replace /> : <Signup />} />
-      <Route path="/forgot-password" element={isAuthenticated ? <Navigate to="/dashboard/admin" replace /> : <ForgotPassword />} />
+      <Route path="/" element={<RoleSelect />} />
+      <Route path="/login/:role" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
 
       {/* Protected routes for Admin */}
       <Route 
@@ -82,7 +82,19 @@ function AppRoutes() {
       />
 
       {/* Fallback redirect */}
-      <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard/admin" : "/"} replace />} />
+      <Route
+        path="*"
+        element={
+          <Navigate
+            to={
+              isAuthenticated
+                ? `/dashboard/${role || "admin"}`
+                : "/"
+            }
+            replace
+          />
+        }
+      />
     </Routes>
   );
 }
