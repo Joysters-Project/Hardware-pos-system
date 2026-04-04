@@ -28,7 +28,10 @@ class BillingService {
             if (saleData.customer && saleData.customer.phone) {
                 const [customer] = await customers.findOrCreate({
                     where: { phone_no: saleData.customer.phone },
-                    defaults: { customer_name: saleData.customer.name },
+                    defaults: {
+                      customer_name: saleData.customer.name,
+                      address: saleData.customer.address || null
+                    },
                     transaction: t
                 });
                 customerId = customer.customer_id;

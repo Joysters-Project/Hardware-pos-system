@@ -3,7 +3,9 @@ import api from '../api/axios';
 
 const BillingSystem = () => {
   const [cart, setCart] = useState([]);
-  const [payData, setPayData] = useState({ amountPaid: '', customerName: '', customerPhone: '' });
+  const [payData, setPayData] = useState({ amountPaid: '', customerName: '', customerPhone: '', customerAddress: '' });
+  const [customerExists, setCustomerExists] = useState(false);
+  const [customerLookupMessage, setCustomerLookupMessage] = useState('');
   const [lastBill, setLastBill] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -146,6 +148,40 @@ const BillingSystem = () => {
 
   const isProductActive = (product) => ([0, '0', 'active', 'Active', 'ACTIVE'].includes(product.status));
 
+  const lookupCustomerByPhone = async (phone) => {
+    if (!phone.trim()) {
+      setCustomerExists(false);
+      setCustomerLookupMessage('');
+      return;
+    }
+
+    try {
+      const res = await api.get(`/customers?phone=${encodeURIComponent(phone)}`);
+      const customer = res.data.data;
+      if (customer) {
+        setPayData((prev) => ({ ...prev,
+          customerName: customer.customer_name,
+          customerPhone: phone,
+          customerAddress: customer.address || ''
+        }));
+        setCustomerExists(true);
+        setCustomerLookupMessage('Existing customer found');
+      } else {
+        setCustomerExists(false);
+        setCustomerLookupMessage('New customer. Enter name and address to save.');
+      }
+    } catch (err) {
+      if (err.response?.status === 404) {
+        setCustomerExists(false);
+        setCustomerLookupMessage('New customer. Enter name to save.');
+      } else {
+        console.error('Customer lookup error:', err);
+        setCustomerExists(false);
+        setCustomerLookupMessage('Unable to verify customer right now.');
+      }
+    }
+  };
+
   // Add product to cart
   const handleAddToCart = (product) => {
     if (!isProductActive(product)) {
@@ -207,6 +243,8 @@ const BillingSystem = () => {
   const handleCheckout = async () => {
     if (cart.length === 0) return alert("Cart is empty!");
     if (isPartial && !payData.customerPhone) return alert("Phone required for Partial Payment!");
+    if (isPartial && !customerExists && !payData.customerName.trim()) return alert("Customer name required for new customer partial payment!");
+    if (isPartial && !customerExists && !payData.customerAddress.trim()) return alert("Customer address required for new customer partial payment!");
 
     try {
       const payload = {
@@ -221,7 +259,7 @@ const BillingSystem = () => {
         discount: 0,
         amount_paid: amountPaidValue,
         balance_due: isPartial ? Math.abs(balance) : 0,
-        customer: payData.customerPhone ? { name: payData.customerName, phone: payData.customerPhone } : null,
+        customer: payData.customerPhone ? { name: payData.customerName, phone: payData.customerPhone, address: payData.customerAddress } : null,
       };
 
       const res = await api.post('/bills', payload);
@@ -381,17 +419,41 @@ const BillingSystem = () => {
               id="customerName"
               name="customerName"
               placeholder="Customer Name"
+              value={payData.customerName || ''}
               onChange={(e) => setPayData({...payData, customerName: e.target.value})}
               style={{ width: '100%', marginBottom: '5px', padding: '5px', color: 'black' }}
+              readOnly={customerExists}
             />
             <label htmlFor="customerPhone">Phone (Required)</label>
             <input
               id="customerPhone"
               name="customerPhone"
               placeholder="Phone (Required)"
-              onChange={(e) => setPayData({...payData, customerPhone: e.target.value})}
+              value={payData.customerPhone || ''}
+              onChange={(e) => {
+                const phone = e.target.value;
+                setPayData((prev) => ({ ...prev, customerPhone: phone }));
+                setCustomerExists(false);
+                setCustomerLookupMessage('');
+              }}
+              onBlur={(e) => lookupCustomerByPhone(e.target.value)}
               style={{ width: '100%', padding: '5px', color: 'black' }}
             />
+            <label htmlFor="customerAddress">Address</label>
+            <textarea
+              id="customerAddress"
+              name="customerAddress"
+              placeholder="Customer Address"
+              value={payData.customerAddress || ''}
+              onChange={(e) => setPayData({...payData, customerAddress: e.target.value})}
+              style={{ width: '100%', minHeight: '70px', marginBottom: '5px', padding: '5px', color: 'black' }}
+              readOnly={customerExists}
+            />
+            {customerLookupMessage && (
+              <p style={{ margin: '4px 0', fontSize: '12px', color: customerExists ? '#2c662d' : '#d98324' }}>
+                {customerLookupMessage}
+              </p>
+            )}
           </div>
         )}
 
@@ -419,8 +481,9 @@ const BillingSystem = () => {
 
       {/* Success Modal */}
       {lastBill && (
-        <div className="no-print" style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div id="receipt-content" style={{ background: 'white', padding: '30px', width: '420px', color: 'black', textAlign: 'left', borderRadius: '8px' }}>
+        <>
+          <div className="no-print" style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', zIndex: 1000 }} />
+          <div id="receipt-content" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'white', padding: '30px', width: '420px', color: 'black', textAlign: 'left', borderRadius: '8px', zIndex: 1001 }}>
             <div style={{ textAlign: 'center', marginBottom: '16px' }}>
               <h2 style={{ color: '#800000', margin: '0' }}>MATHUMITHAN HARDWARE</h2>
               <p style={{ margin: '4px 0 0' }}>Printed Invoice</p>
@@ -479,13 +542,13 @@ const BillingSystem = () => {
               <p style={{ margin: '4px 0' }}><strong>Cashier ID:</strong> {lastBill.cashier_id}</p>
             </div>
 
-            <div style={{ display: 'flex', gap: '10px' }}>
+            <div className="no-print" style={{ display: 'flex', gap: '10px' }}>
               <button onClick={() => window.print()} style={{ flex: 1, padding: '10px', background: '#800000', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px' }}>Print</button>
               <button onClick={handleDownloadInvoice} style={{ flex: 1, padding: '10px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px' }}>Download</button>
               <button onClick={() => setLastBill(null)} style={{ flex: 1, padding: '10px', background: '#999', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px' }}>Close</button>
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

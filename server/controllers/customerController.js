@@ -14,11 +14,18 @@ exports.createCustomer = async (req, res) => {
   }
 };
 
-// GET All Customers
+// GET All Customers or GET Customer by phone
 exports.getAllCustomers = async (req, res) => {
   try {
-    const customerList = await customers.findAll();
+    if (req.query.phone) {
+      const customer = await customers.findOne({ where: { phone_no: req.query.phone } });
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+      return res.status(200).json({ data: customer });
+    }
 
+    const customerList = await customers.findAll();
     res.status(200).json(customerList);
   } catch (error) {
     res.status(500).json({ error: error.message });
