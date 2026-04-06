@@ -212,6 +212,9 @@ function Catalog() {
 
   const fieldNames = getFieldNames();
   const currentData = getCurrentData();
+  const sortedCurrentData = [...currentData].sort(
+    (a, b) => Number(a[fieldNames.id]) - Number(b[fieldNames.id])
+  );
 
   const DashboardComponent = user?.role === "manager" ? ManagerDashboard : AdminDashboard;
 
@@ -287,7 +290,7 @@ function Catalog() {
               <p className="empty-message">No items yet. Add one to get started!</p>
             )}
 
-            {!loading && currentData.length > 0 && (
+            {!loading && sortedCurrentData.length > 0 && (
               <table className="catalog-table">
                 <thead>
                   <tr>
@@ -297,7 +300,7 @@ function Catalog() {
                   </tr>
                 </thead>
                 <tbody>
-                  {currentData.map((item) => (
+                  {sortedCurrentData.map((item) => (
                     <tr key={item[fieldNames.id]} className="table-row">
                       <td className="cell-id">{item[fieldNames.id]}</td>
                       <td className="cell-name">
