@@ -6,6 +6,7 @@ import ManagerDashboard from "./ManagerDashboard";
 import "../styles/Departments.css";
 
 const API = "http://localhost:5000/api/departments";
+const EMPLOYEE_API = "http://localhost:5000/api/employees";
 
 function DepartmentsPage(){
 
@@ -14,14 +15,22 @@ const [search,setSearch] = useState("");
 const [name,setName] = useState("");
 const [budget,setBudget] = useState("");
 const [editId,setEditId] = useState(null);
+const [employees,setEmployees] = useState([]);
+const [viewDepartment,setViewDepartment] = useState(null);
 
 useEffect(()=>{
 loadDepartments();
+loadEmployees();
 },[]);
 
 const loadDepartments = async ()=>{
 const res = await axios.get(API);
 setDepartments(res.data);
+};
+
+const loadEmployees = async ()=>{
+const res = await axios.get(EMPLOYEE_API);
+setEmployees(res.data);
 };
 
 const addDepartment = async ()=>{
@@ -70,6 +79,16 @@ const filtered = departments.filter(d =>
 d.department_name.toLowerCase().includes(search.toLowerCase())
 );
 
+const getDepartmentEmployees = (departmentId) => {
+return employees.filter(
+e => String(e.department_id) === String(departmentId)
+);
+};
+
+const viewedDepartmentEmployees = viewDepartment
+? getDepartmentEmployees(viewDepartment.department_id)
+: [];
+
 return(
 
 <div className="departments-container">
@@ -114,6 +133,7 @@ onChange={(e)=>setBudget(e.target.value)}
 <th>ID</th>
 <th>Department</th>
 <th>Budget</th>
+<th>Employee Count</th>
 <th>Actions</th>
 </tr>
 </thead>
@@ -126,8 +146,16 @@ onChange={(e)=>setBudget(e.target.value)}
 <td>{d.department_id}</td>
 <td>{d.department_name}</td>
 <td>{d.budget}</td>
+<td>{getDepartmentEmployees(d.department_id).length}</td>
 
 <td>
+
+<button
+className="view-btn"
+onClick={()=>setViewDepartment(d)}
+>
+View
+</button>
 
 <button
 className="edit-btn"
@@ -151,6 +179,49 @@ Delete
 </tbody>
 
 </table>
+
+{viewDepartment && (
+<div className="department-employees-panel">
+<div className="department-employees-header">
+<h2>{viewDepartment.department_name} - Employees</h2>
+<button
+className="close-view-btn"
+onClick={()=>setViewDepartment(null)}
+>
+Close
+</button>
+</div>
+
+{viewedDepartmentEmployees.length === 0 ? (
+<p className="empty-employee-text">No employees in this department.</p>
+) : (
+<table className="department-employees-table">
+<thead>
+<tr>
+<th>ID</th>
+<th>Name</th>
+<th>Position</th>
+<th>Email</th>
+<th>Phone</th>
+<th>Hire Date</th>
+</tr>
+</thead>
+<tbody>
+{viewedDepartmentEmployees.map(e => (
+<tr key={e.employee_id}>
+<td>{e.employee_id}</td>
+<td>{e.first_name} {e.last_name}</td>
+<td>{e.position || "N/A"}</td>
+<td>{e.email || "N/A"}</td>
+<td>{e.phone_no || "N/A"}</td>
+<td>{e.hire_date ? new Date(e.hire_date).toLocaleDateString() : "N/A"}</td>
+</tr>
+))}
+</tbody>
+</table>
+)}
+</div>
+)}
 
 </div>
 
