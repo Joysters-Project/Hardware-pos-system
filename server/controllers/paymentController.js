@@ -1,13 +1,15 @@
 const { payments } = require('../models');
+const DueCollectionService = require('../services/dueCollectionService');
 
 // CREATE Payment
 exports.createPayment = async (req, res) => {
   try {
-    const payment = await payments.create(req.body);
+    const userId = req.user?.id || req.body.collected_by || null;
+    const result = await DueCollectionService.collectPayment(req.body, userId);
 
     res.status(201).json({
-      message: "Payment created successfully",
-      data: payment
+      message: "Payment collection processed successfully",
+      data: result
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -17,7 +19,12 @@ exports.createPayment = async (req, res) => {
 // GET All Payments
 exports.getAllPayments = async (req, res) => {
   try {
-    const paymentList = await payments.findAll();
+    const { bill_id } = req.query;
+    const whereClause = {};
+    if (bill_id) {
+      whereClause.bill_id = bill_id;
+    }
+    const paymentList = await payments.findAll({ where: whereClause });
 
     res.status(200).json(paymentList);
   } catch (error) {

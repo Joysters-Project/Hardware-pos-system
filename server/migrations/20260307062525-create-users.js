@@ -14,7 +14,10 @@ module.exports = {
         type: Sequelize.INTEGER, unique: true,
         references: { model: 'employees', key: 'employee_id' },
         onUpdate: 'CASCADE', onDelete: 'SET NULL'
-      }
+      },
+      failed_attempts: { type: Sequelize.INTEGER, defaultValue: 0 },
+      is_locked:       { type: Sequelize.BOOLEAN, defaultValue: false },
+      lock_time:       { type: Sequelize.DATE, allowNull: true }
     });
   },
   async down(queryInterface) {

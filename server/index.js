@@ -1,23 +1,32 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { sequelize } = require('./models'); // Import from models/index.js (the standard way)
 
+//1. just require the DB object
+// These files rely on the .env variables being ready
+const db = require('./models');// This automatically looks for models/index.js
+const authRoutes = require('./routes/auth'); // Path to your routes/auth.js file
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// 1. Middleware
-app.use(cors());
-app.use(express.json());
+// 2. Middleware
+app.use(cors()); // Allows React to talk to this server
+app.use(express.json()); // Allows server to read JSON from requests
 
-// 2. Database Sync (Using the imported sequelize instance)
-// Avoid automatic schema alterations in production / existing DBs.
-sequelize.sync()
-  .then(() => console.log('✅ Database synced successfully'))
-  .catch((err) => console.error('❌ Database sync failed:', err.message));
+// 3. Database Sync
+// This ensures all 17 tables from your models folder are ready in MySQL
+db.sequelize.sync({ force: false })
+  .then(() => {
+    console.log('✅ Database synced successfully');
+  })
+  .catch((err) => {
+    console.error('❌ Database sync failed:', err.message);
+  });
+
+// 4. API Routes (Assignments for your team)
+app.use('/api/auth',authRoutes);
 
 // 3. Import All Routes (Combined from Developer and POS Head)
-const authRoutes = require('./routes/auth');
 const departmentRoutes = require('./routes/departmentRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -35,9 +44,10 @@ const returnRoutes = require('./routes/returnRoutes');
 const alertRoutes = require('./routes/alertRoutes');
 const purchaseOrderRoutes = require('./routes/purchaseOrderRoutes');
 const poItemsRoutes = require('./routes/poItemsRoutes');
+const schemaRoutes = require('./routes/schemaRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 
 // 4. Register API Routes
-app.use('/api/auth', authRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/users', userRoutes);
@@ -55,6 +65,8 @@ app.use('/api/returns', returnRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/purchase_orders', purchaseOrderRoutes);
 app.use('/api/po_items', poItemsRoutes);
+app.use('/api/schema', schemaRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // 5. Default Route
 app.get('/', (req, res) => {
@@ -68,5 +80,8 @@ app.get('/health', (req, res) => {
 
 // 7. Start Server
 app.listen(PORT, () => {
-  console.log(`🚀 Server listening on http://localhost:${PORT}`);
+  console.log(`🚀 Server is listening on http://localhost:${PORT}`);
 });
+
+// Save models for global access if needed
+app.set('models', db);

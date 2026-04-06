@@ -11,8 +11,9 @@ router.get('/', categoryController.getAllCategories);
 // GET Category by ID
 router.get('/:id', categoryController.getCategoryById);
 
-// UPDATE Category
+// UPDATE Category (supports both PUT and PATCH)
 router.put('/:id', categoryController.updateCategory);
+router.patch('/:id', categoryController.updateCategory);
 
 // DELETE Category
 router.delete('/:id', categoryController.deleteCategory);

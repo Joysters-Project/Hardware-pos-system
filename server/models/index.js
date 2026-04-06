@@ -41,6 +41,12 @@ const sequelize = new Sequelize(
     port: dbConfig.port,
     dialect: dbConfig.dialect,
     logging: dbConfig.logging,
+    timezone: '+05:30',
+    dialectOptions: {
+      dateStrings: true,
+      typeCast: true,
+      timezone: '+05:30' 
+    }
   }
 );
 

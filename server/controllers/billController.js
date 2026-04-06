@@ -1,4 +1,5 @@
 const BillingService = require('../services/billingService');
+const { bills } = require('../models');
 
 // CREATE Bill (runs entire invoice workflow inside a transaction)
 exports.createBill = async (req, res) => {
@@ -29,7 +30,12 @@ exports.createBill = async (req, res) => {
 // READ All Bills
 exports.getAllBills = async (req, res) => {
   try {
-    const billList = await bills.findAll();
+    const { customer_id, status } = req.query;
+    const whereClause = {};
+    if (customer_id) whereClause.customer_id = customer_id;
+    if (status) whereClause.status = status;
+
+    const billList = await bills.findAll({ where: whereClause });
 
     res.status(200).json(billList);
   } catch (error) {

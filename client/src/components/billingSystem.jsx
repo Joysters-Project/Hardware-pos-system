@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
+import SuccessAnim from './SuccessAnim';
 
 const BillingSystem = () => {
   const [cart, setCart] = useState([]);
@@ -11,6 +13,18 @@ const BillingSystem = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
   const searchInputRef = useRef(null);
+  const navigate = useNavigate();
+
+  // Success Animation state
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [animSuccess, setAnimSuccess] = useState(false);
+
+  const handleSuccessDismiss = () => {
+    setAnimSuccess(false);
+    setTimeout(() => {
+      setShowSuccess(false);
+    }, 300);
+  };
 
   const cashierName = localStorage.getItem('cashierName') || localStorage.getItem('username') || 'System User';
   const cashierId = localStorage.getItem('cashierId') || localStorage.getItem('userId') || 'SYS';
@@ -263,6 +277,13 @@ const BillingSystem = () => {
       };
 
       const res = await api.post('/bills', payload);
+
+      // Trigger standard API success ripple payload
+      setShowSuccess(true);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setAnimSuccess(true));
+      });
+
       setLastBill({
         ...res.data.data,
         items: cart,
@@ -279,8 +300,17 @@ const BillingSystem = () => {
   };
 
   return (
-    <div style={{ display: 'flex', height: '90vh', gap: '20px', padding: '20px' }}>
-      {/* Left: Cart Area */}
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', padding: '10px 20px' }}>
+      <div style={{ marginBottom: '10px' }}>
+        <button 
+           onClick={() => navigate(-1)} 
+           style={{ padding: '8px 12px', background: '#ccc', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+        >
+          ← Back to Dashboard
+        </button>
+      </div>
+      <div style={{ display: 'flex', flex: 1, gap: '20px', paddingBottom: '20px' }}>
+        {/* Left: Cart Area */}
       <div style={{ flex: 2, background: 'white', padding: '20px', borderRadius: '8px' }}>
         <div style={{ position: 'relative', marginBottom: '20px' }}>
           <input 
@@ -465,7 +495,7 @@ const BillingSystem = () => {
             style={{
               width: '100%',
               padding: '15px',
-              background: cart.length === 0 ? '#666' : '#28a745',
+              background: cart.length === 0 ? '#666' : '#a52a2a',
               border: 'none',
               color: 'white',
               fontWeight: 'bold',
@@ -544,12 +574,21 @@ const BillingSystem = () => {
 
             <div className="no-print" style={{ display: 'flex', gap: '10px' }}>
               <button onClick={() => window.print()} style={{ flex: 1, padding: '10px', background: '#800000', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px' }}>Print</button>
-              <button onClick={handleDownloadInvoice} style={{ flex: 1, padding: '10px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px' }}>Download</button>
+              <button onClick={handleDownloadInvoice} style={{ flex: 1, padding: '10px', background: '#a52a2a', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px' }}>Download</button>
               <button onClick={() => setLastBill(null)} style={{ flex: 1, padding: '10px', background: '#999', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px' }}>Close</button>
             </div>
           </div>
         </>
       )}
+      </div>
+      
+      <SuccessAnim 
+        show={showSuccess} 
+        animate={animSuccess} 
+        onDismiss={handleSuccessDismiss} 
+        message="Checkout Complete"
+        subMessage="Invoice generated and payment recorded."
+      />
     </div>
   );
 };

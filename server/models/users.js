@@ -9,6 +9,10 @@ module.exports = (sequelize) => {
     password: { type: DataTypes.STRING(255), allowNull: false },
     role: { type: DataTypes.STRING(50), allowNull: false },
     status: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'Active' },
-    employee_id: { type: DataTypes.INTEGER, unique: true }
-  }, { tableName: 'users', timestamps: false });
+    employee_id: { type: DataTypes.INTEGER, unique: true },
+    failed_attempts: { type: DataTypes.INTEGER, defaultValue: 0 },
+    is_locked: { type: DataTypes.BOOLEAN, defaultValue: false },
+    lock_time: {type: DataTypes.DATE, allowNull: true}
+  }, 
+  { tableName: 'users', timestamps: false });
 };

@@ -1,4 +1,51 @@
-const { returns } = require('../models');
+const { returns, products, payments, sequelize } = require('../models');
+
+// PROCESS Return complex logic
+exports.processReturn = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { bill_id, product_id, return_quantity, refund_amount, destination, reason, po_id, supplier_id } = req.body;
+    
+    const returnData = {
+      bill_id,
+      product_id,
+      return_quantity,
+      refund_amount,
+      destination: destination || 'STOCK',
+      reason,
+      po_id,
+      supplier_id
+    };
+
+    if (destination === 'SUPPLIER') {
+      returnData.status = 'PENDING_APPROVAL';
+      returnData.debit_note_raised = true;
+    } else {
+      returnData.status = 'COMPLETED';
+    }
+
+    const newReturn = await returns.create(returnData, { transaction });
+
+    if (destination === 'STOCK') {
+      const product = await products.findByPk(product_id, { transaction });
+      if (product) {
+        await product.increment('stock_quantity', { by: return_quantity, transaction });
+      }
+    }
+
+    await payments.create({
+      bill_id,
+      amount_paid: -Math.abs(refund_amount), 
+      payment_method: 'CASH'
+    }, { transaction });
+
+    await transaction.commit();
+    res.status(201).json({ message: "Return processed successfully", data: newReturn });
+  } catch (error) {
+    if (!transaction.finished) await transaction.rollback();
+    res.status(500).json({ error: error.message });
+  }
+};
 
 // CREATE Return
 exports.createReturn = async (req, res) => {
