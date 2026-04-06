@@ -14,6 +14,9 @@ import Departments from "./pages/Departments";
 import Products from "./pages/Products";
 import Employees from "./pages/Employees";
 import Catalog from "./pages/Catalog";
+import BillingSystem from "./components/billingSystem";
+import DueCollection from "./components/DueCollection";
+import ReturnSystem from "./components/ReturnSystem";
 
 function AppRoutes() {
   const { isAuthenticated, loading, role } = useAuth();
@@ -72,6 +75,18 @@ function AppRoutes() {
       <Route 
         path="/catalog" 
         element={<ProtectedRoute><Catalog /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/billing" 
+        element={<ProtectedRoute><BillingSystem /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/due-collection" 
+        element={<ProtectedRoute><DueCollection /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/returns" 
+        element={<ProtectedRoute><ReturnSystem /></ProtectedRoute>} 
       />
       <Route 
         path="/manager/departments" 

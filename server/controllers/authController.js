@@ -13,7 +13,7 @@ const login = async (req, res) => {
         // 1. Find the user in MySQL
         const user = await users.findOne({ where: { user_name: user_name },include: [{model: models.employees, attributes: ['department_id']}]});
         if (!user) {
-            return res.status(401).send("Invalid Username or Password");
+            return res.status(401).json({ message: "Invalid Username or Password" });
         }
         
         // if the role selected is wrong
@@ -22,7 +22,7 @@ const login = async (req, res) => {
         }
         // if the user is exist but not active
         if (user.status !== 'Active') {
-        return res.status(403).send("User is inactive");
+        return res.status(403).json({ message: "User is inactive" });
         }
 
         if (user.is_locked) {
@@ -40,7 +40,7 @@ const login = async (req, res) => {
 
             } else {
                 const remaining = Math.ceil(15 - diffMinutes);
-                return res.status(403).send(`Account locked. Try again after ${remaining} minutes`);
+                return res.status(403).json({ message: `Account locked. Try again after ${remaining} minutes` });
             }
         }
         // 2. Use bcrypt to compare the typed password with the scrambled one in DB
@@ -50,8 +50,7 @@ const login = async (req, res) => {
             await user.update({ failed_attempts: 0, lock_time: null });
             //return res.status(200).send("Success");
             //return res.status(200).json({message:"Success",user: user});
-            const department_id=(user.employees && user.employee.department_id)?user.employee.department_id: null;
-           // const department_id = user.employees?.department_id || null;
+            const department_id = (user.employee && user.employee.department_id) ? user.employee.department_id : null;
             const secret = process.env.JWT_SECRET || "MySuperSecretKey123!";
             const token = jwt.sign({user_id: user.user_id, role: user.role, department_id: department_id },
                 secret,{ expiresIn: "1h" }
@@ -71,14 +70,15 @@ const login = async (req, res) => {
             updates.lock_time = new Date(); // save lock time
         }
         await user.update(updates);
-        return res.status(401).send(attempts >= 5 
-            ? "Account locked due to 5 failed login attempts" 
-            : `Invalid Username or Password. You have only ${5 - attempts} attempts left`
-            );
+        return res.status(401).json({ 
+            message: attempts >= 5 
+                ? "Account locked due to 5 failed login attempts" 
+                : `Invalid Username or Password. You have only ${5 - attempts} attempts left`
+        });
         }
 
     } catch (error) {
-        res.status(500).send(error.message);
+        res.status(500).json({ message: error.message });
     }
 };
 const unlockUser = async (req, res) => {
@@ -241,4 +241,3 @@ const simpleRegister = async (req, res) => {
 };
 
 module.exports = { login, unlockUser, logout, resetPassword, simpleRegister };
-

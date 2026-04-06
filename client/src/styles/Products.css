@@ -63,8 +63,9 @@ box-sizing:border-box;
 }
 
 .product-form button{
-padding:0.9rem 1rem;
-background:linear-gradient(135deg, #8b3a3a 0%, #a84545 100%);
+grid-column:span 4;
+padding:10px;
+background:#800000;
 color:white;
 border:none;
 border-radius:8px;
@@ -109,14 +110,15 @@ max-width:120px;
 }
 
 th{
-background:linear-gradient(135deg, #8b3a3a 0%, #a84545 100%);
+background:#800000;
 color:white;
 font-weight:600;
 font-size:0.95rem;
 }
 
 .edit-btn{
-background:#fff3e0;
+background:#a52a2a;
+color:white;
 border:none;
 padding:0.5rem 0.75rem;
 margin-right:5px;
