@@ -843,6 +843,12 @@ select.form-control {
 .input-group .btn {
   border-radius: 0 8px 8px 0;
   flex-shrink: 0;
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #800000;
+  box-shadow: 0 0 0 3px rgba(128, 0, 0, 0.1);
 }
 
 .form-row {
