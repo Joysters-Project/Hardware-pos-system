@@ -450,7 +450,7 @@ function CreatePurchaseOrder() {
                           animate={{ scale: 1 }}
                           className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent"
                         >
-                          ${grandTotal.toFixed(2)}
+                          LKR{grandTotal.toFixed(2)}
                         </motion.span>
                       </div>
                     </div>

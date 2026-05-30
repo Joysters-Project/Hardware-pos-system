@@ -218,8 +218,8 @@ function generatePurchaseOrderHTML(po) {
             <td>${item.product.type || '-'}</td>
             <td>${item.product.batch_no || '-'}</td>
             <td style="text-align: center;">${item.quantity}</td>
-            <td style="text-align: right;">$${Number(item.unit_price).toFixed(2)}</td>
-            <td style="text-align: right;">$${Number(item.total_price).toFixed(2)}</td>
+            <td style="text-align: right;">LKR${Number(item.unit_price).toFixed(2)}</td>
+            <td style="text-align: right;">LKR${Number(item.total_price).toFixed(2)}</td>
         </tr>
     `).join('');
 
@@ -260,7 +260,7 @@ function generatePurchaseOrderHTML(po) {
         </table>
 
         <div class="total">
-            Grand Total: $${Number(po.total_amount).toFixed(2)}
+            Grand Total: LKR${Number(po.total_amount).toFixed(2)}
         </div>
 
         ${po.notes ? `<div style="margin-top: 20px;"><strong>Notes:</strong><br>${po.notes}</div>` : ''}

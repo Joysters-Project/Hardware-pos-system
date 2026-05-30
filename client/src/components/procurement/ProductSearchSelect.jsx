@@ -58,7 +58,7 @@ export function ProductSearchSelect({ products, value, onSelect, placeholder = '
             <Package className="h-4 w-4 text-blue-500 flex-shrink-0" />
             <span className="truncate font-medium">{selectedProduct.product_name}</span>
             <span className="text-slate-400 text-xs ml-auto flex-shrink-0">
-              ${Number(selectedProduct.cost_price).toFixed(2)}
+              LKR{Number(selectedProduct.cost_price).toFixed(2)}
             </span>
           </div>
         ) : (
@@ -121,7 +121,7 @@ export function ProductSearchSelect({ products, value, onSelect, placeholder = '
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">{product.product_name}</p>
                     <p className="text-xs text-slate-500">
-                      Stock: {product.stock_quantity} | Cost: ${Number(product.cost_price).toFixed(2)}
+                      Stock: {product.stock_quantity} | Cost: LKR{Number(product.cost_price).toFixed(2)}
                     </p>
                   </div>
                   <span className="text-xs font-mono text-slate-400">

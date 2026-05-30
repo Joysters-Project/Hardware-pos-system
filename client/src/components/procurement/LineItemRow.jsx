@@ -49,7 +49,7 @@ export function LineItemRow({
 
       <td className="py-3 px-6 text-right">
         <div className="flex items-center justify-end gap-1">
-          <span className="text-slate-500">$</span>
+          <span className="text-slate-500">LKR</span>
           <span className="font-mono text-slate-700">
             {field.cost_price ? Number(field.cost_price).toFixed(2) : '0.00'}
           </span>
@@ -58,7 +58,7 @@ export function LineItemRow({
 
       <td className="py-3 px-6 text-right">
         <div className="flex items-center justify-end gap-1 font-semibold text-slate-800">
-          <span className="text-slate-500">$</span>
+          <span className="text-slate-500">LKR</span>
           <span className="font-mono">{lineTotal.toFixed(2)}</span>
         </div>
       </td>

@@ -56,15 +56,17 @@ function App() {
             <Route path="suppliers/add" element={<SupplierForm />} />
             <Route path="suppliers/edit/:id" element={<SupplierForm />} />
             
-            {/* Products */}
+            {/* Products*/ }
             <Route path="products" element={<ProductList />} />
             <Route path="products/add" element={<ProductForm />} />
             <Route path="products/edit/:id" element={<ProductForm />} />
             
-            {/* Procurement */}
+            {/*  Procurement */}
+           
             <Route path="procurement" element={<PurchaseOrderList />} />
             <Route path="procurement/create" element={<CreatePurchaseOrder />} />
-            <Route path="procurement/:id" element={<PurchaseOrderDetail />} />
+            <Route path="procurement/:id" element={<PurchaseOrderDetail />} /> 
+           
           </Route>
         </Routes>
       </BrowserRouter>

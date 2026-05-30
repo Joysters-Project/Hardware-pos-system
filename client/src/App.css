@@ -18,7 +18,7 @@ body {
 
 .sidebar {
   width: 250px;
-  background: #1e293b;
+  background: #800000;
   color: white;
   position: fixed;
   height: 100vh;
@@ -27,7 +27,7 @@ body {
 
 .sidebar-header {
   padding: 1.5rem;
-  border-bottom: 1px solid #334155;
+  border-bottom: 1px solid #a52a2a;
 }
 
 .sidebar-header h2 {
@@ -48,12 +48,12 @@ body {
 }
 
 .nav-link:hover {
-  background: #334155;
+  background: #600000;
   color: white;
 }
 
 .nav-link.active {
-  background: #3b82f6;
+  background: #800000;
   color: white;
 }
 
@@ -78,7 +78,7 @@ body {
 .page-header h1 {
   font-size: 1.75rem;
   font-weight: 600;
-  color: #1e293b;
+  color: #800000;
 }
 
 /* Buttons */
@@ -97,16 +97,16 @@ body {
 }
 
 .btn-primary {
-  background: #3b82f6;
+  background: #800000;
   color: white;
 }
 
 .btn-primary:hover {
-  background: #2563eb;
+  background: #600000;
 }
 
 .btn-primary:disabled {
-  background: #93c5fd;
+  background: #c9a5a5;
   cursor: not-allowed;
 }
 
@@ -249,8 +249,8 @@ body {
 .form-group select:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #800000;
+  box-shadow: 0 0 0 3px rgba(128, 0, 0, 0.1);
 }
 
 .form-row {

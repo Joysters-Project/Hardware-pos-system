@@ -46,12 +46,9 @@ function PurchaseOrderDetail() {
     });
   };
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount || 0);
-  };
+const formatCurrency = (amount) => {
+  return `LKR${Number(amount || 0).toFixed(2)}`;
+};
 
   const handleStatusUpdate = async (newStatus) => {
     try {

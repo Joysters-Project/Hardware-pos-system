@@ -147,7 +147,7 @@ function ProductList() {
                   </div>
                   <div>
                     <p className="text-sm text-slate-500">Total Value</p>
-                    <p className="text-2xl font-bold text-slate-800">${totalValue.toFixed(2)}</p>
+                    <p className="text-2xl font-bold text-slate-800">LKR{totalValue.toFixed(2)}</p>
                   </div>
                 </div>
               </CardContent>
@@ -283,10 +283,10 @@ function ProductList() {
                           <TableCell className="text-slate-600">{getBrandName(product.brand_id)}</TableCell>
                           <TableCell className="text-slate-600">{getUnitName(product.unit_id)}</TableCell>
                           <TableCell className="font-mono text-slate-600">
-                            ${Number(product.cost_price).toFixed(2)}
+                            LKR{Number(product.cost_price).toFixed(2)}
                           </TableCell>
                           <TableCell className="font-mono font-medium text-slate-800">
-                            ${Number(product.unit_price).toFixed(2)}
+                            LKR{Number(product.unit_price).toFixed(2)}
                           </TableCell>
                           <TableCell className="font-mono">{product.stock_quantity}</TableCell>
                           <TableCell>
