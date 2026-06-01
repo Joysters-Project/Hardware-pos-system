@@ -103,11 +103,23 @@ await axios.delete(`${API}/${id}`);
 loadEmployees();
 };
 
-const filtered = employees.filter(e =>
-e.first_name.toLowerCase().includes(search.toLowerCase()) ||
-e.last_name.toLowerCase().includes(search.toLowerCase()) ||
-e.email.toLowerCase().includes(search.toLowerCase())
+const searchTerm = search.trim().toLowerCase();
+
+const filtered = employees.filter(e => {
+if(!searchTerm) return true;
+
+const firstName = (e.first_name || "").toLowerCase();
+const lastName = (e.last_name || "").toLowerCase();
+const fullName = `${firstName} ${lastName}`.trim();
+const phone = String(e.phone_no || "").toLowerCase();
+
+return (
+firstName.includes(searchTerm) ||
+lastName.includes(searchTerm) ||
+fullName.includes(searchTerm) ||
+phone.includes(searchTerm)
 );
+});
 
 const getDepartmentName = (id) => {
 const dept = departments.find(d => d.department_id === id);
@@ -123,7 +135,7 @@ return(
 <div className="search-bar">
 <input
 className="search"
-placeholder="Search employees..."
+placeholder="Search by name or phone number..."
 value={search}
 onChange={(e)=>setSearch(e.target.value)}
 />
@@ -171,7 +183,7 @@ onChange={(e)=>setPhone(e.target.value)}
 />
 
 <input
-placeholder="Salary"
+placeholder="Salary (LKR)"
 type="number"
 value={salary}
 onChange={(e)=>setSalary(e.target.value)}
@@ -223,7 +235,7 @@ onChange={(e)=>setDepartmentId(e.target.value)}
 <td>{e.email}</td>
 <td>{e.phone_no || "N/A"}</td>
 <td>{getDepartmentName(e.department_id)}</td>
-<td>{e.salary ? `$${e.salary}` : "N/A"}</td>
+<td>{e.salary ? `LKR ${Number(e.salary).toLocaleString("en-LK")}` : "N/A"}</td>
 
 <td>
 
