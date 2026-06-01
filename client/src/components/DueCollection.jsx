@@ -161,7 +161,7 @@ const DueCollection = () => {
               <div style={{ textAlign: "right" }}>
                 <div style={{ color: '#777', fontSize: '13px' }}>Total outstanding</div>
                 <div className="val-red" style={{ fontSize: '18px', fontWeight: 'bold' }}>
-                  ₹ {totalOutstanding.toFixed(2)}
+                  Rs {totalOutstanding.toFixed(2)}
                 </div>
               </div>
             </div>
@@ -201,8 +201,8 @@ const DueCollection = () => {
                         </div>
                       </td>
                       <td>{formatDate(bill.bill_date)}</td>
-                      <td>₹ {parseFloat(bill.total_amount).toFixed(2)}</td>
-                      <td className="val-red" style={{ fontWeight: 'bold' }}>₹ {parseFloat(bill.balance_due).toFixed(2)}</td>
+                      <td>Rs {parseFloat(bill.total_amount).toFixed(2)}</td>
+                      <td className="val-red" style={{ fontWeight: 'bold' }}>Rs {parseFloat(bill.balance_due).toFixed(2)}</td>
                       <td>
                         <span className="badge-partial">Partial</span>
                       </td>
@@ -219,7 +219,7 @@ const DueCollection = () => {
               {paymentHistory.map(hist => (
                 <div className="history-item" key={hist.payment_id}>
                   <div>
-                    <strong>₹ {parseFloat(hist.amount_paid).toFixed(2)}</strong> — {hist.payment_method}
+                    <strong>Rs {parseFloat(hist.amount_paid).toFixed(2)}</strong> — {hist.payment_method}
                   </div>
                   <div style={{ color: '#777' }}>
                     {formatDate(hist.payment_date)}, {formatTime(hist.payment_date)}
@@ -243,15 +243,15 @@ const DueCollection = () => {
             </div>
             <div className="row">
               <span>Bill total</span>
-              <span>₹ {billTotal.toFixed(2)}</span>
+              <span>Rs {billTotal.toFixed(2)}</span>
             </div>
             <div className="row">
               <span>Paid so far</span>
-              <span>₹ {paidSoFar.toFixed(2)}</span>
+              <span>Rs {paidSoFar.toFixed(2)}</span>
             </div>
             <div className="row bold">
               <span>Balance due</span>
-              <span className="val-red">₹ {balanceDue.toFixed(2)}</span>
+              <span className="val-red">Rs {balanceDue.toFixed(2)}</span>
             </div>
           </div>
 

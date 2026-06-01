@@ -114,7 +114,7 @@ onChange={(e)=>setName(e.target.value)}
 />
 
 <input
-placeholder="Budget (LKR)"
+placeholder="Budget (Rs)"
 type="number"
 value={budget}
 onChange={(e)=>setBudget(e.target.value)}
@@ -145,7 +145,7 @@ onChange={(e)=>setBudget(e.target.value)}
 
 <td>{d.department_id}</td>
 <td>{d.department_name}</td>
-<td>{d.budget ? `LKR ${Number(d.budget).toLocaleString("en-LK")}` : "N/A"}</td>
+<td>{d.budget ? `Rs ${Number(d.budget).toLocaleString("en-LK")}` : "N/A"}</td>
 <td>{getDepartmentEmployees(d.department_id).length}</td>
 
 <td>
