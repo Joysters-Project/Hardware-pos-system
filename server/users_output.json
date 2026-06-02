@@ -1,0 +1,26 @@
+[
+  {
+    "user_name": "johndoe",
+    "role": "Cashier",
+    "status": "Active",
+    "is_locked": false,
+    "failed_attempts": 0,
+    "has_password": true
+  },
+  {
+    "user_name": "jathusa",
+    "role": "Cashier",
+    "status": "Active",
+    "is_locked": true,
+    "failed_attempts": 5,
+    "has_password": true
+  },
+  {
+    "user_name": "babysaliny",
+    "role": "Admin",
+    "status": "Active",
+    "is_locked": false,
+    "failed_attempts": 0,
+    "has_password": true
+  }
+]

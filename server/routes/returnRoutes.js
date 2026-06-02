@@ -5,6 +5,9 @@ const returnController = require('../controllers/returnController');
 // CREATE Return
 router.post('/', returnController.createReturn);
 
+// PROCESS Return (Complex workflow)
+router.post('/process', returnController.processReturn);
+
 // GET All Returns
 router.get('/', returnController.getAllReturns);
 

@@ -9,15 +9,14 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
     return <div>Loading...</div>;
   }
 
-  // Check if user is authenticated
+  // ❌ Not logged in → go to home (NOT login/admin)
   if (!isAuthenticated) {
-    // Prevent back button navigation by replacing history
-    return <Navigate to="/login/admin" replace />;
+    return <Navigate to="/" replace />;
   }
 
-  // Check if user has required role
+  // ❌ Wrong role → go to home
   if (requiredRole && !hasRole(requiredRole)) {
-    return <Navigate to="/login/admin" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return children;

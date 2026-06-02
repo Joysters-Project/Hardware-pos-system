@@ -1,0 +1,5 @@
+$kind: http-request
+name: Get All Bills
+method: GET
+url: '{{baseUrl}}/api/bills'
+order: 2000

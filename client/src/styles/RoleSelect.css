@@ -54,7 +54,7 @@
   cursor: pointer;
   transition: transform 0.2s ease, opacity 0.2s ease;
   box-shadow: 0 4px 10px rgba(0,0,0,0.4);
-  background:linear-gradient(90deg,#ff5a2f,#d72800);
+  background:linear-gradient(90deg,#a52a2a,#800000);
 }
 
 .role-buttons button:hover {

@@ -49,7 +49,7 @@ min-height:500px;
 height: auto;
 padding:40px;
 border-radius:16px;
-background:rgba(0,0,0,0.55);
+background:rgba(0, 0, 0, 0.55);
 border:1px solid rgba(220, 172, 172, 0.25);
 backdrop-filter:blur(8px);
 text-align:center;
@@ -113,9 +113,9 @@ color:black;
 font-weight: 400;
 }
 .input-box input:focus {
-  border-color: #ff5a2f;
+  border-color: #800000;
   /* background: #fff; */
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  box-shadow: 0 0 0 3px rgba(128, 0, 0, 0.4);
   transform: translateY(-1px);
 }  
 .login-btn{
@@ -128,7 +128,7 @@ font-size:16px;
 cursor:pointer;
 color:white;
 box-shadow: 0 4px 10px rgba(0,0,0,0.4);
-background:linear-gradient(90deg,#ff5a2f,#d72800);
+background:linear-gradient(90deg,#a52a2a,#800000);
 letter-spacing: 0.5px;
 }
 

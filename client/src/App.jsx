@@ -12,25 +12,36 @@ import CashierDashboard from "./pages/CashierDashboard";
 import ManagerDashboard from "./pages/ManagerDashboard";
 import Departments from "./pages/Departments";
 import Products from "./pages/Products";
+import Employees from "./pages/Employees";
 import Catalog from "./pages/Catalog";
+import BillingSystem from "./components/billingSystem";
+import DueCollection from "./components/DueCollection";
+import ReturnSystem from "./components/ReturnSystem";
+import Receipts from "./pages/Receipts";
 
 function AppRoutes() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading, role } = useAuth();
+
+  if (loading) {
+    return <div style={{ 
+      display: 'flex', 
+      justifyContent: 'center', 
+      alignItems: 'center', 
+      height: '100vh',
+      backgroundColor: '#f5f5f5',
+      fontSize: '18px',
+      color: '#333'
+    }}>Loading...</div>;
+  }
 
   return (
     <Routes>
-      {/* Public routes */}
-      {!isAuthenticated && (
-        <>
-          <Route path="/" element={<RoleSelect />} />
-          <Route path="/login/:role" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-        </>
-      )}
-
+      {/* Public routes - always available */}
+      <Route path="/" element={<RoleSelect />} />
       <Route path="/login/:role" element={<Login />} />
-      
+      <Route path="/signup" element={<Signup />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+
       {/* Protected routes for Admin */}
       <Route 
         path="/dashboard/admin" 
@@ -59,8 +70,28 @@ function AppRoutes() {
         element={<ProtectedRoute><Products /></ProtectedRoute>} 
       />
       <Route 
+        path="/employees" 
+        element={<ProtectedRoute><Employees /></ProtectedRoute>} 
+      />
+      <Route 
         path="/catalog" 
         element={<ProtectedRoute><Catalog /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/billing" 
+        element={<ProtectedRoute><BillingSystem /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/due-collection" 
+        element={<ProtectedRoute><DueCollection /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/returns" 
+        element={<ProtectedRoute><ReturnSystem /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/receipts" 
+        element={<ProtectedRoute><Receipts /></ProtectedRoute>} 
       />
       <Route 
         path="/manager/departments" 
@@ -71,12 +102,28 @@ function AppRoutes() {
         element={<ProtectedRoute requiredRole="manager"><Products /></ProtectedRoute>} 
       />
       <Route 
+        path="/manager/employees" 
+        element={<ProtectedRoute requiredRole="manager"><Employees /></ProtectedRoute>} 
+      />
+      <Route 
         path="/manager/catalog" 
         element={<ProtectedRoute requiredRole="manager"><Catalog /></ProtectedRoute>} 
       />
 
       {/* Fallback redirect */}
-      <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard/admin" : "/"} replace />} />
+      <Route
+        path="*"
+        element={
+          <Navigate
+            to={
+              isAuthenticated
+                ? `/dashboard/${role || "admin"}`
+                : "/"
+            }
+            replace
+          />
+        }
+      />
     </Routes>
   );
 }

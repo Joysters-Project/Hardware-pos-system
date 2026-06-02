@@ -43,27 +43,23 @@ function ManagerDashboard({ children, active }) {
 
         <ul className="sidebar-menu">
           <li className={active === "home" ? "active" : ""}>
-            <Link to="/dashboard/manager">Dashboard</Link>
+            <Link to="/dashboard/manager">📊 Dashboard</Link>
           </li>
 
           <li className={active === "departments" ? "active" : ""}>
-            <Link to="/manager/departments">Departments</Link>
+            <Link to="/manager/departments">🏢 Departments</Link>
           </li>
 
           <li className={active === "products" ? "active" : ""}>
-            <Link to="/manager/products">Products</Link>
+            <Link to="/manager/products">📦 Products</Link>
+          </li>
+
+          <li className={active === "employees" ? "active" : ""}>
+            <Link to="/manager/employees">👤 Employees</Link>
           </li>
 
           <li className={active === "catalog" ? "active" : ""}>
-            <Link to="/manager/catalog">Catalog</Link>
-          </li>
-
-          <li className={active === "customers" ? "active" : ""}>
-            <Link to="/customers">Customers</Link>
-          </li>
-
-          <li className={active === "bills" ? "active" : ""}>
-            <Link to="/bills/create">Bills</Link>
+            <Link to="/manager/catalog">📋 Catalog</Link>
           </li>
         </ul>
 
@@ -77,8 +73,37 @@ function ManagerDashboard({ children, active }) {
           children
         ) : (
           <div className="dashboard-home">
-            <h1>Welcome, {userName}!</h1>
-            <p>Manager Dashboard</p>
+            <div className="dashboard-hero">
+              <span className="dashboard-kicker">Operations Hub</span>
+              <h1>Welcome back, {userName}</h1>
+              <p>Stay on top of floor performance and team coordination from one place.</p>
+            </div>
+
+            <div className="dashboard-home-grid">
+              <Link className="dashboard-tile" to="/manager/departments">
+                <span className="tile-icon">🏢</span>
+                <h3>Departments</h3>
+                <p>Oversee department updates and keep data organized.</p>
+              </Link>
+
+              <Link className="dashboard-tile" to="/manager/products">
+                <span className="tile-icon">📦</span>
+                <h3>Products</h3>
+                <p>Review item status and improve shelf readiness.</p>
+              </Link>
+
+              <Link className="dashboard-tile" to="/manager/employees">
+                <span className="tile-icon">👤</span>
+                <h3>Employees</h3>
+                <p>Coordinate staffing and track team assignments.</p>
+              </Link>
+
+              <Link className="dashboard-tile" to="/manager/catalog">
+                <span className="tile-icon">📋</span>
+                <h3>Catalog</h3>
+                <p>Keep listings clean and easy for teams to navigate.</p>
+              </Link>
+            </div>
           </div>
         )}
       </div>

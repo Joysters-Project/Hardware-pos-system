@@ -1,0 +1,17 @@
+$kind: http-request
+name: Create Customer
+method: POST
+url: '{{baseUrl}}/api/customers'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Jane Smith",
+      "phone": "0779876543",
+      "email": "jane@example.com",
+      "address": "123 Main St"
+    }
