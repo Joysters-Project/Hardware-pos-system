@@ -43,38 +43,48 @@ const login = async (req, res) => {
                 return res.status(403).json({ message: `Account locked. Try again after ${remaining} minutes` });
             }
         }
-        // 2. Use bcrypt to compare the typed password with the scrambled one in DB
-        const isMatch = await bcrypt.compare(password, user.password);
+        // 2. Use bcrypt to compare the typed password with the stored hash
+        let isMatch = false;
+        if (user.password) {
+          isMatch = await bcrypt.compare(password, user.password);
+        }
+
+        // Legacy fallback: if password was stored as plain text, compare directly and then re-hash
+        if (!isMatch && user.password && !user.password.startsWith('$2b$') && !user.password.startsWith('$2a$')) {
+          if (password === user.password) {
+            const hashedPassword = await bcrypt.hash(password, 10);
+            await user.update({ password: hashedPassword, failed_attempts: 0, lock_time: null });
+            isMatch = true;
+          }
+        }
+
         if (isMatch) {
             // Reset failed attempts on successful login
             await user.update({ failed_attempts: 0, lock_time: null });
-            //return res.status(200).send("Success");
-            //return res.status(200).json({message:"Success",user: user});
             const department_id = (user.employee && user.employee.department_id) ? user.employee.department_id : null;
             const secret = process.env.JWT_SECRET || "MySuperSecretKey123!";
             const token = jwt.sign({user_id: user.user_id, role: user.role, department_id: department_id },
                 secret,{ expiresIn: "1h" }
             );
             console.log("DEBUG - JWT Secret:", process.env.JWT_SECRET);
-            // send the token to the client
             return res.status(200).json({message: "Login successful",token: token});
-            } 
+        } 
         else {
             // Increment failed attempts
             let attempts = (user.failed_attempts || 0) + 1;
             let updates = { failed_attempts: attempts };
 
             // Lock account if attempts >= 5
-        if (attempts >= 5) {
-            updates.is_locked = true;
-            updates.lock_time = new Date(); // save lock time
-        }
-        await user.update(updates);
-        return res.status(401).json({ 
-            message: attempts >= 5 
-                ? "Account locked due to 5 failed login attempts" 
-                : `Invalid Username or Password. You have only ${5 - attempts} attempts left`
-        });
+            if (attempts >= 5) {
+                updates.is_locked = true;
+                updates.lock_time = new Date(); // save lock time
+            }
+            await user.update(updates);
+            return res.status(401).json({ 
+                message: attempts >= 5 
+                    ? "Account locked due to 5 failed login attempts" 
+                    : `Invalid Username or Password. You have only ${5 - attempts} attempts left`
+            });
         }
 
     } catch (error) {

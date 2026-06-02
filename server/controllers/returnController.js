@@ -1,5 +1,5 @@
 ﻿const { Op } = require('sequelize');
-const { bills, bill_items, products, customers, returns } = require('../models');
+const { bills, bill_items, products, customers, returns, supplier_returns } = require('../models');
 const ReturnService = require('../services/returnService');
 
 exports.processReturn = async (req, res) => {
@@ -138,8 +138,10 @@ exports.getAllReturns = async (req, res) => {
       where: whereClause,
       include: [
         { model: bills, attributes: ['bill_no'] },
-        { model: products, attributes: ['product_name'] }
-      ]
+        { model: products, attributes: ['product_name'] },
+        { model: supplier_returns, attributes: ['supplier_id', 'quantity', 'status', 'created_at'] }
+      ],
+      order: [['return_date', 'DESC']]
     });
 
     res.status(200).json({ success: true, data: returnList });

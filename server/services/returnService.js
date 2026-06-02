@@ -19,6 +19,7 @@ class ReturnService {
     const destination = String(returnData.destination || '').toUpperCase();
     const destination_note = returnData.destination_note || null;
     const supplier_id = returnData.supplier_id ? Number(returnData.supplier_id) : null;
+    const po_id = returnData.po_id ? Number(returnData.po_id) : null;
     const reason = returnData.reason || null;
 
     if (!bill_id || !product_id || !return_quantity || !destination) {
@@ -80,6 +81,9 @@ class ReturnService {
         return_date: new Date(),
         destination,
         destination_note,
+        supplier_id,
+        po_id,
+        debit_note_raised: destination === 'SUPPLIER' && !!po_id,
         processed_by: userId,
         reason
       }, { transaction: t });
@@ -108,13 +112,17 @@ class ReturnService {
 
       await audit_log.create({
         user_id: userId,
-        action: 'PROCESS_RETURN',
+        action: `PROCESS_RETURN_${destination}`,
         details: JSON.stringify({
           bill_no: bill.bill_no,
           product_id: billItem.product_id,
           return_quantity,
           refund_amount,
-          destination
+          destination,
+          destination_note,
+          supplier_id,
+          po_id,
+          debit_note_raised: destination === 'SUPPLIER' && !!po_id
         })
       }, { transaction: t });
 

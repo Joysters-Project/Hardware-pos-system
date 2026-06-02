@@ -1,5 +1,0 @@
-$kind: collection
-name: Hardware POS System
-variables:
-  - key: baseUrl
-    value: 'http://localhost:5000'

@@ -1,5 +1,0 @@
-$kind: http-request
-name: Get All Products
-method: GET
-url: '{{baseUrl}}/api/products'
-order: 2000

@@ -1,8 +1,13 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../utils/axios';
 
-const DESTINATIONS = ['STOCK', 'REPAIR', 'SUPPLIER', 'WRITEOFF'];
+const DESTINATIONS = [
+  { value: 'STOCK', label: 'Back to Stock', description: 'Good item — sellable again' },
+  { value: 'REPAIR', label: 'Send to Repair', description: 'Fixable item — move to repair stock' },
+  { value: 'SUPPLIER', label: 'Send to Supplier', description: 'Defective batch — supplier return / debit note' },
+  { value: 'WRITEOFF', label: 'Write Off / Damaged', description: 'Beyond repair — loss recorded' }
+];
 const RESTRICTED_DESTINATIONS = ['SUPPLIER', 'WRITEOFF'];
 
 function ReturnPage({ userRole }) {
@@ -17,6 +22,7 @@ function ReturnPage({ userRole }) {
   const [destination, setDestination] = useState('STOCK');
   const [destinationNote, setDestinationNote] = useState('');
   const [supplierId, setSupplierId] = useState('');
+  const [poId, setPoId] = useState('');
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -37,6 +43,7 @@ function ReturnPage({ userRole }) {
     setDestination('STOCK');
     setDestinationNote('');
     setSupplierId('');
+    setPoId('');
     setPreview(null);
     setError('');
     setShowSuccess(false);
@@ -81,6 +88,7 @@ function ReturnPage({ userRole }) {
     setDestination('STOCK');
     setDestinationNote('');
     setSupplierId('');
+    setPoId('');
     setError('');
     setStep(1);
   };
@@ -142,13 +150,13 @@ function ReturnPage({ userRole }) {
   const summaryNotice = () => {
     switch (destination) {
       case 'STOCK':
-        return 'Returned goods will be restocked into inventory.';
+        return 'Returned goods will be restocked and made sellable again.';
       case 'REPAIR':
-        return 'Returned goods will move to repair inventory for later inspection.';
+        return 'Returned goods will move to repair inventory and await inspection.';
       case 'SUPPLIER':
-        return 'Returned goods will be recorded for supplier return processing.';
+        return 'Returned goods will be prepared for supplier return and debit note processing.';
       case 'WRITEOFF':
-        return 'Returned goods will be written off and removed from inventory value.';
+        return 'Returned goods will be written off as damaged and recorded as a loss.';
       default:
         return '';
     }
@@ -173,6 +181,7 @@ function ReturnPage({ userRole }) {
       destination,
       destination_note: destinationNote,
       supplier_id: supplierId ? Number(supplierId) : null,
+      po_id: poId ? Number(poId) : null,
       reason: destinationNote || `Return for ${selectedItem.product_name || selectedItem.product_id}`
     };
 
@@ -206,9 +215,16 @@ function ReturnPage({ userRole }) {
   return (
     <div className="return-page" style={{ padding: '24px', minHeight: '100vh', background: '#100606', color: '#f5ecec' }}>
       <div style={{ marginBottom: '24px' }}>
-        <button onClick={goBack} style={{ marginBottom: '16px', background: '#2f0707', color: '#f8fafc', border: '1px solid #4f0f0f', padding: '10px 14px', borderRadius: 10, cursor: 'pointer' }}>
-          ← Back
-        </button>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+          <button onClick={goBack} style={{ marginBottom: '16px', background: '#2f0707', color: '#f8fafc', border: '1px solid #4f0f0f', padding: '10px 14px', borderRadius: 10, cursor: 'pointer' }}>
+            ← Back
+          </button>
+          {['Manager', 'Admin'].includes(userRole) && (
+            <Link to="/return-logs" style={{ marginBottom: '16px', background: '#3f0f0f', color: '#f8fafc', border: '1px solid #6f1010', padding: '10px 14px', borderRadius: 10, textDecoration: 'none' }}>
+              View Return Logs
+            </Link>
+          )}
+        </div>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           {labels.map((label, index) => (
             <div key={label} style={{
@@ -342,14 +358,14 @@ function ReturnPage({ userRole }) {
                   <h2>Choose Destination</h2>
                   <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
                     {DESTINATIONS.map((option) => {
-                      const disabled = isRestrictedUser && RESTRICTED_DESTINATIONS.includes(option);
+                      const disabled = isRestrictedUser && RESTRICTED_DESTINATIONS.includes(option.value);
                       return (
-                        <label key={option} style={{
+                        <label key={option.value} style={{
                           display: 'block',
                           padding: '14px',
                           borderRadius: 12,
                           border: `1px solid ${disabled ? '#5c0d0d' : '#800000'}`,
-                          background: destination === option ? 'rgba(128, 0, 0, 0.22)' : '#1f0707',
+                          background: destination === option.value ? 'rgba(128, 0, 0, 0.22)' : '#1f0707',
                           opacity: disabled ? 0.5 : 1,
                           cursor: disabled ? 'not-allowed' : 'pointer',
                           color: '#f5ecec'
@@ -357,14 +373,15 @@ function ReturnPage({ userRole }) {
                           <input
                             type="radio"
                             name="destination"
-                            value={option}
-                            checked={destination === option}
-                            onChange={() => handleDestinationChange(option)}
+                            value={option.value}
+                            checked={destination === option.value}
+                            onChange={() => handleDestinationChange(option.value)}
                             disabled={disabled}
                             style={{ marginRight: 8 }}
                           />
-                          {option}
-                          {disabled && ' – Manager required'}
+                          <span style={{ fontWeight: 700 }}>{option.label}</span>
+                          <div style={{ fontSize: 12, color: '#d7c0c0', marginTop: 4 }}>{option.description}</div>
+                          {disabled && <div style={{ fontSize: 12, color: '#ffb3b3', marginTop: 4 }}>Manager approval required</div>}
                         </label>
                       );
                     })}
@@ -400,16 +417,28 @@ function ReturnPage({ userRole }) {
                     </div>
 
                     {destination === 'SUPPLIER' && (
-                      <div style={{ display: 'grid', gap: 6 }}>
-                        <label>Supplier ID</label>
-                        <input
-                          type="number"
-                          value={supplierId}
-                          onChange={(e) => setSupplierId(e.target.value)}
-                          placeholder="Enter supplier ID"
-                          style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #4f0f0f', background: '#1b0707', color: '#f5ecec' }}
-                        />
-                      </div>
+                      <>
+                        <div style={{ display: 'grid', gap: 6 }}>
+                          <label>Supplier ID</label>
+                          <input
+                            type="number"
+                            value={supplierId}
+                            onChange={(e) => setSupplierId(e.target.value)}
+                            placeholder="Enter supplier ID"
+                            style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #4f0f0f', background: '#1b0707', color: '#f5ecec' }}
+                          />
+                        </div>
+                        <div style={{ display: 'grid', gap: 6 }}>
+                          <label>Purchase Order / Debit Note ID</label>
+                          <input
+                            type="number"
+                            value={poId}
+                            onChange={(e) => setPoId(e.target.value)}
+                            placeholder="Enter PO ID if available"
+                            style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #4f0f0f', background: '#1b0707', color: '#f5ecec' }}
+                          />
+                        </div>
+                      </>
                     )}
 
                     {error && <div style={{ color: '#b91c1c' }}>{error}</div>}
@@ -437,6 +466,16 @@ function ReturnPage({ userRole }) {
                     <div>
                       <strong>Destination:</strong> {destination}
                     </div>
+                    {supplierId && (
+                      <div>
+                        <strong>Supplier ID:</strong> {supplierId}
+                      </div>
+                    )}
+                    {poId && (
+                      <div>
+                        <strong>PO / Debit Note ID:</strong> {poId}
+                      </div>
+                    )}
                     <div>
                       <strong>Price at Sale:</strong> Rs. {selectedItem.price_per_unit}
                     </div>
