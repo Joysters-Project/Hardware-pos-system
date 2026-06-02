@@ -84,10 +84,15 @@ function Catalog() {
     return "unit_name";
   };
 
+  // Helpers for singular labels (fix "Categorie" -> "Category")
+  const getSingular = (tab) => (tab === "categories" ? "category" : tab.slice(0, -1));
+  const getSingularCapitalized = (tab) =>
+    getSingular(tab).charAt(0).toUpperCase() + getSingular(tab).slice(1);
+
   // Fetch and show schema details in side panel
   const handleShowSchema = async () => {
     let tableName = activeTab === "categories" ? "category" : activeTab;
-    let tableLabel = activeTab === "categories" ? "Category" : activeTab.slice(0, -1);
+    let tableLabel = getSingularCapitalized(activeTab);
 
     setSchemaPanel(prev => ({ ...prev, loading: true, isOpen: true, tableName, tableLabel }));
 
@@ -130,7 +135,7 @@ function Catalog() {
       const payload = { [getPayloadKey()]: formData.name.trim() };
       const res = await axios.post(getEndpoint(), payload);
       
-      toast.success(`${activeTab.slice(0, -1)} created successfully`);
+      toast.success(`${getSingular(activeTab)} created successfully`);
       setFormData({ name: "" });
       loadData();
     } catch (error) {
@@ -198,7 +203,7 @@ function Catalog() {
         if (error.response?.status === 400) {
           const linkedCount = error.response.data.linkedProductCount || 0;
           toast.error(
-            `Cannot delete: ${linkedCount} product(s) linked to this ${activeTab.slice(0, -1)}. ` +
+            `Cannot delete: ${linkedCount} product(s) linked to this ${getSingular(activeTab)}. ` +
             "Please update or remove the products first."
           );
         } else {
@@ -212,6 +217,9 @@ function Catalog() {
 
   const fieldNames = getFieldNames();
   const currentData = getCurrentData();
+  const sortedCurrentData = [...currentData].sort(
+    (a, b) => Number(a[fieldNames.id]) - Number(b[fieldNames.id])
+  );
 
   const DashboardComponent = user?.role === "manager" ? ManagerDashboard : AdminDashboard;
 
@@ -249,11 +257,11 @@ function Catalog() {
         <div className="catalog-content">
           {/* Add Form */}
           <div className="add-form-section">
-            <h3>Add New {activeTab.slice(0, -1).charAt(0).toUpperCase() + activeTab.slice(1, -1)}</h3>
+            <h3>Add New {getSingularCapitalized(activeTab)}</h3>
             <form onSubmit={handleAdd} className="add-form">
               <input
                 type="text"
-                placeholder={`Enter ${activeTab.slice(0, -1)} name...`}
+                placeholder={`Enter ${getSingular(activeTab)} name...`}
                 value={formData.name}
                 onChange={(e) => setFormData({ name: e.target.value })}
                 disabled={loading}
@@ -272,13 +280,7 @@ function Catalog() {
                 {activeTab === "brands" && "Brands"}
                 {activeTab === "units" && "Units"}
               </h3>
-              <button 
-                className="schema-btn"
-                onClick={handleShowSchema}
-                title="View table schema and attributes"
-              >
-                🔍 View Schema
-              </button>
+              
             </div>
 
             {loading && <p className="loading-text">Loading...</p>}
@@ -287,7 +289,7 @@ function Catalog() {
               <p className="empty-message">No items yet. Add one to get started!</p>
             )}
 
-            {!loading && currentData.length > 0 && (
+            {!loading && sortedCurrentData.length > 0 && (
               <table className="catalog-table">
                 <thead>
                   <tr>
@@ -297,7 +299,7 @@ function Catalog() {
                   </tr>
                 </thead>
                 <tbody>
-                  {currentData.map((item) => (
+                  {sortedCurrentData.map((item) => (
                     <tr key={item[fieldNames.id]} className="table-row">
                       <td className="cell-id">{item[fieldNames.id]}</td>
                       <td className="cell-name">
