@@ -36,13 +36,13 @@ exports.createCategory = async (req, res) => {
 };
 
 // GET All Categories
-exports.getAllCategory = async (req, res) => {
+exports.getAllCategories = async (req, res) => {
   try {
-    const category = await category.findAll({
+    const categories = await category.findAll({
       order: [['category_id', 'DESC']]
     });
 
-    res.status(200).json(category);
+    res.status(200).json(categories);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
