@@ -1,5 +1,0 @@
-$kind: http-request
-name: Get Bill by ID
-method: GET
-url: '{{baseUrl}}/api/bills/1'
-order: 3000

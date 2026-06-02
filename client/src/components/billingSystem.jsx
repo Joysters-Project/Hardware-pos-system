@@ -45,10 +45,10 @@ const BillingSystem = () => {
           <tr>
             <td style="padding:6px 0;border-bottom:1px solid #eee;">
               <div>${item.product_name}</div>
-              <div style="font-size:12px;color:#666;">₹${item.unit_price.toFixed(2)} x ${item.quantity}${itemDiscount ? ` - ₹${itemDiscount.toFixed(2)} disc` : ''}</div>
+              <div style="font-size:12px;color:#666;"><strong>Rs.</strong>${item.unit_price.toFixed(2)} x ${item.quantity}${itemDiscount ? ` - <strong>Rs.</strong>${itemDiscount.toFixed(2)} disc` : ''}</div>
             </td>
             <td style="text-align:center;padding:6px 0;border-bottom:1px solid #eee;">${item.quantity}</td>
-            <td style="text-align:right;padding:6px 0;border-bottom:1px solid #eee;">₹${itemTotal.toFixed(2)}</td>
+            <td style="text-align:right;padding:6px 0;border-bottom:1px solid #eee;"><strong>Rs.</strong>${itemTotal.toFixed(2)}</td>
           </tr>`;
     }).join('');
 
@@ -103,12 +103,12 @@ const BillingSystem = () => {
     <div class="divider"></div>
 
     <div class="section totals">
-      <p><strong>Subtotal:</strong> ₹${(lastBill.subtotal ?? 0).toFixed(2)}</p>
-      <p><strong>Discount:</strong> ₹${(lastBill.discount ?? 0).toFixed(2)}</p>
-      <p><strong>Total:</strong> ₹${(lastBill.total_amount ?? 0).toFixed(2)}</p>
-      <p><strong>Amount Paid:</strong> ₹${(lastBill.amount_paid ?? 0).toFixed(2)}</p>
-      <p><strong>Returned:</strong> ₹${(lastBill.change_returned ?? 0).toFixed(2)}</p>
-      ${lastBill.due_amount > 0 ? `<p style="color:#d9534f;"><strong>Partial Paid:</strong> ₹${(lastBill.amount_paid ?? 0).toFixed(2)}</p><p style="color:#d9534f;"><strong>Due:</strong> ₹${lastBill.due_amount.toFixed(2)}</p>` : ''}
+      <p><strong>Subtotal:</strong> <strong>Rs.</strong>${(lastBill.subtotal ?? 0).toFixed(2)}</p>
+      <p><strong>Discount:</strong> <strong>Rs.</strong>${(lastBill.discount ?? 0).toFixed(2)}</p>
+      <p><strong>Total:</strong> <strong>Rs.</strong>${(lastBill.total_amount ?? 0).toFixed(2)}</p>
+      <p><strong>Amount Paid:</strong> <strong>Rs.</strong>${(lastBill.amount_paid ?? 0).toFixed(2)}</p>
+      <p><strong>Returned:</strong> <strong>Rs.</strong>${(lastBill.change_returned ?? 0).toFixed(2)}</p>
+      ${lastBill.due_amount > 0 ? `<p style="color:#d9534f;"><strong>Partial Paid:</strong> <strong>Rs.</strong>${(lastBill.amount_paid ?? 0).toFixed(2)}</p><p style="color:#d9534f;"><strong>Due:</strong> <strong>Rs.</strong>${lastBill.due_amount.toFixed(2)}</p>` : ''}
     </div>
 
     <div class="divider"></div>
@@ -142,25 +142,34 @@ const BillingSystem = () => {
 
   // Search for products
   const handleSearch = async (query) => {
+    const trimmedQuery = query.trim();
     setSearchQuery(query);
-    if (!query.trim()) {
+
+    if (!trimmedQuery) {
       setSearchResults([]);
       setShowResults(false);
       return;
     }
 
     try {
-      const res = await api.get(`/products/search?q=${query}`);
-      const activeResults = res.data.filter(product => ([0, '0', 'active', 'Active', 'ACTIVE'].includes(product.status)) && product.stock_quantity > 0);
+      const res = await api.get('/products/search', {
+        params: { q: trimmedQuery }
+      });
+      const products = Array.isArray(res.data) ? res.data : [];
+      const activeResults = products.filter(product => isProductActive(product));
       setSearchResults(activeResults);
       setShowResults(activeResults.length > 0);
     } catch (err) {
       console.error('Search error:', err);
       setSearchResults([]);
+      setShowResults(false);
     }
   };
 
-  const isProductActive = (product) => ([0, '0', 'active', 'Active', 'ACTIVE'].includes(product.status));
+  const isProductActive = (product) => {
+    const activeStatuses = ['active', 'Active', 'ACTIVE'];
+    return activeStatuses.includes(product.status);
+  };
 
   const lookupCustomerByPhone = async (phone) => {
     if (!phone.trim()) {
@@ -328,12 +337,13 @@ const BillingSystem = () => {
               top: '45px',
               left: 0,
               right: 0,
-              background: '#f9f9f9',
-              border: '1px solid #ddd',
+              background: '#1d0808',
+              border: '1px solid #4d0e0e',
               borderRadius: '4px',
-              maxHeight: '200px',
+              maxHeight: '220px',
               overflowY: 'auto',
-              zIndex: 10
+              zIndex: 10,
+              color: '#f8eded'
             }}>
               {searchResults.map((product) => (
                 <div
@@ -341,19 +351,36 @@ const BillingSystem = () => {
                   onClick={() => handleAddToCart(product)}
                   style={{
                     padding: '10px',
-                    borderBottom: '1px solid #eee',
+                    borderBottom: '1px solid rgba(255,255,255,0.08)',
                     cursor: 'pointer',
                     display: 'flex',
                     justifyContent: 'space-between',
-                    alignItems: 'center'
+                    alignItems: 'center',
+                    background: '#1d0808'
                   }}
-                  onMouseEnter={(e) => e.target.parentElement.style.background = '#f0f0f0'}
-                  onMouseLeave={(e) => e.target.parentElement.style.background = '#f9f9f9'}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#3e0d0d'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = '#1d0808'}
                 >
-                  <span><strong>{product.product_name}</strong> - Stock: {product.stock_quantity}</span>
-                  <span style={{ color: '#800000', fontWeight: 'bold' }}>₹{product.unit_price}</span>
+                  <span style={{ color: '#f4e8e8' }}><strong>{product.product_name}</strong> - Stock: {product.stock_quantity}</span>
+                  <span style={{ color: '#ffcbc5', fontWeight: 'bold' }}><strong>Rs.</strong>{product.unit_price}</span>
                 </div>
               ))}
+            </div>
+          )}
+          {searchQuery.trim() && !showResults && searchResults.length === 0 && (
+            <div style={{
+              position: 'absolute',
+              top: '45px',
+              left: 0,
+              right: 0,
+              background: '#1d0808',
+              border: '1px solid #4d0e0e',
+              borderRadius: '4px',
+              padding: '12px',
+              zIndex: 10,
+              color: '#e7d7d7'
+            }}>
+              No matching products found for "{searchQuery.trim()}".
             </div>
           )}
         </div>
@@ -393,8 +420,8 @@ const BillingSystem = () => {
                       style={{ width: '50px', padding: '5px' }}
                     />
                   </td>
-                  <td style={{ textAlign: 'right', padding: '10px' }}>₹{item.unit_price.toFixed(2)}</td>
-                  <td style={{ textAlign: 'right', padding: '10px' }}>₹{(item.unit_price * item.quantity).toFixed(2)}</td>
+                  <td style={{ textAlign: 'right', padding: '10px' }}><strong>Rs.</strong>{item.unit_price.toFixed(2)}</td>
+                  <td style={{ textAlign: 'right', padding: '10px' }}><strong>Rs.</strong>{(item.unit_price * item.quantity).toFixed(2)}</td>
                   <td style={{ textAlign: 'center', padding: '10px' }}>
                     <button
                       onClick={() => handleRemoveFromCart(idx)}
@@ -422,7 +449,7 @@ const BillingSystem = () => {
         <h2>Payment Detail</h2>
         <div style={{ marginBottom: '20px' }}>
           <label>Subtotal:</label>
-          <div style={{ fontSize: '18px', fontWeight: 'bold' }}>₹{subtotal.toFixed(2)}</div>
+          <div style={{ fontSize: '18px', fontWeight: 'bold' }}><strong>Rs.</strong>{subtotal.toFixed(2)}</div>
         </div>
 
         <div style={{ marginBottom: '20px' }}>
@@ -440,10 +467,10 @@ const BillingSystem = () => {
         </div>
 
         {balance >= 0 ? (
-          <h3 style={{ color: '#049104c3' }}>Return Change: ₹{balance.toFixed(2)}</h3>
+          <h3 style={{ color: '#049104c3' }}>Return Change: <strong>Rs.</strong>{balance.toFixed(2)}</h3>
         ) : (
           <div style={{ border: '1px solid #ff9900', padding: '10px', marginTop: '10px', borderRadius: '4px' }}>
-            <p style={{ color: '#ff9900', margin: '5px 0' }}>Partial Payment: ₹{Math.abs(balance).toFixed(2)} Due</p>
+            <p style={{ color: '#ff9900', margin: '5px 0' }}>Partial Payment: <strong>Rs.</strong>{Math.abs(balance).toFixed(2)} Due</p>
             <label htmlFor="customerName">Customer Name</label>
             <input
               id="customerName"
@@ -488,7 +515,7 @@ const BillingSystem = () => {
         )}
 
         <div style={{ marginTop: '30px', borderTop: '1px solid white', paddingTop: '20px' }}>
-          <h1 style={{ margin: '10px 0', fontSize: '32px' }}>₹{total.toFixed(2)}</h1>
+          <h1 style={{ margin: '10px 0', fontSize: '32px' }}><strong>Rs.</strong>{total.toFixed(2)}</h1>
           <button
             onClick={handleCheckout}
             disabled={cart.length === 0}
@@ -542,10 +569,10 @@ const BillingSystem = () => {
                       <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
                         <td style={{ padding: '6px 0' }}>
                           <div>{item.product_name}</div>
-                          <div style={{ fontSize: '12px', color: '#666' }}>₹{item.unit_price.toFixed(2)} x {item.quantity}{itemDiscount ? ` - ₹${itemDiscount.toFixed(2)} disc` : ''}</div>
+                          <div style={{ fontSize: '12px', color: '#666' }}><strong>Rs.</strong>{item.unit_price.toFixed(2)} x {item.quantity}{itemDiscount ? ` - <strong>Rs.</strong>${itemDiscount.toFixed(2)} disc` : ''}</div>
                         </td>
                         <td style={{ textAlign: 'center', padding: '6px 0' }}>{item.quantity}</td>
-                        <td style={{ textAlign: 'right', padding: '6px 0' }}>₹{itemTotal.toFixed(2)}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 0' }}><strong>Rs.</strong>{itemTotal.toFixed(2)}</td>
                       </tr>
                     );
                   })}
@@ -554,15 +581,15 @@ const BillingSystem = () => {
             </div>
 
             <div style={{ borderTop: '1px solid #ccc', paddingTop: '12px', marginBottom: '12px' }}>
-              <p style={{ margin: '4px 0' }}><strong>Subtotal:</strong> ₹{lastBill.subtotal?.toFixed(2)}</p>
-              <p style={{ margin: '4px 0' }}><strong>Discount:</strong> ₹{(lastBill.discount || 0).toFixed(2)}</p>
-              <p style={{ margin: '4px 0' }}><strong>Total:</strong> ₹{lastBill.total_amount?.toFixed(2)}</p>
-              <p style={{ margin: '4px 0' }}><strong>Amount Paid:</strong> ₹{(lastBill.amount_paid ?? 0).toFixed(2)}</p>
-              <p style={{ margin: '4px 0' }}><strong>Returned:</strong> ₹{(lastBill.change_returned ?? 0).toFixed(2)}</p>
+              <p style={{ margin: '4px 0' }}><strong>Subtotal:</strong> <strong>Rs.</strong>{lastBill.subtotal?.toFixed(2)}</p>
+              <p style={{ margin: '4px 0' }}><strong>Discount:</strong> <strong>Rs.</strong>{(lastBill.discount || 0).toFixed(2)}</p>
+              <p style={{ margin: '4px 0' }}><strong>Total:</strong> <strong>Rs.</strong>{lastBill.total_amount?.toFixed(2)}</p>
+              <p style={{ margin: '4px 0' }}><strong>Amount Paid:</strong> <strong>Rs.</strong>{(lastBill.amount_paid ?? 0).toFixed(2)}</p>
+              <p style={{ margin: '4px 0' }}><strong>Returned:</strong> <strong>Rs.</strong>{(lastBill.change_returned ?? 0).toFixed(2)}</p>
               {lastBill.due_amount > 0 && (
                 <>
-                  <p style={{ margin: '4px 0', color: '#d9534f' }}><strong>Partial Paid:</strong> ₹{(lastBill.amount_paid ?? 0).toFixed(2)}</p>
-                  <p style={{ margin: '4px 0', color: '#d9534f' }}><strong>Due:</strong> ₹{lastBill.due_amount?.toFixed(2)}</p>
+                  <p style={{ margin: '4px 0', color: '#d9534f' }}><strong>Partial Paid:</strong> <strong>Rs.</strong>{(lastBill.amount_paid ?? 0).toFixed(2)}</p>
+                  <p style={{ margin: '4px 0', color: '#d9534f' }}><strong>Due:</strong> <strong>Rs.</strong>{lastBill.due_amount?.toFixed(2)}</p>
                 </>
               )}
             </div>

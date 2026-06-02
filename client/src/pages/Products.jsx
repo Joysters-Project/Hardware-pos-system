@@ -176,8 +176,6 @@ function ProductsPage() {
 			resetForm();
 			await loadPageData();
 		} catch (error) {
-			toast.error(error.response?.data?.error || "Failed to save product");
-		} finally {
 			setSubmitting(false);
 		}
 	};

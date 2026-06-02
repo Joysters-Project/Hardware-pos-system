@@ -87,7 +87,11 @@ function AppRoutes() {
       />
       <Route 
         path="/returns" 
-        element={<ProtectedRoute><ReturnSystem /></ProtectedRoute>} 
+        element={<ProtectedRoute><ReturnPage userRole={role} /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/return-logs" 
+        element={<ProtectedRoute><ReturnLogs /></ProtectedRoute>} 
       />
       <Route 
         path="/receipts" 
