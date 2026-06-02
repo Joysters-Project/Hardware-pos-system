@@ -1,8 +1,9 @@
 .return-system {
   padding: 24px;
-  background-color: #f4f6f8;
+  background-color: #100606;
   min-height: 100vh;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #f5ecec;
 }
 
 .return-header {
@@ -12,15 +13,15 @@
 }
 
 .return-header h1 {
-  color: #800000;
+  color: #f8fafc;
   margin: 0 0 0 20px;
   font-size: 1.8rem;
 }
 
 .back-btn {
-  background-color: #fff;
-  color: #800000;
-  border: 1px solid #800000;
+  background-color: #2f0707;
+  color: #f8fafc;
+  border: 1px solid #4f0f0f;
   padding: 8px 16px;
   border-radius: 6px;
   cursor: pointer;
@@ -40,14 +41,14 @@
 }
 
 .card {
-  background: white;
+  background: #210909;
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.4);
 }
 
 .card h2 {
-  color: #333;
+  color: #f8fafc;
   font-size: 1.3rem;
   margin-top: 0;
   margin-bottom: 20px;
@@ -64,9 +65,11 @@
 .search-box input {
   flex: 1;
   padding: 10px 14px;
-  border: 1px solid #ddd;
+  border: 1px solid #4e1c1c;
   border-radius: 6px;
   font-size: 1rem;
+  background: #1b0707;
+  color: #f5ecec;
 }
 
 .search-box button {
@@ -80,7 +83,7 @@
 }
 
 .search-box button:hover:not(:disabled) {
-  background-color: #600000;
+  background-color: #a00000;
 }
 
 .search-box button:disabled {
@@ -89,7 +92,7 @@
 }
 
 .bill-details h3 {
-  color: #555;
+  color: #f8fafc;
   margin-bottom: 15px;
 }
 
@@ -104,21 +107,21 @@
   justify-content: space-between;
   align-items: center;
   padding: 12px;
-  border: 1px solid #eee;
+  border: 1px solid #4e1c1c;
   margin-bottom: 10px;
   border-radius: 6px;
-  background-color: #fafafa;
+  background-color: #1b0707;
 }
 
 .item-list li.selected-item {
   border-color: #800000;
-  background-color: rgba(128, 0, 0, 0.05);
+  background-color: #380909;
 }
 
 .select-btn {
   background-color: transparent;
-  color: #800000;
-  border: 1px solid #800000;
+  color: #ffcece;
+  border: 1px solid #ffcece;
   padding: 4px 12px;
   border-radius: 4px;
   cursor: pointer;
@@ -137,15 +140,17 @@
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: #444;
+  color: #f8fafc;
 }
 
 .form-group input[type="number"], .form-group textarea {
   width: 100%;
   padding: 10px;
-  border: 1px solid #ddd;
+  border: 1px solid #4e1c1c;
   border-radius: 6px;
   font-family: inherit;
+  background: #1b0707;
+  color: #f5ecec;
 }
 
 .form-group textarea {
@@ -165,25 +170,27 @@
   gap: 10px;
   font-weight: normal;
   padding: 12px;
-  border: 1px solid #ddd;
+  border: 1px solid #4e1c1c;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
+  background: #1b0707;
+  color: #f5ecec;
 }
 
 .radio-group label:has(input:checked) {
   border-color: #800000;
-  background-color: rgba(128, 0, 0, 0.05);
+  background-color: rgba(128, 0, 0, 0.25);
 }
 
 .warning-box {
-  background-color: #fff3cd;
-  color: #856404;
+  background-color: #340909;
+  color: #f8fafc;
   padding: 12px;
   border-radius: 6px;
   font-size: 0.9rem;
   margin-top: 15px;
-  border: 1px solid #ffeeba;
+  border: 1px solid #4e1c1c;
 }
 
 .submit-return-btn {
@@ -201,11 +208,11 @@
 }
 
 .submit-return-btn:hover {
-  background-color: #600000;
+  background-color: #a00000;
 }
 
 .placeholder-text {
-  color: #888;
+  color: #d0b8b8;
   text-align: center;
   padding: 40px 0;
   font-style: italic;
@@ -221,7 +228,7 @@
 }
 
 .return-success-container p {
-  color: #666;
+  color: #d0b8b8;
   font-size: 1.2rem;
   margin-top: 10px;
 }

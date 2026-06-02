@@ -7,9 +7,16 @@ import "../styles/Products.css";
 
 const API = "http://localhost:5000/api/products";
 
+async function loadProducts(setProducts, setFilteredProducts) {
+  const res = await axios.get(API);
+  setProducts(res.data);
+  setFilteredProducts(res.data);
+}
+
 function ProductsPage(){
 
 const [products,setProducts] = useState([]);
+const [filteredProducts,setFilteredProducts] = useState([]);
 const [search,setSearch] = useState("");
 
 const [product,setProduct] = useState({
@@ -29,12 +36,24 @@ unit_id:""
 const [editId,setEditId] = useState(null);
 
 useEffect(()=>{
-loadProducts();
+  loadProducts(setProducts, setFilteredProducts);
 },[]);
 
-const loadProducts = async ()=>{
-const res = await axios.get(API);
-setProducts(res.data);
+const handleSearch = async (value) => {
+setSearch(value);
+const trimmed = value.trim();
+if (!trimmed) {
+setFilteredProducts(products);
+return;
+}
+
+try {
+const res = await axios.get(`${API}/search`, { params: { q: trimmed } });
+setFilteredProducts(Array.isArray(res.data) ? res.data : []);
+} catch (error) {
+console.error("Product search failed:", error);
+setFilteredProducts([]);
+}
 };
 
 const handleChange = (e)=>{
@@ -86,9 +105,7 @@ await axios.delete(`${API}/${id}`);
 loadProducts();
 };
 
-const filtered = products.filter(p =>
-p.product_name.toLowerCase().includes(search.toLowerCase())
-);
+const filtered = filteredProducts;
 
 return(
 
@@ -100,7 +117,7 @@ return(
 className="search"
 placeholder="Search product..."
 value={search}
-onChange={(e)=>setSearch(e.target.value)}
+onChange={(e)=>handleSearch(e.target.value)}
 />
 
 <div className="product-form">

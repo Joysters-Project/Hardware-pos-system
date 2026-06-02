@@ -123,7 +123,7 @@ function CashierDashboard() {
         <div className="content-grid">
           <div className="card">
             <h3>💰 Sales Today</h3>
-            <p className="number">₹{stats.salesToday.toFixed(2)}</p>
+            <p className="number"><strong>Rs.</strong>{stats.salesToday.toFixed(2)}</p>
             <small>{stats.transactionsCount} transactions</small>
           </div>
           <div className="card">

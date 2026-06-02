@@ -16,6 +16,7 @@ server/scripts/repair_passwords.js
 server/scripts/reset_cashier.js
 server/scripts/testPostBill.js
 server/scripts/sync_returns.js
+server/scripts/users_output.json
 
 # Build files (generated automatically)
 dist/

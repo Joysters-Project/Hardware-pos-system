@@ -1,4 +1,4 @@
-#root {
+﻿#root {
   width: 100%;
   margin: 0 auto;
 }
@@ -7,10 +7,10 @@
   width: 100%;
 }
 
-/* Custom Maroon Button Styles if you want to use them elsewhere */
+/* Dark theme button styles */
 .btn-maroon {
-  background-color: #941414;
-  color: rgb(154, 26, 26);
+  background-color: var(--accent);
+  color: #fff;
   border: none;
   padding: 10px 20px;
   border-radius: 4px;
@@ -19,5 +19,5 @@
 }
 
 .btn-maroon:hover {
-  background-color: #5a0000;
+  background-color: var(--accent-strong);
 }

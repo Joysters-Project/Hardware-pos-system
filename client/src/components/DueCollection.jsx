@@ -29,7 +29,16 @@ const DueCollection = () => {
 
   // Perform search
   const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
+    // Validate phone number - exactly 10 digits
+    if (!searchQuery.trim()) {
+      return toast.error("Enter a phone number");
+    }
+    
+    const phoneRegex = /^\d{10}$/;
+    if (!phoneRegex.test(searchQuery.trim())) {
+      return toast.error("Phone number must be exactly 10 digits");
+    }
+
     try {
       // 1. Fetch customer by phone (or generic search)
       // Since existing route is GET /customers?phone=...
@@ -139,10 +148,11 @@ const DueCollection = () => {
           <div className="due-search-box">
             <input 
               type="text" 
-              placeholder="Search by phone number or customer name..." 
+              placeholder="Search by phone number." 
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => setSearchQuery(e.target.value.replace(/\D/g, '').slice(0, 10))}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              maxLength="10"
             />
             <button onClick={handleSearch}>Search</button>
           </div>
@@ -158,12 +168,10 @@ const DueCollection = () => {
                   <small style={{ color: '#777' }}>{customer.phone} · {bills.length} partial bills</small>
                 </div>
               </div>
-              <div style={{ textAlign: "right" }}>
                 <div style={{ color: '#777', fontSize: '13px' }}>Total outstanding</div>
                 <div className="val-red" style={{ fontSize: '18px', fontWeight: 'bold' }}>
-                  ₹ {totalOutstanding.toFixed(2)}
+                  <strong>Rs.</strong> {totalOutstanding.toFixed(2)}
                 </div>
-              </div>
             </div>
           )}
 
@@ -201,8 +209,8 @@ const DueCollection = () => {
                         </div>
                       </td>
                       <td>{formatDate(bill.bill_date)}</td>
-                      <td>₹ {parseFloat(bill.total_amount).toFixed(2)}</td>
-                      <td className="val-red" style={{ fontWeight: 'bold' }}>₹ {parseFloat(bill.balance_due).toFixed(2)}</td>
+                      <td><strong>Rs.</strong> {parseFloat(bill.total_amount).toFixed(2)}</td>
+                      <td className="val-red" style={{ fontWeight: 'bold' }}><strong>Rs.</strong> {parseFloat(bill.balance_due).toFixed(2)}</td>
                       <td>
                         <span className="badge-partial">Partial</span>
                       </td>
@@ -219,7 +227,7 @@ const DueCollection = () => {
               {paymentHistory.map(hist => (
                 <div className="history-item" key={hist.payment_id}>
                   <div>
-                    <strong>₹ {parseFloat(hist.amount_paid).toFixed(2)}</strong> — {hist.payment_method}
+                    <strong>Rs. {parseFloat(hist.amount_paid).toFixed(2)}</strong> — {hist.payment_method}
                   </div>
                   <div style={{ color: '#777' }}>
                     {formatDate(hist.payment_date)}, {formatTime(hist.payment_date)}
@@ -243,22 +251,22 @@ const DueCollection = () => {
             </div>
             <div className="row">
               <span>Bill total</span>
-              <span>₹ {billTotal.toFixed(2)}</span>
+              <span><strong>Rs.</strong> {billTotal.toFixed(2)}</span>
             </div>
             <div className="row">
               <span>Paid so far</span>
-              <span>₹ {paidSoFar.toFixed(2)}</span>
+              <span><strong>Rs.</strong> {paidSoFar.toFixed(2)}</span>
             </div>
             <div className="row bold">
               <span>Balance due</span>
-              <span className="val-red">₹ {balanceDue.toFixed(2)}</span>
+              <span className="val-red"><strong>Rs.</strong> {balanceDue.toFixed(2)}</span>
             </div>
           </div>
 
           <div className="amount-input-group">
             <label>Amount collecting now</label>
             <div>
-              <span className="amount-symbol">₹</span>
+              <span className="amount-symbol"><strong>Rs.</strong></span>
               <input 
                 type="number" 
                 style={{ paddingLeft: '30px' }}
@@ -289,9 +297,9 @@ const DueCollection = () => {
             <div style={{ marginBottom: '5px' }}>After collection</div>
             {selectedBill ? (
               afterCollection <= 0 ? (
-                <span className="green">Balance: ₹ 0 — Fully paid</span>
+                <span className="green">Balance: <strong>Rs.</strong> 0 — Fully paid</span>
               ) : (
-                <span style={{ color: '#333', fontWeight: 'bold' }}>Balance: ₹ {afterCollection.toFixed(2)}</span>
+                <span style={{ color: '#333', fontWeight: 'bold' }}>Balance: <strong>Rs.</strong> {afterCollection.toFixed(2)}</span>
               )
             ) : (
               <span>--</span>
@@ -303,7 +311,7 @@ const DueCollection = () => {
             disabled={!selectedBill || collectAmount <= 0 || collectAmount > balanceDue}
             onClick={submitPayment}
           >
-            Collect ₹ {collectAmount ? collectAmount.toFixed(2) : "0.00"}
+            Collect <strong>Rs.</strong> {collectAmount ? collectAmount.toFixed(2) : "0.00"}
           </button>
         </div>
       </div>
@@ -313,7 +321,7 @@ const DueCollection = () => {
         animate={animSuccess} 
         onDismiss={handleSuccessDismiss} 
         message="Payment Received"
-        subMessage={`Successfully collected ₹ ${collectAmount.toFixed(2)}`}
+        subMessage={`Successfully collected Rs. ${collectAmount.toFixed(2)}`}
       />
     </div>
   );

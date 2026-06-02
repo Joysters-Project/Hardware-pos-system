@@ -1,13 +1,21 @@
 :root {
-  --primary-maroon: #800000;
-  --dark-maroon: #4d0000;
-  --bg-gray: #f4f4f4;
+  --bg-gray: #100607;
+  --surface: #240b0b;
+  --surface-soft: #361111;
+  --surface-muted: #2a0808;
+  --text: #f5ecec;
+  --text-muted: #c7b4b4;
+  --accent: #800000;
+  --accent-strong: #5e0000;
+  --border: #4a1c1c;
+  --accent-soft: rgba(128, 0, 0, 0.14);
 }
 
 body {
   margin: 0;
   font-family: 'Inter', system-ui, sans-serif;
   background-color: var(--bg-gray);
+  color: var(--text);
 }
 
 /* Print Media Query: Hides UI and only shows Receipt (Task: Success modal + Print) */

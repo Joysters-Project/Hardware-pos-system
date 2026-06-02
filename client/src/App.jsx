@@ -15,7 +15,7 @@ import Products from "./pages/Products";
 import Catalog from "./pages/Catalog";
 import BillingSystem from "./components/billingSystem";
 import DueCollection from "./components/DueCollection";
-import ReturnSystem from "./components/ReturnSystem";
+import ReturnPage from "./pages/ReturnPage";
 
 function AppRoutes() {
   const { isAuthenticated, role } = useAuth();
@@ -75,7 +75,7 @@ function AppRoutes() {
       />
       <Route 
         path="/returns" 
-        element={<ProtectedRoute><ReturnSystem /></ProtectedRoute>} 
+        element={<ProtectedRoute><ReturnPage userRole={role} /></ProtectedRoute>} 
       />
       <Route 
         path="/manager/departments" 
