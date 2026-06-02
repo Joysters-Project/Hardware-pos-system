@@ -7,6 +7,18 @@ server/node_modules/
 .env
 server/.env
 
+# Local development / generated output
+server/users_output.json
+server/scripts/check_cashiers.js
+server/scripts/check_query.js
+server/scripts/check_users_file.js
+server/scripts/repair_passwords.js
+server/scripts/reset_cashier.js
+server/scripts/testPostBill.js
+server/scripts/sync_returns.js
+server/scripts/users_output.json
+server/scripts/check_users.js
+
 # Build files (generated automatically)
 dist/
 client/dist/
@@ -19,3 +31,7 @@ Thumbs.db
 # Debug logs
 npm-debug.log*
 yarn-debug.
+
+postman/
+*.postman_collection.json
+*.postman_environment.json

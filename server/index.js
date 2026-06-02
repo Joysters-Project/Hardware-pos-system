@@ -1,30 +1,21 @@
 require('dotenv').config();
 const express = require('express');
-const { Sequelize } = require('sequelize');
 const cors = require('cors');
-//const db = require('./models'); // This automatically looks for models/index.js
-// Setup Sequelize Connection
-const sequelize = new Sequelize(
-  process.env.DB_NAME, 
-  process.env.DB_USER, 
-  process.env.DB_PASSWORD, 
-  {
-    host: process.env.DB_HOST,
-    dialect: 'mysql'
-  }
-);
-const models = require('./models')(sequelize); 
+
+//1. just require the DB object
+// These files rely on the .env variables being ready
+const db = require('./models');// This automatically looks for models/index.js
 const authRoutes = require('./routes/auth'); // Path to your routes/auth.js file
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// 1. Middleware
+// 2. Middleware
 app.use(cors()); // Allows React to talk to this server
 app.use(express.json()); // Allows server to read JSON from requests
 
-// 2. Database Sync
+// 3. Database Sync
 // This ensures all 17 tables from your models folder are ready in MySQL
-sequelize.sync({ alter: true })
+db.sequelize.sync({ force: false })
   .then(() => {
     console.log('✅ Database synced successfully');
   })
@@ -32,12 +23,10 @@ sequelize.sync({ alter: true })
     console.error('❌ Database sync failed:', err.message);
   });
 
-// 3. API Routes (Assignments for your team)
+// 4. API Routes (Assignments for your team)
 app.use('/api/auth',authRoutes);
-// Member B's Product API
-// const productRoutes = require('./routes/productRoutes');
-// app.use('/api/products', productRoutes);
 
+// 3. Import All Routes (Combined from Developer and POS Head)
 const departmentRoutes = require('./routes/departmentRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -55,7 +44,10 @@ const returnRoutes = require('./routes/returnRoutes');
 const alertRoutes = require('./routes/alertRoutes');
 const purchaseOrderRoutes = require('./routes/purchaseOrderRoutes');
 const poItemsRoutes = require('./routes/poItemsRoutes');
+const schemaRoutes = require('./routes/schemaRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 
+// 4. Register API Routes
 app.use('/api/departments', departmentRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/users', userRoutes);
@@ -66,23 +58,30 @@ app.use('/api/units', unitRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/customers', customerRoutes);
-app.use('/api/bills', billRoutes);
+app.use('/api/bills', billRoutes); // This covers your Sales/POS logic
 app.use('/api/bill_items', billItemsRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/returns', returnRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/purchase_orders', purchaseOrderRoutes);
 app.use('/api/po_items', poItemsRoutes);
+app.use('/api/schema', schemaRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
-// 4. Default Route
+// 5. Default Route
 app.get('/', (req, res) => {
-  res.send('POS Backend Server is Running...');
+  res.send('Mathumithan Hardware POS Backend is Running...');
 });
 
-// 5. Start Server
+// 6. Health Check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', uptime: process.uptime() });
+});
+
+// 7. Start Server
 app.listen(PORT, () => {
   console.log(`🚀 Server is listening on http://localhost:${PORT}`);
 });
 
 // Save models for global access if needed
-app.set('models', models);
+app.set('models', db);

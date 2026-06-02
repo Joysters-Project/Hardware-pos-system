@@ -1,9 +1,15 @@
 const { users } = require('../models');
+const bcrypt = require('bcrypt');
 
 // CREATE User
 exports.createUser = async (req, res) => {
   try {
-    const user = await users.create(req.body);
+    const { password, ...otherData } = req.body;
+    let hashedPassword = password;
+    if (password) {
+      hashedPassword = await bcrypt.hash(password, 10);
+    }
+    const user = await users.create({ ...otherData, password: hashedPassword });
 
     res.status(201).json({
       message: "User created successfully",
@@ -49,7 +55,12 @@ exports.updateUser = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    await user.update(req.body);
+    const updateData = { ...req.body };
+    if (updateData.password) {
+      updateData.password = await bcrypt.hash(updateData.password, 10);
+    }
+
+    await user.update(updateData);
 
     res.status(200).json({
       message: "User updated successfully",

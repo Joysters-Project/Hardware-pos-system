@@ -1,15 +1,28 @@
+const BillingService = require('../services/billingService');
 const { bills } = require('../models');
 
-// CREATE Bill
+// CREATE Bill (runs entire invoice workflow inside a transaction)
 exports.createBill = async (req, res) => {
   try {
-    const bill = await bills.create(req.body);
+    let userId = req.user?.id;
+
+    if (!userId && req.body.user_id) {
+      const requestedUser = await BillingService.findUserById(req.body.user_id);
+      if (requestedUser) userId = requestedUser.user_id;
+    }
+
+    if (!userId) {
+      userId = await BillingService.getSystemUserId();
+    }
+
+    const bill = await BillingService.createInvoice(req.body, userId);
 
     res.status(201).json({
-      message: "Bill created successfully",
-      data: bill
+      message: 'Bill created successfully',
+      data: bill,
     });
   } catch (error) {
+    console.error('Billing createBill error:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -17,7 +30,12 @@ exports.createBill = async (req, res) => {
 // READ All Bills
 exports.getAllBills = async (req, res) => {
   try {
-    const billList = await bills.findAll();
+    const { customer_id, status } = req.query;
+    const whereClause = {};
+    if (customer_id) whereClause.customer_id = customer_id;
+    if (status) whereClause.status = status;
+
+    const billList = await bills.findAll({ where: whereClause });
 
     res.status(200).json(billList);
   } catch (error) {
