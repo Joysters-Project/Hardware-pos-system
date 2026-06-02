@@ -1,6 +1,6 @@
 const { returns, products, payments, bills, bill_items, sequelize } = require('../models');
 ﻿const { Op } = require('sequelize');
-const { bills, customers, supplier_returns } = require('../models');
+const {  customers, supplier_returns } = require('../models');
 const ReturnService = require('../services/returnService');
 
 exports.processReturn = async (req, res) => {
