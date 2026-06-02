@@ -96,12 +96,28 @@ function ProductsPage() {
 				api.get("/units"),
 			]);
 
-			setProducts(Array.isArray(productsRes.data) ? productsRes.data : []);
-			setCategories(Array.isArray(categoryRes.data) ? categoryRes.data : []);
-			setBrands(Array.isArray(brandsRes.data) ? brandsRes.data : []);
-			setUnits(Array.isArray(unitsRes.data) ? unitsRes.data : []);
+			// Accept either a raw array or an object with a `data` array
+			const normalize = (res) => {
+				if (!res) return [];
+				if (Array.isArray(res.data)) return res.data;
+				if (Array.isArray(res.data?.data)) return res.data.data;
+				return [];
+			};
+
+			const prods = normalize(productsRes);
+			const cats = normalize(categoryRes);
+			const brs = normalize(brandsRes);
+			const uns = normalize(unitsRes);
+
+			setProducts(prods);
+			setCategories(cats);
+			setBrands(brs);
+			setUnits(uns);
 		} catch (error) {
-			toast.error("Failed to load products");
+			console.error("Failed to load products:", error);
+			const message =
+				error?.response?.data?.error || error?.response?.data?.message || error.message || "Failed to load products";
+			toast.error(message);
 		} finally {
 			setLoading(false);
 		}
@@ -227,6 +243,8 @@ function ProductsPage() {
 				value={search}
 				onChange={(e) => setSearch(e.target.value)}
 			/>
+
+
 
 			<form className="product-form" onSubmit={saveProduct}>
 				<input

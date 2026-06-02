@@ -6,6 +6,10 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/Login";
 import RoleSelect from "./pages/RoleSelect";
 import Signup from "./pages/Signup";
+import Recipts from "./pages/Receipts";
+import ReturnPage from "./pages/ReturnPage";
+import ReturnLogsPage from "./pages/ReturnLogs";
+
 import ForgotPassword from "./pages/ForgotPassword";
 import AdminDashboard from "./pages/AdminDashboard";
 import CashierDashboard from "./pages/CashierDashboard";
@@ -91,7 +95,7 @@ function AppRoutes() {
       />
       <Route 
         path="/return-logs" 
-        element={<ProtectedRoute><ReturnLogs /></ProtectedRoute>} 
+        element={<ProtectedRoute><ReturnLogsPage /></ProtectedRoute>} 
       />
       <Route 
         path="/receipts" 
