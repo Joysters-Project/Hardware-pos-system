@@ -17,6 +17,7 @@ server/scripts/reset_cashier.js
 server/scripts/testPostBill.js
 server/scripts/sync_returns.js
 server/scripts/users_output.json
+server/scripts/check_users.js
 
 # Build files (generated automatically)
 dist/
