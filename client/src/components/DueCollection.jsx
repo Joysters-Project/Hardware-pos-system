@@ -170,7 +170,7 @@ const DueCollection = () => {
               </div>
                 <div style={{ color: '#777', fontSize: '13px' }}>Total outstanding</div>
                 <div className="val-red" style={{ fontSize: '18px', fontWeight: 'bold' }}>
-                  <strong>Rs.</strong> {totalOutstanding.toFixed(2)}
+                  Rs {totalOutstanding.toFixed(2)}
                 </div>
             </div>
           )}
@@ -227,7 +227,7 @@ const DueCollection = () => {
               {paymentHistory.map(hist => (
                 <div className="history-item" key={hist.payment_id}>
                   <div>
-                    <strong>Rs. {parseFloat(hist.amount_paid).toFixed(2)}</strong> — {hist.payment_method}
+                    <strong>Rs {parseFloat(hist.amount_paid).toFixed(2)}</strong> — {hist.payment_method}
                   </div>
                   <div style={{ color: '#777' }}>
                     {formatDate(hist.payment_date)}, {formatTime(hist.payment_date)}

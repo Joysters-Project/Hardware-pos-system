@@ -9,6 +9,7 @@ exports.createProduct = async (req, res) => {
       data: product
     });
   } catch (error) {
+    console.error('getAllProducts error', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -16,7 +17,10 @@ exports.createProduct = async (req, res) => {
 // READ all products
 exports.getAllProducts = async (req, res) => {
   try {
-    const productList = await products.findAll();
+    // Exclude `repair_quantity` which may not exist in older databases
+    const productList = await products.findAll({
+      attributes: { exclude: ['repair_quantity'] }
+    });
     res.status(200).json(productList);
   } catch (error) {
     res.status(500).json({ error: error.message });

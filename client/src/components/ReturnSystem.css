@@ -62,6 +62,16 @@
   margin-bottom: 24px;
 }
 
+.search-type-select {
+  padding: 10px 14px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+  background-color: white;
+  cursor: pointer;
+  min-width: 140px;
+}
+
 .search-box input {
   flex: 1;
   padding: 10px 14px;
@@ -91,9 +101,99 @@
   cursor: not-allowed;
 }
 
+.search-results {
+  margin-bottom: 24px;
+  padding: 16px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background-color: #fafafa;
+}
+
+.results-label {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 12px;
+  margin-top: 0;
+}
+
+.results-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.result-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #e0e0e0;
+  margin-bottom: 8px;
+  border-radius: 6px;
+  background-color: white;
+}
+
+.result-info {
+  display: flex;
+  gap: 20px;
+  flex: 1;
+}
+
+.bill-no {
+  font-weight: 600;
+  color: #333;
+}
+
+.bill-total {
+  color: #27ae60;
+  font-weight: 600;
+}
+
+.select-result-btn {
+  background-color: #800000;
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.select-result-btn:hover {
+  background-color: #600000;
+}
+
 .bill-details h3 {
   color: #f8fafc;
   margin-bottom: 15px;
+}
+
+.bill-details p {
+  color: #333;
+  font-weight: 600;
+  margin-bottom: 10px;
+  margin-top: 20px;
+}
+
+.bill-summary-row {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 20px;
+  padding: 12px;
+  background-color: #f0f0f0;
+  border-radius: 6px;
+  border-left: 4px solid #800000;
+}
+
+.bill-summary-row span {
+  flex: 1;
+  color: #222;
+  font-weight: 600;
+}
+
+.bill-summary-row strong {
+  color: #800000;
 }
 
 .item-list {
@@ -107,15 +207,39 @@
   justify-content: space-between;
   align-items: center;
   padding: 12px;
-  border: 1px solid #4e1c1c;
+  border: 1px solid #ddd;
   margin-bottom: 10px;
   border-radius: 6px;
-  background-color: #1b0707;
+  background-color: #fff;
+  color: #333;
+}
+
+.item-list li span {
+  color: #222;
+  font-weight: 500;
+  flex: 1;
+}
+
+.item-list li span:first-child {
+  flex: 2;
+  font-weight: 600;
+  color: #000;
+}
+
+.item-list li span:nth-child(2) {
+  flex: 1;
+  text-align: center;
+  color: #666;
 }
 
 .item-list li.selected-item {
-  border-color: #800000;
-  background-color: #380909;
+  border: 2px solid #800000;
+  background-color: rgba(128, 0, 0, 0.15);
+}
+
+.item-list li.selected-item span {
+  color: #000;
+  font-weight: 700;
 }
 
 .select-btn {
@@ -140,7 +264,7 @@
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: #f8fafc;
+  color:#000000;
 }
 
 .form-group input[type="number"], .form-group textarea {
@@ -150,7 +274,7 @@
   border-radius: 6px;
   font-family: inherit;
   background: #1b0707;
-  color: #f5ecec;
+  color: white;
 }
 
 .form-group textarea {

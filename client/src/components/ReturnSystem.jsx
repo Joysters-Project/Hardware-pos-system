@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import api from "../api/axios";
@@ -7,10 +7,13 @@ import "./ReturnSystem.css";
 
 const ReturnSystem = () => {
   const navigate = useNavigate();
-  const [billId, setBillId] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchType, setSearchType] = useState("bill_no");
+  const [searchResults, setSearchResults] = useState([]);
   const [billData, setBillData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   // Return Form State
   const [selectedProduct, setSelectedProduct] = useState("");
@@ -19,15 +22,44 @@ const ReturnSystem = () => {
   const [reason, setReason] = useState("");
   const [poId, setPoId] = useState("");
   const [supplierId, setSupplierId] = useState("");
+  const [suggestedSupplierInfo, setSuggestedSupplierInfo] = useState(null);
 
-  const searchBill = async () => {
-    if (!billId) return toast.error("Enter a Bill ID");
+  useEffect(() => {
+    if (selectedProduct && destination === "SUPPLIER") {
+      fetchProductPurchaseInfo(selectedProduct);
+    }
+  }, [selectedProduct, destination]);
+
+  const searchBills = async () => {
+    if (!searchQuery.trim()) return toast.error("Enter a search query");
     setLoading(true);
     try {
-      const res = await api.get(`/bills/${billId}`);
+      const res = await api.get(`/bills/search`, {
+        params: {
+          query: searchQuery,
+          searchType: searchType
+        }
+      });
+      setSearchResults(res.data || []);
+      if (res.data?.length === 0) {
+        toast.error("No bills found");
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Search failed");
+      setSearchResults([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const selectBill = async (bill_id) => {
+    setLoading(true);
+    try {
+      const res = await api.get(`/bills/${bill_id}`);
       if (res.data) {
         setBillData(res.data);
         setSelectedProduct("");
+        setSearchResults([]);
         toast.success("Bill loaded");
       }
     } catch (err) {
@@ -35,6 +67,26 @@ const ReturnSystem = () => {
       setBillData(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchProductPurchaseInfo = async (productId) => {
+    if (!productId) {
+      setSuggestedSupplierInfo(null);
+      setPoId("");
+      setSupplierId("");
+      return;
+    }
+
+    try {
+      const res = await api.get(`/purchase_orders/product/${productId}`);
+      setSuggestedSupplierInfo(res.data);
+      if (res.data?.po_id) setPoId(String(res.data.po_id));
+      if (res.data?.supplier_id) setSupplierId(String(res.data.supplier_id));
+    } catch (error) {
+      setSuggestedSupplierInfo(null);
+      setPoId("");
+      setSupplierId("");
     }
   };
 
@@ -46,16 +98,19 @@ const ReturnSystem = () => {
     const item = billData.bill_items?.find(i => i.product_id === parseInt(selectedProduct));
     if (!item) return toast.error("Item not found in bill");
     
-    if (returnQuantity > item.quantity) {
-      return toast.error(`Max return quantity is ${item.quantity}`);
+    const qty = parseInt(returnQuantity) || 1;
+    const billQty = parseInt(item.quantity) || 0;
+    
+    if (qty > billQty) {
+      return toast.error(`Return quantity cannot exceed ${billQty}`);
     }
 
-    const refundAmnt = (item.total_price / item.quantity) * returnQuantity;
+    const refundAmnt = (item.total_price / billQty) * qty;
     
     const payload = {
       bill_id: billData.bill_id,
       product_id: item.product_id,
-      return_quantity: returnQuantity,
+      return_quantity: qty,
       refund_amount: refundAmnt,
       destination,
       reason,
@@ -67,19 +122,20 @@ const ReturnSystem = () => {
     }
 
     try {
-      await api.post("/returns/process", payload);
+      const res = await api.post("/returns/process", payload);
+      setSuccessMessage(`Refund Rs${refundAmnt.toFixed(2)} processed successfully.`);
       setShowSuccess(true);
+      setBillData(res.data.bill || billData);
+      setSelectedProduct("");
+      setReturnQuantity(1);
+      setDestination("STOCK");
+      setReason("");
+
       setTimeout(() => {
         setShowSuccess(false);
-        setBillData(null);
-        setBillId("");
-        setSelectedProduct("");
-        setReturnQuantity(1);
-        setDestination("STOCK");
-        setReason("");
       }, 2500);
     } catch (err) {
-      toast.error("Failed to process return");
+      toast.error(err.response?.data?.error || "Failed to process return");
     }
   };
 
@@ -87,7 +143,7 @@ const ReturnSystem = () => {
     return (
       <div className="return-success-container">
         <SuccessAnim message="Return Processed Successfully!" />
-        <p>Refund amount generated.</p>
+        <p>{successMessage || 'Refund amount generated.'}</p>
       </div>
     );
   }
@@ -104,20 +160,51 @@ const ReturnSystem = () => {
         <div className="search-section card">
           <h2>Find Bill</h2>
           <div className="search-box">
+            <select 
+              value={searchType}
+              onChange={(e) => setSearchType(e.target.value)}
+              className="search-type-select"
+            >
+              <option value="bill_no">Bill Number</option>
+              <option value="customer_name">Customer Name</option>
+              <option value="phone_no">Phone Number</option>
+            </select>
             <input 
               type="text" 
-              placeholder="Enter Bill Number (e.g. 100)" 
-              value={billId}
-              onChange={(e) => setBillId(e.target.value)}
+              placeholder={searchType === 'bill_no' ? 'e.g. INV-2026-0001' : searchType === 'customer_name' ? 'e.g. John Doe' : 'e.g. 9876543210'} 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
-            <button onClick={searchBill} disabled={loading}>
+            <button onClick={searchBills} disabled={loading}>
               {loading ? "Searching..." : "Search"}
             </button>
           </div>
 
+          {searchResults.length > 0 && (
+            <div className="search-results">
+              <p className="results-label">Found {searchResults.length} bill(s):</p>
+              <ul className="results-list">
+                {searchResults.map((bill) => (
+                  <li key={bill.bill_id} className="result-item">
+                    <div className="result-info">
+                      <span className="bill-no">Bill: {bill.bill_no}</span>
+                      <span className="bill-total">Rs{parseFloat(bill.total_amount || 0).toFixed(2)}</span>
+                    </div>
+                    <button className="select-result-btn" onClick={() => selectBill(bill.bill_id)}>Select</button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {billData && (
             <div className="bill-details">
-              <h3>Bill #{billData.bill_id} - {billData.bill_date}</h3>
+              <h3>Bill #{billData.bill_id} - {new Date(billData.bill_date).toLocaleString()}</h3>
+              <div className="bill-summary-row">
+                <span><strong>Total:</strong> Rs{parseFloat(billData.total_amount || 0).toFixed(2)}</span>
+                <span><strong>Balance:</strong> Rs{parseFloat(billData.balance_due || 0).toFixed(2)}</span>
+                <span><strong>Status:</strong> {billData.status || 'N/A'}</span>
+              </div>
               <p>Items in bill:</p>
               <ul className="item-list">
                 {billData.bill_items?.map((item) => (
@@ -127,6 +214,7 @@ const ReturnSystem = () => {
                     <button className="select-btn" onClick={() => {
                         setSelectedProduct(item.product_id);
                         setReturnQuantity(1);
+                        fetchProductPurchaseInfo(item.product_id);
                     }}>Select</button>
                   </li>
                 ))}
@@ -144,13 +232,21 @@ const ReturnSystem = () => {
             <form onSubmit={processReturn} className="return-form">
               <div className="form-group">
                 <label>Return Quantity</label>
-                <input 
-                  type="number" 
-                  min="1" 
-                  value={returnQuantity} 
-                  onChange={(e) => setReturnQuantity(parseInt(e.target.value) || 1)}
-                  required 
-                />
+                {selectedProduct && billData?.bill_items && (
+                  (() => {
+                    const item = billData.bill_items.find(i => i.product_id === parseInt(selectedProduct));
+                    return item ? (
+                      <input 
+                        type="number" 
+                        min="1" 
+                        max={item.quantity}
+                        value={returnQuantity} 
+                        onChange={(e) => setReturnQuantity(parseInt(e.target.value) || 1)}
+                        required 
+                      />
+                    ) : null;
+                  })()
+                )}
               </div>
 
               <div className="form-group">
@@ -207,6 +303,13 @@ const ReturnSystem = () => {
                       placeholder="Supplier ID"
                     />
                   </div>
+
+                  {suggestedSupplierInfo && (
+                    <div className="info-box">
+                      Suggested PO: #{suggestedSupplierInfo.po_id} / Supplier: #{suggestedSupplierInfo.supplier_id} {suggestedSupplierInfo.supplier_name ? `(${suggestedSupplierInfo.supplier_name})` : ''}
+                    </div>
+                  )}
+
                   <div className="warning-box">
                     ⚠️ Stock will NOT be incremented. Manager approval may be required to process Debit Note.
                   </div>

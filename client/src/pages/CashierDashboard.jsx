@@ -104,9 +104,9 @@ function CashierDashboard() {
             </Link>
           </li>
           <li>
-            <a href="#receipts">
+            <Link to="/receipts">
               🧾 Receipts
-            </a>
+            </Link>
           </li>
         </ul>
         <button onClick={handleLogout} className="logout-btn">
@@ -123,7 +123,7 @@ function CashierDashboard() {
         <div className="content-grid">
           <div className="card">
             <h3>💰 Sales Today</h3>
-            <p className="number"><strong>Rs.</strong>{stats.salesToday.toFixed(2)}</p>
+            <p className="number">Rs {stats.salesToday.toFixed(2)}</p>
             <small>{stats.transactionsCount} transactions</small>
           </div>
           <div className="card">
