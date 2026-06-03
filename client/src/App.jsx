@@ -18,6 +18,10 @@ import Departments from "./pages/Departments";
 import Products from "./pages/Products";
 import Employees from "./pages/Employees";
 import Catalog from "./pages/Catalog";
+import Assets from "./pages/Assets";
+import Expenses from "./pages/Expenses";
+import SalaryManagement from "./pages/SalaryManagement";
+import SalaryHistory from "./pages/SalaryHistory";
 import BillingSystem from "./components/billingSystem";
 import DueCollection from "./components/DueCollection";
 import ReturnSystem from "./components/ReturnSystem";
@@ -114,8 +118,36 @@ function AppRoutes() {
         element={<ProtectedRoute requiredRole="manager"><Employees /></ProtectedRoute>} 
       />
       <Route 
-        path="/manager/catalog" 
-        element={<ProtectedRoute requiredRole="manager"><Catalog /></ProtectedRoute>} 
+        path="/assets" 
+        element={<ProtectedRoute><Assets /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/expenses" 
+        element={<ProtectedRoute><Expenses /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/salary" 
+        element={<ProtectedRoute><SalaryManagement /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/salary/history" 
+        element={<ProtectedRoute><SalaryHistory /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/manager/salary" 
+        element={<ProtectedRoute requiredRole="manager"><SalaryManagement /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/manager/salary/history" 
+        element={<ProtectedRoute requiredRole="manager"><SalaryHistory /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/manager/assets" 
+        element={<ProtectedRoute requiredRole="manager"><Assets /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/manager/expenses" 
+        element={<ProtectedRoute requiredRole="manager"><Expenses /></ProtectedRoute>} 
       />
 
       {/* Fallback redirect */}

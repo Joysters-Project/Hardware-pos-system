@@ -264,7 +264,7 @@
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: #f8fafc;
+  color:#000000;
 }
 
 .form-group input[type="number"], .form-group textarea {
@@ -274,7 +274,7 @@
   border-radius: 6px;
   font-family: inherit;
   background: #1b0707;
-  color: #f5ecec;
+  color: white;
 }
 
 .form-group textarea {

@@ -61,6 +61,18 @@ function ManagerDashboard({ children, active }) {
           <li className={active === "catalog" ? "active" : ""}>
             <Link to="/manager/catalog">📋 Catalog</Link>
           </li>
+
+          <li className={active === "assets" ? "active" : ""}>
+            <Link to="/manager/assets">🏗️ Assets</Link>
+          </li>
+
+          <li className={active === "expenses" ? "active" : ""}>
+            <Link to="/manager/expenses">💰 Expenses</Link>
+          </li>
+
+          <li className={active === "salary" ? "active" : ""}>
+            <Link to="/manager/salary">💵 Salary</Link>
+          </li>
         </ul>
 
         <button className="logout-btn" onClick={handleLogout}>

@@ -307,7 +307,10 @@ body {
 .main-content > .employees-container,
 .main-content > .customers-container,
 .main-content > .bills-container,
-.main-content > .catalog-container {
+.main-content > .catalog-container,
+.main-content > .assets-container,
+.main-content > .expenses-container,
+.main-content > .salary-container {
   min-height: 100%;
   box-sizing: border-box;
 }
