@@ -43,7 +43,7 @@ const getDepartmentById = async (req, res) => {
       include: [
         {
           model: db.employees,
-          attributes: ['employee_id', 'first_name', 'last_name', 'position', 'email', 'phone', 'phone_no', 'status', 'profile_photo']
+          attributes: ['employee_id', 'first_name', 'last_name', 'position', 'email', 'phone_no', 'status', 'profile_photo']
         },
         {
           model: db.assets,

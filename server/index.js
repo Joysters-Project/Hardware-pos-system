@@ -17,9 +17,12 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // 3. Database Sync
 // This ensures all 17 tables from your models folder are ready in MySQL
-db.sequelize.sync({ force: false })
+// NOTE: using `alter: true` will attempt to update the DB schema to match models.
+// This is convenient for development to add missing columns (e.g. `nic`).
+// Remove or revert to `{ force: false }` in production or after running proper migrations.
+db.sequelize.sync({ alter: true })
   .then(() => {
-    console.log('✅ Database synced successfully');
+    console.log('✅ Database synced successfully (alter applied)');
   })
   .catch((err) => {
     console.error('❌ Database sync failed:', err.message);

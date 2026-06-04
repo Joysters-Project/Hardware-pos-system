@@ -145,16 +145,23 @@ box-shadow: 0 8px 20px rgba(0,0,0,0.6);
 }
 
 .back-btn {
-  background-color: transparent;
+  width: 100%;
+  padding: 13px;
+  margin-top: 10px;
+
+  background: linear-gradient(to right, #800020, #610119);
+  color: white;
+
   border: none;
-  color: #f8eef2;
-  font-size: 14px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 16px;
   cursor: pointer;
-  margin-bottom: 10px;
-  display: inline-flex;
-  align-items: center;
+  transition: 0.3s ease;
 }
 
+
 .back-btn:hover {
-  text-decoration: underline;
+  background: rgba(80, 0, 20, 0.4);
+  transform: translateX(-5px);
 }

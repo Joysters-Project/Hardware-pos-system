@@ -16,7 +16,7 @@ function Login() {
   const [loading, setLoading] = useState(false);
 
   const roleParam = role || "User";  // fallback if undefined
-
+/*
   const handleBack = () => {
   if (window.history.length > 1) {
     navigate(-1); // go back
@@ -24,7 +24,11 @@ function Login() {
     navigate("/"); // fallback to role selection
   }
   };
-  
+  */
+ const handleBack = () => {
+  navigate("/");
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -69,7 +73,7 @@ function Login() {
       {/* <div className="login-left">
         <img src={logo} alt="background" />
       </div> */}
-      <button type="button" className="back-btn" onClick={handleBack}>← Back</button>
+      
       <div className="login-right">
         <div className="login-card">
           <h1 className="title">{roleParam} Login</h1>
@@ -109,6 +113,7 @@ function Login() {
               <Link to="/signup">Signup</Link>
             </div>
           </form>
+          <button type="button" className="back-btn" onClick={handleBack}> Home</button>
         </div>
       </div>
     </div>

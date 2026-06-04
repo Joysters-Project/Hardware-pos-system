@@ -35,3 +35,6 @@ yarn-debug.
 postman/
 *.postman_collection.json
 *.postman_environment.json
+
+.kilo/
+.vscode/
