@@ -1,4 +1,5 @@
 const { bills, bill_items, products, audit_log, customers, payments, users, alerts, sequelize } = require('../models');
+const { logActivity } = require('./auditService');
 
 class BillingService {
     static async getSystemUserId(transaction = null) {
@@ -116,12 +117,10 @@ class BillingService {
                 payment_method: saleData.payment_method || 'CASH'
             }, { transaction: t });
 
-            // 7. Final Audit Log
-            await audit_log.create({
-                user_id: userId,
-                action: 'GENERATE_BILL',
-                details: `Bill ${bill_no} processed. Paid: ${saleData.amount_paid}, Due: ${saleData.balance_due}`
-            }, { transaction: t });
+            // 7. Final Audit Log (outside transaction so it never blocks the bill)
+            process.nextTick(() => logActivity(userId, null, 'INVOICE_CREATED',
+              `Invoice ${bill_no} created. Total: ${saleData.total_amount}, Paid: ${saleData.amount_paid}, Due: ${saleData.balance_due || 0}`
+            ));
 
             const billData = bill.toJSON();
             billData.lowStockAlerts = lowStockAlerts;
