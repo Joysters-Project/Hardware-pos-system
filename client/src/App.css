@@ -1,4 +1,4 @@
-﻿/* ========================================
+/* ========================================
    HARDWARE STORE POS — DESIGN SYSTEM
    ======================================== */
 
@@ -6,33 +6,78 @@
    CSS CUSTOM PROPERTIES
    ---------------------------------------- */
 :root {
-  /* Sidebar */
+  /* Brand — Crimson/Maroon */
+  --brand-primary: #8b3a3a;
+  --brand-primary-end: #a84545;
+  --brand-dark: #6b2a2a;
+  --brand-gradient: linear-gradient(135deg, #8b3a3a 0%, #a84545 100%);
+  --brand-glow: rgba(139, 58, 58, 0.3);
+
+  /* Backgrounds */
+  --bg-page: linear-gradient(135deg, #f5f5f5 0%, #fafafa 100%);
+  --bg-surface: #FFFFFF;
+  --bg-sidebar: linear-gradient(180deg, #2a0e0e 0%, #1a0808 100%);
+
+  /* Text */
+  --text-heading: #2c2c2c;
+  --text-body: #2c2c2c;
+  --text-muted: #666;
+  --text-placeholder: #999;
+  --text-sidebar: #e8d5d5;
+
+  /* Shadows */
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.08);
+  --shadow-sidebar: 0 8px 32px rgba(0, 0, 0, 0.18);
+  --shadow-float: 0 12px 40px rgba(0, 0, 0, 0.12);
+
+  /* Motion */
+  --ease-anime: cubic-bezier(0.25, 1, 0.5, 1);
+  --duration-fast: 0.3s;
+
+  /* Spacing */
+  --gap-row: 12px;
+  --radius-card: 14px;
+  --radius-btn: 10px;
+
+  /* Borders */
+  --border-light: #e5e7eb;
+  --border-card-left: 4px solid #8b3a3a;
+
+  /* Original Semantic Colors and fallback variables (for backward compatibility) */
   --sidebar-bg: #1A0505;
   --sidebar-hover: #2D1010;
   --sidebar-active: #8B1A1A;
   --sidebar-text: #E8D5D5;
   --sidebar-border: #3D1515;
-
-  /* Primary / Brand */
   --primary: #8B1A1A;
   --primary-hover: #A52020;
   --primary-light: #f9e6e6;
-
-  /* Semantic Colors */
   --danger: #dc2626;
   --success: #16a34a;
   --warning: #d97706;
   --info: #2563eb;
-
-  /* Backgrounds */
   --content-bg: #F8F9FA;
   --card-bg: #ffffff;
   --border: #E5E7EB;
-
-  /* Text */
   --text-primary: #111827;
   --text-secondary: #6B7280;
   --text-muted: #9CA3AF;
+}
+
+@keyframes cardSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stagger-item {
+  opacity: 0;
+  animation: cardSlideUp 0.4s var(--ease-anime) forwards;
 }
 
 /* ----------------------------------------
