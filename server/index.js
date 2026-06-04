@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 
 //1. just require the DB object
 // These files rely on the .env variables being ready
@@ -10,14 +11,18 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // 2. Middleware
-app.use(cors()); // Allows React to talk to this server
-app.use(express.json()); // Allows server to read JSON from requests
+app.use(cors());
+app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // 3. Database Sync
 // This ensures all 17 tables from your models folder are ready in MySQL
-db.sequelize.sync({ force: false })
+// NOTE: using `alter: true` will attempt to update the DB schema to match models.
+// This is convenient for development to add missing columns (e.g. `nic`).
+// Remove or revert to `{ force: false }` in production or after running proper migrations.
+db.sequelize.sync({ alter: true })
   .then(() => {
-    console.log('✅ Database synced successfully');
+    console.log('✅ Database synced successfully (alter applied)');
   })
   .catch((err) => {
     console.error('❌ Database sync failed:', err.message);
@@ -46,6 +51,10 @@ const purchaseOrderRoutes = require('./routes/purchaseOrderRoutes');
 const poItemsRoutes = require('./routes/poItemsRoutes');
 const schemaRoutes = require('./routes/schemaRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const assetRoutes  = require('./routes/assetRoutes');
+const expenseRoutes = require('./routes/expenseRoutes');
+const salaryRoutes = require('./routes/salaryRoutes');
+const cron         = require('node-cron');
 
 // 4. Register API Routes
 app.use('/api/departments', departmentRoutes);
@@ -67,6 +76,25 @@ app.use('/api/purchase_orders', purchaseOrderRoutes);
 app.use('/api/po_items', poItemsRoutes);
 app.use('/api/schema', schemaRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/assets', assetRoutes);
+app.use('/api/expenses', expenseRoutes);
+app.use('/api/salary', salaryRoutes);
+
+// Cron: daily at 08:00 — log pending salary reminders to console
+cron.schedule('0 8 * * *', async () => {
+  try {
+    const now     = new Date();
+    const month   = now.getMonth() + 1;
+    const year    = now.getFullYear();
+    const dueDay  = 30;
+    const daysLeft = dueDay - now.getDate();
+    if (daysLeft >= 0 && daysLeft <= 5) {
+      const db      = require('./models');
+      const pending = await db.salary_payments.count({ where: { payment_status: 'Pending' } });
+      console.log(`🔔 Salary Reminder: ${pending} pending salary payment(s). Due in ${daysLeft} day(s) (${dueDay}th).`);
+    }
+  } catch (e) { console.error('Cron error:', e.message); }
+});
 
 // 5. Default Route
 app.get('/', (req, res) => {

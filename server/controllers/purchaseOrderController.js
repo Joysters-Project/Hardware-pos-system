@@ -1,4 +1,4 @@
-const { purchase_orders } = require('../models');
+const { purchase_orders, po_items, suppliers } = require('../models');
 
 // CREATE Purchase Order
 exports.createPurchaseOrder = async (req, res) => {
@@ -20,6 +20,42 @@ exports.getAllPurchaseOrders = async (req, res) => {
     const purchaseOrders = await purchase_orders.findAll();
 
     res.status(200).json(purchaseOrders);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// GET Purchase Order for Product
+exports.getPurchaseOrderByProduct = async (req, res) => {
+  try {
+    const { productId } = req.params;
+
+    const purchaseOrder = await purchase_orders.findOne({
+      include: [
+        {
+          model: po_items,
+          where: { product_id: productId },
+          required: true
+        },
+        {
+          model: suppliers,
+          required: false
+        }
+      ],
+      order: [[ 'po_date', 'DESC' ]]
+    });
+
+    if (!purchaseOrder) {
+      return res.status(404).json({ message: 'No purchase order found for this product' });
+    }
+
+    res.status(200).json({
+      po_id: purchaseOrder.po_id,
+      supplier_id: purchaseOrder.supplier_id,
+      supplier_name: purchaseOrder.supplier?.supplier_name || null,
+      po_date: purchaseOrder.po_date,
+      status: purchaseOrder.status
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

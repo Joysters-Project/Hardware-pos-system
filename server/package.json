@@ -13,14 +13,19 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@getbrevo/brevo": "^5.0.4",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "mysql2": "^3.18.2",
-    "sequelize": "^6.37.7"
+    "multer": "^2.1.1",
+    "mysql2": "^3.20.0",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^8.0.10",
+    "pdfkit": "^0.18.0",
+    "sequelize": "^6.37.8"
   },
   "devDependencies": {
     "nodemon": "^3.1.14",

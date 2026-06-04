@@ -24,18 +24,18 @@
   align-items: center;
 }
 
-.login-card {
-  width: 420px;
-  min-height: 500px;
-  height: auto;
-  padding: 40px;
-  border-radius: 16px;
-  background: rgba(22, 8, 12, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(8px);
-  text-align: center;
-  color: white;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+.login-card{
+width:420px;
+min-height:500px;
+height: auto;
+padding:40px;
+border-radius:16px;
+background:rgba(0, 0, 0, 0.55);
+border:1px solid rgba(220, 172, 172, 0.25);
+backdrop-filter:blur(8px);
+text-align:center;
+color:white;
+box-shadow: 0 8px 20px rgba(0,0,0,0.6);
 }
 
 .login-card:hover {
@@ -145,16 +145,23 @@
 }
 
 .back-btn {
-  background-color: transparent;
+  width: 100%;
+  padding: 13px;
+  margin-top: 10px;
+
+  background: linear-gradient(to right, #800020, #610119);
+  color: white;
+
   border: none;
-  color: #f8eef2;
-  font-size: 14px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 16px;
   cursor: pointer;
-  margin-bottom: 10px;
-  display: inline-flex;
-  align-items: center;
+  transition: 0.3s ease;
 }
 
+
 .back-btn:hover {
-  text-decoration: underline;
+  background: rgba(80, 0, 20, 0.4);
+  transform: translateX(-5px);
 }

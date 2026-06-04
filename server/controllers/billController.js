@@ -1,5 +1,6 @@
 const BillingService = require('../services/billingService');
-const { bills } = require('../models');
+const { bills, bill_items, products, customers } = require('../models');
+const { Op } = require('sequelize');
 
 // CREATE Bill (runs entire invoice workflow inside a transaction)
 exports.createBill = async (req, res) => {
@@ -27,6 +28,48 @@ exports.createBill = async (req, res) => {
   }
 };
 
+// SEARCH Bills by bill_no, customer_name, or phone_no
+exports.searchBills = async (req, res) => {
+  try {
+    const { query, searchType } = req.query;
+    
+    if (!query) {
+      return res.status(400).json({ error: 'Query parameter is required' });
+    }
+
+    let whereClause = {};
+    let include = [{ model: bill_items, include: [products] }];
+
+    if (searchType === 'bill_no') {
+      whereClause.bill_no = { [Op.like]: `%${query}%` };
+    } else if (searchType === 'customer_name') {
+      include.push({
+        model: customers,
+        where: { customer_name: { [Op.like]: `%${query}%` } },
+        required: true
+      });
+    } else if (searchType === 'phone_no') {
+      include.push({
+        model: customers,
+        where: { phone_no: { [Op.like]: `%${query}%` } },
+        required: true
+      });
+    } else {
+      return res.status(400).json({ error: 'Invalid searchType' });
+    }
+
+    const billList = await bills.findAll({
+      where: whereClause,
+      include: include,
+      limit: 10
+    });
+
+    res.status(200).json(billList);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // READ All Bills
 exports.getAllBills = async (req, res) => {
   try {
@@ -46,7 +89,14 @@ exports.getAllBills = async (req, res) => {
 // READ Bill by ID
 exports.getBillById = async (req, res) => {
   try {
-    const bill = await bills.findByPk(req.params.id);
+    const bill = await bills.findByPk(req.params.id, {
+      include: [
+        {
+          model: bill_items,
+          include: [products]
+        }
+      ]
+    });
 
     if (!bill) {
       return res.status(404).json({ message: "Bill not found" });

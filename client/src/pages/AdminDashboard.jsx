@@ -59,20 +59,24 @@ function AdminDashboard({ children, active }) {
             <Link to="/products">📦 Products</Link>
           </li>
 
+          <li className={active === "employees" ? "active" : ""}>
+            <Link to="/employees">👤 Employees</Link>
+          </li>
+
           <li className={active === "catalog" ? "active" : ""}>
             <Link to="/catalog">📋 Catalog</Link>
           </li>
 
-          <li className={active === "customers" ? "active" : ""}>
-            <Link to="/customers">👥 Customers</Link>
+          <li className={active === "assets" ? "active" : ""}>
+            <Link to="/assets">🏗️ Assets</Link>
           </li>
 
-          <li className={active === "bills" ? "active" : ""}>
-            <Link to="/bills/create">🧾 Bills</Link>
+          <li className={active === "expenses" ? "active" : ""}>
+            <Link to="/expenses">💰 Expenses</Link>
           </li>
 
-          <li className={active === "returns" ? "active" : ""}>
-            <Link to="/returns">↩️ Returns</Link>
+          <li className={active === "salary" ? "active" : ""}>
+            <Link to="/salary">💵 Salary</Link>
           </li>
 
         </ul>
@@ -90,8 +94,37 @@ function AdminDashboard({ children, active }) {
           children
         ) : (
           <div className="dashboard-home">
-            <h1>Welcome, {userName}! 👋</h1>
-            <p>Admin Dashboard</p>
+            <div className="dashboard-hero">
+              <span className="dashboard-kicker">Control Center</span>
+              <h1>Welcome back, {userName}</h1>
+              <p>Track operations, monitor teams, and move quickly between core management tasks.</p>
+            </div>
+
+            <div className="dashboard-home-grid">
+              <Link className="dashboard-tile" to="/departments">
+                <span className="tile-icon">🏢</span>
+                <h3>Departments</h3>
+                <p>Manage structure and ownership of every section.</p>
+              </Link>
+
+              <Link className="dashboard-tile" to="/products">
+                <span className="tile-icon">📦</span>
+                <h3>Products</h3>
+                <p>Update inventory listings and maintain pricing accuracy.</p>
+              </Link>
+
+              <Link className="dashboard-tile" to="/employees">
+                <span className="tile-icon">👤</span>
+                <h3>Employees</h3>
+                <p>Assign roles, review staffing, and keep records up to date.</p>
+              </Link>
+
+              <Link className="dashboard-tile" to="/catalog">
+                <span className="tile-icon">📋</span>
+                <h3>Catalog</h3>
+                <p>Organize product visibility and streamline browsing flow.</p>
+              </Link>
+            </div>
           </div>
         )}
 

@@ -36,3 +36,8 @@ postman/
 *.postman_collection.json
 *.postman_environment.json
 
+<<<<<<< HEAD
+=======
+.kilo/
+.vscode/
+>>>>>>> 6c983464ea2bbb94a27cb32e288701db7e4a9ef5
