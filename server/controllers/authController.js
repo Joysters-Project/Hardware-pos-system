@@ -1,5 +1,5 @@
-const bcrypt     = require('bcrypt');
-const crypto     = require('crypto');
+const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const jwt        = require('jsonwebtoken');
 const db         = require('../models');
@@ -7,22 +7,26 @@ const { logActivity } = require('../services/auditService');
 
 const users = db.users;
 
-// ─── Nodemailer Transporter ───────────────────────────────────────────────────
+// ─── Nodemailer Transporter (Gmail) ──────────────────────────────────────────
 const createTransporter = () => {
-  if (!process.env.SMTP_EMAIL || !process.env.SMTP_PASSWORD) {
-    throw new Error('SMTP credentials are not configured. Set SMTP_EMAIL and SMTP_PASSWORD in your .env file.');
-  }
-  return nodemailer.createTransport({
-    host: 'smtp.gmail.com', port: 465, secure: true,
-    auth: { user: process.env.SMTP_EMAIL, pass: process.env.SMTP_PASSWORD },
-    tls: { rejectUnauthorized: false },
-    connectionTimeout: 15000, socketTimeout: 15000, family: 4,
-  });
+    return nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
+        auth: {
+            user: process.env.SMTP_EMAIL,
+            pass: process.env.SMTP_PASSWORD,
+        },
+        tls: { rejectUnauthorized: false },
+        connectionTimeout: 15000,
+        socketTimeout: 15000,
+        family: 4, // Force IPv4 — prevents ESOCKET errors on some networks
+    });
 };
 
 const sendOtpEmail = async (toEmail, toName, otp) => {
-  const transporter = createTransporter();
-  const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f4f4f4;margin:0;padding:0">
+    const transporter = createTransporter();
+    const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f4f4f4;margin:0;padding:0">
 <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 10px">
   <table width="480" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1)">
     <tr><td style="background:linear-gradient(135deg,#800000,#a52a2a);padding:32px;text-align:center">
@@ -40,10 +44,13 @@ const sendOtpEmail = async (toEmail, toName, otp) => {
     </td></tr>
   </table>
 </td></tr></table></body></html>`;
-  await transporter.sendMail({
-    from: `"${process.env.EMAIL_FROM_NAME || 'Mathumithan Hardware'}" <${process.env.SMTP_EMAIL}>`,
-    to: toEmail, subject: '🔑 Your Password Reset OTP - Mathumithan Hardware POS', html,
-  });
+
+    await transporter.sendMail({
+        from: `"${process.env.EMAIL_FROM_NAME || 'Mathumithan Hardware'}" <${process.env.SMTP_EMAIL}>`,
+        to: toEmail,
+        subject: '🔑 Your Password Reset OTP - Mathumithan Hardware POS',
+        html,
+    });
 };
 
 // Helper: get IP from request
@@ -60,9 +67,53 @@ const login = async (req, res) => {
     });
     if (!user) return res.status(401).json({ message: 'Invalid Username or Password' });
 
-    if (!role || user.role.toLowerCase() !== role.toLowerCase()) {
-      console.warn(`[Login] Role mismatch — DB: "${user.role}", sent: "${role}"`);
-      return res.status(403).json({ message: `Access denied: You are registered as "${user.role}". Please select the correct role.` });
+        if (!role || user.role.toLowerCase() !== role.toLowerCase()) {
+            console.warn(`[Login] Role mismatch — DB: "${user.role}", sent: "${role}"`);
+            return res.status(403).json({ message: `Access denied: You are registered as "${user.role}". Please select the correct role.` });
+        }
+        if (user.status !== 'Active') {
+            return res.status(403).json({ message: 'User is inactive' });
+        }
+        if (user.is_locked) {
+            const diffMinutes = (new Date() - new Date(user.lock_time)) / (1000 * 60);
+            if (diffMinutes >= 15) {
+                await user.update({ is_locked: false, failed_attempts: 0, lock_time: null });
+            } else {
+                const remaining = Math.ceil(15 - diffMinutes);
+                return res.status(403).json({ message: `Account locked. Try again after ${remaining} minutes` });
+            }
+        }
+
+        let isMatch = false;
+        if (user.password) isMatch = await bcrypt.compare(password, user.password);
+
+        // Legacy plain-text fallback
+        if (!isMatch && user.password && !user.password.startsWith('$2b$') && !user.password.startsWith('$2a$')) {
+            if (password === user.password) {
+                await user.update({ password: await bcrypt.hash(password, 10), failed_attempts: 0, lock_time: null });
+                isMatch = true;
+            }
+        }
+
+        if (isMatch) {
+            await user.update({ failed_attempts: 0, lock_time: null });
+            const department_id = user.employee?.department_id || null;
+            const secret = process.env.JWT_SECRET || 'MySuperSecretKey123!';
+            const token = jwt.sign({ user_id: user.user_id, role: user.role, department_id }, secret, { expiresIn: '1h' });
+            return res.status(200).json({ message: 'Login successful', token });
+        } else {
+            let attempts = (user.failed_attempts || 0) + 1;
+            let updates = { failed_attempts: attempts };
+            if (attempts >= 5) { updates.is_locked = true; updates.lock_time = new Date(); }
+            await user.update(updates);
+            return res.status(401).json({
+                message: attempts >= 5
+                    ? 'Account locked due to 5 failed login attempts'
+                    : `Invalid Username or Password. You have only ${5 - attempts} attempts left`
+            });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
     }
     if (user.status !== 'Active') return res.status(403).json({ message: 'User is inactive' });
 
@@ -111,15 +162,15 @@ const login = async (req, res) => {
 
 // ─── Unlock User ──────────────────────────────────────────────────────────────
 const unlockUser = async (req, res) => {
-  try {
-    if (req.user.role !== 'Admin') return res.status(403).json({ message: 'Only admin can unlock accounts' });
-    const user = await users.findByPk(req.body.user_id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    await user.update({ failed_attempts: 0, is_locked: false, lock_time: null });
-    res.status(200).json({ message: 'User account unlocked successfully' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+    try {
+        if (req.user.role !== 'Admin') return res.status(403).json({ message: 'Only admin can unlock accounts' });
+        const user = await users.findByPk(req.body.user_id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        await user.update({ failed_attempts: 0, is_locked: false, lock_time: null });
+        res.status(200).json({ message: 'User account unlocked successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };
 
 // ─── Logout ───────────────────────────────────────────────────────────────────
@@ -136,6 +187,8 @@ const logout = async (req, res) => {
 };
 
 // ─── STEP 1: Send OTP ─────────────────────────────────────────────────────────
+// Stores OTP hash + expiry in the DB (reset_token / reset_token_expiry columns)
+// so it survives server restarts. The raw OTP is never stored — only its hash.
 const sendOtpForReset = async (req, res) => {
   const ip = getIp(req);
   try {
@@ -177,6 +230,8 @@ const sendOtpForReset = async (req, res) => {
 };
 
 // ─── STEP 2: Verify OTP ───────────────────────────────────────────────────────
+// Validates the OTP against the hash in the DB, then replaces it with a
+// short-lived reset token that the client uses in Step 3.
 const verifyOtpForReset = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -211,6 +266,7 @@ const verifyOtpForReset = async (req, res) => {
 };
 
 // ─── STEP 3: Reset Password ───────────────────────────────────────────────────
+// Validates the reset token from the DB (not from memory), then saves new password.
 const resetPassword = async (req, res) => {
   const ip = getIp(req);
   try {
@@ -254,13 +310,48 @@ const simpleRegister = async (req, res) => {
     if (employee.position !== role)
       return res.status(400).json({ message: `Role mismatch. This Employee is assigned as '${employee.position}'.` });
 
-    const existingUser = await users.findOne({ where: { user_name: username } });
-    if (existingUser) return res.status(400).json({ message: 'Username already exists' });
-    const existingEmpUser = await users.findOne({ where: { employee_id } });
-    if (existingEmpUser) return res.status(400).json({ message: 'This employee already has a user account' });
-    if (['Manager', 'Admin'].includes(role)) {
-      const roleTaken = await users.findOne({ where: { role } });
-      if (roleTaken) return res.status(400).json({ message: `${role} role is already assigned` });
+        const employee = await models.employees.findByPk(employee_id);
+        if (!employee) return res.status(400).json({ message: 'Employee ID not found' });
+        if (employee.email !== email) return res.status(400).json({ message: 'Email does not match the employee record' });
+        if (employee.first_name !== firstName || employee.last_name !== lastName) {
+            return res.status(400).json({ message: 'Employee details do not match the provided employee ID' });
+        }
+        if (employee.position !== role) {
+            return res.status(400).json({
+                message: `Role mismatch. This Employee is assigned as '${employee.position}', but you tried to register as a '${role}'.`
+            });
+        }
+
+        const existingUser = await users.findOne({ where: { user_name: username } });
+        if (existingUser) return res.status(400).json({ message: 'Username already exists' });
+
+        const existingEmployeeUser = await users.findOne({ where: { employee_id } });
+        if (existingEmployeeUser) return res.status(400).json({ message: 'This employee already has a user account' });
+
+        if (['Manager', 'Admin'].includes(role)) {
+            const roleTaken = await users.findOne({ where: { role } });
+            if (roleTaken) return res.status(400).json({ message: `${role} role is already assigned` });
+        }
+
+        const newUser = await users.create({
+            user_name: username,
+            first_name: firstName,
+            last_name: lastName,
+            password: await bcrypt.hash(password, 10),
+            role,
+            employee_id,
+            status: 'Active',
+            failed_attempts: 0,
+            is_locked: false,
+        });
+
+        res.status(201).json({ message: 'Account created successfully', user_id: newUser.user_id, username: newUser.user_name });
+    } catch (error) {
+        console.error(error);
+        if (error.name === 'SequelizeForeignKeyConstraintError') return res.status(400).json({ message: 'Employee ID not found (foreign key constraint)' });
+        if (error.name === 'SequelizeUniqueConstraintError') return res.status(400).json({ message: 'Username or employee already has an account' });
+        if (error.errors) return res.status(400).json({ message: error.errors.map(e => e.message).join(', ') });
+        res.status(500).json({ error: error.message });
     }
 
     const newUser = await users.create({

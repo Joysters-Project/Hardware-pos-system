@@ -12,7 +12,6 @@ const { audit_log } = require('../models');
  */
 const logActivity = async (userId, role, action, details, ip = null) => {
   try {
-    if (!userId) return; // skip if no authenticated user
     await audit_log.create({
       user_id:    userId,
       role:       role   || 'Unknown',
