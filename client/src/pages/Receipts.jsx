@@ -267,7 +267,7 @@ const Receipts = () => {
       <div className="receipts-shell">
         <header className="receipts-hero" style={{ marginTop: '8px' }}>
           <div>
-            <h1 style={{ margin: '0 0 8px', fontSize: '26px', fontWeight: '800' }}>Receipt History</h1>
+            <h1 style={{ margin: '0 0 8px', fontSize: '26px', fontWeight: '800', color: '#2b1515' }}>Receipt History</h1>
             <p>Search by customer name, bill number, or date. Results are paginated so large histories stay fast to browse.</p>
           </div>
           <div className="receipts-stats">
