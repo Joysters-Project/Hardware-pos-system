@@ -149,12 +149,17 @@ function Catalog() {
   // Add new item
   const handleAdd = async (e) => {
     e.preventDefault();
-    const name = formData.name.trim();
+const name = formData.name.trim();
 
-    if (!name) {
-      toast.error("Name is required");
-      return;
-    }
+if (!name) {
+  toast.error("Name is required");
+  return;
+}
+
+if (activeTab === "units" && !isValidUnitName(name)) {
+  toast.error("Unit name can contain letters only");
+  return;
+}
 
     if (activeTab === "units" && !validateUnitName(name)) {
       toast.error("Unit name can contain letters only");
