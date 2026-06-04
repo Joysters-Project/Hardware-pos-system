@@ -16,16 +16,14 @@ app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // 3. Database Sync
-// This ensures all 17 tables from your models folder are ready in MySQL
-// NOTE: using `alter: true` will attempt to update the DB schema to match models.
-// This is convenient for development to add missing columns (e.g. `nic`).
-// Remove or revert to `{ force: false }` in production or after running proper migrations.
-db.sequelize.sync({ alter: true })
+// Using { force: false } — never mutate schema on startup.
+// All schema changes are handled by Sequelize CLI migrations (npx sequelize-cli db:migrate).
+db.sequelize.sync({ force: false })
   .then(() => {
-    console.log('✅ Database synced successfully (alter applied)');
+    console.log('✅ Database connected successfully');
   })
   .catch((err) => {
-    console.error('❌ Database sync failed:', err.message);
+    console.error('❌ Database connection failed:', err.message);
   });
 
 // 4. API Routes (Assignments for your team)

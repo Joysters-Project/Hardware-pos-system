@@ -39,7 +39,7 @@ function ForgotPassword() {
                 Remembered your password?{" "}
                 <span
                 style={{ color: "#ff6c3c", cursor: "pointer" }}
-                onClick={() => navigate("/login/user")}
+                onClick={() => navigate("/")}
                 >
                 Back to Login
                 </span>
