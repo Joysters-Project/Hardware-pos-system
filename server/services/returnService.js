@@ -148,6 +148,12 @@ class ReturnService {
           amount_paid: -Math.abs(actual_cash_refund),
           payment_method: hasSupplierReturn ? 'SUPPLIER_RETURN' : 'REFUND'
         }, { transaction: t });
+      } else if (destination === 'WRITEOFF') {
+        await products.increment('damaged_quantity', {
+          by: return_quantity,
+          where: { product_id },
+          transaction: t
+        });
       }
 
       // Update Bill Totals (subtracting the full value of returned products)
