@@ -10,7 +10,7 @@ function ForgotPassword() {
   const handleSubmit = (e) => {
     e.preventDefault();
     console.log("Password reset request for:", email);
-    navigate("/login/user"); 
+    navigate("/"); 
     
   };
 
