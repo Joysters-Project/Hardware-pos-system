@@ -22,6 +22,7 @@ import Catalog from "./pages/Catalog";
 import Assets from "./pages/Assets";
 import Expenses from "./pages/Expenses";
 import SalaryManagement from "./pages/SalaryManagement";
+import AuditLogs from "./pages/AuditLogs";
 import SalaryHistory from "./pages/SalaryHistory";
 import BillingSystem from "./components/billingSystem";
 import DueCollection from "./components/DueCollection";
@@ -159,6 +160,10 @@ function AppRoutes() {
         element={<ProtectedRoute requiredRole="manager"><Expenses /></ProtectedRoute>} 
       />
 
+      <Route
+        path="/audit-logs"
+        element={<ProtectedRoute requiredRole="admin"><AuditLogs /></ProtectedRoute>}
+      />
       {/* Fallback redirect */}
       <Route
         path="*"

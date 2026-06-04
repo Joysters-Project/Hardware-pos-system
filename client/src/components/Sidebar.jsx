@@ -17,6 +17,7 @@ import {
   ChevronRight,
   ShoppingCart,
   RefreshCw,
+  ShieldAlert,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import "../styles/Sidebar.css";
@@ -111,7 +112,11 @@ const getNavItems = (role) => {
     ...(role !== "manager"
       ? [{ key: "salary", label: "Salary", icon: Wallet, path: "/salary" }]
       : []),
-  ]; 
+    // Audit Logs is Admin-only
+    ...(normalizedRole === "admin"
+      ? [{ key: "audit", label: "Audit Logs", icon: ShieldAlert, path: "/audit-logs" }]
+      : []),
+  ];
 };
 
 export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed }) {

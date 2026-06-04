@@ -146,11 +146,17 @@ function Catalog() {
   // Add new item
   const handleAdd = async (e) => {
     e.preventDefault();
+const name = formData.name.trim();
 
-    if (!formData.name.trim()) {
-      toast.error("Name is required");
-      return;
-    }
+if (!name) {
+  toast.error("Name is required");
+  return;
+}
+
+if (activeTab === "units" && !isValidUnitName(name)) {
+  toast.error("Unit name can contain letters only");
+  return;
+}
 
     setLoading(true);
     try {
@@ -317,12 +323,22 @@ function Catalog() {
             <form onSubmit={handleAdd} className="add-form">
               <div className="add-input-wrapper">
                 <input
-                  type="text"
-                  placeholder={`Enter new ${getSingular(activeTab)} name...`}
-                  value={formData.name}
-                  onChange={(e) => setFormData({ name: e.target.value })}
-                  disabled={loading}
-                />
+  type="text"
+  placeholder={`Enter new ${getSingular(activeTab)} name...`}
+  value={formData.name}
+  onChange={(e) => {
+    const value = e.target.value;
+
+    if (activeTab === "units") {
+      if (/^[A-Za-z\s]*$/.test(value)) {
+        setFormData({ name: value });
+      }
+    } else {
+      setFormData({ name: value });
+    }
+  }}
+  disabled={loading}
+/>
               </div>
               <button type="submit" disabled={loading || !formData.name.trim()} className="add-btn">
                 <Plus size={18} />
