@@ -1,0 +1,329 @@
+/* =============================================
+   SIDEBAR — Floating Navigation Panel
+   ============================================= */
+
+/* ---------- Mobile Hamburger Toggle ---------- */
+.sidebar-hamburger {
+  display: none;
+  position: fixed;
+  top: 18px;
+  left: 18px;
+  z-index: 1200;
+  width: 46px;
+  height: 46px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #8b3a3a 0%, #a84545 100%);
+  color: #fff;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(139, 58, 58, 0.4);
+  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.sidebar-hamburger:hover {
+  transform: scale(1.06);
+  box-shadow: 0 6px 28px rgba(139, 58, 58, 0.55);
+}
+
+.sidebar-hamburger:active {
+  transform: scale(0.96);
+}
+
+/* ---------- Overlay (Mobile Only) ---------- */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.sidebar-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ---------- Floating Sidebar Shell ---------- */
+.sidebar-float {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  bottom: 16px;
+  width: 260px;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #2a0e0e 0%, #1a0808 100%);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.22),
+    0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  overflow: hidden;
+  transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1),
+              box-shadow 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* ---------- Sidebar Header ---------- */
+.sidebar-float__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 22px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-float__logo {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #8b3a3a 0%, #a84545 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(139, 58, 58, 0.35);
+}
+
+.sidebar-float__brand {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.sidebar-float__brand-sub {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(232, 213, 213, 0.6);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-top: 1px;
+}
+
+/* ---------- Navigation List ---------- */
+.sidebar-float__nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebar-float__nav-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(232, 213, 213, 0.35);
+  padding: 12px 12px 6px;
+  margin-top: 4px;
+}
+
+.sidebar-float__nav-label:first-child {
+  margin-top: 0;
+}
+
+.sidebar-float__nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: #e8d5d5;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.sidebar-float__nav-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  transform: translateX(3px);
+}
+
+.sidebar-float__nav-item.active {
+  background: linear-gradient(135deg, #8b3a3a 0%, #a84545 100%);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(139, 58, 58, 0.3);
+}
+
+.sidebar-float__nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 18px;
+  border-radius: 0 4px 4px 0;
+  background: #fff;
+}
+
+.sidebar-float__nav-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+}
+
+.sidebar-float__nav-item.active .sidebar-float__nav-icon {
+  opacity: 1;
+}
+
+.sidebar-float__nav-item:hover .sidebar-float__nav-icon {
+  opacity: 1;
+}
+
+/* ---------- Sidebar Footer (Logout) ---------- */
+.sidebar-float__footer {
+  padding: 14px 12px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-float__user-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.sidebar-float__avatar {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b3a3a 0%, #a84545 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.sidebar-float__user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-float__user-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-float__user-role {
+  font-size: 11px;
+  color: rgba(232, 213, 213, 0.6);
+  text-transform: capitalize;
+}
+
+.sidebar-float__logout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #e8d5d5;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.sidebar-float__logout:hover {
+  background: rgba(220, 38, 38, 0.15);
+  border-color: rgba(220, 38, 38, 0.3);
+  color: #fca5a5;
+}
+
+/* ---------- Scrollbar ---------- */
+.sidebar-float__nav::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-float__nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-float__nav::-webkit-scrollbar-thumb {
+  background: rgba(168, 69, 69, 0.35);
+  border-radius: 4px;
+}
+
+.sidebar-float__nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(168, 69, 69, 0.55);
+}
+
+/* =============================================
+   RESPONSIVE — Mobile Off-Canvas Drawer
+   ============================================= */
+@media (max-width: 992px) {
+  .sidebar-hamburger {
+    display: flex;
+  }
+
+  .sidebar-overlay {
+    display: block;
+  }
+
+  .sidebar-float {
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    border-radius: 0 18px 18px 0;
+    transform: translateX(-110%);
+    box-shadow: none;
+  }
+
+  .sidebar-float.mobile-open {
+    transform: translateX(0);
+    box-shadow: 8px 0 40px rgba(0, 0, 0, 0.3);
+  }
+}
+
+@media (max-width: 480px) {
+  .sidebar-float {
+    width: 260px;
+  }
+
+  .sidebar-hamburger {
+    top: 12px;
+    left: 12px;
+    width: 42px;
+    height: 42px;
+  }
+}
