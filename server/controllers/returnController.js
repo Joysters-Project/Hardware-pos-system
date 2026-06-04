@@ -57,18 +57,29 @@ exports.lookupBill = async (req, res) => {
     }
 
     if (bill_no) {
-      const trimmedBillNo = bill_no.trim();
+      const trimmedBillNo = bill_no.toString().trim();
+      const normalizedTerm = trimmedBillNo.toLowerCase();
       const clauses = [];
 
-      // Exact match on bill_no
-      if (trimmedBillNo.length > 0) clauses.push({ bill_no: trimmedBillNo });
+      if (normalizedTerm.length > 0) {
+        clauses.push(
+          bills.sequelize.where(
+            bills.sequelize.fn('LOWER', bills.sequelize.col('bill_no')),
+            normalizedTerm
+          )
+        );
+        clauses.push(
+          bills.sequelize.where(
+            bills.sequelize.fn('LOWER', bills.sequelize.col('bill_no')),
+            { [Op.like]: `%${normalizedTerm}%` }
+          )
+        );
+      }
 
-      // Partial match on bill_no
-      clauses.push({ bill_no: { [Op.like]: `%${trimmedBillNo}%` } });
-
-      // If numeric, allow matching by bill_id as well
       const asId = parseInt(trimmedBillNo, 10);
-      if (!Number.isNaN(asId)) clauses.push({ bill_id: asId });
+      if (!Number.isNaN(asId)) {
+        clauses.push({ bill_id: asId });
+      }
 
       const results = await bills.findAll({
         where: { [Op.or]: clauses },

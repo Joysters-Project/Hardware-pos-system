@@ -108,6 +108,12 @@ class ReturnService {
           quantity: return_quantity,
           reason
         }, { transaction: t });
+      } else if (destination === 'WRITEOFF') {
+        await products.increment('damaged_quantity', {
+          by: return_quantity,
+          where: { product_id },
+          transaction: t
+        });
       }
 
       await audit_log.create({
