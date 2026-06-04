@@ -1086,7 +1086,8 @@ body {
   margin-top: 0.25rem;
 }
 
-.receipt-meta-grid {\n  display: grid;
+.receipt-meta-grid {
+    display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
   padding: 1.25rem;
@@ -1099,17 +1100,20 @@ body {
   flex-direction: column;
 }
 
-.meta-label {\n  font-size: 0.625rem;
+.meta-label {
+    font-size: 0.625rem;
   text-transform: uppercase;
   color: #a89896;
   letter-spacing: 0.5px;
   font-weight: 600;
 }
 
-.meta-value {\n  font-size: 0.875rem;
+.meta-value {
+   font-size: 0.875rem;
   font-weight: 600;
   color: #2b1515;
-}\n\n.receipt-items {
+}
+.receipt-items {
   padding: 1.25rem;
 }
 
