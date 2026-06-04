@@ -9,7 +9,7 @@ import {
 import toast from "react-hot-toast";
 import api from "../utils/axios";
 import AdminDashboard from "./AdminDashboard";
-import ManagerDashboard from "./ManagerDashboard";
+//import ManagerDashboard from "./ManagerDashboard";
 import "../styles/Salary.css";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];

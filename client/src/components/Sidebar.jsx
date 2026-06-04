@@ -107,13 +107,11 @@ const getNavItems = (role) => {
       icon: Receipt,
       path: `${prefix}/expenses`,
     },
-    {
-      key: "salary",
-      label: "Salary",
-      icon: Wallet,
-      path: `${prefix}/salary`,
-    },
-  ];
+    // Salary is Admin-only — hidden for manager role
+    ...(role !== "manager"
+      ? [{ key: "salary", label: "Salary", icon: Wallet, path: "/salary" }]
+      : []),
+  ]; 
 };
 
 export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed }) {
