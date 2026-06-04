@@ -138,9 +138,10 @@ const sendPayslipEmail = async (employeeEmail, employeeName, paymentData, pdfPat
 
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: false,
-    auth: { user: emailUser, pass: emailPass }
+    port: 465,
+    secure: true,
+    auth: { user: emailUser, pass: emailPass },
+    family: 4,
   });
 
   const monthLabel = `${MONTHS[paymentData.payment_month - 1]} ${paymentData.payment_year}`;

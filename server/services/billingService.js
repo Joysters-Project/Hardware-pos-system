@@ -113,7 +113,7 @@ class BillingService {
             await payments.create({
                 bill_id: bill.bill_id,
                 amount_paid: saleData.amount_paid,
-                payment_status: 'CASH'
+                payment_method: saleData.payment_method || 'CASH'
             }, { transaction: t });
 
             // 7. Final Audit Log

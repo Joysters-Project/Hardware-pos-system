@@ -93,7 +93,7 @@ function Login() {
               />
             </div>
 
-            <div className="input-box">
+            <div className="input-box" style={{position:"relative"}}>
               <input
                 type={showPassword ? "text" : "password"}
                 placeholder="Password"
@@ -102,6 +102,10 @@ function Login() {
                 required
                 disabled={loading}
               />
+              <span
+                onClick={() => setShowPassword(v => !v)}
+                style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",cursor:"pointer",userSelect:"none",fontSize:18}}
+              >{showPassword ? "🙈" : "👁️"}</span>
             </div>
 
             <button className="login-btn" type="submit" disabled={loading}>

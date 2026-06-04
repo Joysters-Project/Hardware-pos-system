@@ -1,4 +1,5 @@
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 
 const db = require('../models');
@@ -6,17 +7,12 @@ const users = db.users;
 const models = db;
 const jwt = require('jsonwebtoken');
 
-// ─── In-Memory OTP & Reset Token Stores ──────────────────────────────────────
-const otpStore = new Map();        // email -> { otp, expiresAt, userId, userName }
-const resetTokenStore = new Map(); // token -> { email, userId, expiresAt }
-
 // ─── Nodemailer Transporter (Gmail) ──────────────────────────────────────────
 const createTransporter = () => {
     return nodemailer.createTransport({
         host: 'smtp.gmail.com',
-        port: 587,
-        secure: false, // true for 465, false for 587
-        requireTLS: true,
+        port: 465,
+        secure: true,
         auth: {
             user: process.env.SMTP_EMAIL,
             pass: process.env.SMTP_PASSWORD,
@@ -24,15 +20,13 @@ const createTransporter = () => {
         tls: { rejectUnauthorized: false },
         connectionTimeout: 15000,
         socketTimeout: 15000,
-        // CRITICAL FIX: Force Node to use IPv4 instead of IPv6. 
-        // This solves the 'ESOCKET' 2404:6800... error you had earlier!
-        family: 4
+        family: 4, // Force IPv4 — prevents ESOCKET errors on some networks
     });
 };
 
 const sendOtpEmail = async (toEmail, toName, otp) => {
     const transporter = createTransporter();
-    const htmlContent = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f4f4f4;margin:0;padding:0">
+    const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f4f4f4;margin:0;padding:0">
 <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 10px">
   <table width="480" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1)">
     <tr><td style="background:linear-gradient(135deg,#800000,#a52a2a);padding:32px;text-align:center">
@@ -58,7 +52,7 @@ const sendOtpEmail = async (toEmail, toName, otp) => {
         from: `"${process.env.EMAIL_FROM_NAME || 'Mathumithan Hardware'}" <${process.env.SMTP_EMAIL}>`,
         to: toEmail,
         subject: '🔑 Your Password Reset OTP - Mathumithan Hardware POS',
-        html: htmlContent,
+        html,
     });
 };
 
@@ -73,56 +67,48 @@ const login = async (req, res) => {
         if (!user) return res.status(401).json({ message: 'Invalid Username or Password' });
 
         if (!role || user.role.toLowerCase() !== role.toLowerCase()) {
-            return res.status(403).json({ message: 'Access denied: Wrong role' });
+            console.warn(`[Login] Role mismatch — DB: "${user.role}", sent: "${role}"`);
+            return res.status(403).json({ message: `Access denied: You are registered as "${user.role}". Please select the correct role.` });
         }
         if (user.status !== 'Active') {
             return res.status(403).json({ message: 'User is inactive' });
         }
         if (user.is_locked) {
-            const lockTime = new Date(user.lock_time);
-            const diffMinutes = (new Date() - lockTime) / (1000 * 60);
+            const diffMinutes = (new Date() - new Date(user.lock_time)) / (1000 * 60);
             if (diffMinutes >= 15) {
                 await user.update({ is_locked: false, failed_attempts: 0, lock_time: null });
             } else {
                 const remaining = Math.ceil(15 - diffMinutes);
-                return res.status(403).json({ message: 'Account locked. Try again after ' + remaining + ' minutes' });
+                return res.status(403).json({ message: `Account locked. Try again after ${remaining} minutes` });
             }
         }
 
         let isMatch = false;
-        if (user.password) {
-            isMatch = await bcrypt.compare(password, user.password);
-        }
+        if (user.password) isMatch = await bcrypt.compare(password, user.password);
+
+        // Legacy plain-text fallback
         if (!isMatch && user.password && !user.password.startsWith('$2b$') && !user.password.startsWith('$2a$')) {
             if (password === user.password) {
-                const hashedPassword = await bcrypt.hash(password, 10);
-                await user.update({ password: hashedPassword, failed_attempts: 0, lock_time: null });
+                await user.update({ password: await bcrypt.hash(password, 10), failed_attempts: 0, lock_time: null });
                 isMatch = true;
             }
         }
 
         if (isMatch) {
             await user.update({ failed_attempts: 0, lock_time: null });
-            const department_id = (user.employee && user.employee.department_id) ? user.employee.department_id : null;
+            const department_id = user.employee?.department_id || null;
             const secret = process.env.JWT_SECRET || 'MySuperSecretKey123!';
-            const token = jwt.sign(
-                { user_id: user.user_id, role: user.role, department_id },
-                secret,
-                { expiresIn: '1h' }
-            );
+            const token = jwt.sign({ user_id: user.user_id, role: user.role, department_id }, secret, { expiresIn: '1h' });
             return res.status(200).json({ message: 'Login successful', token });
         } else {
             let attempts = (user.failed_attempts || 0) + 1;
             let updates = { failed_attempts: attempts };
-            if (attempts >= 5) {
-                updates.is_locked = true;
-                updates.lock_time = new Date();
-            }
+            if (attempts >= 5) { updates.is_locked = true; updates.lock_time = new Date(); }
             await user.update(updates);
             return res.status(401).json({
                 message: attempts >= 5
                     ? 'Account locked due to 5 failed login attempts'
-                    : 'Invalid Username or Password. You have only ' + (5 - attempts) + ' attempts left'
+                    : `Invalid Username or Password. You have only ${5 - attempts} attempts left`
             });
         }
     } catch (error) {
@@ -133,11 +119,8 @@ const login = async (req, res) => {
 // ─── Unlock User ──────────────────────────────────────────────────────────────
 const unlockUser = async (req, res) => {
     try {
-        if (req.user.role !== 'Admin') {
-            return res.status(403).json({ message: 'Only admin can unlock accounts' });
-        }
-        const { user_id } = req.body;
-        const user = await users.findByPk(user_id);
+        if (req.user.role !== 'Admin') return res.status(403).json({ message: 'Only admin can unlock accounts' });
+        const user = await users.findByPk(req.body.user_id);
         if (!user) return res.status(404).json({ message: 'User not found' });
         await user.update({ failed_attempts: 0, is_locked: false, lock_time: null });
         res.status(200).json({ message: 'User account unlocked successfully' });
@@ -148,9 +131,8 @@ const unlockUser = async (req, res) => {
 
 // ─── Logout ───────────────────────────────────────────────────────────────────
 const logout = async (req, res) => {
-    const { user_id } = req.body;
     try {
-        await models.audit_log.create({ user_id, action: 'LOGOUT', timestamp: new Date() });
+        await models.audit_log.create({ user_id: req.body.user_id, action: 'LOGOUT', time: new Date() });
         res.status(200).json({ message: 'Logout successful and log recorded' });
     } catch (err) {
         console.error(err);
@@ -159,114 +141,176 @@ const logout = async (req, res) => {
 };
 
 // ─── STEP 1: Send OTP ─────────────────────────────────────────────────────────
+// Stores OTP hash + expiry in the DB (reset_token / reset_token_expiry columns)
+// so it survives server restarts. The raw OTP is never stored — only its hash.
 const sendOtpForReset = async (req, res) => {
     try {
         const { email } = req.body;
         if (!email) return res.status(400).json({ message: 'Email is required' });
 
-        const employee = await models.employees.findOne({ where: { email } });
-        if (!employee) return res.status(404).json({ message: 'No account found with this email' });
+        const normalizedEmail = email.trim().toLowerCase();
+
+        // ── Validate email is in employees table ──
+        const employee = await models.employees.findOne({ where: { email: normalizedEmail } });
+        if (!employee) {
+            console.warn(`[SendOTP] ❌ Email not found in employee records: ${normalizedEmail}`);
+            return res.status(404).json({ message: 'No account found with this email' });
+        }
 
         const user = await users.findOne({ where: { employee_id: employee.employee_id } });
-        if (!user) return res.status(404).json({ message: 'No user account linked to this email' });
+        if (!user) {
+            console.warn(`[SendOTP] ❌ No user account linked to employee: ${normalizedEmail}`);
+            return res.status(404).json({ message: 'No user account linked to this email' });
+        }
 
+        // ── Generate 6-digit OTP ──
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        const expiresAt = Date.now() + 10 * 60 * 1000;
+        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-        otpStore.set(email.toLowerCase(), { otp, expiresAt, userId: user.user_id, userName: user.user_name });
+        // ── Store OTP hash in DB (not plain text) ──
+        // Prefix "OTP:" distinguishes it from a reset token stored in the same column
+        const otpHash = await bcrypt.hash(otp, 10);
+        await user.update({
+            reset_token: `OTP:${otpHash}`,
+            reset_token_expiry: otpExpiry,
+        });
 
-        // Always log OTP to server console — visible in terminal regardless of email status
+        // ── Always log OTP to server console for fallback access ──
         console.log('\n========================================');
         console.log('  PASSWORD RESET OTP');
-        console.log('  Email : ' + email);
-        console.log('  OTP   : ' + otp);
+        console.log(`  Email : ${normalizedEmail}`);
+        console.log(`  OTP   : ${otp}`);
         console.log('  Valid : 10 minutes');
         console.log('========================================\n');
 
-        // Attempt email delivery (non-fatal)
+        // ── Attempt email delivery (non-fatal if it fails) ──
         let emailSent = false;
         try {
-            await sendOtpEmail(email, user.user_name, otp);
+            await sendOtpEmail(normalizedEmail, user.user_name, otp);
             emailSent = true;
-            console.log('Email sent successfully via Brevo to:', email);
+            console.log(`[SendOTP] ✅ OTP email sent to: ${normalizedEmail}`);
         } catch (mailErr) {
-            console.error('Email delivery failed (OTP still valid in console above):', mailErr.message);
+            console.error(`[SendOTP] ⚠️  Email delivery failed — OTP is still valid via console: ${mailErr.message}`);
         }
 
         res.status(200).json({
             message: emailSent
                 ? 'OTP sent to your email. Valid for 10 minutes.'
-                : 'OTP generated. Check the server console for your OTP (email delivery failed on this network).',
+                : 'OTP generated. Check the server console for your OTP (email delivery failed).',
         });
     } catch (error) {
-        console.error('sendOtpForReset error:', error);
+        console.error('[SendOTP] ❌ Error:', error.message);
         res.status(500).json({ error: 'Failed to generate OTP. Please try again.' });
     }
 };
 
 // ─── STEP 2: Verify OTP ───────────────────────────────────────────────────────
+// Validates the OTP against the hash in the DB, then replaces it with a
+// short-lived reset token that the client uses in Step 3.
 const verifyOtpForReset = async (req, res) => {
     try {
         const { email, otp } = req.body;
         if (!email || !otp) return res.status(400).json({ message: 'Email and OTP are required' });
 
-        const record = otpStore.get(email.toLowerCase());
-        if (!record) return res.status(400).json({ message: 'No OTP found for this email. Please request a new one.' });
-        if (Date.now() > record.expiresAt) {
-            otpStore.delete(email.toLowerCase());
+        const normalizedEmail = email.trim().toLowerCase();
+
+        const employee = await models.employees.findOne({ where: { email: normalizedEmail } });
+        if (!employee) return res.status(404).json({ message: 'No account found with this email' });
+
+        const user = await users.findOne({ where: { employee_id: employee.employee_id } });
+        if (!user) return res.status(404).json({ message: 'No user account linked to this email' });
+
+        // ── Check token exists and is an OTP (prefixed with "OTP:") ──
+        if (!user.reset_token || !user.reset_token.startsWith('OTP:')) {
+            console.warn(`[VerifyOTP] ❌ No pending OTP for: ${normalizedEmail}`);
+            return res.status(400).json({ message: 'No OTP found for this email. Please request a new one.' });
+        }
+
+        // ── Check expiry ──
+        if (!user.reset_token_expiry || new Date() > new Date(user.reset_token_expiry)) {
+            await user.update({ reset_token: null, reset_token_expiry: null });
+            console.warn(`[VerifyOTP] ⏰ OTP expired for: ${normalizedEmail}`);
             return res.status(400).json({ message: 'OTP has expired. Please request a new one.' });
         }
-        if (record.otp !== otp.toString()) {
+
+        // ── Compare OTP against stored hash ──
+        const storedHash = user.reset_token.replace('OTP:', '');
+        const isMatch = await bcrypt.compare(otp.toString(), storedHash);
+        if (!isMatch) {
+            console.warn(`[VerifyOTP] ❌ Incorrect OTP attempt for: ${normalizedEmail}`);
             return res.status(400).json({ message: 'Incorrect OTP. Please try again.' });
         }
 
-        otpStore.delete(email.toLowerCase());
-
-        const crypto = require('crypto');
+        // ── OTP correct — generate reset token and store it in DB ──
         const resetToken = crypto.randomBytes(32).toString('hex');
-        resetTokenStore.set(resetToken, {
-            email: email.toLowerCase(),
-            userId: record.userId,
-            expiresAt: Date.now() + 5 * 60 * 1000,
+        const resetExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+        // Store reset token prefixed with "RESET:" so Step 3 can distinguish it
+        await user.update({
+            reset_token: `RESET:${resetToken}`,
+            reset_token_expiry: resetExpiry,
         });
 
+        // Immediately re-read from DB to confirm the value was saved correctly
+        await user.reload();
+        console.log(`[VerifyOTP] ✅ OTP verified for: ${normalizedEmail} — reset token issued`);
         res.status(200).json({ message: 'OTP verified successfully.', resetToken });
     } catch (error) {
-        console.error('verifyOtpForReset error:', error);
+        console.error('[VerifyOTP] ❌ Error:', error.message);
         res.status(500).json({ error: error.message });
     }
 };
 
 // ─── STEP 3: Reset Password ───────────────────────────────────────────────────
+// Validates the reset token from the DB (not from memory), then saves new password.
 const resetPassword = async (req, res) => {
     try {
         const { resetToken, newPassword } = req.body;
         if (!resetToken || !newPassword) return res.status(400).json({ message: 'Reset token and new password are required' });
         if (newPassword.length < 6) return res.status(400).json({ message: 'Password must be at least 6 characters' });
 
-        const tokenData = resetTokenStore.get(resetToken);
-        if (!tokenData) return res.status(400).json({ message: 'Invalid or expired reset session. Please start over.' });
-        if (Date.now() > tokenData.expiresAt) {
-            resetTokenStore.delete(resetToken);
+        // ── Find user by reset token stored in DB ──
+        const user = await users.findOne({ where: { reset_token: `RESET:${resetToken}` } });
+
+        if (!user) {
+            console.warn('[ResetPassword] ❌ No user found for reset token — may have expired or already been used');
+            return res.status(400).json({ message: 'Invalid or expired reset session. Please start over.' });
+        }
+
+        // ── Check token expiry ──
+        if (!user.reset_token_expiry || new Date() > new Date(user.reset_token_expiry)) {
+            await user.update({ reset_token: null, reset_token_expiry: null });
+            console.warn(`[ResetPassword] ⏰ Reset token expired for user_id: ${user.user_id}`);
             return res.status(400).json({ message: 'Reset session expired. Please start over.' });
         }
 
-        const user = await users.findByPk(tokenData.userId);
-        if (!user) return res.status(404).json({ message: 'User not found' });
-
+        // ── Hash and save new password, clear token ──
+        // Hash explicitly here; bypass the model hook to avoid any double-hash
         const hashedPassword = await bcrypt.hash(newPassword, 10);
-        await user.update({ password: hashedPassword, failed_attempts: 0, is_locked: false, lock_time: null });
-        resetTokenStore.delete(resetToken);
-
-        await models.audit_log.create({
-            user_id: user.user_id,
-            action: 'PASSWORD_RESET',
-            timestamp: models.sequelize.fn('NOW'),
+        await user.update({
+            password: hashedPassword,
+            reset_token: null,
+            reset_token_expiry: null,
+            failed_attempts: 0,
+            is_locked: false,
+            lock_time: null,
         });
+
+        console.log(`[ResetPassword] ✅ Password updated for user_id: ${user.user_id}`);
+
+        try {
+            await models.audit_log.create({
+                user_id: user.user_id,
+                action: 'PASSWORD_RESET',
+                time: new Date(),
+            });
+        } catch (auditErr) {
+            console.warn('[ResetPassword] ⚠️ Audit log failed (non-fatal):', auditErr.message);
+        }
 
         res.status(200).json({ message: 'Password updated successfully! You can now log in.' });
     } catch (error) {
-        console.error('resetPassword error:', error);
+        console.error('[ResetPassword] ❌ Error:', error.message);
         res.status(500).json({ error: error.message });
     }
 };
@@ -280,8 +324,7 @@ const simpleRegister = async (req, res) => {
             return res.status(400).json({ message: 'All fields are required' });
         }
 
-        const employeeModel = models.employees;
-        const employee = await employeeModel.findByPk(employee_id);
+        const employee = await models.employees.findByPk(employee_id);
         if (!employee) return res.status(400).json({ message: 'Employee ID not found' });
         if (employee.email !== email) return res.status(400).json({ message: 'Email does not match the employee record' });
         if (employee.first_name !== firstName || employee.last_name !== lastName) {
@@ -289,7 +332,7 @@ const simpleRegister = async (req, res) => {
         }
         if (employee.position !== role) {
             return res.status(400).json({
-                message: 'Role mismatch. This Employee is assigned as \'' + employee.position + '\', but you tried to register as a \'' + role + '\'.'
+                message: `Role mismatch. This Employee is assigned as '${employee.position}', but you tried to register as a '${role}'.`
             });
         }
 
@@ -301,15 +344,14 @@ const simpleRegister = async (req, res) => {
 
         if (['Manager', 'Admin'].includes(role)) {
             const roleTaken = await users.findOne({ where: { role } });
-            if (roleTaken) return res.status(400).json({ message: role + ' role is already assigned' });
+            if (roleTaken) return res.status(400).json({ message: `${role} role is already assigned` });
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = await users.create({
             user_name: username,
             first_name: firstName,
             last_name: lastName,
-            password: hashedPassword,
+            password: await bcrypt.hash(password, 10),
             role,
             employee_id,
             status: 'Active',
@@ -317,22 +359,12 @@ const simpleRegister = async (req, res) => {
             is_locked: false,
         });
 
-        res.status(201).json({
-            message: 'Account created successfully',
-            user_id: newUser.user_id,
-            username: newUser.user_name,
-        });
+        res.status(201).json({ message: 'Account created successfully', user_id: newUser.user_id, username: newUser.user_name });
     } catch (error) {
         console.error(error);
-        if (error.name === 'SequelizeForeignKeyConstraintError') {
-            return res.status(400).json({ message: 'Employee ID not found (foreign key constraint)' });
-        }
-        if (error.name === 'SequelizeUniqueConstraintError') {
-            return res.status(400).json({ message: 'Username or employee already has an account' });
-        }
-        if (error.errors) {
-            return res.status(400).json({ message: error.errors.map(e => e.message).join(', ') });
-        }
+        if (error.name === 'SequelizeForeignKeyConstraintError') return res.status(400).json({ message: 'Employee ID not found (foreign key constraint)' });
+        if (error.name === 'SequelizeUniqueConstraintError') return res.status(400).json({ message: 'Username or employee already has an account' });
+        if (error.errors) return res.status(400).json({ message: error.errors.map(e => e.message).join(', ') });
         res.status(500).json({ error: error.message });
     }
 };
