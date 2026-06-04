@@ -23,6 +23,9 @@ import "../styles/Catalog.css";
 
 const API_BASE = "http://localhost:5000/api";
 
+// Validation helper for unit names (letters and spaces only)
+const validateUnitName = (name) => /^[A-Za-z\s]+$/.test(name);
+
 function Catalog() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("categories");
@@ -146,17 +149,17 @@ function Catalog() {
   // Add new item
   const handleAdd = async (e) => {
     e.preventDefault();
-const name = formData.name.trim();
+    const name = formData.name.trim();
 
-if (!name) {
-  toast.error("Name is required");
-  return;
-}
+    if (!name) {
+      toast.error("Name is required");
+      return;
+    }
 
-if (activeTab === "units" && !isValidUnitName(name)) {
-  toast.error("Unit name can contain letters only");
-  return;
-}
+    if (activeTab === "units" && !validateUnitName(name)) {
+      toast.error("Unit name can contain letters only");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -193,6 +196,11 @@ if (activeTab === "units" && !isValidUnitName(name)) {
   const handleSaveEdit = async (id) => {
     if (!editingName.trim()) {
       toast.error("Name is required");
+      return;
+    }
+
+    if (activeTab === "units" && !validateUnitName(editingName.trim())) {
+      toast.error("Unit name can contain letters only");
       return;
     }
 
