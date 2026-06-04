@@ -145,6 +145,27 @@
   line-height: 1.2;
 }
 
+.kpi-value-wrapper {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  line-height: 1.2;
+}
+
+.kpi-currency {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #8b3a3a;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.kpi-number {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #2c2c2c !important;
+}
+
 .kpi-card-footer {
   display: flex;
   align-items: center;

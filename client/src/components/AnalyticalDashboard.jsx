@@ -40,9 +40,9 @@ export default function AnalyticalDashboard() {
 
   // API Data States
   const [kpis, setKpis] = useState({
-    totalRevenue: "$0.00",
+    totalRevenue: "LKR 0.00",
     salesVolume: "0 orders",
-    aov: "$0.00",
+    aov: "LKR 0.00",
     conversionRate: "0.00%"
   });
   const [transactions, setTransactions] = useState([]);
@@ -94,7 +94,8 @@ export default function AnalyticalDashboard() {
   }, [transactions, searchQuery]);
 
   const handleExportPDF = () => {
-    toast.success("Generating and exporting analytical report as PDF...");
+    window.open(`${API_BASE}/dashboard/analytical/export-pdf`, "_blank");
+    toast.success("Downloading analytical report PDF...");
   };
 
   // Map dynamic icon to KPI block
@@ -103,6 +104,20 @@ export default function AnalyticalDashboard() {
     if (title.includes("Volume")) return ShoppingCart;
     if (title.includes("Order")) return Activity;
     return Percent;
+  };
+
+  // Helper to render KPI value with small currency text
+  const renderKPIValue = (value) => {
+    if (value.startsWith("LKR")) {
+      const numPart = value.replace("LKR", "").trim();
+      return (
+        <div className="kpi-value-wrapper">
+          <span className="kpi-currency">LKR</span>
+          <span className="kpi-number">{numPart}</span>
+        </div>
+      );
+    }
+    return <div className="kpi-value">{value}</div>;
   };
 
   if (loading) {
@@ -146,7 +161,7 @@ export default function AnalyticalDashboard() {
                   <Icon size={18} />
                 </span>
               </div>
-              <div className="kpi-value">{kpi.value}</div>
+              {renderKPIValue(kpi.value)}
               <div className="kpi-card-footer">
                 <span className={`trend-badge ${kpi.isPositive ? "up" : "down"}`}>
                   {kpi.isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
@@ -165,7 +180,7 @@ export default function AnalyticalDashboard() {
         <div className="chart-panel primary-chart">
           <div className="chart-panel-header">
             <div className="chart-panel-title">
-              <h3>Revenue Performance</h3>
+              <h3>Revenue Performance (LKR)</h3>
               <p>Total sales income trends over selected scope</p>
             </div>
             <div className="toggle-group">
@@ -238,7 +253,7 @@ export default function AnalyticalDashboard() {
           <div className="chart-panel secondary-chart">
             <div className="chart-panel-header">
               <div className="chart-panel-title">
-                <h3>Conversion & AOV</h3>
+                <h3>Conversion & AOV (LKR)</h3>
                 <p>Order conversions and average cart values</p>
               </div>
             </div>
@@ -277,7 +292,7 @@ export default function AnalyticalDashboard() {
                       activeDot={{ r: 6 }}
                     />
                     <Line
-                      name="AOV ($)"
+                      name="AOV (LKR)"
                       type="monotone"
                       dataKey="aov"
                       stroke="#8b3a3a"
@@ -382,7 +397,10 @@ export default function AnalyticalDashboard() {
                   <span className="ledger-timestamp">{txn.time}</span>
                 </div>
                 <div className="ledger-right">
-                  <span className="ledger-amount">${txn.amount.toFixed(2)}</span>
+                  <span className="ledger-amount">
+                    <span className="ledger-currency">LKR</span>
+                    {" "}{txn.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
                   <span className={`ledger-status ${txn.status}`}>
                     {txn.status.toUpperCase()}
                   </span>
