@@ -16,17 +16,9 @@ function Login() {
   const [loading, setLoading] = useState(false);
 
   const roleParam = role || "User";  // fallback if undefined
-  /*
-    const handleBack = () => {
-    if (window.history.length > 1) {
-      navigate(-1); // go back
-    } else {
-      navigate("/"); // fallback to role selection
-    }
-    };
-    */
-  const handleBack = () => {
-    navigate("/");
+
+ const handleBack = () => {
+  navigate("/");
   };
 
   const handleSubmit = async (e) => {
