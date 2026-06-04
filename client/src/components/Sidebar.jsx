@@ -13,15 +13,56 @@ import {
   Menu,
   X,
   Hexagon,
+  ChevronLeft,
+  ChevronRight,
+  ShoppingCart,
+  RefreshCw,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import "../styles/Sidebar.css";
 
 /* ─── Nav configuration ─── */
 const getNavItems = (role) => {
-  const prefix = role === "manager" ? "/manager" : "";
+  const normalizedRole = (role || "admin").toLowerCase();
+
+  if (normalizedRole === "cashier") {
+    return [
+      {
+        key: "home",
+        label: "Dashboard",
+        icon: LayoutDashboard,
+        path: "/dashboard/cashier",
+      },
+      {
+        key: "billing",
+        label: "Point of Sale",
+        icon: ShoppingCart,
+        path: "/billing",
+      },
+      {
+        key: "due-collection",
+        label: "Due Collection",
+        icon: Wallet,
+        path: "/due-collection",
+      },
+      {
+        key: "returns",
+        label: "Returns",
+        icon: RefreshCw,
+        path: "/returns",
+      },
+      {
+        key: "receipts",
+        label: "Receipts",
+        icon: Receipt,
+        path: "/receipts",
+      },
+    ];
+  }
+
+  const prefix = normalizedRole === "manager" ? "/manager" : "";
   const dashPath =
-    role === "manager" ? "/dashboard/manager" : "/dashboard/admin";
+    normalizedRole === "manager" ? "/dashboard/manager" : "/dashboard/admin";
 
   return [
     {
@@ -75,7 +116,7 @@ const getNavItems = (role) => {
   ];
 };
 
-export default function Sidebar({ active, onLogout }) {
+export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed }) {
   const { user, role } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -139,23 +180,37 @@ export default function Sidebar({ active, onLogout }) {
 
       {/* ── Floating Sidebar ── */}
       <aside
-        className={`sidebar-float ${mobileOpen ? "mobile-open" : ""}`}
+        className={`sidebar-float ${mobileOpen ? "mobile-open" : ""} ${isCollapsed ? "collapsed" : ""}`}
         id="main-sidebar"
       >
         {/* Header */}
         <div className="sidebar-float__header">
-          <div className="sidebar-float__logo">
-            <Hexagon size={20} />
+          <div className="sidebar-float__logo-wrapper">
+            <div className="sidebar-float__logo">
+              <Hexagon size={20} />
+            </div>
+            <div className="sidebar-float__brand-info">
+              <div className="sidebar-float__brand">Mathumithan</div>
+              <div className="sidebar-float__brand-sub">Hardware POS</div>
+            </div>
           </div>
-          <div>
-            <div className="sidebar-float__brand">Mathumithan</div>
-            <div className="sidebar-float__brand-sub">Hardware POS</div>
-          </div>
+          <button
+            type="button"
+            className="sidebar-collapse-toggle"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+          </button>
         </div>
 
         {/* Navigation */}
         <nav className="sidebar-float__nav">
-          <div className="sidebar-float__nav-label">Main Menu</div>
+          {!isCollapsed ? (
+            <div className="sidebar-float__nav-label">Main Menu</div>
+          ) : (
+            <div className="sidebar-float__nav-divider" />
+          )}
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = active === item.key;
@@ -165,11 +220,12 @@ export default function Sidebar({ active, onLogout }) {
                 to={item.path}
                 className={`sidebar-float__nav-item ${isActive ? "active" : ""}`}
                 id={`nav-${item.key}`}
+                title={isCollapsed ? item.label : undefined}
               >
                 <span className="sidebar-float__nav-icon">
                   <Icon size={18} />
                 </span>
-                <span>{item.label}</span>
+                <span className="sidebar-float__nav-text">{item.label}</span>
               </Link>
             );
           })}
@@ -177,7 +233,7 @@ export default function Sidebar({ active, onLogout }) {
 
         {/* Footer */}
         <div className="sidebar-float__footer">
-          <div className="sidebar-float__user-block">
+          <div className="sidebar-float__user-block" title={isCollapsed ? `${userName} (${displayRole})` : undefined}>
             <div className="sidebar-float__avatar">{initials}</div>
             <div className="sidebar-float__user-info">
               <div className="sidebar-float__user-name">{userName}</div>
@@ -188,9 +244,10 @@ export default function Sidebar({ active, onLogout }) {
             className="sidebar-float__logout"
             onClick={onLogout}
             id="sidebar-logout"
+            title={isCollapsed ? "Log out" : undefined}
           >
             <LogOut size={16} />
-            <span>Log out</span>
+            <span className="sidebar-float__logout-text">Log out</span>
           </button>
         </div>
       </aside>

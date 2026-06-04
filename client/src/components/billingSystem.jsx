@@ -1,7 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Search, Package, X, Minus, Plus, Trash2, ShoppingCart, CreditCard, Printer, Download, XCircle } from 'lucide-react';
 import api from '../api/axios';
 import SuccessAnim from './SuccessAnim';
+import DashboardLayout from './DashboardLayout';
+import '../styles/BillingSystem.css';
 
 const BillingSystem = () => {
   const [cart, setCart] = useState([]);
@@ -12,6 +15,7 @@ const BillingSystem = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
+  const [catalogProducts, setCatalogProducts] = useState([]);
   const searchInputRef = useRef(null);
   const navigate = useNavigate();
 
@@ -34,6 +38,38 @@ const BillingSystem = () => {
     const date = new Date(value);
     return isNaN(date) ? value : date.toLocaleString();
   };
+
+  // Load catalog products on mount
+  useEffect(() => {
+    const loadCatalog = async () => {
+      try {
+        const res = await api.get('/products');
+        const products = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+        setCatalogProducts(products.filter(p => isProductActive(p)));
+      } catch (err) {
+        console.error('Failed to load catalog:', err);
+      }
+    };
+    loadCatalog();
+  }, []);
+
+  // Keyboard shortcut handlers
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'F1') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+      if (e.key === 'F9') {
+        e.preventDefault();
+        if (cart.length > 0) {
+          handleCheckout();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [cart, payData, customerExists]);
 
   const generateInvoiceHtml = () => {
     if (!lastBill) return '';
@@ -244,10 +280,7 @@ const BillingSystem = () => {
   // Update quantity
   const handleUpdateQty = (index, newQty) => {
     if (!Number.isFinite(newQty) || newQty <= 0) {
-      // if invalid number or empty value, reset to 1 at minimum
-      setCart(cart.map((item, i) =>
-        i === index ? { ...item, quantity: 1 } : item
-      ));
+      handleRemoveFromCart(index);
       return;
     }
     setCart(cart.map((item, i) =>
@@ -257,11 +290,12 @@ const BillingSystem = () => {
 
   // Totals Calculation
   const subtotal = cart.reduce((acc, i) => acc + (i.unit_price * i.quantity), 0);
-  const total = subtotal; // Simplified for this example
+  const total = subtotal; 
   const amountPaid = Number(payData.amountPaid);
   const amountPaidValue = Number.isFinite(amountPaid) ? amountPaid : 0;
   const balance = amountPaidValue - total;
   const isPartial = amountPaidValue < total && amountPaidValue > 0;
+  const cartItemCount = cart.reduce((acc, i) => acc + i.quantity, 0);
 
   const handleCheckout = async () => {
     if (cart.length === 0) return alert("Cart is empty!");
@@ -287,7 +321,6 @@ const BillingSystem = () => {
 
       const res = await api.post('/bills', payload);
 
-      // Trigger standard API success ripple payload
       setShowSuccess(true);
       requestAnimationFrame(() => {
         requestAnimationFrame(() => setAnimSuccess(true));
@@ -304,261 +337,375 @@ const BillingSystem = () => {
         customer: payData.customerPhone ? { name: payData.customerName, phone: payData.customerPhone } : null,
       });
       setCart([]);
-      setPayData({ amountPaid: '', customerName: '', customerPhone: '' });
+      setPayData({ amountPaid: '', customerName: '', customerPhone: '', customerAddress: '' });
+
+      // Reload catalog to reflect updated stock
+      try {
+        const catRes = await api.get('/products');
+        const products = Array.isArray(catRes.data) ? catRes.data : (catRes.data?.data || []);
+        setCatalogProducts(products.filter(p => isProductActive(p)));
+      } catch (e) { /* silent */ }
     } catch (err) { alert(err.response?.data?.error || "Error"); }
   };
 
+  const getStockClass = (qty) => {
+    if (qty <= 0) return 'out-of-stock';
+    if (qty <= 10) return 'low-stock';
+    return '';
+  };
+
+  const getStockLabel = (qty) => {
+    if (qty <= 0) return 'Out of Stock';
+    if (qty <= 10) return `Low: ${qty}`;
+    return `In Stock: ${qty}`;
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', padding: '10px 20px' }}>
-      <div style={{ marginBottom: '10px' }}>
-        <button 
-           onClick={() => navigate(-1)} 
-           style={{ padding: '8px 12px', background: '#ccc', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-        >
-          ← Back to Dashboard
-        </button>
+    <DashboardLayout active="billing">
+      {/* Page Header */}
+      <div className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">
+            <CreditCard size={24} />
+            Billing Counter
+          </h1>
+          <p className="admin-page-subtitle">
+            Process sales, manage cart & complete transactions
+          </p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div className="pos-search-kbd" style={{ padding: '6px 12px', fontSize: '12px' }}>
+            Cashier: {cashierName}
+          </div>
+        </div>
       </div>
-      <div style={{ display: 'flex', flex: 1, gap: '20px', paddingBottom: '20px' }}>
-        {/* Left: Cart Area */}
-      <div style={{ flex: 2, background: 'white', padding: '20px', borderRadius: '8px' }}>
-        <div style={{ position: 'relative', marginBottom: '20px' }}>
-          <input 
-            ref={searchInputRef}
-            placeholder="F1: Search Product..."
-            value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
-            style={{ width: '100%', padding: '10px', marginBottom: '10px', fontSize: '14px' }}
-          />
-          
-          {/* Search Results Dropdown */}
-          {showResults && searchResults.length > 0 && (
-            <div style={{
-              position: 'absolute',
-              top: '45px',
-              left: 0,
-              right: 0,
-              background: '#1d0808',
-              border: '1px solid #4d0e0e',
-              borderRadius: '4px',
-              maxHeight: '220px',
-              overflowY: 'auto',
-              zIndex: 10,
-              color: '#f8eded'
-            }}>
-              {searchResults.map((product) => (
-                <div
-                  key={product.product_id}
-                  onClick={() => handleAddToCart(product)}
-                  style={{
-                    padding: '10px',
-                    borderBottom: '1px solid rgba(255,255,255,0.08)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    background: '#1d0808'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = '#3e0d0d'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = '#1d0808'}
+
+      {/* POS Terminal Layout */}
+      <div className="pos-terminal">
+        {/* ═══ LEFT PANEL: Search + Product Catalog ═══ */}
+        <div className="pos-left">
+          {/* Search Bar */}
+          <div className="pos-search-container">
+            <div className="pos-search-bar">
+              <Search size={18} className="pos-search-icon" />
+              <input
+                ref={searchInputRef}
+                className="pos-search-input"
+                placeholder="Search products by name, barcode, SKU..."
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                id="pos-search"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => { setSearchQuery(''); setShowResults(false); setSearchResults([]); }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--pos-text-muted)', padding: '4px', display: 'flex' }}
                 >
-                  <span style={{ color: '#f4e8e8' }}><strong>{product.product_name}</strong> - Stock: {product.stock_quantity}</span>
-                  <span style={{ color: '#ffcbc5', fontWeight: 'bold' }}><strong>Rs.</strong>{product.unit_price}</span>
-                </div>
-              ))}
+                  <X size={16} />
+                </button>
+              )}
+              <span className="pos-search-kbd">F1</span>
             </div>
-          )}
-          {searchQuery.trim() && !showResults && searchResults.length === 0 && (
-            <div style={{
-              position: 'absolute',
-              top: '45px',
-              left: 0,
-              right: 0,
-              background: '#1d0808',
-              border: '1px solid #4d0e0e',
-              borderRadius: '4px',
-              padding: '12px',
-              zIndex: 10,
-              color: '#e7d7d7'
-            }}>
-              No matching products found for "{searchQuery.trim()}".
-            </div>
-          )}
-        </div>
 
-        {/* Cart Table */}
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ borderBottom: '2px solid #800000' }}>
-              <th style={{ textAlign: 'left', padding: '10px' }}>Item</th>
-              <th style={{ textAlign: 'center', padding: '10px' }}>Qty</th>
-              <th style={{ textAlign: 'right', padding: '10px' }}>Price</th>
-              <th style={{ textAlign: 'right', padding: '10px' }}>Total</th>
-              <th style={{ textAlign: 'center', padding: '10px' }}>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {cart.length === 0 ? (
-              <tr>
-                <td colSpan="5" style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
-                  No items in cart. Search and add products.
-                </td>
-              </tr>
-            ) : (
-              cart.map((item, idx) => (
-                <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
-                  <td style={{ padding: '10px' }}>{item.product_name}</td>
-                  <td style={{ textAlign: 'center', padding: '10px' }}>
-                    <input
-                      type="number"
-                      min="1"
-                      value={item.quantity}
-                      onChange={(e) => {
-                        const val = Number(e.target.value);
-                        if (Number.isNaN(val)) return;
-                        handleUpdateQty(idx, Math.floor(val));
-                      }}
-                      style={{ width: '50px', padding: '5px' }}
-                    />
-                  </td>
-                  <td style={{ textAlign: 'right', padding: '10px' }}><strong>Rs.</strong>{item.unit_price.toFixed(2)}</td>
-                  <td style={{ textAlign: 'right', padding: '10px' }}><strong>Rs.</strong>{(item.unit_price * item.quantity).toFixed(2)}</td>
-                  <td style={{ textAlign: 'center', padding: '10px' }}>
-                    <button
-                      onClick={() => handleRemoveFromCart(idx)}
-                      style={{
-                        background: '#ca2a3a',
-                        color: 'white',
-                        border: 'none',
-                        padding: '5px 10px',
-                        borderRadius: '4px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              ))
+            {/* Search Results Dropdown */}
+            {showResults && searchResults.length > 0 && (
+              <div className="pos-search-dropdown">
+                {searchResults.map((product) => (
+                  <div
+                    key={product.product_id}
+                    className="pos-search-result"
+                    onClick={() => handleAddToCart(product)}
+                  >
+                    <div className="pos-search-result__icon">
+                      <Package size={18} />
+                    </div>
+                    <div className="pos-search-result__info">
+                      <div className="pos-search-result__name">{product.product_name}</div>
+                      <div className="pos-search-result__meta">
+                        {product.product_code && `Code: ${product.product_code}`}
+                        {product.product_code && product.barcode && ' · '}
+                        {product.barcode && `Barcode: ${product.barcode}`}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div className="pos-search-result__price">Rs.{parseFloat(product.unit_price).toFixed(2)}</div>
+                      <div className={`pos-search-result__stock ${product.stock_quantity <= 10 ? 'low' : ''}`}>
+                        Stock: {product.stock_quantity}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
-          </tbody>
-        </table>
-      </div>
 
-      {/* Right: Payment & Summary Panel (Maroon Theme) */}
-      <div style={{ flex: 1, backgroundColor: '#800000', color: 'white', padding: '25px', borderRadius: '8px' }}>
-        <h2>Payment Detail</h2>
-        <div style={{ marginBottom: '20px' }}>
-          <label>Subtotal:</label>
-          <div style={{ fontSize: '18px', fontWeight: 'bold' }}><strong>Rs.</strong>{subtotal.toFixed(2)}</div>
-        </div>
-
-        <div style={{ marginBottom: '20px' }}>
-          <label htmlFor="amountPaid">Amount Received:</label>
-          <input
-            id="amountPaid"
-            name="amountPaid"
-            type="number"
-            value={payData.amountPaid || ''}
-            onChange={(e) => setPayData({...payData, amountPaid: e.target.value})}
-            style={{ width: '100%', padding: '10px', color: 'black', marginTop: '5px' }}
-            min="0"
-            step="0.01"
-          />
-        </div>
-
-        {balance >= 0 ? (
-          <h3 style={{ color: '#049104c3' }}>Return Change: <strong>Rs.</strong>{balance.toFixed(2)}</h3>
-        ) : (
-          <div style={{ border: '1px solid #ff9900', padding: '10px', marginTop: '10px', borderRadius: '4px' }}>
-            <p style={{ color: '#ff9900', margin: '5px 0' }}>Partial Payment: <strong>Rs.</strong>{Math.abs(balance).toFixed(2)} Due</p>
-            <label htmlFor="customerName">Customer Name</label>
-            <input
-              id="customerName"
-              name="customerName"
-              placeholder="Customer Name"
-              value={payData.customerName || ''}
-              onChange={(e) => setPayData({...payData, customerName: e.target.value})}
-              style={{ width: '100%', marginBottom: '5px', padding: '5px', color: 'black' }}
-              readOnly={customerExists}
-            />
-            <label htmlFor="customerPhone">Phone (Required)</label>
-            <input
-              id="customerPhone"
-              name="customerPhone"
-              placeholder="Phone (Required)"
-              value={payData.customerPhone || ''}
-              onChange={(e) => {
-                const phone = e.target.value;
-                setPayData((prev) => ({ ...prev, customerPhone: phone }));
-                setCustomerExists(false);
-                setCustomerLookupMessage('');
-              }}
-              onBlur={(e) => lookupCustomerByPhone(e.target.value)}
-              style={{ width: '100%', padding: '5px', color: 'black' }}
-            />
-            <label htmlFor="customerAddress">Address</label>
-            <textarea
-              id="customerAddress"
-              name="customerAddress"
-              placeholder="Customer Address"
-              value={payData.customerAddress || ''}
-              onChange={(e) => setPayData({...payData, customerAddress: e.target.value})}
-              style={{ width: '100%', minHeight: '70px', marginBottom: '5px', padding: '5px', color: 'black' }}
-              readOnly={customerExists}
-            />
-            {customerLookupMessage && (
-              <p style={{ margin: '4px 0', fontSize: '12px', color: customerExists ? '#2c662d' : '#d98324' }}>
-                {customerLookupMessage}
-              </p>
+            {searchQuery.trim() && !showResults && searchResults.length === 0 && (
+              <div className="pos-search-dropdown">
+                <div className="pos-search-empty">
+                  <div className="pos-search-empty-icon">🔍</div>
+                  No products found for "{searchQuery.trim()}"
+                </div>
+              </div>
             )}
           </div>
-        )}
 
-        <div style={{ marginTop: '30px', borderTop: '1px solid white', paddingTop: '20px' }}>
-          <h1 style={{ margin: '10px 0', fontSize: '32px' }}><strong>Rs.</strong>{total.toFixed(2)}</h1>
-          <button
-            onClick={handleCheckout}
-            disabled={cart.length === 0}
-            style={{
-              width: '100%',
-              padding: '15px',
-              background: cart.length === 0 ? '#666' : '#a52a2a',
-              border: 'none',
-              color: 'white',
-              fontWeight: 'bold',
-              fontSize: '16px',
-              cursor: cart.length === 0 ? 'not-allowed' : 'pointer',
-              borderRadius: '4px'
-            }}
-          >
-            F9: COMPLETE TRANSACTION
-          </button>
+          {/* Product Catalog Grid */}
+          <div className="pos-catalog">
+            <div className="pos-catalog__header">
+              <div className="pos-catalog__title">
+                <Package size={16} />
+                Product Catalog
+                <span className="pos-catalog__count">{catalogProducts.length}</span>
+              </div>
+            </div>
+
+            {catalogProducts.length === 0 ? (
+              <div className="pos-catalog__empty">
+                <div className="pos-catalog__empty-icon">📦</div>
+                <div className="pos-catalog__empty-text">No products available</div>
+                <div className="pos-catalog__empty-sub">Add products from the Products page</div>
+              </div>
+            ) : (
+              <div className="pos-catalog__grid">
+                {catalogProducts.map((product) => (
+                  <div
+                    key={product.product_id}
+                    className="pos-product-card"
+                    onClick={() => handleAddToCart(product)}
+                    title={`Add ${product.product_name} to cart`}
+                  >
+                    <div className="pos-product-card__icon">
+                      <Package size={18} />
+                    </div>
+                    <div className="pos-product-card__name">{product.product_name}</div>
+                    <div className="pos-product-card__sku">
+                      {product.product_code || product.barcode || `ID: ${product.product_id}`}
+                    </div>
+                    <div className="pos-product-card__bottom">
+                      <div className="pos-product-card__price">
+                        Rs.{parseFloat(product.unit_price).toFixed(2)}
+                      </div>
+                      <div className={`pos-product-card__stock ${getStockClass(product.stock_quantity)}`}>
+                        {getStockLabel(product.stock_quantity)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ═══ RIGHT PANEL: Cart + Payment ═══ */}
+        <div className="pos-right">
+          <div className="pos-cart">
+            {/* Cart Header */}
+            <div className="pos-cart__header">
+              <div className="pos-cart__title">
+                <ShoppingCart size={18} />
+                Cart
+                {cart.length > 0 && (
+                  <span className="pos-cart__badge">{cartItemCount}</span>
+                )}
+              </div>
+              {cart.length > 0 && (
+                <button className="pos-cart__clear" onClick={() => setCart([])}>
+                  Clear All
+                </button>
+              )}
+            </div>
+
+            {/* Cart Items */}
+            {cart.length === 0 ? (
+              <div className="pos-cart__empty">
+                <div className="pos-cart__empty-icon">🛒</div>
+                <div className="pos-cart__empty-text">Cart is empty</div>
+                <div className="pos-cart__empty-sub">Search or click a product to add</div>
+              </div>
+            ) : (
+              <div className="pos-cart__items">
+                {cart.map((item, idx) => (
+                  <div key={idx} className="pos-cart__item">
+                    <div className="pos-cart__item-info">
+                      <div className="pos-cart__item-name">{item.product_name}</div>
+                      <div className="pos-cart__item-price-each">Rs.{item.unit_price.toFixed(2)} each</div>
+                    </div>
+                    <div className="pos-cart__item-controls">
+                      <button className="pos-cart__qty-btn" onClick={() => handleUpdateQty(idx, item.quantity - 1)}>
+                        <Minus size={12} />
+                      </button>
+                      <span className="pos-cart__qty-display">{item.quantity}</span>
+                      <button className="pos-cart__qty-btn" onClick={() => handleUpdateQty(idx, item.quantity + 1)}>
+                        <Plus size={12} />
+                      </button>
+                    </div>
+                    <div className="pos-cart__item-total">
+                      Rs.{(item.unit_price * item.quantity).toFixed(2)}
+                    </div>
+                    <button className="pos-cart__item-remove" onClick={() => handleRemoveFromCart(idx)} title="Remove item">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Payment Summary */}
+            <div className="pos-payment">
+              <div className="pos-payment__row">
+                <span className="pos-payment__label">Subtotal ({cartItemCount} items)</span>
+                <span className="pos-payment__value">Rs.{subtotal.toFixed(2)}</span>
+              </div>
+
+              <div className="pos-payment__total-row">
+                <span className="pos-payment__total-label">Total</span>
+                <span className="pos-payment__total-value">Rs.{total.toFixed(2)}</span>
+              </div>
+
+              {/* Amount Received */}
+              <div className="pos-payment__input-group">
+                <label className="pos-payment__input-label" htmlFor="amountPaid">Amount Received</label>
+                <div className="pos-payment__input-wrapper">
+                  <span className="pos-payment__input-prefix">Rs.</span>
+                  <input
+                    id="amountPaid"
+                    name="amountPaid"
+                    className="pos-payment__input"
+                    type="number"
+                    value={payData.amountPaid || ''}
+                    onChange={(e) => setPayData({...payData, amountPaid: e.target.value})}
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              {/* Change or Due */}
+              {amountPaidValue > 0 && (
+                balance >= 0 ? (
+                  <div className="pos-payment__change positive">
+                    <span className="pos-payment__change-label">Change to Return</span>
+                    <span className="pos-payment__change-value">Rs.{balance.toFixed(2)}</span>
+                  </div>
+                ) : (
+                  <div className="pos-payment__change negative">
+                    <span className="pos-payment__change-label">Balance Due</span>
+                    <span className="pos-payment__change-value">Rs.{Math.abs(balance).toFixed(2)}</span>
+                  </div>
+                )
+              )}
+
+              {/* Partial Payment Customer Info */}
+              {isPartial && (
+                <div className="pos-partial-info">
+                  <div>
+                    <label className="pos-partial-info__label" htmlFor="customerPhone">Phone (Required)</label>
+                    <input
+                      id="customerPhone"
+                      name="customerPhone"
+                      className="pos-partial-info__input"
+                      placeholder="07xxxxxxxx"
+                      value={payData.customerPhone || ''}
+                      onChange={(e) => {
+                        const phone = e.target.value;
+                        setPayData((prev) => ({ ...prev, customerPhone: phone }));
+                        setCustomerExists(false);
+                        setCustomerLookupMessage('');
+                      }}
+                      onBlur={(e) => lookupCustomerByPhone(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="pos-partial-info__label" htmlFor="customerName">Customer Name</label>
+                    <input
+                      id="customerName"
+                      name="customerName"
+                      className="pos-partial-info__input"
+                      placeholder="Enter customer name"
+                      value={payData.customerName || ''}
+                      onChange={(e) => setPayData({...payData, customerName: e.target.value})}
+                      readOnly={customerExists}
+                    />
+                  </div>
+                  <div>
+                    <label className="pos-partial-info__label" htmlFor="customerAddress">Address</label>
+                    <input
+                      id="customerAddress"
+                      name="customerAddress"
+                      className="pos-partial-info__input"
+                      placeholder="Enter customer address"
+                      value={payData.customerAddress || ''}
+                      onChange={(e) => setPayData({...payData, customerAddress: e.target.value})}
+                      readOnly={customerExists}
+                    />
+                  </div>
+                  {customerLookupMessage && (
+                    <p className={`pos-partial-info__message ${customerExists ? 'found' : 'new'}`}>
+                      {customerLookupMessage}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Checkout Button */}
+              <button
+                onClick={handleCheckout}
+                disabled={cart.length === 0}
+                className={`pos-checkout-btn ${cart.length > 0 ? 'pos-checkout-btn--active' : 'pos-checkout-btn--disabled'}`}
+                id="pos-checkout"
+              >
+                <span className="pos-checkout-btn__kbd">F9</span>
+                Complete Transaction
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Success Modal */}
+      {/* Success Animation */}
+      <SuccessAnim
+        show={showSuccess}
+        animate={animSuccess}
+        onDismiss={handleSuccessDismiss}
+        message="Transaction Complete!"
+        subMessage={`Bill total: Rs. ${total.toFixed(2)}`}
+      />
+
+      {/* Receipt Modal */}
       {lastBill && (
-        <>
-          <div className="no-print" style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', zIndex: 1000 }} />
-          <div id="receipt-content" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'white', padding: '30px', width: '420px', color: 'black', textAlign: 'left', borderRadius: '8px', zIndex: 1001 }}>
-            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-              <h2 style={{ color: '#800000', margin: '0' }}>MATHUMITHAN HARDWARE</h2>
-              <p style={{ margin: '4px 0 0' }}>Printed Invoice</p>
-            </div>
-            <div style={{ borderBottom: '1px solid #ccc', paddingBottom: '12px', marginBottom: '12px' }}>
-              <p style={{ margin: '4px 0' }}><strong>Bill No:</strong> {lastBill.bill_no}</p>
-              <p style={{ margin: '4px 0' }}><strong>Date / Time:</strong> {formatDateTime(lastBill.bill_date)}</p>
-              {lastBill.customer?.name && <p style={{ margin: '4px 0' }}><strong>Customer:</strong> {lastBill.customer.name}</p>}
-              {lastBill.customer?.phone && <p style={{ margin: '4px 0' }}><strong>Phone:</strong> {lastBill.customer.phone}</p>}
+        <div className="pos-receipt-overlay" onClick={(e) => { if (e.target === e.currentTarget) setLastBill(null); }}>
+          <div className="pos-receipt-modal" id="receipt-content">
+            <div className="pos-receipt__header">
+              <h2 className="pos-receipt__store">MATHUMITHAN HARDWARE</h2>
+              <p className="pos-receipt__subtitle">Sales Receipt</p>
             </div>
 
-            <div style={{ marginBottom: '16px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div className="pos-receipt__meta">
+              <span className="pos-receipt__meta-label">Bill No</span>
+              <span className="pos-receipt__meta-value">{lastBill.bill_no}</span>
+              <span className="pos-receipt__meta-label">Date / Time</span>
+              <span className="pos-receipt__meta-value">{formatDateTime(lastBill.bill_date)}</span>
+              {lastBill.customer?.name && (
+                <>
+                  <span className="pos-receipt__meta-label">Customer</span>
+                  <span className="pos-receipt__meta-value">{lastBill.customer.name}</span>
+                </>
+              )}
+              {lastBill.customer?.phone && (
+                <>
+                  <span className="pos-receipt__meta-label">Phone</span>
+                  <span className="pos-receipt__meta-value">{lastBill.customer.phone}</span>
+                </>
+              )}
+            </div>
+
+            <div className="pos-receipt__items">
+              <table>
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left', paddingBottom: '8px' }}>Item</th>
-                    <th style={{ textAlign: 'center', paddingBottom: '8px' }}>Qty</th>
-                    <th style={{ textAlign: 'right', paddingBottom: '8px' }}>Total</th>
+                    <th>Item</th>
+                    <th style={{ textAlign: 'center' }}>Qty</th>
+                    <th>Total</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -566,13 +713,16 @@ const BillingSystem = () => {
                     const itemDiscount = parseFloat(item.discount || 0);
                     const itemTotal = (item.unit_price * item.quantity) - itemDiscount;
                     return (
-                      <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
-                        <td style={{ padding: '6px 0' }}>
+                      <tr key={idx}>
+                        <td>
                           <div>{item.product_name}</div>
-                          <div style={{ fontSize: '12px', color: '#666' }}><strong>Rs.</strong>{item.unit_price.toFixed(2)} x {item.quantity}{itemDiscount ? ` - <strong>Rs.</strong>${itemDiscount.toFixed(2)} disc` : ''}</div>
+                          <div className="pos-receipt__item-detail">
+                            Rs.{item.unit_price.toFixed(2)} × {item.quantity}
+                            {itemDiscount ? ` - Rs.${itemDiscount.toFixed(2)} disc` : ''}
+                          </div>
                         </td>
-                        <td style={{ textAlign: 'center', padding: '6px 0' }}>{item.quantity}</td>
-                        <td style={{ textAlign: 'right', padding: '6px 0' }}><strong>Rs.</strong>{itemTotal.toFixed(2)}</td>
+                        <td style={{ textAlign: 'center' }}>{item.quantity}</td>
+                        <td>Rs.{itemTotal.toFixed(2)}</td>
                       </tr>
                     );
                   })}
@@ -580,43 +730,57 @@ const BillingSystem = () => {
               </table>
             </div>
 
-            <div style={{ borderTop: '1px solid #ccc', paddingTop: '12px', marginBottom: '12px' }}>
-              <p style={{ margin: '4px 0' }}><strong>Subtotal:</strong> <strong>Rs.</strong>{lastBill.subtotal?.toFixed(2)}</p>
-              <p style={{ margin: '4px 0' }}><strong>Discount:</strong> <strong>Rs.</strong>{(lastBill.discount || 0).toFixed(2)}</p>
-              <p style={{ margin: '4px 0' }}><strong>Total:</strong> <strong>Rs.</strong>{lastBill.total_amount?.toFixed(2)}</p>
-              <p style={{ margin: '4px 0' }}><strong>Amount Paid:</strong> <strong>Rs.</strong>{(lastBill.amount_paid ?? 0).toFixed(2)}</p>
-              <p style={{ margin: '4px 0' }}><strong>Returned:</strong> <strong>Rs.</strong>{(lastBill.change_returned ?? 0).toFixed(2)}</p>
+            <div className="pos-receipt__totals">
+              <div className="pos-receipt__total-row">
+                <span>Subtotal</span>
+                <span>Rs.{(lastBill.subtotal ?? 0).toFixed(2)}</span>
+              </div>
+              <div className="pos-receipt__total-row">
+                <span>Discount</span>
+                <span>Rs.{(lastBill.discount ?? 0).toFixed(2)}</span>
+              </div>
+              <div className="pos-receipt__total-row grand">
+                <span>Total</span>
+                <span>Rs.{(lastBill.total_amount ?? 0).toFixed(2)}</span>
+              </div>
+              <div className="pos-receipt__total-row">
+                <span>Amount Paid</span>
+                <span>Rs.{(lastBill.amount_paid ?? 0).toFixed(2)}</span>
+              </div>
+              <div className="pos-receipt__total-row">
+                <span>Change</span>
+                <span>Rs.{(lastBill.change_returned ?? 0).toFixed(2)}</span>
+              </div>
               {lastBill.due_amount > 0 && (
-                <>
-                  <p style={{ margin: '4px 0', color: '#d9534f' }}><strong>Partial Paid:</strong> <strong>Rs.</strong>{(lastBill.amount_paid ?? 0).toFixed(2)}</p>
-                  <p style={{ margin: '4px 0', color: '#d9534f' }}><strong>Due:</strong> <strong>Rs.</strong>{lastBill.due_amount?.toFixed(2)}</p>
-                </>
+                <div className="pos-receipt__total-row due">
+                  <span>Due Balance</span>
+                  <span>Rs.{lastBill.due_amount.toFixed(2)}</span>
+                </div>
               )}
             </div>
 
-            <div style={{ borderTop: '1px solid #ccc', paddingTop: '12px', marginBottom: '16px' }}>
-              <p style={{ margin: '4px 0' }}><strong>Cashier:</strong> {lastBill.cashier_name}</p>
-              <p style={{ margin: '4px 0' }}><strong>Cashier ID:</strong> {lastBill.cashier_id}</p>
+            <div className="pos-receipt__cashier">
+              <div><strong>Cashier:</strong> {lastBill.cashier_name}</div>
+              <div><strong>Cashier ID:</strong> {lastBill.cashier_id}</div>
             </div>
 
-            <div className="no-print" style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={() => window.print()} style={{ flex: 1, padding: '10px', background: '#800000', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px' }}>Print</button>
-              <button onClick={handleDownloadInvoice} style={{ flex: 1, padding: '10px', background: '#a52a2a', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px' }}>Download</button>
-              <button onClick={() => setLastBill(null)} style={{ flex: 1, padding: '10px', background: '#999', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px' }}>Close</button>
+            <div className="pos-receipt__actions no-print">
+              <button className="pos-receipt__btn pos-receipt__btn--print" onClick={() => window.print()}>
+                <Printer size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                Print
+              </button>
+              <button className="pos-receipt__btn pos-receipt__btn--download" onClick={handleDownloadInvoice}>
+                <Download size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                Download
+              </button>
+              <button className="pos-receipt__btn pos-receipt__btn--close" onClick={() => setLastBill(null)}>
+                Close
+              </button>
             </div>
           </div>
-        </>
+        </div>
       )}
-      </div>
-      
-      <SuccessAnim 
-        show={showSuccess} 
-        animate={animSuccess} 
-        onDismiss={handleSuccessDismiss} 
-        message="Checkout Complete"
-        subMessage="Invoice generated and payment recorded."
-      />
-    </div>
+    </DashboardLayout>
   );
 };
 

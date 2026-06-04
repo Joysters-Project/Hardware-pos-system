@@ -14,11 +14,6 @@
 }
 
 .receipts-page {
-  min-height: 100vh;
-  padding: 24px;
-  background: var(--receipts-bg);
-  color: var(--receipts-text);
-  font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
   box-sizing: border-box;
 }
 

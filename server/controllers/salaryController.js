@@ -259,4 +259,31 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
-module.exports = { getAllPayments, getPaymentById, getEmployeeSalaryHistory, getEmployeeSalarySummary, createPayment, paySalary, updatePayment, downloadPayslip, getDashboardStats };
+// POST /api/salary/:id/resend-email — resend payslip to employee
+const resendPayslipEmail = async (req, res) => {
+  try {
+    const record = await db.salary_payments.findByPk(req.params.id, { include: [empInclude] });
+    if (!record) return res.status(404).json({ message: 'Salary record not found' });
+    if (record.payment_status !== 'Paid') return res.status(400).json({ message: 'Can only resend for paid records' });
+    if (!record.employee?.email) return res.status(400).json({ message: 'Employee has no email address on file' });
+
+    let pdfPath = record.payslip_pdf_path;
+    if (!pdfPath || !fs.existsSync(path.join(__dirname, '..', pdfPath))) {
+      pdfPath = await generatePayslipPDF(record.toJSON());
+      await record.update({ payslip_pdf_path: pdfPath });
+    }
+
+    await sendPayslipEmail(
+      record.employee.email,
+      `${record.employee.first_name} ${record.employee.last_name}`,
+      record.toJSON(),
+      pdfPath
+    );
+
+    res.status(200).json({ message: `Payslip resent to ${record.employee.email}` });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = { getAllPayments, getPaymentById, getEmployeeSalaryHistory, getEmployeeSalarySummary, createPayment, paySalary, updatePayment, downloadPayslip, getDashboardStats, resendPayslipEmail };

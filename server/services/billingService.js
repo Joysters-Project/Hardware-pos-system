@@ -1,4 +1,4 @@
-const { bills, bill_items, products, audit_log, customers, payments, users, sequelize } = require('../models');
+const { bills, bill_items, products, audit_log, customers, payments, users, alerts, sequelize } = require('../models');
 
 class BillingService {
     static async getSystemUserId(transaction = null) {
@@ -62,6 +62,7 @@ class BillingService {
             }, { transaction: t });
 
             // 5. Update Inventory & Items
+            const lowStockAlerts = [];
             for (const item of saleData.items) {
                 const quantity = Number(item.quantity) || 0;
                 const pricePerUnit = parseFloat(item.price) || 0;
@@ -77,11 +78,35 @@ class BillingService {
                     total_price: totalPrice
                 }, { transaction: t });
 
+                // Decrement stock and get the updated product record
                 await products.decrement('stock_quantity', {
                     by: quantity,
                     where: { product_id: item.product_id },
                     transaction: t
                 });
+
+                const updatedProduct = await products.findByPk(item.product_id, { transaction: t });
+                if (updatedProduct.stock_quantity <= updatedProduct.min_stock_quantity) {
+                    lowStockAlerts.push(updatedProduct.product_name);
+                    
+                    // Create an unresolved low stock alert if it doesn't exist
+                    const existingAlert = await alerts.findOne({
+                        where: {
+                            product_id: item.product_id,
+                            alert_type: 'LOW_STOCK',
+                            is_resolved: false
+                        },
+                        transaction: t
+                    });
+
+                    if (!existingAlert) {
+                        await alerts.create({
+                            product_id: item.product_id,
+                            alert_type: 'LOW_STOCK',
+                            is_resolved: false
+                        }, { transaction: t });
+                    }
+                }
             }
 
             // 6. Record Payment
@@ -98,7 +123,9 @@ class BillingService {
                 details: `Bill ${bill_no} processed. Paid: ${saleData.amount_paid}, Due: ${saleData.balance_due}`
             }, { transaction: t });
 
-            return bill;
+            const billData = bill.toJSON();
+            billData.lowStockAlerts = lowStockAlerts;
+            return billData;
         });
     }
 }

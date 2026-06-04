@@ -156,7 +156,7 @@ function Catalog() {
     try {
       const payload = { [getPayloadKey()]: formData.name.trim() };
       await axios.post(getEndpoint(), payload);
-      
+
       toast.success(`${getSingular(activeTab)} created successfully`);
       setFormData({ name: "" });
       loadData();
@@ -194,7 +194,7 @@ function Catalog() {
     try {
       const payload = { [getPayloadKey()]: editingName.trim() };
       await axios.patch(`${getEndpoint()}/${id}`, payload);
-      
+
       toast.success("Updated successfully");
       setEditingId(null);
       setEditingName("");
@@ -214,7 +214,7 @@ function Catalog() {
   const handleDeactivate = async (id) => {
     const fieldNames = getFieldNames();
     const item = getCurrentData().find(item => item[fieldNames.id] === id);
-    
+
     if (window.confirm(`Are you sure you want to delete "${item[fieldNames.name]}"?`)) {
       setLoading(true);
       try {
@@ -278,15 +278,7 @@ function Catalog() {
             <h1>Catalog Management</h1>
             <p>Administer categories, brand names, and measurement units</p>
           </div>
-          <button 
-            type="button" 
-            onClick={handleShowSchema} 
-            className="schema-trigger-btn"
-            title="Inspect Database Schema"
-          >
-            <Database size={16} />
-            <span>Database Schema</span>
-          </button>
+
         </div>
 
         {/* Tab Controls */}
@@ -354,9 +346,9 @@ function Catalog() {
                   }}
                 />
                 {searchQuery && (
-                  <button 
-                    type="button" 
-                    className="search-clear-btn" 
+                  <button
+                    type="button"
+                    className="search-clear-btn"
                     onClick={() => setSearchQuery("")}
                   >
                     <X size={14} />
@@ -374,10 +366,10 @@ function Catalog() {
               <span className="pagination-info">
                 Showing {totalItems > 0 ? startIndex + 1 : 0}–{endIndex} of {totalItems}
               </span>
-              
+
               <div className="page-size-selector">
-                <select 
-                  value={pageSize} 
+                <select
+                  value={pageSize}
                   onChange={(e) => {
                     setPageSize(Number(e.target.value));
                     setCurrentPage(1);
@@ -430,8 +422,8 @@ function Catalog() {
                   const isEditing = editingId === itemId;
 
                   return (
-                    <div 
-                      key={itemId} 
+                    <div
+                      key={itemId}
                       className="catalog-card-row stagger-item"
                       style={{ animationDelay: `${index * 40}ms` }}
                     >
@@ -446,7 +438,7 @@ function Catalog() {
                             autoFocus
                           />
                         ) : (
-                          <span 
+                          <span
                             className="card-item-name"
                             onClick={() => handleStartEdit(itemId, itemName)}
                             title="Click to edit inline"
@@ -522,7 +514,7 @@ function Catalog() {
                   <Database size={20} />
                   <span>{schemaPanel.tableLabel} Table Structure</span>
                 </h2>
-                <button 
+                <button
                   type="button"
                   className="close-schema-btn"
                   onClick={closeSchemaPanel}

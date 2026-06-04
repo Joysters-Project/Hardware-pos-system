@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
@@ -8,6 +8,15 @@ import "../styles/DashboardLayout.css";
 export default function DashboardLayout({ children, active }) {
   const navigate = useNavigate();
   const { logout } = useAuth();
+  const [isCollapsed, setIsCollapsed] = useState(
+    localStorage.getItem("sidebar-collapsed") === "true"
+  );
+
+  /* Keep localStorage updated */
+  const handleCollapseToggle = (collapsedVal) => {
+    setIsCollapsed(collapsedVal);
+    localStorage.setItem("sidebar-collapsed", collapsedVal ? "true" : "false");
+  };
 
   /* Prevent back-button after logout */
   useEffect(() => {
@@ -30,8 +39,13 @@ export default function DashboardLayout({ children, active }) {
   };
 
   return (
-    <div className="admin-shell">
-      <Sidebar active={active} onLogout={handleLogout} />
+    <div className={`admin-shell ${isCollapsed ? "sidebar-collapsed" : ""}`}>
+      <Sidebar
+        active={active}
+        onLogout={handleLogout}
+        isCollapsed={isCollapsed}
+        setIsCollapsed={handleCollapseToggle}
+      />
       <main className="admin-content">{children}</main>
     </div>
   );

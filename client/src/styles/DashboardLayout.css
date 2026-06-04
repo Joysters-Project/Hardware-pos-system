@@ -23,6 +23,12 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+  transition: margin-left 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* ---------- Collapsed Content Margin ---------- */
+.admin-shell.sidebar-collapsed .admin-content {
+  margin-left: 112px; /* sidebar collapsed width(80) + left margin(16) + right gap(16) */
 }
 
 /* ---------- Page Header Pattern ---------- */
@@ -74,14 +80,16 @@
    RESPONSIVE
    ============================================= */
 @media (max-width: 992px) {
-  .admin-content {
+  .admin-content,
+  .admin-shell.sidebar-collapsed .admin-content {
     margin-left: 0;
     padding: 80px 20px 24px; /* extra top padding for hamburger */
   }
 }
 
 @media (max-width: 480px) {
-  .admin-content {
+  .admin-content,
+  .admin-shell.sidebar-collapsed .admin-content {
     padding: 72px 14px 20px;
   }
 

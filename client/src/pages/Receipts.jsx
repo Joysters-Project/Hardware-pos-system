@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
+import DashboardLayout from '../components/DashboardLayout';
 import '../styles/Receipts.css';
 
 const Receipts = () => {
@@ -262,14 +263,11 @@ const Receipts = () => {
   };
 
   return (
-    <div className="receipts-page">
+    <DashboardLayout active="receipts">
       <div className="receipts-shell">
-        <header className="receipts-hero">
+        <header className="receipts-hero" style={{ marginTop: '8px' }}>
           <div>
-            <button className="back-btn" onClick={() => navigate(-1)}>
-              ← Back
-            </button>
-            <h1>Receipt History</h1>
+            <h1 style={{ margin: '0 0 8px', fontSize: '26px', fontWeight: '800' }}>Receipt History</h1>
             <p>Search by customer name, bill number, or date. Results are paginated so large histories stay fast to browse.</p>
           </div>
           <div className="receipts-stats">
@@ -374,7 +372,7 @@ const Receipts = () => {
           </div>
         )}
       </div>
-    </div>
+    </DashboardLayout>
   );
 };
 
