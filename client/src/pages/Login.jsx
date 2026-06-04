@@ -122,7 +122,7 @@ function Login() {
               <Link to="/signup">Signup</Link>
             </div>
           </form>
-          <button type="button" className="login-btn" onClick={handleBack}> Home</button>
+          <button type="button" className="back-btn" onClick={handleBack}> Home</button>
         </div>
       </div>
     </div>
