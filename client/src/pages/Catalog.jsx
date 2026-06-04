@@ -238,8 +238,7 @@ function Catalog() {
   };
 
   const handleExportPDF = () => {
-    toast.success("Preparing PDF export...");
-    // Future integration hook
+    window.print();
   };
 
   // Process search and sorting
