@@ -70,7 +70,7 @@ const getNavItems = (role) => {
     ...(role !== "manager"
       ? [{ key: "salary", label: "Salary", icon: Wallet, path: "/salary" }]
       : []),
-  ];
+  ]; 
 };
 
 export default function Sidebar({ active, onLogout }) {
