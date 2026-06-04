@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
+import AlertSummaryCard from "../components/AlertSummaryCard";
 import "../styles/Dashboard.css";
 
 function AdminDashboard({ children, active }) {
@@ -66,7 +67,9 @@ function AdminDashboard({ children, active }) {
           <li className={active === "catalog" ? "active" : ""}>
             <Link to="/catalog">📋 Catalog</Link>
           </li>
-
+          <li className={active === "alerts" ? "active" : ""}>
+            <Link to="/alerts">🚨 Alerts</Link>
+          </li>
         </ul>
 
         <button className="logout-btn" onClick={handleLogout}>
@@ -86,6 +89,10 @@ function AdminDashboard({ children, active }) {
               <span className="dashboard-kicker">Control Center</span>
               <h1>Welcome back, {userName}</h1>
               <p>Track operations, monitor teams, and move quickly between core management tasks.</p>
+            </div>
+
+            <div style={{ marginTop: "1.25rem" }}>
+              <AlertSummaryCard />
             </div>
 
             <div className="dashboard-home-grid">

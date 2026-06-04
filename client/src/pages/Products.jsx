@@ -13,6 +13,7 @@ const INITIAL_FORM = {
 	stock_quantity: "",
 	min_stock_quantity: "",
 	reorder_level: "",
+	expiry_date: "",
 	type: "",
 	batch_no: "",
 	status: "active",
@@ -28,6 +29,7 @@ const REQUIRED_FIELDS = [
 	"stock_quantity",
 	"min_stock_quantity",
 	"reorder_level",
+	"expiry_date",
 	"type",
 	"category_id",
 	"unit_id",
@@ -45,6 +47,7 @@ const buildPayload = (form) => ({
 	stock_quantity: toNumberOrNull(form.stock_quantity, parseInt),
 	min_stock_quantity: toNumberOrNull(form.min_stock_quantity, parseInt),
 	reorder_level: toNumberOrNull(form.reorder_level, parseInt),
+	expiry_date: form.expiry_date ? new Date(form.expiry_date).toISOString() : null,
 	type: form.type.trim(),
 	batch_no: form.batch_no.trim() || null,
 	status: form.status || "active",
@@ -95,7 +98,9 @@ function ProductsPage() {
 				api.get("/brands"),
 				api.get("/units"),
 			]);
-
+			// console.log("CATEGORY DATA:", categoryRes.data);
+			// console.log("BRANDS DATA:", brandsRes.data);
+			// console.log("UNITS DATA:", unitsRes.data);
 			setProducts(Array.isArray(productsRes.data) ? productsRes.data : []);
 			setCategories(Array.isArray(categoryRes.data) ? categoryRes.data : []);
 			setBrands(Array.isArray(brandsRes.data) ? brandsRes.data : []);
@@ -195,6 +200,7 @@ function ProductsPage() {
 			status: p.status || "active",
 			category_id: p.category_id ?? "",
 			brand_id: p.brand_id ?? "",
+            expiry_date: p.expiry_date ?? "",
 			unit_id: p.unit_id ?? "",
 		});
 		setEditId(p.product_id);
@@ -279,6 +285,7 @@ function ProductsPage() {
 					value={product.reorder_level}
 					onChange={handleChange}
 				/>
+                <input name="expiry_date" type="date" placeholder="Expiry Date (optional)" value={product.expiry_date ? product.expiry_date.split("T")[0] : ""} onChange={handleChange} />
 				<input name="type" placeholder="Type *" value={product.type} onChange={handleChange} />
 				<input name="batch_no" placeholder="Batch No (optional)" value={product.batch_no} onChange={handleChange} />
 
@@ -339,6 +346,7 @@ function ProductsPage() {
 							<th>Stock Qty</th>
 							<th>Min Stock</th>
 							<th>Reorder Level</th>
+							<th>Expiry Date</th>
 							<th>Status</th>
 							<th>Actions</th>
 						</tr>
@@ -362,6 +370,7 @@ function ProductsPage() {
 									<td>{p.stock_quantity ?? 0}</td>
 									<td>{p.min_stock_quantity ?? 0}</td>
 									<td>{p.reorder_level ?? 0}</td>
+                                    <td>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString() : "-"}</td>
 									<td>
 										<span className={`status-pill ${String(p.status).toLowerCase() === "active" ? "active" : "inactive"}`}>
 											{p.status || "active"}

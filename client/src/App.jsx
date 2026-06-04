@@ -12,6 +12,7 @@ import CashierDashboard from "./pages/CashierDashboard";
 import ManagerDashboard from "./pages/ManagerDashboard";
 import Departments from "./pages/Departments";
 import Products from "./pages/Products";
+import Alerts from "./pages/Alerts";
 import Employees from "./pages/Employees";
 import Catalog from "./pages/Catalog";
 import BillingSystem from "./components/billingSystem";
@@ -70,6 +71,10 @@ function AppRoutes() {
         element={<ProtectedRoute><Products /></ProtectedRoute>} 
       />
       <Route 
+        path="/alerts" 
+        element={<ProtectedRoute><Alerts /></ProtectedRoute>} 
+      />
+      <Route 
         path="/employees" 
         element={<ProtectedRoute><Employees /></ProtectedRoute>} 
       />
@@ -108,6 +113,10 @@ function AppRoutes() {
       <Route 
         path="/manager/catalog" 
         element={<ProtectedRoute requiredRole="manager"><Catalog /></ProtectedRoute>} 
+      />
+      <Route
+        path="/manager/alerts"
+        element={<ProtectedRoute requiredRole="manager"><Alerts /></ProtectedRoute>}
       />
 
       {/* Fallback redirect */}

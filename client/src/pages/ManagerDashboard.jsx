@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {toast} from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
+import AlertSummaryCard from "../components/AlertSummaryCard";
 import "../styles/Dashboard.css";
 
 function ManagerDashboard({ children, active }) {
@@ -77,6 +78,10 @@ function ManagerDashboard({ children, active }) {
               <span className="dashboard-kicker">Operations Hub</span>
               <h1>Welcome back, {userName}</h1>
               <p>Stay on top of floor performance and team coordination from one place.</p>
+            </div>
+
+            <div style={{ marginTop: "1.25rem" }}>
+              <AlertSummaryCard />
             </div>
 
             <div className="dashboard-home-grid">
