@@ -6,6 +6,7 @@ const cors = require('cors');
 // These files rely on the .env variables being ready
 const db = require('./models');// This automatically looks for models/index.js
 const authRoutes = require('./routes/auth'); // Path to your routes/auth.js file
+const { startNearExpiryCron } = require('./cron/nearExpiryCron');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -18,6 +19,7 @@ app.use(express.json()); // Allows server to read JSON from requests
 db.sequelize.sync({ force: false })
   .then(() => {
     console.log('✅ Database synced successfully');
+    startNearExpiryCron();
   })
   .catch((err) => {
     console.error('❌ Database sync failed:', err.message);

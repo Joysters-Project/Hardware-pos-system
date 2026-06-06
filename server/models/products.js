@@ -11,6 +11,7 @@ module.exports = (sequelize) => {
     reorder_level: { type: DataTypes.INTEGER, allowNull: false },
     type: { type: DataTypes.STRING(50), allowNull: false },
     batch_no: { type: DataTypes.STRING(100), allowNull: true },
+    expiry_date: { type: DataTypes.DATE, allowNull: true },
     status: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'active' },
     category_id: { type: DataTypes.INTEGER, allowNull: false },
     brand_id: { type: DataTypes.INTEGER, allowNull: true },
