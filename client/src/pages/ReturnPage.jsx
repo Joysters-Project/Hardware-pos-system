@@ -4,18 +4,17 @@ import api from '../utils/axios';
 import DashboardLayout from '../components/DashboardLayout';
 
 const DESTINATIONS = [
-  { value: 'STOCK', label: 'Back to Stock', description: 'Good item — sellable again' },
-  { value: 'REPAIR', label: 'Send to Repair', description: 'Fixable item — move to repair stock' },
-  { value: 'SUPPLIER', label: 'Send to Supplier', description: 'Defective batch — supplier return / debit note' },
-  { value: 'WRITEOFF', label: 'Write Off / Damaged', description: 'Beyond repair — loss recorded' }
+  { value: 'STOCK',        label: 'Back to Stock'    },
+  { value: 'REPAIR',       label: 'Send to Repair'   },
+  { value: 'SUPPLIER',     label: 'Send to Supplier' },
+  { value: 'DAMAGED_STOCK',label: 'Damaged Stock'    },
 ];
 const RESTRICTED_DESTINATIONS = ['SUPPLIER', 'WRITEOFF'];
 
 function ReturnPage({ userRole }) {
   const navigate = useNavigate();
-  const [step, setStep] = useState(0);
-  const [searchMode, setSearchMode] = useState('bill_no');
-  const [searchValue, setSearchValue] = useState('');
+  const [searchMode,    setSearchMode]    = useState('bill_no');
+  const [searchValue,   setSearchValue]   = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [selectedBill, setSelectedBill] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -163,6 +162,22 @@ function ReturnPage({ userRole }) {
     }
   };
 
+  const updateField = (productId, field, value) => {
+    setReturnItems(prev => ({
+      ...prev,
+      [productId]: { ...prev[productId], [field]: value },
+    }));
+  };
+
+  /* ---- refund calc ---- */
+  const calcTotalRefund = () => {
+    return Object.values(returnItems).reduce((sum, item) => {
+      const perUnitDiscount = Number(item.discount || 0) / Number(item.max_qty || 1);
+      return sum + (Number(item.price_per_unit) - perUnitDiscount) * Number(item.return_quantity);
+    }, 0).toFixed(2);
+  };
+
+  /* ---- submit ---- */
   const submitReturn = async () => {
     setError('');
     if (!selectedBill || !selectedItem || !preview) {
@@ -187,11 +202,12 @@ function ReturnPage({ userRole }) {
     };
 
     setLoading(true);
+    setError('');
     try {
       const response = await api.post('/returns', payload);
       setSuccessData({
-        product_name: selectedItem.product_name || selectedItem.product?.product_name,
-        refund_amount: response.data?.data?.refund_amount ?? preview.refund_amount
+        refund_amount: res.data?.data?.total_refund_amount,
+        items_count:   itemsArr.length,
       });
       setShowSuccess(true);
       setTimeout(() => {

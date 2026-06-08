@@ -72,10 +72,46 @@ function CashierDashboard() {
   };
 
   return (
-    <DashboardLayout active="home">
-      <div className="header">
-        <h1>Welcome, {userName}! 👋</h1>
-        <p>Cashier Dashboard</p>
+    <div className="dashboard">
+      <div className="sidebar">
+        <div className="sidebar-header">
+          <h2>Cashier Panel</h2>
+        </div>
+        <ul className="sidebar-menu">
+          <li className="active">
+            <Link to="/billing">
+              🛒 Point of Sale (Billing)
+            </Link>
+          </li>
+          <li>
+            <Link to="/due-collection">
+              💼 Due Collection
+            </Link>
+          </li>
+          <li>
+            <a href="#sales">
+              💳 Sales
+            </a>
+          </li>
+          <li>
+            <Link to="/returns">
+              ↩️ Returns
+            </Link>
+          </li>
+          <li>
+            <Link to="/reports">
+              📈 Reports
+            </Link>
+          </li>
+          <li>
+            <Link to="/receipts">
+              🧾 Receipts
+            </Link>
+          </li>
+        </ul>
+        <button onClick={handleLogout} className="logout-btn">
+          🚪 Logout
+        </button>
       </div>
 
       {/* Horizontal stat cards */}

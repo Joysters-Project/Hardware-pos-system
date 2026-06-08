@@ -72,9 +72,18 @@ class ReturnService {
         total_refund_amount += refund_amount;
       }
 
+      const original_balance_due = parseFloat(bill.balance_due) || 0;
+      let actual_cash_refund = 0;
+      if (original_balance_due > 0) {
+        if (total_refund_amount <= original_balance_due) {
+          actual_cash_refund = 0;
+        } else {
+          actual_cash_refund = total_refund_amount - original_balance_due;
+        }
+      } else {
         const totalPaid = await payments.sum('amount_paid', { where: { bill_id }, transaction: t }) || 0;
-      // Actual cash/credit refund is capped by what they paid so far (avoid negative net payments)
-      const actual_cash_refund = Math.min(total_refund_amount, Math.max(0, Number(totalPaid)));
+        actual_cash_refund = Math.min(total_refund_amount, Math.max(0, Number(totalPaid)));
+      }
 
       // Create Return Header (stores the actual cash refund amount given)
       const newReturn = await returns.create({
@@ -148,12 +157,6 @@ class ReturnService {
           amount_paid: -Math.abs(actual_cash_refund),
           payment_method: hasSupplierReturn ? 'SUPPLIER_RETURN' : 'REFUND'
         }, { transaction: t });
-      } else if (destination === 'WRITEOFF') {
-        await products.increment('damaged_quantity', {
-          by: return_quantity,
-          where: { product_id },
-          transaction: t
-        });
       }
 
       // Update Bill Totals (subtracting the full value of returned products)
