@@ -65,6 +65,7 @@ const bills           = require('./bills');
 const bill_items      = require('./bill_items');
 const payments        = require('./payments');
 const returns         = require('./returns');
+const return_items    = require('./return_items');
 const supplier_returns = require('./supplier_returns');
 const alerts          = require('./alerts');
 const purchase_orders = require('./purchase_orders');
@@ -91,6 +92,7 @@ const db = {
   bill_items:      bill_items(sequelize),
   payments:        payments(sequelize),
   returns:         returns(sequelize),
+  return_items:    return_items(sequelize),
   supplier_returns: supplier_returns(sequelize),
   alerts:          alerts(sequelize),
   purchase_orders: purchase_orders(sequelize),
@@ -132,8 +134,12 @@ db.bills.hasMany(db.payments, { foreignKey: 'bill_id' });
 db.payments.belongsTo(db.bills, { foreignKey: 'bill_id' });
 db.bills.hasMany(db.returns, { foreignKey: 'bill_id' });
 db.returns.belongsTo(db.bills, { foreignKey: 'bill_id' });
-db.products.hasMany(db.returns, { foreignKey: 'product_id' });
-db.returns.belongsTo(db.products, { foreignKey: 'product_id' });
+
+db.returns.hasMany(db.return_items, { foreignKey: 'return_id', as: 'items' });
+db.return_items.belongsTo(db.returns, { foreignKey: 'return_id' });
+
+db.products.hasMany(db.return_items, { foreignKey: 'product_id' });
+db.return_items.belongsTo(db.products, { foreignKey: 'product_id' });
 
 db.returns.hasOne(db.supplier_returns, { foreignKey: 'return_id' });
 db.supplier_returns.belongsTo(db.returns, { foreignKey: 'return_id' });

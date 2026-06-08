@@ -20,9 +20,9 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // NOTE: using `alter: true` will attempt to update the DB schema to match models.
 // This is convenient for development to add missing columns (e.g. `nic`).
 // Remove or revert to `{ force: false }` in production or after running proper migrations.
-db.sequelize.sync({ alter: true })
+db.sequelize.sync({ force: false })
   .then(() => {
-    console.log('✅ Database synced successfully (alter applied)');
+    console.log('✅ Database connected successfully');
   })
   .catch((err) => {
     console.error('❌ Database sync failed:', err.message);

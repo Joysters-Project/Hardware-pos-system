@@ -73,6 +73,10 @@ function ManagerDashboard({ children, active }) {
           <li className={active === "salary" ? "active" : ""}>
             <Link to="/manager/salary">💵 Salary</Link>
           </li>
+
+          <li className={active === "reports" ? "active" : ""}>
+            <Link to="/reports">📈 Reports</Link>
+          </li>
         </ul>
 
         <button className="logout-btn" onClick={handleLogout}>
@@ -114,6 +118,12 @@ function ManagerDashboard({ children, active }) {
                 <span className="tile-icon">📋</span>
                 <h3>Catalog</h3>
                 <p>Keep listings clean and easy for teams to navigate.</p>
+              </Link>
+
+              <Link className="dashboard-tile" to="/reports">
+                <span className="tile-icon">📈</span>
+                <h3>Reports</h3>
+                <p>View Sales, Return and Borrow reports with filters.</p>
               </Link>
             </div>
           </div>

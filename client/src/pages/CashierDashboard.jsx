@@ -104,6 +104,11 @@ function CashierDashboard() {
             </Link>
           </li>
           <li>
+            <Link to="/reports">
+              📈 Reports
+            </Link>
+          </li>
+          <li>
             <Link to="/receipts">
               🧾 Receipts
             </Link>

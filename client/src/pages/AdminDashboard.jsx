@@ -79,6 +79,9 @@ function AdminDashboard({ children, active }) {
             <Link to="/salary">💵 Salary</Link>
           </li>
 
+          <li className={active === "reports" ? "active" : ""}>
+            <Link to="/reports">📈 Reports</Link>
+          </li>
         </ul>
 
         <button className="logout-btn" onClick={handleLogout}>
@@ -123,6 +126,12 @@ function AdminDashboard({ children, active }) {
                 <span className="tile-icon">📋</span>
                 <h3>Catalog</h3>
                 <p>Organize product visibility and streamline browsing flow.</p>
+              </Link>
+
+              <Link className="dashboard-tile" to="/reports">
+                <span className="tile-icon">📈</span>
+                <h3>Reports</h3>
+                <p>View Sales, Return and Borrow reports with filters.</p>
               </Link>
             </div>
           </div>

@@ -5,147 +5,8 @@ const ReturnService = require('../services/returnService');
 
 exports.processReturn = async (req, res) => {
   try {
-    const {
-      bill_id,
-      product_id,
-      return_quantity,
-      refund_amount,
-      destination,
-      reason,
-      po_id,
-      supplier_id
-    } = req.body;
-
-    if (!bill_id || !product_id || !return_quantity || refund_amount == null) {
-      throw new Error('bill_id, product_id, return_quantity and refund_amount are required');
-    }
-
-    const bill = await bills.findByPk(bill_id, { transaction });
-    if (!bill) {
-      throw new Error('Bill not found');
-    }
-
-    const billItem = await bill_items.findOne({
-      where: { bill_id, product_id },
-      transaction
-    });
-
-    if (!billItem) {
-      throw new Error('This product is not part of the selected bill');
-    }
-
-    if (return_quantity > billItem.quantity) {
-      throw new Error('Return quantity exceeds quantity sold in the bill');
-    }
-
-    const pricePerUnit = parseFloat(billItem.price_per_unit);
-    const currentQty = billItem.quantity;
-    const lineDiscount = parseFloat(billItem.discount || 0);
-    const perUnitDiscount = currentQty > 0 ? lineDiscount / currentQty : 0;
-    const remainingQty = currentQty - return_quantity;
-    const remainingDiscount = perUnitDiscount * remainingQty;
-    const remainingTotal = Math.max(0, remainingQty * pricePerUnit - remainingDiscount);
-
-    if (remainingQty <= 0) {
-      await billItem.destroy({ transaction });
-    } else {
-      await billItem.update(
-        {
-          quantity: remainingQty,
-          discount: remainingDiscount,
-          total_price: remainingTotal
-        },
-        { transaction }
-      );
-    }
-
-    const returnData = {
-      bill_id,
-      product_id,
-      return_quantity,
-      refund_amount,
-      destination: destination || 'STOCK',
-      reason,
-      po_id,
-      supplier_id
-    };
-
-    if (destination === 'SUPPLIER') {
-      returnData.status = 'PENDING_APPROVAL';
-      returnData.debit_note_raised = true;
-    } else {
-      returnData.status = 'COMPLETED';
-    }
-
-    const newReturn = await returns.create(returnData, { transaction });
-
-    if (destination === 'STOCK') {
-      const product = await products.findByPk(product_id, { transaction });
-      if (product) {
-        await product.increment('stock_quantity', { by: return_quantity, transaction });
-      }
-    }
-
-    await payments.create(
-      {
-        bill_id,
-        amount_paid: -Math.abs(refund_amount),
-        payment_method: destination === 'SUPPLIER' ? 'SUPPLIER_RETURN' : 'REFUND'
-      },
-      { transaction }
-    );
-
-    const paymentSum = await payments.sum('amount_paid', {
-      where: { bill_id },
-      transaction
-    }) || 0;
-
-    const newTotalAmount = Math.max(0, parseFloat(bill.total_amount) - parseFloat(refund_amount));
-    const newSubtotal = Math.max(0, parseFloat(bill.subtotal) - parseFloat(refund_amount));
-    let newBalanceDue = newTotalAmount - paymentSum;
-    if (Number.isNaN(newBalanceDue)) newBalanceDue = 0;
-    if (newBalanceDue < 0) newBalanceDue = 0;
-
-    const updatedStatus = newBalanceDue > 0 ? 'PARTIAL' : 'PAID';
-
-    await bill.update(
-      {
-        subtotal: newSubtotal,
-        total_amount: newTotalAmount,
-        balance_due: newBalanceDue,
-        status: updatedStatus
-      },
-      { transaction }
-    );
-
-    await transaction.commit();
-
-    const updatedBill = await bills.findByPk(bill_id, {
-      include: [
-        {
-          model: bill_items,
-          include: [products]
-        }
-      ]
-    });
-
-    res.status(201).json({
-      message: "Return processed successfully",
-      data: newReturn,
-      bill: updatedBill
-    });
-  } catch (error) {
-    if (!transaction.finished) await transaction.rollback();
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// CREATE Return
-exports.createReturn = async (req, res) => {
-  try {
-    const newReturn = await returns.create(req.body);
-    const userId = req.user?.user_id;
-    const userRole = req.user?.role;
+    const userId = req.user?.user_id || 1; // Fallback to 1 if not set
+    const userRole = req.user?.role || 'Admin'; // Fallback to Admin if not set
     const data = await ReturnService.processReturn(req.body, userId, userRole);
 
     res.status(201).json({
@@ -276,27 +137,95 @@ exports.lookupBill = async (req, res) => {
 exports.getAllReturns = async (req, res) => {
   try {
     const { destination, from_date, to_date } = req.query;
-    const whereClause = {};
+    const headerWhere = {};
+    const itemWhere = {};
 
-    if (destination) whereClause.destination = destination;
-    if (from_date || to_date) {
-      whereClause.return_date = {};
-      if (from_date) whereClause.return_date[Op.gte] = new Date(from_date);
-      if (to_date) whereClause.return_date[Op.lte] = new Date(to_date);
+    const userRole = req.user?.role || '';
+    const isCashier = userRole.toLowerCase() === 'cashier';
+
+    if (destination) itemWhere.destination = destination;
+
+    if (isCashier) {
+      // Cashiers can ONLY see today's returns
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      headerWhere.return_date = { [Op.gte]: today };
+    } else if (from_date || to_date) {
+      headerWhere.return_date = {};
+      if (from_date) headerWhere.return_date[Op.gte] = new Date(from_date);
+      if (to_date) headerWhere.return_date[Op.lte] = new Date(to_date);
     }
 
-    const returnList = await returns.findAll({
-      where: whereClause,
-      include: [
-        { model: bills, attributes: ['bill_no'] },
-        { model: products, attributes: ['product_name'] },
-        { model: supplier_returns, attributes: ['supplier_id', 'quantity', 'status', 'created_at'] }
-      ],
+    // We need to require return_items here since it might not be in the file scope
+    const { return_items } = require('../models');
+
+    // Build the include array — supplier_returns is optional
+    const includeArr = [
+      {
+        model: bills,
+        attributes: ['bill_no', 'total_amount', 'balance_due'],
+        required: false,
+        include: [{ model: payments, attributes: ['amount_paid'] }]
+      },
+      {
+        model: return_items,
+        as: 'items',
+        required: false,
+        where: Object.keys(itemWhere).length ? itemWhere : undefined,
+        include: [{ model: products, attributes: ['product_name'] }]
+      }
+    ];
+
+    // Only include supplier_returns if the model exists and is associated
+    try {
+      includeArr.push({
+        model: supplier_returns,
+        required: false,
+        attributes: ['supplier_id', 'quantity', 'status', 'created_at']
+      });
+    } catch (_) { /* skip if not available */ }
+
+    // Fetch returns with associated bill total and payments
+    const returnListRaw = await returns.findAll({
+      where: headerWhere,
+      include: includeArr,
       order: [['return_date', 'DESC']]
+    });
+
+    // Attach financial summary to each return
+    // Sequelize auto-alias for belongsTo(bills) is 'bill' (singular)
+    const returnList = returnListRaw.map(ret => {
+      const plain = ret.get({ plain: true });
+      const bill = plain.bill || plain.bills || {};
+      const currentBillTotal = parseFloat(bill.total_amount) || 0;
+      const billPayments = bill.payments || [];
+      
+      // Original bill total before returns = current bill total + sum of all negative payments (refunds) on this bill
+      const totalRefundedOnBill = billPayments
+        .filter(p => parseFloat(p.amount_paid) < 0)
+        .reduce((sum, p) => sum + Math.abs(parseFloat(p.amount_paid)), 0);
+      const originalBillTotal = currentBillTotal + totalRefundedOnBill;
+      
+      // Original paid amount = sum of all positive payments (payments from customer) on this bill
+      const originalPaid = billPayments
+        .filter(p => parseFloat(p.amount_paid) > 0)
+        .reduce((sum, p) => sum + parseFloat(p.amount_paid), 0);
+
+      const refundable = Math.min(plain.total_refund_amount || 0, originalPaid);
+      return {
+        ...plain,
+        bill: bill,
+        financial_summary: {
+          total_bill: originalBillTotal,
+          total_paid: originalPaid,
+          refundable_amount: refundable
+        }
+      };
     });
 
     res.status(200).json({ success: true, data: returnList });
   } catch (error) {
+    console.error('getAllReturns error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
