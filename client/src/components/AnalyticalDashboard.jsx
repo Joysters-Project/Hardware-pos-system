@@ -31,7 +31,7 @@ import {
 import toast from "react-hot-toast";
 import "../styles/AnalyticalDashboard.css";
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = "/api";
 
 export default function AnalyticalDashboard() {
   const [timeframe, setTimeframe] = useState("daily"); // daily, weekly, monthly

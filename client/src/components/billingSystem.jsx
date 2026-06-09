@@ -8,6 +8,8 @@ import {
   TrendingUp, Clock, Zap, LayoutGrid, ListOrdered
 } from 'lucide-react';
 import api from '../api/axios';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import SuccessAnim from './SuccessAnim';
 import DashboardLayout from './DashboardLayout';
 import '../styles/BillingSystem.css';
@@ -199,6 +201,66 @@ const BillingSystem = () => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!lastBill) return;
+    try {
+      // Create a container and render the invoice HTML into it
+      const invoiceHtml = generateInvoiceHtml();
+      const container = document.createElement('div');
+      container.style.position = 'fixed';
+      container.style.left = '-9999px';
+      container.innerHTML = invoiceHtml;
+      document.body.appendChild(container);
+
+      // Use html2canvas to render
+      const canvas = await html2canvas(container, { scale: 2, useCORS: true, logging: false });
+      const imgData = canvas.toDataURL('image/png');
+
+      const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      // Calculate image dimensions to fit A4 width while keeping aspect ratio
+      const imgProps = pdf.getImageProperties(imgData);
+      const imgWidthMm = pageWidth;
+      const imgHeightMm = (imgProps.height * imgWidthMm) / imgProps.width;
+
+      let cursorY = 0;
+      // If content fits on one page just add it, otherwise slice the canvas vertically
+      const imgHeightPx = canvas.height;
+      const pxPerMm = imgHeightPx / imgHeightMm;
+
+      if (imgHeightMm <= pageHeight) {
+        pdf.addImage(imgData, 'PNG', 0, cursorY, imgWidthMm, imgHeightMm);
+      } else {
+        const sliceHeightMm = pageHeight;
+        const sliceHeightPx = Math.round(sliceHeightMm * pxPerMm);
+        let sliceY = 0;
+        let first = true;
+        while (sliceY < imgHeightPx) {
+          const thisSlicePx = Math.min(imgHeightPx - sliceY, sliceHeightPx);
+          const sliceCanvas = document.createElement('canvas');
+          sliceCanvas.width = canvas.width;
+          sliceCanvas.height = thisSlicePx;
+          const ctx = sliceCanvas.getContext('2d');
+          ctx.drawImage(canvas, 0, sliceY, canvas.width, thisSlicePx, 0, 0, sliceCanvas.width, sliceCanvas.height);
+          const sliceData = sliceCanvas.toDataURL('image/png');
+
+          if (!first) pdf.addPage();
+          pdf.addImage(sliceData, 'PNG', 0, 0, imgWidthMm, (thisSlicePx / pxPerMm));
+          first = false;
+          sliceY += thisSlicePx;
+        }
+      }
+
+      pdf.save(`invoice-${lastBill.bill_no || 'receipt'}.pdf`);
+      document.body.removeChild(container);
+    } catch (err) {
+      console.error('PDF generation failed', err);
+      alert('Failed to generate PDF. Try printing instead.');
+    }
   };
 
   // Search for products
@@ -640,7 +702,7 @@ const BillingSystem = () => {
               {/* Amount Received */}
               <div className="amount-input-group">
                 <label className="amount-label">
-                  <DollarSign size={14} />
+                  
                   Amount Received
                 </label>
                 <div className="amount-input-wrapper">
@@ -834,8 +896,8 @@ const BillingSystem = () => {
               <button className="receipt-btn print" onClick={() => window.print()}>
                 <Printer size={14} /> Print
               </button>
-              <button className="receipt-btn download" onClick={handleDownloadInvoice}>
-                <Download size={14} /> Download
+              <button className="receipt-btn download" onClick={handleDownloadPdf}>
+                <Download size={14} /> Download PDF
               </button>
               <button className="receipt-btn close" onClick={() => setLastBill(null)}>
                 Close

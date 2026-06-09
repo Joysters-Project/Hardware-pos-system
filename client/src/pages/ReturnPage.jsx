@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import DashboardLayout from '../components/DashboardLayout';
 import api from '../utils/axios';
 import '../styles/Returns.css';
 
@@ -158,22 +159,24 @@ function ReturnPage({ userRole }) {
   /* ---- success screen ---- */
   if (successData) {
     return (
-      <div className="ret-success">
-        <div className="ret-success-card">
-          <div className="ret-success-icon">✅</div>
-          <h2>Return Processed!</h2>
-          <p>
-            Successfully returned {successData.items_count} item(s) with a total refund of{' '}
-            <strong>Rs. {successData.refund_amount}</strong>
-          </p>
-          <button
-            className="ret-new-btn"
-            onClick={() => { setSuccessData(null); setSelectedBill(null); setReturnItems({}); }}
-          >
-            Process Another Return
-          </button>
+      <DashboardLayout active="returns">
+        <div className="ret-success">
+          <div className="ret-success-card">
+            <div className="ret-success-icon">✅</div>
+            <h2>Return Processed!</h2>
+            <p>
+              Successfully returned {successData.items_count} item(s) with a total refund of{' '}
+              <strong>Rs. {successData.refund_amount}</strong>
+            </p>
+            <button
+              className="ret-new-btn"
+              onClick={() => { setSuccessData(null); setSelectedBill(null); setReturnItems({}); }}
+            >
+              Process Another Return
+            </button>
+          </div>
         </div>
-      </div>
+      </DashboardLayout>
     );
   }
 
@@ -186,9 +189,10 @@ function ReturnPage({ userRole }) {
   const remainingBalancePayable = Math.max(0, originalBalanceDue - (totalReturnedValue - actualRefundToCustomer));
 
   return (
-    <div className="ret-container">
-      {/* Header */}
-      <div className="ret-header">
+    <DashboardLayout active="returns">
+      <div className="ret-container">
+        {/* Header */}
+        <div className="ret-header">
         <div>
           <h1>Return Management</h1>
           <p>Process customer returns and update inventory</p>
@@ -391,7 +395,8 @@ function ReturnPage({ userRole }) {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }
 

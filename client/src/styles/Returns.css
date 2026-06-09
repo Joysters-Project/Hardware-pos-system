@@ -470,6 +470,72 @@
   background: #a52a2a;
 }
 
+@media screen and (max-width: 1024px) {
+  .ret-container {
+    padding: 20px 18px 30px;
+  }
+
+  .ret-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .ret-search-card {
+    max-width: 100%;
+    padding: 24px;
+  }
+
+  .ret-search-box {
+    flex-direction: column;
+  }
+
+  .ret-search-box button {
+    width: 100%;
+  }
+
+  .ret-bill-result-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ret-bill-result-item .bill-total {
+    margin-top: 8px;
+  }
+
+  .ret-content {
+    flex-direction: column;
+  }
+
+  .ret-right {
+    position: static;
+    width: 100%;
+  }
+
+  .ret-item-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media screen and (max-width: 720px) {
+  .ret-radio-row {
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .ret-select-all-btn {
+    width: 100%;
+  }
+
+  .ret-header h1 {
+    font-size: 22px;
+  }
+
+  .ret-right {
+    padding: 20px;
+  }
+}
+
 /* ===== Return Logs ===== */
 .retlog-container {
   min-height: 100vh;

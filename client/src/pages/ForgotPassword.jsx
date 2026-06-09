@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import "../styles/ForgotPassword.css";
 import logo from "../assets/logo.png";
 
-const API = "http://localhost:5000/api/auth";
+const API = "/api/auth";
 
 // ─── Step indicators ────────────────────────────────────────────────────────
 const steps = ["Enter Email", "Verify OTP", "New Password"];
