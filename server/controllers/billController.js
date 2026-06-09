@@ -1,35 +1,28 @@
-const { bills, users, customers } = require('../models');
+const BillingService = require('../services/billingService');
+const { bills } = require('../models');
 
-// CREATE Bill
+// CREATE Bill (runs entire invoice workflow inside a transaction)
 exports.createBill = async (req, res) => {
   try {
-    const { user_id } = req.body;
+    let userId = req.user?.id;
 
-    if (!user_id) {
-      return res.status(400).json({ error: "user_id is required" });
+    if (!userId && req.body.user_id) {
+      const requestedUser = await BillingService.findUserById(req.body.user_id);
+      if (requestedUser) userId = requestedUser.user_id;
     }
 
-    const user = await users.findByPk(user_id);
-    if (!user) {
-      return res.status(400).json({ error: `User with id ${user_id} not found. Please create a user first.` });
+    if (!userId) {
+      userId = await BillingService.getSystemUserId();
     }
 
-    const { customer_id } = req.body;
-    if (customer_id) {
-      const customer = await customers.findByPk(customer_id);
-      if (!customer) {
-        return res.status(400).json({ error: "Customer not found" });
-      }
-    }
-
-    const bill = await bills.create(req.body);
+    const bill = await BillingService.createInvoice(req.body, userId);
 
     res.status(201).json({
-      message: "Bill created successfully",
-      data: bill
+      message: 'Bill created successfully',
+      data: bill,
     });
   } catch (error) {
-    console.error("Create bill error:", error);
+    console.error('Billing createBill error:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -37,7 +30,12 @@ exports.createBill = async (req, res) => {
 // READ All Bills
 exports.getAllBills = async (req, res) => {
   try {
-    const billList = await bills.findAll();
+    const { customer_id, status } = req.query;
+    const whereClause = {};
+    if (customer_id) whereClause.customer_id = customer_id;
+    if (status) whereClause.status = status;
+
+    const billList = await bills.findAll({ where: whereClause });
 
     res.status(200).json(billList);
   } catch (error) {

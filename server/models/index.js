@@ -1,15 +1,52 @@
 const { Sequelize } = require('sequelize');
+const path = require('path');
 require('dotenv').config();
 
-// 1. Initialize Sequelize Connection
+// Support .env variables and fallback to server/config/config.json (Sequelize CLI style)
+const env = process.env.NODE_ENV || 'development';
+let dbConfig = {
+  database: process.env.DB_NAME,
+  username: process.env.DB_USER,
+  password: process.env.DB_PASS,
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT || 3306,
+  dialect: 'mysql',
+  logging: false,
+};
+
+try {
+  const configFile = require(path.join(__dirname, '..', 'config', 'config.json'));
+  if (configFile && configFile[env]) {
+    const cfg = configFile[env];
+    dbConfig = {
+      database: process.env.DB_NAME || cfg.database,
+      username: process.env.DB_USER || cfg.username,
+      password: process.env.DB_PASS || cfg.password,
+      host: process.env.DB_HOST || cfg.host,
+      port: process.env.DB_PORT || cfg.port || 3306,
+      dialect: cfg.dialect || 'mysql',
+      logging: false,
+    };
+  }
+} catch (e) {
+  console.warn('⚠️ Could not read config/config.json, using environment variables only');
+}
+
 const sequelize = new Sequelize(
-  process.env.DB_NAME,
-  process.env.DB_USER,
-  process.env.DB_PASS,
+  dbConfig.database,
+  dbConfig.username,
+  dbConfig.password,
   {
-    host: process.env.DB_HOST,
-    dialect: 'mysql',
-    logging: false,
+    host: dbConfig.host,
+    port: dbConfig.port,
+    dialect: dbConfig.dialect,
+    logging: dbConfig.logging,
+    timezone: '+05:30',
+    dialectOptions: {
+      dateStrings: true,
+      typeCast: true,
+      timezone: '+05:30' 
+    }
   }
 );
 
@@ -28,6 +65,7 @@ const bills           = require('./bills');
 const bill_items      = require('./bill_items');
 const payments        = require('./payments');
 const returns         = require('./returns');
+const supplier_returns = require('./supplier_returns');
 const alerts          = require('./alerts');
 const purchase_orders = require('./purchase_orders');
 const po_items        = require('./po_items');
@@ -50,6 +88,7 @@ const db = {
   bill_items:      bill_items(sequelize),
   payments:        payments(sequelize),
   returns:         returns(sequelize),
+  supplier_returns: supplier_returns(sequelize),
   alerts:          alerts(sequelize),
   purchase_orders: purchase_orders(sequelize),
   po_items:        po_items(sequelize),
@@ -93,6 +132,11 @@ db.bills.hasMany(db.returns, { foreignKey: 'bill_id' });
 db.returns.belongsTo(db.bills, { foreignKey: 'bill_id' });
 db.products.hasMany(db.returns, { foreignKey: 'product_id' });
 db.returns.belongsTo(db.products, { foreignKey: 'product_id' });
+
+db.returns.hasOne(db.supplier_returns, { foreignKey: 'return_id' });
+db.supplier_returns.belongsTo(db.returns, { foreignKey: 'return_id' });
+db.supplier_returns.belongsTo(db.suppliers, { foreignKey: 'supplier_id' });
+db.supplier_returns.belongsTo(db.products, { foreignKey: 'product_id' });
 
 // Procurement Module
 db.suppliers.hasMany(db.purchase_orders, { foreignKey: 'supplier_id' });

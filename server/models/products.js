@@ -7,10 +7,12 @@ module.exports = (sequelize) => {
     unit_price: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
     cost_price: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
     stock_quantity: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    repair_quantity: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     min_stock_quantity: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     reorder_level: { type: DataTypes.INTEGER, allowNull: false },
     type: { type: DataTypes.STRING(50), allowNull: false },
     batch_no: { type: DataTypes.STRING(100), allowNull: true },
+    status: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'active' },
     category_id: { type: DataTypes.INTEGER, allowNull: false },
     brand_id: { type: DataTypes.INTEGER, allowNull: true },
     unit_id: { type: DataTypes.INTEGER, allowNull: false }

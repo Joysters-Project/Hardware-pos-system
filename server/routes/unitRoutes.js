@@ -11,8 +11,9 @@ router.get('/', unitController.getAllUnits);
 // GET Unit by ID
 router.get('/:id', unitController.getUnitById);
 
-// UPDATE Unit
+// UPDATE Unit (supports both PUT and PATCH)
 router.put('/:id', unitController.updateUnit);
+router.patch('/:id', unitController.updateUnit);
 
 // DELETE Unit
 router.delete('/:id', unitController.deleteUnit);
