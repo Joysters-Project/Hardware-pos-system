@@ -1,13 +1,16 @@
 const express = require('express');
-const router = express.Router();
-const purchaseOrderController = require('../controllers/RR_purchaseOrderController');
+const router  = express.Router();
+const ctrl    = require('../controllers/RR_purchaseOrderController');
+const auth    = require('../middleware/authMiddleware');
 
-router.post('/', purchaseOrderController.createPurchaseOrder);
-router.get('/', purchaseOrderController.getAllPurchaseOrders);
-router.get('/:id', purchaseOrderController.getPurchaseOrderById);
-router.put('/:id', purchaseOrderController.updatePurchaseOrder);
-router.put('/:id/cancel', purchaseOrderController.cancelPurchaseOrder);
-router.get('/:id/export-pdf', purchaseOrderController.exportPurchaseOrderPDF);
-router.delete('/:id', purchaseOrderController.deletePurchaseOrder);
+router.use(auth);
+
+router.post('/',                      ctrl.createPurchaseOrder);
+router.get('/',                       ctrl.getAllPurchaseOrders);
+router.get('/:id',                    ctrl.getPurchaseOrderById);
+router.put('/:id/status',             ctrl.updateStatus);
+router.put('/:id/cancel',             ctrl.cancelPurchaseOrder);
+router.get('/:id/export-pdf',         ctrl.exportPurchaseOrderPDF);
+router.delete('/:id',                 ctrl.deletePurchaseOrder);
 
 module.exports = router;

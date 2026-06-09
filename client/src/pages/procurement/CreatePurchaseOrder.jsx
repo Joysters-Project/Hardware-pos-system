@@ -1,503 +1,273 @@
 import { useState, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useForm, useFieldArray } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  ArrowLeft, Save, Send, Loader2, ShoppingCart, Calendar, Truck,
-  Plus, Package, FileText, AlertCircle, Building2
-} from 'lucide-react';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
+import { ArrowLeft, Plus, Trash2, Save, Send } from 'lucide-react';
+import { useActiveSuppliers, useProducts, useCreatePurchaseOrder } from '@/services/procurementApi';
+import '@/styles/Procurement.css';
 
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Skeleton } from '@/components/ui/skeleton';
-import { PageTransition } from '@/components/PageTransition';
-import { LineItemRow } from '@/components/procurement/LineItemRow';
-import { useSuppliers, useProducts, useCreatePurchaseOrder } from '@/services/procurementApi';
-import { cn } from '@/lib/utils';
+const emptyItem = () => ({ product_id: '', quantity: 1, cost_price: 0, total_price: 0 });
 
-// Zod Schema for line items
-const lineItemSchema = z.object({
-  product_id: z.number().min(1, 'Product is required'),
-  quantity: z.number().min(1, 'Quantity must be at least 1'),
-  cost_price: z.number().min(0, 'Price is required'),
-  total_price: z.number(),
-});
-
-// Zod Schema for the form
-const purchaseOrderSchema = z.object({
-  supplier_id: z.number().min(1, 'Supplier is required'),
-  expected_delivery: z.date().nullable().optional(),
-  notes: z.string().optional(),
-  items: z.array(lineItemSchema).min(1, 'At least one item is required'),
-});
-
-// Generate PO Number
-function generatePONumber() {
-  const year = new Date().getFullYear();
-  const random = Math.floor(Math.random() * 9000) + 1000;
-  return `PO-${year}-${random}`;
-}
-
-function CreatePurchaseOrder() {
+export default function CreatePurchaseOrder() {
   const navigate = useNavigate();
-  const [poNumber] = useState(generatePONumber());
-  const [poDate] = useState(new Date());
+  const today    = new Date().toISOString().split('T')[0];
 
-  // Fetch suppliers and products
-  const { data: suppliers = [], isLoading: suppliersLoading } = useSuppliers();
-  const { data: products = [], isLoading: productsLoading } = useProducts();
+  const [supplierId,       setSupplierId]       = useState('');
+  const [expectedDelivery, setExpectedDelivery] = useState('');
+  const [notes,            setNotes]            = useState('');
+  const [items,            setItems]            = useState([emptyItem()]);
+  const [error,            setError]            = useState('');
+
+  const { data: suppliers = [], isLoading: sl } = useActiveSuppliers();
+  const { data: products  = [], isLoading: pl } = useProducts();
   const createMutation = useCreatePurchaseOrder();
+  const isBusy = createMutation.isPending;
 
-  // Form setup
-  const {
-    register,
-    control,
-    handleSubmit,
-    watch,
-    setValue,
-    formState: { errors, isSubmitting },
-  } = useForm({
-    resolver: zodResolver(purchaseOrderSchema),
-    defaultValues: {
-      supplier_id: '',
-      expected_delivery: null,
-      notes: '',
-      items: [{ product_id: null, quantity: 1, cost_price: 0, total_price: 0 }],
-    },
-  });
+  const grandTotal = useMemo(
+    () => items.reduce((s, i) => s + (Number(i.total_price) || 0), 0),
+    [items]
+  );
 
-  // Field array for line items
-  const { fields, append, remove, update } = useFieldArray({
-    control,
-    name: 'items',
-  });
+  const updateItem = (index, updates) =>
+    setItems(prev => prev.map((item, i) => i === index ? { ...item, ...updates } : item));
 
-  // Watch items for calculations
-  const watchedItems = watch('items');
-  const watchedSupplier = watch('supplier_id');
-
-  // Calculate grand total
-  const grandTotal = useMemo(() => {
-    return watchedItems?.reduce((sum, item) => sum + (item.total_price || 0), 0) || 0;
-  }, [watchedItems]);
-
-  // Handle product selection
-  const handleProductSelect = (index, productId, product) => {
+  const handleProductChange = (index, productId) => {
+    const product = products.find(p => p.product_id === parseInt(productId));
     if (product) {
-      update(index, {
-        ...watchedItems[index],
-        product_id: productId,
-        cost_price: Number(product.cost_price),
-        total_price: (watchedItems[index].quantity || 1) * Number(product.cost_price),
-      });
+      const qty = items[index].quantity || 1;
+      updateItem(index, { product_id: product.product_id, cost_price: Number(product.cost_price), total_price: qty * Number(product.cost_price) });
     } else {
-      update(index, {
-        ...watchedItems[index],
-        product_id: null,
-        cost_price: 0,
-        total_price: 0,
-      });
+      updateItem(index, { product_id: '', cost_price: 0, total_price: 0 });
     }
   };
 
-  // Handle quantity change
-  const handleQuantityChange = (index, quantity) => {
-    const item = watchedItems[index];
-    update(index, {
-      ...item,
-      quantity: quantity || 1,
-      total_price: (quantity || 1) * (item.cost_price || 0),
-    });
+  const handleQtyChange = (index, qty) => {
+    const q = parseInt(qty) || 1;
+    updateItem(index, { quantity: q, total_price: q * (items[index].cost_price || 0) });
   };
 
-  // Add new row
-  const addNewRow = () => {
-    append({ product_id: null, quantity: 1, cost_price: 0, total_price: 0 });
-  };
-
-  // Form submission
-  const onSubmit = async (data, status = 'Pending') => {
+  const submit = async (status) => {
+    setError('');
+    if (!supplierId) { setError('Please select a supplier'); return; }
+    if (items.some(i => !i.product_id)) { setError('All rows must have a product selected'); return; }
     try {
-      const payload = {
-        supplier_id: parseInt(data.supplier_id),
-        po_date: poDate.toISOString().split('T')[0],
-        expected_delivery: data.expected_delivery
-          ? data.expected_delivery.toISOString().split('T')[0]
-          : null,
-        status: status,
-        total_amount: grandTotal,
-        notes: data.notes || null,
-        items: data.items.map((item) => ({
-          product_id: item.product_id,
-          quantity: item.quantity,
-          unit_price: item.cost_price,
-          total_price: item.total_price,
-        })),
-      };
-
-      await createMutation.mutateAsync(payload);
-      navigate('/procurement');
-    } catch (error) {
-      console.error('Error creating PO:', error);
+      await createMutation.mutateAsync({
+        supplier_id: parseInt(supplierId), po_date: today,
+        expected_delivery: expectedDelivery || null, status, notes: notes || null,
+        items: items.map(i => ({ product_id: i.product_id, quantity: i.quantity, unit_price: i.cost_price, total_price: i.total_price })),
+      });
+      navigate('/procurement/orders');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to create purchase order');
     }
   };
 
-  const isLoading = suppliersLoading || productsLoading;
+  if (sl || pl) return (
+    <div className="proc-container">
+      <div className="proc-loading-wrap">
+        {[...Array(4)].map((_, i) => (
+          <motion.div key={i} className="proc-skeleton"
+            animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.1 }} />
+        ))}
+      </div>
+    </div>
+  );
 
-  if (isLoading) {
-    return (
-      <PageTransition>
-        <div className="space-y-8">
-          <div className="flex items-center gap-4">
-            <Skeleton className="h-10 w-10" />
-            <div className="space-y-2">
-              <Skeleton className="h-8 w-64" />
-              <Skeleton className="h-4 w-96" />
-            </div>
-          </div>
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="lg:col-span-2 space-y-6">
-              <Card className="border-0 shadow-xl">
-                <CardHeader className="bg-gradient-to-r from-blue-500 to-indigo-500">
-                  <Skeleton className="h-6 w-48 bg-white/20" />
-                </CardHeader>
-                <CardContent className="p-6 space-y-4">
-                  {[...Array(4)].map((_, i) => (
-                    <div key={i} className="space-y-2">
-                      <Skeleton className="h-4 w-24" />
-                      <Skeleton className="h-10 w-full" />
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </div>
-      </PageTransition>
-    );
-  }
+  const selectedSupplier = suppliers.find(s => s.supplier_id === parseInt(supplierId));
 
   return (
-    <PageTransition>
-      <div className="space-y-8">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-4"
-        >
-          <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-            <Link to="/procurement">
-              <Button variant="outline" size="icon" className="shadow-md hover:shadow-lg">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
-          </motion.div>
+    <div className="proc-container">
+
+      {/* Header */}
+      <motion.div className="proc-header"
+        initial={{ opacity: 0, y: -24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <motion.button className="proc-back-btn" onClick={() => navigate('/procurement/orders')}
+            whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}>
+            <ArrowLeft size={16} />
+          </motion.button>
           <div>
-            <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent">
-              Create Purchase Order
-            </h1>
-            <p className="mt-1 text-slate-500">Create a new purchase order for your suppliers</p>
+            <h1>Create Purchase Order</h1>
+            <p>Create a new purchase order for your suppliers</p>
+          </div>
+        </div>
+      </motion.div>
+
+      <AnimatePresence>
+        {error && (
+          <motion.div className="proc-error-banner"
+            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+            {error}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="proc-create-grid">
+        {/* Left */}
+        <div className="proc-create-main">
+
+          {/* PO Details Card */}
+          <motion.div className="proc-card"
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+            <div className="proc-card-header"><h2>Purchase Order Details</h2></div>
+            <div className="proc-card-body">
+              <div className="proc-form-grid">
+                <div className="proc-field">
+                  <label>PO Date</label>
+                  <input className="proc-input proc-input-readonly" value={today} readOnly />
+                </div>
+                <div className="proc-field">
+                  <label>Expected Delivery</label>
+                  <input type="date" className="proc-input" min={today}
+                    value={expectedDelivery} onChange={e => setExpectedDelivery(e.target.value)} />
+                </div>
+                <div className="proc-field proc-field-full">
+                  <label>Supplier <span className="req">*</span></label>
+                  <select className="proc-input" value={supplierId} onChange={e => setSupplierId(e.target.value)}>
+                    <option value="">-- Select Supplier --</option>
+                    {suppliers.map(s => (
+                      <option key={s.supplier_id} value={s.supplier_id}>
+                        {s.supplier_name}{s.phone ? ` — ${s.phone}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="proc-field proc-field-full">
+                  <label>Notes</label>
+                  <textarea className="proc-input proc-textarea" rows={3} value={notes}
+                    onChange={e => setNotes(e.target.value)} placeholder="Additional notes or instructions..." />
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Line Items Card */}
+          <motion.div className="proc-card"
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <div className="proc-card-header">
+              <h2>Line Items</h2>
+              <motion.span className="proc-badge-count" key={items.length}
+                initial={{ scale: 1.3 }} animate={{ scale: 1 }}>
+                {items.length} item{items.length !== 1 ? 's' : ''}
+              </motion.span>
+            </div>
+            <div className="proc-table-wrap">
+              <table className="proc-table proc-items-table">
+                <thead>
+                  <tr>
+                    <th>#</th><th>Product</th><th>Quantity</th>
+                    <th style={{ textAlign: 'right' }}>Unit Cost</th>
+                    <th style={{ textAlign: 'right' }}>Total</th><th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <AnimatePresence>
+                    {items.map((item, index) => (
+                      <motion.tr key={index}
+                        initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 12, height: 0 }}
+                        transition={{ duration: 0.22 }}>
+                        <td><span className="proc-row-num">{index + 1}</span></td>
+                        <td>
+                          <select className="proc-input proc-input-sm" value={item.product_id}
+                            onChange={e => handleProductChange(index, e.target.value)}>
+                            <option value="">-- Select Product --</option>
+                            {products.map(p => (
+                              <option key={p.product_id} value={p.product_id}>
+                                {p.product_name} (Stock: {p.stock_quantity})
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td>
+                          <input type="number" min="1" className="proc-input proc-input-qty"
+                            value={item.quantity} onChange={e => handleQtyChange(index, e.target.value)} />
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <span className="proc-amount">LKR {Number(item.cost_price).toFixed(2)}</span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <motion.span className="proc-amount" key={item.total_price}
+                            initial={{ scale: 1.1, color: '#8b3a3a' }} animate={{ scale: 1, color: '#2c2c2c' }}
+                            transition={{ duration: 0.3 }}>
+                            <strong>LKR {Number(item.total_price).toFixed(2)}</strong>
+                          </motion.span>
+                        </td>
+                        <td>
+                          <motion.button whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
+                            className="proc-icon-btn delete"
+                            onClick={() => setItems(p => p.filter((_, i) => i !== index))}
+                            disabled={items.length === 1}>
+                            <Trash2 size={13} />
+                          </motion.button>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </AnimatePresence>
+                </tbody>
+              </table>
+            </div>
+            <div className="proc-add-row">
+              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                className="proc-btn-outline proc-btn-add-row"
+                onClick={() => setItems(p => [...p, emptyItem()])}>
+                <Plus size={14} /> Add Product Row
+              </motion.button>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Summary Sidebar */}
+        <motion.div className="proc-create-sidebar"
+          initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}>
+          <div className="proc-card proc-summary-card">
+            <div className="proc-card-header"><h2>Order Summary</h2></div>
+            <div className="proc-card-body">
+              <AnimatePresence>
+                {selectedSupplier && (
+                  <motion.div className="proc-supplier-chip"
+                    initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+                    <div className="proc-supplier-chip-label">Supplier</div>
+                    <div className="proc-supplier-chip-name">{selectedSupplier.supplier_name}</div>
+                    {selectedSupplier.phone && <div className="proc-supplier-chip-sub">{selectedSupplier.phone}</div>}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div className="proc-summary-rows">
+                <div className="proc-summary-row">
+                  <span className="proc-summary-label">Total Items</span>
+                  <motion.span className="proc-summary-value" key={items.length}
+                    initial={{ scale: 1.2 }} animate={{ scale: 1 }}>{items.length}</motion.span>
+                </div>
+                <div className="proc-summary-row">
+                  <span className="proc-summary-label">Total Quantity</span>
+                  <span className="proc-summary-value">{items.reduce((s, i) => s + (i.quantity || 0), 0)}</span>
+                </div>
+              </div>
+
+              <div className="proc-grand-total">
+                <span>Grand Total</span>
+                <motion.strong key={grandTotal}
+                  initial={{ scale: 1.12, color: '#a84545' }} animate={{ scale: 1, color: '#8b3a3a' }}
+                  transition={{ duration: 0.3 }}>
+                  LKR {grandTotal.toFixed(2)}
+                </motion.strong>
+              </div>
+
+              <div className="proc-summary-actions">
+                <motion.button whileHover={{ scale: isBusy ? 1 : 1.03 }} whileTap={{ scale: isBusy ? 1 : 0.97 }}
+                  className="proc-btn-primary proc-btn-full" onClick={() => submit('Pending')} disabled={isBusy}>
+                  <Save size={14} /> {isBusy ? 'Saving...' : 'Save as Draft'}
+                </motion.button>
+                <motion.button whileHover={{ scale: isBusy ? 1 : 1.03 }} whileTap={{ scale: isBusy ? 1 : 0.97 }}
+                  className="proc-btn-approve proc-btn-full" onClick={() => submit('Approved')} disabled={isBusy}>
+                  <Send size={14} /> {isBusy ? 'Processing...' : 'Approve & Send'}
+                </motion.button>
+              </div>
+            </div>
           </div>
         </motion.div>
-
-        <form onSubmit={handleSubmit((data) => onSubmit(data, 'Pending'))}>
-          <div className="grid gap-6 lg:grid-cols-3">
-            {/* Main Form */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* PO Details Card */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-              >
-                <Card className="border-0 shadow-xl overflow-hidden">
-                  <CardHeader className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white">
-                    <CardTitle className="flex items-center gap-2">
-                      <FileText className="h-5 w-5" />
-                      Purchase Order Details
-                    </CardTitle>
-                    <CardDescription className="text-blue-100">
-                      Enter the basic information for this purchase order
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-6 space-y-6">
-                    {/* PO Number and Date */}
-                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label className="text-slate-700 flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-blue-500" />
-                          PO Number
-                        </Label>
-                        <Input
-                          value={poNumber}
-                          readOnly
-                          className="bg-slate-50 font-mono"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-slate-700 flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-blue-500" />
-                          PO Date
-                        </Label>
-                        <Input
-                          value={poDate.toLocaleDateString()}
-                          readOnly
-                          className="bg-slate-50"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Supplier */}
-                    <div className="space-y-2">
-                      <Label className="text-slate-700 flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-blue-500" />
-                        Supplier <span className="text-red-500">*</span>
-                      </Label>
-                      <Select
-                        {...register('supplier_id', { valueAsNumber: true })}
-                        className={cn(
-                          "border-slate-200",
-                          errors.supplier_id && "border-red-500"
-                        )}
-                      >
-                        <option value="">Select a supplier...</option>
-                        {suppliers.map((supplier) => (
-                          <option key={supplier.supplier_id} value={supplier.supplier_id}>
-                            {supplier.supplier_name} - {supplier.contact}
-                          </option>
-                        ))}
-                      </Select>
-                      {errors.supplier_id && (
-                        <p className="text-sm text-red-500 flex items-center gap-1">
-                          <AlertCircle className="h-3 w-3" />
-                          {errors.supplier_id.message}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Expected Delivery */}
-                    <div className="space-y-2">
-                      <Label className="text-slate-700 flex items-center gap-2">
-                        <Truck className="h-4 w-4 text-blue-500" />
-                        Expected Delivery Date
-                      </Label>
-                      <div className="relative">
-                        <DatePicker
-                          selected={watch('expected_delivery')}
-                          onChange={(date) => setValue('expected_delivery', date)}
-                          minDate={new Date()}
-                          dateFormat="MMMM d, yyyy"
-                          placeholderText="Select expected delivery date"
-                          className="w-full h-10 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                        />
-                        <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                      </div>
-                    </div>
-
-                    {/* Notes */}
-                    <div className="space-y-2">
-                      <Label className="text-slate-700">Notes</Label>
-                      <Textarea
-                        {...register('notes')}
-                        placeholder="Add any additional notes or instructions..."
-                        rows={3}
-                        className="border-slate-200 focus:border-blue-500"
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-
-              {/* Line Items Card */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-              >
-                <Card className="border-0 shadow-xl overflow-hidden">
-                  <CardHeader className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="flex items-center gap-2">
-                          <ShoppingCart className="h-5 w-5" />
-                          Line Items
-                        </CardTitle>
-                        <CardDescription className="text-blue-100">
-                          Add products to this purchase order
-                        </CardDescription>
-                      </div>
-                      <span className="bg-white/20 px-3 py-1 rounded-full text-sm">
-                        {fields.length} item{fields.length !== 1 ? 's' : ''}
-                      </span>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <div className="relative overflow-visible">
-                      <table className="w-full">
-                        {/* Table Header */}
-                        <thead>
-                          <tr className="bg-slate-50 border-b text-sm font-semibold text-slate-600">
-                            <th className="py-3 px-6 text-left w-1/2">Product</th>
-                            <th className="py-3 px-6 text-center w-32">Quantity</th>
-                            <th className="py-3 px-6 text-right w-32">Unit Cost</th>
-                            <th className="py-3 px-6 text-right w-32">Total</th>
-                            <th className="py-3 px-6 text-center w-16"></th>
-                          </tr>
-                        </thead>
-
-                        {/* Line Items */}
-                        <tbody className="divide-y divide-slate-100">
-                          <AnimatePresence>
-                            {fields.map((field, index) => (
-                              <LineItemRow
-                                key={field.id}
-                                index={index}
-                                products={products}
-                                field={watchedItems[index]}
-                                onProductSelect={handleProductSelect}
-                                onUpdateQuantity={handleQuantityChange}
-                                onRemove={remove}
-                                errors={errors.items?.[index]}
-                              />
-                            ))}
-                          </AnimatePresence>
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Add Row Button */}
-                    <div className="p-4 border-t border-slate-100 bg-slate-50/50">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={addNewRow}
-                        className="w-full gap-2 border-dashed border-2 hover:border-blue-400 hover:bg-blue-50"
-                      >
-                        <Plus className="h-4 w-4" />
-                        Add New Row
-                      </Button>
-                      {errors.items?.message && (
-                        <p className="text-sm text-red-500 mt-2 flex items-center gap-1">
-                          <AlertCircle className="h-3 w-3" />
-                          {errors.items.message}
-                        </p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            </div>
-
-            {/* Summary Sidebar */}
-            <div className="lg:col-span-1">
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 }}
-                className="sticky top-8"
-              >
-                <Card className="border-0 shadow-xl overflow-hidden">
-                  <CardHeader className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white">
-                    <CardTitle className="flex items-center gap-2">
-                      <Package className="h-5 w-5" />
-                      Order Summary
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-6 space-y-6">
-                    {/* Supplier Info */}
-                    {watchedSupplier && (
-                      <div className="p-4 bg-slate-50 rounded-lg">
-                        <p className="text-sm text-slate-500 mb-1">Supplier</p>
-                        <p className="font-semibold text-slate-800">
-                          {suppliers.find(s => s.supplier_id === parseInt(watchedSupplier))?.supplier_name}
-                        </p>
-                        <p className="text-sm text-slate-500">
-                          {suppliers.find(s => s.supplier_id === parseInt(watchedSupplier))?.contact}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Stats */}
-                    <div className="space-y-3">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-500">Total Items</span>
-                        <span className="font-semibold">{fields.length}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-500">Total Quantity</span>
-                        <span className="font-semibold">
-                          {watchedItems?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Grand Total */}
-                    <div className="pt-4 border-t border-slate-200">
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-600 font-medium">Grand Total</span>
-                        <motion.span
-                          key={grandTotal}
-                          initial={{ scale: 1.1 }}
-                          animate={{ scale: 1 }}
-                          className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent"
-                        >
-                          LKR{grandTotal.toFixed(2)}
-                        </motion.span>
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="space-y-3 pt-4">
-                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                        <Button
-                          type="submit"
-                          className="w-full gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 shadow-lg shadow-blue-500/25"
-                          disabled={isSubmitting || createMutation.isPending}
-                        >
-                          {isSubmitting || createMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Save className="h-4 w-4" />
-                          )}
-                          Save as Draft
-                        </Button>
-                      </motion.div>
-
-                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-full gap-2 border-blue-500 text-blue-600 hover:bg-blue-50"
-                          disabled={isSubmitting || createMutation.isPending}
-                          onClick={handleSubmit((data) => onSubmit(data, 'Approved'))}
-                        >
-                          {isSubmitting || createMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Send className="h-4 w-4" />
-                          )}
-                          Approve & Send
-                        </Button>
-                      </motion.div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            </div>
-          </div>
-        </form>
       </div>
-    </PageTransition>
+    </div>
   );
 }
-
-export default CreatePurchaseOrder;

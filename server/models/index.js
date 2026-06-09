@@ -73,6 +73,10 @@ const po_items        = require('./po_items');
 const assets           = require('./assets');
 const expenses         = require('./expenses');
 const salary_payments  = require('./salary_payments');
+const supplier_payments = require('./supplier_payments');
+const procurement_notifications = require('./procurement_notifications');
+const auto_reorder_suggestions = require('./auto_reorder_suggestions');
+const email_logs = require('./email_logs');
 
 // 3. Initialize the DB object
 const db = {
@@ -100,6 +104,10 @@ const db = {
   assets:           assets(sequelize),
   expenses:         expenses(sequelize),
   salary_payments:  salary_payments(sequelize),
+  supplier_payments: supplier_payments(sequelize),
+  procurement_notifications: procurement_notifications(sequelize),
+  auto_reorder_suggestions: auto_reorder_suggestions(sequelize),
+  email_logs:       email_logs(sequelize),
 };
 
 // 4. Define Relationships
@@ -171,5 +179,24 @@ db.purchase_orders.hasMany(db.po_items, { foreignKey: 'po_id' });
 db.po_items.belongsTo(db.purchase_orders, { foreignKey: 'po_id' });
 db.products.hasMany(db.po_items, { foreignKey: 'product_id' });
 db.po_items.belongsTo(db.products, { foreignKey: 'product_id' });
+
+// Enhanced Procurement relations
+db.suppliers.hasMany(db.supplier_payments, { foreignKey: 'supplier_id' });
+db.supplier_payments.belongsTo(db.suppliers, { foreignKey: 'supplier_id' });
+
+db.purchase_orders.hasMany(db.supplier_payments, { foreignKey: 'po_id' });
+db.supplier_payments.belongsTo(db.purchase_orders, { foreignKey: 'po_id' });
+
+db.products.hasMany(db.auto_reorder_suggestions, { foreignKey: 'product_id' });
+db.auto_reorder_suggestions.belongsTo(db.products, { foreignKey: 'product_id' });
+
+db.suppliers.hasMany(db.auto_reorder_suggestions, { foreignKey: 'supplier_id' });
+db.auto_reorder_suggestions.belongsTo(db.suppliers, { foreignKey: 'supplier_id' });
+
+db.purchase_orders.hasMany(db.auto_reorder_suggestions, { foreignKey: 'converted_po_id', as: 'convertedPO' });
+db.auto_reorder_suggestions.belongsTo(db.purchase_orders, { foreignKey: 'converted_po_id', as: 'convertedPO' });
+
+db.suppliers.hasMany(db.products, { foreignKey: 'preferred_supplier_id', as: 'preferredProducts' });
+db.products.belongsTo(db.suppliers, { foreignKey: 'preferred_supplier_id', as: 'preferredSupplier' });
 
 module.exports = db;
