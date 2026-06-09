@@ -2,9 +2,9 @@
 
 :root {
   --receipts-bg: radial-gradient(circle at top left, #f8f4f1 0%, #efe7e2 44%, #e7ddd7 100%);
-  --receipts-surface: rgba(255, 255, 255, 0.88);
+  --receipts-surface: rgba(250, 248, 248, 0.88);
   --receipts-border: rgba(139, 58, 58, 0.15);
-  --receipts-text: #2e2323;
+  --receipts-text: #2b1515;
   --receipts-muted: #6f5f5c;
   --receipts-accent: #8b3a3a;
   --receipts-accent-2: #a84545;
@@ -14,11 +14,6 @@
 }
 
 .receipts-page {
-  min-height: 100vh;
-  padding: 24px;
-  background: var(--receipts-bg);
-  color: var(--receipts-text);
-  font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
   box-sizing: border-box;
 }
 
@@ -209,6 +204,7 @@
   border-radius: 22px;
   padding: 20px;
   box-shadow: var(--receipts-shadow);
+  color: var(--receipts-text);
 }
 
 .receipt-card-head {
@@ -222,6 +218,7 @@
 .receipt-card-head h2 {
   margin: 0 0 6px;
   font-size: 1.15rem;
+  color: var(--receipts-text);
 }
 
 .receipt-card-head p {
@@ -251,7 +248,7 @@
 .receipt-empty {
   padding: 24px 18px;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(43, 12, 12, 0.72);
   color: var(--receipts-muted);
   border: 1px dashed rgba(139, 58, 58, 0.18);
 }
@@ -280,6 +277,7 @@
   padding: 14px 10px;
   border-bottom: 1px solid rgba(139, 58, 58, 0.09);
   vertical-align: top;
+  color: var(--receipts-text);
 }
 
 .bill-no,

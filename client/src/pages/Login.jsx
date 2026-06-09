@@ -16,15 +16,19 @@ function Login() {
   const [loading, setLoading] = useState(false);
 
   const roleParam = role || "User";  // fallback if undefined
-
+  /*
+    const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1); // go back
+    } else {
+      navigate("/"); // fallback to role selection
+    }
+    };
+    */
   const handleBack = () => {
-  if (window.history.length > 1) {
-    navigate(-1); // go back
-  } else {
-    navigate("/"); // fallback to role selection
-  }
+    navigate("/");
   };
-  
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -69,7 +73,7 @@ function Login() {
       {/* <div className="login-left">
         <img src={logo} alt="background" />
       </div> */}
-      <button type="button" className="back-btn" onClick={handleBack}>← Back</button>
+
       <div className="login-right">
         <div className="login-card">
           <h1 className="title">{roleParam} Login</h1>
@@ -89,7 +93,7 @@ function Login() {
               />
             </div>
 
-            <div className="input-box">
+            <div className="input-box" style={{position:"relative"}}>
               <input
                 type={showPassword ? "text" : "password"}
                 placeholder="Password"
@@ -98,9 +102,13 @@ function Login() {
                 required
                 disabled={loading}
               />
+              <span
+                onClick={() => setShowPassword(v => !v)}
+                style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",cursor:"pointer",userSelect:"none",fontSize:18}}
+              >{showPassword ? "🙈" : "👁️"}</span>
             </div>
 
-            <button  className="login-btn" type="submit" disabled={loading}>
+            <button className="login-btn" type="submit" disabled={loading}>
               {loading ? "Logging in..." : "LOGIN"}
             </button>
 
@@ -109,6 +117,7 @@ function Login() {
               <Link to="/signup">Signup</Link>
             </div>
           </form>
+          <button type="button" className="login-btn" onClick={handleBack}> Home</button>
         </div>
       </div>
     </div>
