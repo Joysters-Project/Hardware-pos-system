@@ -83,6 +83,8 @@ function AppRoutes() {
       <Route 
         path="/alerts" 
         element={<ProtectedRoute><Alerts /></ProtectedRoute>} 
+      />
+      <Route
         path="/products/add" 
         element={<ProtectedRoute><AddProduct /></ProtectedRoute>} 
       />
