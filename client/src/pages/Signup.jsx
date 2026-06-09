@@ -30,7 +30,7 @@ function Signup() {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/signup", {
+      const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -51,7 +51,7 @@ function Signup() {
           role: "",
           employee_id: ""
         });
-        setTimeout(() => navigate("/login/user"), 1500);
+        setTimeout(() => navigate("/"), 1500);
       } else {
         toast.error(data.message || "Failed to create account");
       }
@@ -158,7 +158,7 @@ function Signup() {
         </form>
 
         <p style={{ marginTop: "15px", textAlign: "center" }}>
-          Already have an account? <Link to="/login/user">Login here</Link>
+          Already have an account? <Link to="/">Login here</Link>
         </p>
       </div>
     </div>

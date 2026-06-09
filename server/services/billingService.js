@@ -1,4 +1,5 @@
-const { bills, bill_items, products, audit_log, customers, payments, users, sequelize } = require('../models');
+const { bills, bill_items, products, audit_log, customers, payments, users, alerts, sequelize } = require('../models');
+const { logActivity } = require('./auditService');
 
 class BillingService {
     static async getSystemUserId(transaction = null) {
@@ -62,6 +63,7 @@ class BillingService {
             }, { transaction: t });
 
             // 5. Update Inventory & Items
+            const lowStockAlerts = [];
             for (const item of saleData.items) {
                 const quantity = Number(item.quantity) || 0;
                 const pricePerUnit = parseFloat(item.price) || 0;
@@ -77,28 +79,52 @@ class BillingService {
                     total_price: totalPrice
                 }, { transaction: t });
 
+                // Decrement stock and get the updated product record
                 await products.decrement('stock_quantity', {
                     by: quantity,
                     where: { product_id: item.product_id },
                     transaction: t
                 });
+
+                const updatedProduct = await products.findByPk(item.product_id, { transaction: t });
+                if (updatedProduct.stock_quantity <= updatedProduct.min_stock_quantity) {
+                    lowStockAlerts.push(updatedProduct.product_name);
+                    
+                    // Create an unresolved low stock alert if it doesn't exist
+                    const existingAlert = await alerts.findOne({
+                        where: {
+                            product_id: item.product_id,
+                            alert_type: 'LOW_STOCK',
+                            is_resolved: false
+                        },
+                        transaction: t
+                    });
+
+                    if (!existingAlert) {
+                        await alerts.create({
+                            product_id: item.product_id,
+                            alert_type: 'LOW_STOCK',
+                            is_resolved: false
+                        }, { transaction: t });
+                    }
+                }
             }
 
             // 6. Record Payment
             await payments.create({
                 bill_id: bill.bill_id,
                 amount_paid: saleData.amount_paid,
-                payment_status: 'CASH'
+                payment_method: saleData.payment_method || 'CASH'
             }, { transaction: t });
 
-            // 7. Final Audit Log
-            await audit_log.create({
-                user_id: userId,
-                action: 'GENERATE_BILL',
-                details: `Bill ${bill_no} processed. Paid: ${saleData.amount_paid}, Due: ${saleData.balance_due}`
-            }, { transaction: t });
+            // 7. Final Audit Log (outside transaction so it never blocks the bill)
+            process.nextTick(() => logActivity(userId, null, 'INVOICE_CREATED',
+              `Invoice ${bill_no} created. Total: ${saleData.total_amount}, Paid: ${saleData.amount_paid}, Due: ${saleData.balance_due || 0}`
+            ));
 
-            return bill;
+            const billData = bill.toJSON();
+            billData.lowStockAlerts = lowStockAlerts;
+            return billData;
         });
     }
 }

@@ -8,6 +8,7 @@ module.exports = (sequelize) => {
     cost_price: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
     stock_quantity: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     repair_quantity: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    damaged_quantity: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     min_stock_quantity: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     reorder_level: { type: DataTypes.INTEGER, allowNull: false },
     type: { type: DataTypes.STRING(50), allowNull: false },

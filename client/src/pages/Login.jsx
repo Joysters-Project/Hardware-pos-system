@@ -16,21 +16,25 @@ function Login() {
   const [loading, setLoading] = useState(false);
 
   const roleParam = role || "User";  // fallback if undefined
-
+  /*
+    const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1); // go back
+    } else {
+      navigate("/"); // fallback to role selection
+    }
+    };
+    */
   const handleBack = () => {
-  if (window.history.length > 1) {
-    navigate(-1); // go back
-  } else {
-    navigate("/"); // fallback to role selection
-  }
+    navigate("/");
   };
-  
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/login", {
+      const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -38,26 +42,31 @@ function Login() {
         body: JSON.stringify({
           user_name: userName,
           password: password,
-          role: role //Role is sending to backend
+          role: roleParam
         })
       });
 
-      const data = await response.json();
+      const rawBody = await response.text();
+      let data = {};
+      try {
+        data = rawBody ? JSON.parse(rawBody) : {};
+      } catch (parseError) {
+        data = { message: rawBody || 'Unexpected server response' };
+      }
 
       if (response.ok) {
-        toast.success(" Login successful!");
+        toast.success("Login successful!");
 
-        // Use AuthContext instead of direct localStorage
         if (data.token) {
-          login(data.user_name || userName, data.token, (role || "").toLowerCase());
+          login(data.user_name || userName, data.token, roleParam.toLowerCase());
         }
 
-        setTimeout(() => navigate("/dashboard/" + role.toLowerCase()), 1500);
+        setTimeout(() => navigate("/dashboard/" + roleParam.toLowerCase()), 1500);
       } else {
-        toast.error(data.message || data || " Login failed");
+        toast.error(data.message || 'Login failed');
       }
     } catch (error) {
-      toast.error(" Connection error: " + error.message);
+      toast.error("Connection error: " + error.message);
       console.error("Login error:", error);
     } finally {
       setLoading(false);
@@ -69,7 +78,7 @@ function Login() {
       {/* <div className="login-left">
         <img src={logo} alt="background" />
       </div> */}
-      <button type="button" className="back-btn" onClick={handleBack}>← Back</button>
+
       <div className="login-right">
         <div className="login-card">
           <h1 className="title">{roleParam} Login</h1>
@@ -89,7 +98,7 @@ function Login() {
               />
             </div>
 
-            <div className="input-box">
+            <div className="input-box" style={{position:"relative"}}>
               <input
                 type={showPassword ? "text" : "password"}
                 placeholder="Password"
@@ -98,9 +107,13 @@ function Login() {
                 required
                 disabled={loading}
               />
+              <span
+                onClick={() => setShowPassword(v => !v)}
+                style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",cursor:"pointer",userSelect:"none",fontSize:18}}
+              >{showPassword ? "🙈" : "👁️"}</span>
             </div>
 
-            <button  className="login-btn" type="submit" disabled={loading}>
+            <button className="login-btn" type="submit" disabled={loading}>
               {loading ? "Logging in..." : "LOGIN"}
             </button>
 
@@ -109,6 +122,7 @@ function Login() {
               <Link to="/signup">Signup</Link>
             </div>
           </form>
+          <button type="button" className="login-btn" onClick={handleBack}> Home</button>
         </div>
       </div>
     </div>
