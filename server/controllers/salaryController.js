@@ -3,6 +3,8 @@ const fs   = require('fs');
 const db   = require('../models');
 const { Op } = require('sequelize');
 const { generatePayslipPDF, sendPayslipEmail } = require('../services/salaryService');
+const { logActivity } = require('../services/auditService');
+const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
 
 const empInclude = {
   model: db.employees,
@@ -129,6 +131,9 @@ const createPayment = async (req, res) => {
       remarks: remarks || null
     });
 
+    await logActivity(req.user?.user_id, req.user?.role, 'SALARY_SLIP_CREATED',
+      `Salary slip created for Employee ID ${employee_id}. Period: ${payment_month}/${payment_year}, Basic: ${basic_salary}`, getIp(req));
+
     res.status(201).json({ message: 'Salary record created', data: record });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -149,12 +154,13 @@ const paySalary = async (req, res) => {
     const final_salary = parseFloat(record.basic_salary) + parseFloat(record.bonus_amount) - parseFloat(record.deduction_amount);
 
     await record.update({
-      payment_status: 'Paid',
-      payment_date:   today,
-      final_salary,
+      payment_status: 'Paid', payment_date: today, final_salary,
       payment_method: payment_method || record.payment_method,
       remarks:        remarks        || record.remarks
     });
+
+    await logActivity(req.user?.user_id, req.user?.role, 'SALARY_SLIP_PAID',
+      `Salary paid for Employee ID ${record.employee_id}. Period: ${record.payment_month}/${record.payment_year}, Final: ${final_salary}, Method: ${payment_method || record.payment_method}`, getIp(req));
 
     // Generate PDF
     let pdfPath = null;
@@ -201,6 +207,8 @@ const updatePayment = async (req, res) => {
       payment_method: payment_method ?? record.payment_method,
       remarks: remarks ?? record.remarks
     });
+    await logActivity(req.user?.user_id, req.user?.role, 'SALARY_SLIP_UPDATED',
+      `Salary slip ID ${record.salary_payment_id} updated. Basic salary changed from ${record.basic_salary} to ${bs}`, getIp(req));
     res.status(200).json({ message: 'Salary record updated', data: record });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -259,4 +267,31 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
-module.exports = { getAllPayments, getPaymentById, getEmployeeSalaryHistory, getEmployeeSalarySummary, createPayment, paySalary, updatePayment, downloadPayslip, getDashboardStats };
+// POST /api/salary/:id/resend-email — resend payslip to employee
+const resendPayslipEmail = async (req, res) => {
+  try {
+    const record = await db.salary_payments.findByPk(req.params.id, { include: [empInclude] });
+    if (!record) return res.status(404).json({ message: 'Salary record not found' });
+    if (record.payment_status !== 'Paid') return res.status(400).json({ message: 'Can only resend for paid records' });
+    if (!record.employee?.email) return res.status(400).json({ message: 'Employee has no email address on file' });
+
+    let pdfPath = record.payslip_pdf_path;
+    if (!pdfPath || !fs.existsSync(path.join(__dirname, '..', pdfPath))) {
+      pdfPath = await generatePayslipPDF(record.toJSON());
+      await record.update({ payslip_pdf_path: pdfPath });
+    }
+
+    await sendPayslipEmail(
+      record.employee.email,
+      `${record.employee.first_name} ${record.employee.last_name}`,
+      record.toJSON(),
+      pdfPath
+    );
+
+    res.status(200).json({ message: `Payslip resent to ${record.employee.email}` });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = { getAllPayments, getPaymentById, getEmployeeSalaryHistory, getEmployeeSalarySummary, createPayment, paySalary, updatePayment, downloadPayslip, getDashboardStats, resendPayslipEmail };

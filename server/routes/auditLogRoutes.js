@@ -1,20 +1,15 @@
 const express = require('express');
-const router = express.Router();
-const auditLogController = require('../controllers/auditLogController');
+const router  = express.Router();
+const ctrl    = require('../controllers/auditLogController');
+const auth    = require('../middleware/authMiddleware');
+const guard   = require('../middleware/roleGuard');
 
-// CREATE Audit Log
-router.post('/', auditLogController.createAuditLog);
+const adminOnly = [auth, guard(['Admin'])];
 
-// GET All Audit Logs
-router.get('/', auditLogController.getAllAuditLogs);
-
-// GET Audit Log by ID
-router.get('/:id', auditLogController.getAuditLogById);
-
-// UPDATE Audit Log
-router.put('/:id', auditLogController.updateAuditLog);
-
-// DELETE Audit Log
-router.delete('/:id', auditLogController.deleteAuditLog);
+router.get('/',               ...adminOnly, ctrl.getAllAuditLogs);
+router.get('/actions',        ...adminOnly, ctrl.getActions);
+router.get('/user/:userId',   ...adminOnly, ctrl.getLogsByUser);
+router.get('/:id',            ...adminOnly, ctrl.getAuditLogById);
+router.delete('/:id',         ...adminOnly, ctrl.deleteAuditLog);
 
 module.exports = router;

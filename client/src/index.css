@@ -20,13 +20,27 @@ body {
 
 /* Print Media Query: Hides UI and only shows Receipt (Task: Success modal + Print) */
 @media print {
-  body * { visibility: hidden; }
-  #receipt-content, #receipt-content * { visibility: visible; }
+  body * {
+    visibility: hidden;
+  }
+
+  #receipt-content,
+  #receipt-content * {
+    visibility: visible;
+  }
+
   #receipt-content {
     position: absolute;
     left: 0;
     top: 0;
     width: 100%;
   }
-  .no-print { display: none !important; }
+
+  .no-print {
+    display: none !important;
+  }
+}
+
+.no-print {
+  display: none !important;
 }

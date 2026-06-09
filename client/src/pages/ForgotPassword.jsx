@@ -189,7 +189,7 @@ function ForgotPassword() {
       const data = await res.json();
       if (!res.ok) { toast.error(data.message || data.error); return; }
       toast.success("Password reset successfully! Redirecting to login…");
-      setTimeout(() => navigate("/login/user"), 2000);
+      setTimeout(() => navigate("/"), 2000);
     } catch {
       toast.error("Connection error.");
     } finally {
@@ -297,7 +297,7 @@ function ForgotPassword() {
 
         <p className="fp-footer">
           Remembered your password?{" "}
-          <span className="fp-link" onClick={() => navigate("/login/user")}>
+          <span className="fp-link" onClick={() => navigate("/")}>
             Back to Login
           </span>
         </p>

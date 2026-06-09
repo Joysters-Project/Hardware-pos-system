@@ -16,11 +16,13 @@ import CashierDashboard from "./pages/CashierDashboard";
 import ManagerDashboard from "./pages/ManagerDashboard";
 import Departments from "./pages/Departments";
 import Products from "./pages/Products";
+import AddProduct from "./pages/AddProduct";
 import Employees from "./pages/Employees";
 import Catalog from "./pages/Catalog";
 import Assets from "./pages/Assets";
 import Expenses from "./pages/Expenses";
 import SalaryManagement from "./pages/SalaryManagement";
+import AuditLogs from "./pages/AuditLogs";
 import SalaryHistory from "./pages/SalaryHistory";
 import BillingSystem from "./components/billingSystem";
 import DueCollection from "./components/DueCollection";
@@ -79,6 +81,10 @@ function AppRoutes() {
         element={<ProtectedRoute><Products /></ProtectedRoute>} 
       />
       <Route 
+        path="/products/add" 
+        element={<ProtectedRoute><AddProduct /></ProtectedRoute>} 
+      />
+      <Route 
         path="/employees" 
         element={<ProtectedRoute><Employees /></ProtectedRoute>} 
       />
@@ -119,6 +125,10 @@ function AppRoutes() {
         element={<ProtectedRoute requiredRole="manager"><Products /></ProtectedRoute>} 
       />
       <Route 
+        path="/manager/products/add" 
+        element={<ProtectedRoute requiredRole="manager"><AddProduct /></ProtectedRoute>} 
+      />
+      <Route 
         path="/manager/employees" 
         element={<ProtectedRoute requiredRole="manager"><Employees /></ProtectedRoute>} 
       />
@@ -155,6 +165,10 @@ function AppRoutes() {
         element={<ProtectedRoute requiredRole="manager"><Expenses /></ProtectedRoute>} 
       />
 
+      <Route
+        path="/audit-logs"
+        element={<ProtectedRoute requiredRole="admin"><AuditLogs /></ProtectedRoute>}
+      />
       {/* Fallback redirect */}
       <Route
         path="*"
