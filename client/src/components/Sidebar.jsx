@@ -18,6 +18,7 @@ import {
   ShoppingCart,
   RefreshCw,
   ShieldAlert,
+  TrendingUp,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import "../styles/Sidebar.css";
@@ -57,6 +58,12 @@ const getNavItems = (role) => {
         label: "Receipts",
         icon: Receipt,
         path: "/receipts",
+      },
+      {
+        key: "reports",
+        label: "Reports",
+        icon: TrendingUp,
+        path: "/reports",
       },
     ];
   }
@@ -101,6 +108,12 @@ const getNavItems = (role) => {
       label: "Assets",
       icon: Briefcase,
       path: `${prefix}/assets`,
+    },
+    {
+      key: "reports",
+      label: "Reports",
+      icon: TrendingUp,
+      path: "/reports",
     },
     {
       key: "expenses",

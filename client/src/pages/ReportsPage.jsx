@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import DashboardLayout from '../components/DashboardLayout';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import '../styles/ReportsPage.css';
@@ -509,36 +510,38 @@ function ReportsPage() {
   const [activeTab, setActiveTab] = useState('sales');
 
   return (
-    <div className="rp-container">
-      {/* Header */}
-      <div className="rp-header">
-        <div>
-          <h1>Reports</h1>
-          <p>View detailed Sales, Return and Borrow reports with filters</p>
+    <DashboardLayout active="reports">
+      <div className="rp-container">
+        {/* Header */}
+        <div className="rp-header">
+          <div>
+            <h1>Reports</h1>
+            <p>View detailed Sales, Return and Borrow reports with filters</p>
+          </div>
+          <button className="rp-back-btn" onClick={() => navigate(-1)}>Back</button>
         </div>
-        <button className="rp-back-btn" onClick={() => navigate(-1)}>Back</button>
-      </div>
 
-      {/* Tab nav */}
-      <div className="rp-tabs">
-        {TABS.map(t => (
-          <button
-            key={t.key}
-            className={`rp-tab${activeTab === t.key ? ' active' : ''}`}
-            onClick={() => setActiveTab(t.key)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+        {/* Tab nav */}
+        <div className="rp-tabs">
+          {TABS.map(t => (
+            <button
+              key={t.key}
+              className={`rp-tab${activeTab === t.key ? ' active' : ''}`}
+              onClick={() => setActiveTab(t.key)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-      {/* Tab content */}
-      <div className="rp-body">
-        {activeTab === 'sales'   && <SalesReport />}
-        {activeTab === 'returns' && <ReturnsReport />}
-        {activeTab === 'borrow'  && <BorrowReport />}
+        {/* Tab content */}
+        <div className="rp-body">
+          {activeTab === 'sales'   && <SalesReport />}
+          {activeTab === 'returns' && <ReturnsReport />}
+          {activeTab === 'borrow'  && <BorrowReport />}
+        </div>
       </div>
-    </div>
+    </DashboardLayout>
   );
 }
 
