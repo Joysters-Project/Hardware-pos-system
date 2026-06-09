@@ -186,6 +186,50 @@ cron.schedule('30 6 * * *', async () => {
   }
 });
 
+// Daily 07:00 — Check all products for auto-reorder suggestions
+cron.schedule('0 7 * * *', async () => {
+  try {
+    const autoReorderService = require('./services/autoReorderService');
+    const count = await autoReorderService.checkAndGenerateSuggestions();
+    console.log(`[Cron] Daily auto-reorder check generated ${count} suggestions.`);
+  } catch (e) {
+    console.error('[Cron] Auto-reorder check error:', e.message);
+  }
+});
+
+// Daily 08:00 — Mark overdue payments
+cron.schedule('0 8 * * *', async () => {
+  try {
+    const paymentService = require('./services/supplierPaymentService');
+    const count = await paymentService.checkAndMarkOverdue();
+    console.log(`[Cron] Daily overdue payment check marked ${count} invoices overdue.`);
+  } catch (e) {
+    console.error('[Cron] Overdue payment check error:', e.message);
+  }
+});
+
+// Daily 06:00 — Recalculate supplier performance scores
+cron.schedule('0 6 * * *', async () => {
+  try {
+    const performanceService = require('./services/supplierPerformanceService');
+    const count = await performanceService.recalculateAllSuppliers();
+    console.log(`[Cron] Daily supplier performance score update completed for ${count} suppliers.`);
+  } catch (e) {
+    console.error('[Cron] Supplier performance recalculation error:', e.message);
+  }
+});
+
+// Daily 06:30 — Recalculate product forecasts
+cron.schedule('30 6 * * *', async () => {
+  try {
+    const forecastService = require('./services/forecastService');
+    const list = await forecastService.calculateForecasts();
+    console.log(`[Cron] Daily forecast calculations updated for ${list.length} products.`);
+  } catch (e) {
+    console.error('[Cron] Forecast calculation error:', e.message);
+  }
+});
+
 // 5. Default Route
 app.get('/', (req, res) => {
   res.send('Mathumithan Hardware POS Backend is Running...');

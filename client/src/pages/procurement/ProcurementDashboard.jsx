@@ -447,3 +447,5 @@ export default function ProcurementDashboard() {
     </div>
   );
 }
+
+export default ProcurementDashboard;
