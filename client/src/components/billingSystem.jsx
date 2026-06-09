@@ -315,18 +315,25 @@ const BillingSystem = () => {
 
   // Totals Calculation
   const subtotal = cart.reduce((acc, i) => acc + (i.unit_price * i.quantity), 0);
-  const total = subtotal; 
+  const total = subtotal;
   const amountPaid = Number(payData.amountPaid);
   const amountPaidValue = Number.isFinite(amountPaid) ? amountPaid : 0;
   const balance = amountPaidValue - total;
   const isPartial = amountPaidValue < total && amountPaidValue > 0;
+  const isFullPaid = amountPaidValue >= total && amountPaidValue > 0;
   const cartItemCount = cart.reduce((acc, i) => acc + i.quantity, 0);
+  // allow checkout once cart has items and an amount is entered; specific customer validation happens on submit
+  const canCheckout = cart.length > 0 && amountPaidValue > 0;
 
   const handleCheckout = async () => {
     if (cart.length === 0) return alert("Cart is empty!");
-    if (isPartial && !payData.customerPhone) return alert("Phone required for Partial Payment!");
-    if (isPartial && !customerExists && !payData.customerName.trim()) return alert("Customer name required for new customer partial payment!");
-    if (isPartial && !customerExists && !payData.customerAddress.trim()) return alert("Customer address required for new customer partial payment!");
+    if (amountPaidValue <= 0) return alert("Enter the amount received before completing transaction!");
+    // For partial payments require customer phone/name/address for new customers
+    if (isPartial) {
+      if (!payData.customerPhone.trim()) return alert("Phone required for Partial Payment!");
+      if (!customerExists && !payData.customerName.trim()) return alert("Customer name required for new customer partial payment!");
+      if (!customerExists && !payData.customerAddress.trim()) return alert("Customer address required for new customer partial payment!");
+    }
 
     try {
       const payload = {
@@ -680,12 +687,21 @@ const BillingSystem = () => {
                 )
               )}
 
-              {/* Partial Payment Customer Info */}
-              {isPartial && (
+              {/* Customer Info for Partial or Full Payment */}
+              {amountPaidValue > 0 && (
                 <div className="partial-info-modern">
                   <div className="partial-header">
                     <User size={14} />
                     <span>Customer Information</span>
+                  </div>
+                  <div className="partial-input-group">
+                    <User size={14} className="input-icon" />
+                    <input
+                      placeholder="Customer Name (Required)"
+                      value={payData.customerName || ''}
+                      onChange={(e) => setPayData({...payData, customerName: e.target.value})}
+                      readOnly={customerExists}
+                    />
                   </div>
                   <div className="partial-input-group">
                     <Phone size={14} className="input-icon" />
@@ -702,15 +718,6 @@ const BillingSystem = () => {
                     />
                   </div>
                   <div className="partial-input-group">
-                    <User size={14} className="input-icon" />
-                    <input
-                      placeholder="Customer Name"
-                      value={payData.customerName || ''}
-                      onChange={(e) => setPayData({...payData, customerName: e.target.value})}
-                      readOnly={customerExists}
-                    />
-                  </div>
-                  <div className="partial-input-group">
                     <MapPin size={14} className="input-icon" />
                     <input
                       placeholder="Address"
@@ -722,6 +729,11 @@ const BillingSystem = () => {
                   {customerLookupMessage && (
                     <p className={`partial-message ${customerExists ? 'found' : 'new'}`}>
                       {customerLookupMessage}
+                    </p>
+                  )}
+                  {isFullPaid && (
+                    <p className="partial-message full-payment">
+                      Full payment recorded. Phone number and customer name are required to complete this transaction.
                     </p>
                   )}
                 </div>
@@ -752,8 +764,8 @@ const BillingSystem = () => {
               {/* Checkout Button */}
               <button
                 onClick={handleCheckout}
-                disabled={cart.length === 0}
-                className={`checkout-btn-modern ${cart.length > 0 ? 'active' : 'disabled'}`}
+                disabled={cart.length === 0 || amountPaidValue <= 0}
+                className={`checkout-btn-modern ${canCheckout ? 'active' : 'disabled'}`}
               >
                 <span className="checkout-kbd">F9</span>
                 Complete Transaction

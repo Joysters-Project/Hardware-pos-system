@@ -1,9 +1,23 @@
 const { customers } = require('../models');
+const { validateSriLankanPhone } = require('../utils/phoneValidation');
 
 // CREATE Customer
 exports.createCustomer = async (req, res) => {
   try {
-    const customer = await customers.create(req.body);
+    // Validate phone number if provided
+    let customerData = { ...req.body };
+    if (customerData.phone_no) {
+      const phoneValidation = validateSriLankanPhone(customerData.phone_no);
+      if (!phoneValidation.isValid) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Invalid phone number: ${phoneValidation.message}` 
+        });
+      }
+      customerData.phone_no = phoneValidation.formatted;
+    }
+
+    const customer = await customers.create(customerData);
 
     res.status(201).json({
       message: "Customer created successfully",
@@ -56,7 +70,20 @@ exports.updateCustomer = async (req, res) => {
       return res.status(404).json({ message: "Customer not found" });
     }
 
-    await customer.update(req.body);
+    // Validate phone number if provided
+    let updateData = { ...req.body };
+    if (updateData.phone_no) {
+      const phoneValidation = validateSriLankanPhone(updateData.phone_no);
+      if (!phoneValidation.isValid) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Invalid phone number: ${phoneValidation.message}` 
+        });
+      }
+      updateData.phone_no = phoneValidation.formatted;
+    }
+
+    await customer.update(updateData);
 
     res.status(200).json({
       message: "Customer updated successfully",
