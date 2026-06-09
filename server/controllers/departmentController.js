@@ -10,11 +10,12 @@ const getAllDepartments = async (req, res) => {
 
     const list = await db.departments.findAll({
       where,
+      subQuery: false,
       include: [
         { model: db.employees, attributes: ['employee_id'] },
         { model: db.assets, attributes: ['asset_id', 'cost', 'status'] }
       ],
-      order: [['created_at', 'DESC']]
+      order: [[db.sequelize.col('departments.created_at'), 'DESC']]
     });
 
     const result = list.map(d => {

@@ -19,10 +19,10 @@ exports.getAllAuditLogs = async (req, res) => {
 
     const { count, rows } = await audit_log.findAndCountAll({
       where,
+      subQuery: false,
       include: [{
         model: users,
         attributes: ['user_id', 'user_name', 'first_name', 'last_name'],
-        // search filter across joined user name
         ...(search ? {
           where: {
             [Op.or]: [
