@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import api from "../api/axios";
+//import AlertStatCard from "../components/AlertStatCard";
+import axios from "axios";
 import {
   TrendingUp,
   TrendingDown,
@@ -171,6 +172,7 @@ export default function AnalyticalDashboard() {
             </div>
           );
         })}
+        <AlertStatCard />
       </div>
 
       {/* Multi-Chart Grid Panel (3 related graphs) */}
@@ -405,10 +407,12 @@ export default function AnalyticalDashboard() {
                   </span>
                 </div>
               </div>
+              
             ))
           )}
         </div>
       </div>
+      
     </div>
   );
 }
