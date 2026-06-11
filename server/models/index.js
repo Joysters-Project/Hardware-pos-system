@@ -77,6 +77,7 @@ const supplier_payments = require('./supplier_payments');
 const procurement_notifications = require('./procurement_notifications');
 const auto_reorder_suggestions = require('./auto_reorder_suggestions');
 const email_logs = require('./email_logs');
+const supplier_documents = require('./supplier_documents');
 
 // 3. Initialize the DB object
 const db = {
@@ -108,6 +109,7 @@ const db = {
   procurement_notifications: procurement_notifications(sequelize),
   auto_reorder_suggestions: auto_reorder_suggestions(sequelize),
   email_logs:       email_logs(sequelize),
+  supplier_documents: supplier_documents(sequelize),
 };
 
 // 4. Define Relationships
@@ -198,5 +200,8 @@ db.auto_reorder_suggestions.belongsTo(db.purchase_orders, { foreignKey: 'convert
 
 db.suppliers.hasMany(db.products, { foreignKey: 'preferred_supplier_id', as: 'preferredProducts' });
 db.products.belongsTo(db.suppliers, { foreignKey: 'preferred_supplier_id', as: 'preferredSupplier' });
+
+db.suppliers.hasMany(db.supplier_documents, { foreignKey: 'supplier_id' });
+db.supplier_documents.belongsTo(db.suppliers, { foreignKey: 'supplier_id' });
 
 module.exports = db;
