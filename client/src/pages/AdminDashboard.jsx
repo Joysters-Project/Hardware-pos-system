@@ -10,16 +10,13 @@ function AdminDashboard({ children, active }) {
         children
       ) : (
         <>
+          <AlertStatCard />
           <AnalyticalDashboard />
-
-          {/* ✅ ADD ALERT CARD HERE */}
-          <div style={{ marginTop: "20px" }}>
-            <AlertStatCard />
-          </div>
         </>
       )}
     </DashboardLayout>
   );
 }
+
 
 export default AdminDashboard;

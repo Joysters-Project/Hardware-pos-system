@@ -2,19 +2,25 @@ const express = require('express');
 const router = express.Router();
 const alertController = require('../controllers/alertController');
 
-// CREATE Alert
-router.post('/', alertController.createAlert);
+// GET /api/alerts/generate — scan all products and auto-generate alerts
+router.post('/generate', alertController.generateAlerts);
 
-// GET All Alerts
+// GET /api/alerts — supports ?unresolved=true&alert_type=Low Stock
 router.get('/', alertController.getAllAlerts);
 
-// GET Alert by ID
+// GET /api/alerts/:id
 router.get('/:id', alertController.getAlertById);
 
-// UPDATE Alert
+// PUT /api/alerts/:id/resolve
+router.put('/:id/resolve', alertController.resolveAlert);
+
+// PUT /api/alerts/:id
 router.put('/:id', alertController.updateAlert);
 
-// DELETE Alert
+// POST /api/alerts
+router.post('/', alertController.createAlert);
+
+// DELETE /api/alerts/:id
 router.delete('/:id', alertController.deleteAlert);
 
 module.exports = router;

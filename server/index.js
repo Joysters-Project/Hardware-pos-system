@@ -2,13 +2,27 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const http = require('http');
+const { Server } = require('socket.io');
 
-//1. just require the DB object
-// These files rely on the .env variables being ready
-const db = require('./models');// This automatically looks for models/index.js
-const authRoutes = require('./routes/auth'); // Path to your routes/auth.js file
+const db = require('./models');
+const authRoutes = require('./routes/auth');
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
+
+// Socket.io setup
+const io = new Server(server, {
+  cors: { origin: '*', methods: ['GET', 'POST'] }
+});
+
+// Make io accessible from controllers via app
+app.set('io', io);
+
+io.on('connection', (socket) => {
+  console.log('🔌 Socket client connected:', socket.id);
+  socket.on('disconnect', () => console.log('🔌 Socket client disconnected:', socket.id));
+});
 
 // 2. Middleware
 app.use(cors());
@@ -105,7 +119,7 @@ app.get('/health', (req, res) => {
 });
 
 // 7. Start Server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 Server is listening on http://localhost:${PORT}`);
 });
 

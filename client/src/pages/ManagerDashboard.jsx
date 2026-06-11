@@ -10,11 +10,12 @@ function ManagerDashboard({ children, active }) {
         children
       ) : (
         <>
-          <AnalyticalDashboard />
+          
 
           {/* ✅ ADD THIS */}
           <div style={{ marginTop: "20px" }}>
             <AlertStatCard />
+            <AnalyticalDashboard />
           </div>
         </>
       )}
