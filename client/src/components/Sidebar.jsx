@@ -236,13 +236,17 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
 
         {/* Footer */}
         <div className="sidebar-float__footer">
-          <div className="sidebar-float__user-block" title={isCollapsed ? `${userName} (${displayRole})` : undefined}>
+          <Link
+            to="/profile"
+            className="sidebar-float__user-block"
+            title={isCollapsed ? `${userName} (${displayRole})` : undefined}
+          >
             <div className="sidebar-float__avatar">{initials}</div>
             <div className="sidebar-float__user-info">
               <div className="sidebar-float__user-name">{userName}</div>
               <div className="sidebar-float__user-role">{displayRole}</div>
             </div>
-          </div>
+          </Link>
           <button
             className="sidebar-float__logout"
             onClick={onLogout}

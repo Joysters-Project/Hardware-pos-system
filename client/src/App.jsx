@@ -9,6 +9,7 @@ import Signup from "./pages/Signup";
 import Recipts from "./pages/Receipts";
 import ReturnPage from "./pages/ReturnPage";
 import ReturnLogsPage from "./pages/ReturnLogs";
+import MyProfile from "./pages/MyProfile";
 
 import ForgotPassword from "./pages/ForgotPassword";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -110,6 +111,10 @@ function AppRoutes() {
       <Route 
         path="/receipts" 
         element={<ProtectedRoute><Receipts /></ProtectedRoute>} 
+      />
+      <Route
+        path="/profile"
+        element={<ProtectedRoute><MyProfile /></ProtectedRoute>}
       />
       <Route 
         path="/manager/departments" 
