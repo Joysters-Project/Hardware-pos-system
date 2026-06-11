@@ -18,6 +18,7 @@ import ManagerDashboard from "./pages/ManagerDashboard";
 import Departments from "./pages/Departments";
 import Products from "./pages/Products";
 import AddProduct from "./pages/AddProduct";
+import ProductForm from "./pages/products/ProductForm";
 import Employees from "./pages/Employees";
 import Catalog from "./pages/Catalog";
 import Assets from "./pages/Assets";
@@ -84,6 +85,7 @@ function AppRoutes() {
       <Route path="/departments"    element={<ProtectedRoute><Departments /></ProtectedRoute>} />
       <Route path="/products"       element={<ProtectedRoute><Products /></ProtectedRoute>} />
       <Route path="/products/add"   element={<ProtectedRoute><AddProduct /></ProtectedRoute>} />
+      <Route path="/products/edit/:id" element={<ProtectedRoute><ProductForm /></ProtectedRoute>} />
       <Route path="/employees"      element={<ProtectedRoute><Employees /></ProtectedRoute>} />
       <Route path="/catalog"        element={<ProtectedRoute><Catalog /></ProtectedRoute>} />
       <Route path="/billing"        element={<ProtectedRoute><BillingSystem /></ProtectedRoute>} />
@@ -101,6 +103,7 @@ function AppRoutes() {
       <Route path="/manager/departments"    element={<ProtectedRoute requiredRole="manager"><Departments /></ProtectedRoute>} />
       <Route path="/manager/products"       element={<ProtectedRoute requiredRole="manager"><Products /></ProtectedRoute>} />
       <Route path="/manager/products/add"   element={<ProtectedRoute requiredRole="manager"><AddProduct /></ProtectedRoute>} />
+      <Route path="/manager/products/edit/:id" element={<ProtectedRoute requiredRole="manager"><ProductForm /></ProtectedRoute>} />
       <Route path="/manager/employees"      element={<ProtectedRoute requiredRole="manager"><Employees /></ProtectedRoute>} />
       <Route path="/manager/assets"         element={<ProtectedRoute requiredRole="manager"><Assets /></ProtectedRoute>} />
       <Route path="/manager/expenses"       element={<ProtectedRoute requiredRole="manager"><Expenses /></ProtectedRoute>} />
