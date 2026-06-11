@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const productController = require('../controllers/productController');
-const db = require('../models'); // Ensure db is imported for the search logic
+const db = require('../models');
 
 // --- SEARCH LOGIC (From your local HEAD) ---
 router.get('/search', async (req, res) => {

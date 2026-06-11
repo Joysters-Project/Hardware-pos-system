@@ -8,9 +8,11 @@ class BillingService {
             defaults: {
                 first_name: 'System',
                 last_name: 'User',
-                password: 'system',
-                role: 'ADMIN',
-                status: 'Active'
+                password: 'system_placeholder',
+                role: 'Admin',
+                status: 'Active',
+                failed_attempts: 0,
+                is_locked: false
             },
             transaction
         });
@@ -79,7 +81,6 @@ class BillingService {
                     total_price: totalPrice
                 }, { transaction: t });
 
-                // Decrement stock and get the updated product record
                 await products.decrement('stock_quantity', {
                     by: quantity,
                     where: { product_id: item.product_id },
@@ -87,27 +88,33 @@ class BillingService {
                 });
 
                 const updatedProduct = await products.findByPk(item.product_id, { transaction: t });
-                if (updatedProduct.stock_quantity <= updatedProduct.min_stock_quantity) {
-                    lowStockAlerts.push(updatedProduct.product_name);
-                    
-                    // Create an unresolved low stock alert if it doesn't exist
-                    const existingAlert = await alerts.findOne({
-                        where: {
-                            product_id: item.product_id,
-                            alert_type: 'LOW_STOCK',
-                            is_resolved: false
-                        },
+                const stock = updatedProduct.stock_quantity;
+                const minQty = updatedProduct.min_stock_quantity;
+                const reorder = updatedProduct.reorder_level;
+
+                // Determine which inventory alert types now apply
+                const alertsToEnsure = [];
+                if (stock === 0) {
+                    alertsToEnsure.push('Out of Stock');
+                } else {
+                    if (stock <= minQty)  alertsToEnsure.push('Low Stock');
+                    if (stock <= reorder) alertsToEnsure.push('Reorder');
+                }
+
+                for (const alert_type of alertsToEnsure) {
+                    const existing = await alerts.findOne({
+                        where: { product_id: item.product_id, alert_type, is_resolved: false },
                         transaction: t
                     });
-
-                    if (!existingAlert) {
-                        await alerts.create({
-                            product_id: item.product_id,
-                            alert_type: 'LOW_STOCK',
-                            is_resolved: false
-                        }, { transaction: t });
+                    if (!existing) {
+                        await alerts.create(
+                            { product_id: item.product_id, alert_type, is_resolved: false },
+                            { transaction: t }
+                        );
                     }
                 }
+
+                if (alertsToEnsure.length > 0) lowStockAlerts.push(updatedProduct.product_name);
             }
 
             // 6. Record Payment

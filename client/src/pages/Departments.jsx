@@ -7,7 +7,7 @@ import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
 import "../styles/Departments.css";
 
-const EMPTY_FORM = { department_name: "", description: "", status: "Active" };
+const EMPTY_FORM = { department_name: "", budget: "", description: "", status: "Active" };
 
 const DEPT_COLORS = [
   { bg: "linear-gradient(135deg,#8b3a3a,#c0504d)", light: "#fff0f0", accent: "#8b3a3a" },
@@ -50,7 +50,7 @@ function DepartmentsPage() {
 
   const openAdd = () => { setForm(EMPTY_FORM); setEditId(null); setShowModal(true); };
   const openEdit = (d) => {
-    setForm({ department_name: d.department_name, description: d.description || "", status: d.status || "Active" });
+    setForm({ department_name: d.department_name, budget: d.budget || "", description: d.description || "", status: d.status || "Active" });
     setEditId(d.department_id);
     setShowModal(true);
   };
@@ -339,6 +339,17 @@ function DepartmentsPage() {
                   onChange={e => setForm({ ...form, department_name: e.target.value })}
                   placeholder="e.g. Sales, IT, Warehouse"
                   autoFocus
+                />
+              </div>
+              <div className="dept-field">
+                <label>Budget (LKR)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.budget}
+                  onChange={e => setForm({ ...form, budget: e.target.value })}
+                  placeholder="0.00 (optional)"
                 />
               </div>
               <div className="dept-field">

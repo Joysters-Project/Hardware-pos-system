@@ -5,7 +5,7 @@ const { Op } = require('sequelize');
 // CREATE Bill (runs entire invoice workflow inside a transaction)
 exports.createBill = async (req, res) => {
   try {
-    let userId = req.user?.id;
+    let userId = req.user?.user_id;
 
     if (!userId && req.body.user_id) {
       const requestedUser = await BillingService.findUserById(req.body.user_id);
@@ -23,7 +23,9 @@ exports.createBill = async (req, res) => {
       data: bill,
     });
   } catch (error) {
-    console.error('Billing createBill error:', error);
+    console.error('Billing createBill error — message:', error.message);
+    console.error('Billing createBill error — SQL:', error.sql || '(no SQL)');
+    console.error('Billing createBill error — stack:', error.stack);
     res.status(500).json({ error: error.message });
   }
 };

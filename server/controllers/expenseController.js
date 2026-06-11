@@ -16,11 +16,12 @@ const getAllExpenses = async (req, res) => {
 
     const list = await db.expenses.findAll({
       where,
+      subQuery: false,
       include: [
         { model: db.departments, attributes: ['department_name'] },
         { model: db.assets, attributes: ['asset_name'] }
       ],
-      order: [['expense_date', 'DESC']]
+      order: [[db.sequelize.col('expenses.expense_date'), 'DESC']]
     });
 
     res.status(200).json(list);

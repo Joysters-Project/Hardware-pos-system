@@ -19,7 +19,6 @@ const buildPayload = (form) => ({
 	stock_quantity: toNumberOrNull(form.stock_quantity, parseInt),
 	min_stock_quantity: toNumberOrNull(form.min_stock_quantity, parseInt),
 	reorder_level: toNumberOrNull(form.reorder_level, parseInt),
-	expiry_date: form.expiry_date ? new Date(form.expiry_date).toISOString() : null,
 	type: form.type.trim(),
 	batch_no: form.batch_no.trim() || null,
 	status: form.status || "active",
