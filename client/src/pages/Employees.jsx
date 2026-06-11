@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { Eye, Pencil, Trash2, Plus, Search, RefreshCw, FileDown, X, ChevronLeft, ChevronRight, Users } from "lucide-react";
+import { Eye, Pencil, Trash2, Plus, Search, RefreshCw, FileDown, X, ChevronLeft, ChevronRight, Users, AlertCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
+import { validateSriLankanPhone, formatSriLankanPhone } from "../utils/phoneValidation";
 import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
 import "../styles/Employees.css";
@@ -18,6 +19,7 @@ function EmployeesPage() {
   const [filterStatus, setFilterStatus] = useState("");
   const [filterDept, setFilterDept] = useState("");
   const [form, setForm] = useState(EMPTY_FORM);
+  const [phoneError, setPhoneError] = useState("");
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [editId, setEditId] = useState(null);
@@ -53,7 +55,7 @@ function EmployeesPage() {
     setPhotoPreview(e.profile_photo ? `${BASE_URL}/${e.profile_photo}` : null);
     setShowModal(true);
   };
-  const closeModal = () => { setShowModal(false); setForm(EMPTY_FORM); setEditId(null); setPhotoFile(null); setPhotoPreview(null); };
+  const closeModal = () => { setShowModal(false); setForm(EMPTY_FORM); setEditId(null); setPhotoFile(null); setPhotoPreview(null); setPhoneError(""); };
 
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
@@ -76,6 +78,19 @@ function EmployeesPage() {
     toast.error("Please enter a valid email address");
     return;
   }
+    
+    // Validate phone number if provided
+    if (form.phone_no) {
+      const phoneValidation = validateSriLankanPhone(form.phone_no);
+      if (!phoneValidation.isValid) {
+        setPhoneError(phoneValidation.message);
+        toast.error(phoneValidation.message);
+        return;
+      }
+      // Use formatted phone number
+      form.phone_no = phoneValidation.formatted;
+    }
+    
     setLoading(true);
     try {
       const fd = new FormData();
@@ -280,12 +295,43 @@ function EmployeesPage() {
             </div>
             <div className="emp-form-grid">
               {[["First Name *", "text", "first_name", true], ["Last Name *", "text", "last_name", true],
-              ["NIC", "text", "nic"], ["Phone", "text", "phone_no"], ["Email *", "email", "email", true]].map(([label, type, key, req]) => (
+              ["NIC", "text", "nic"], ["Email *", "email", "email", true]].map(([label, type, key, req]) => (
                 <div className="emp-field" key={key}>
                   <label>{label}</label>
                   <input type={type} value={form[key]} onChange={e => setForm({ ...form, [key]: e.target.value })} required={!!req} />
                 </div>
               ))}
+              {/* Phone Field with Validation */}
+              <div className="emp-field">
+                <label>Phone (Sri Lanka)</label>
+                <div style={{ position: "relative" }}>
+                  <input 
+                    type="text" 
+                    placeholder="e.g., 0712345678 (10 digits, numbers only)"
+                    value={form.phone_no} 
+                    maxLength="10"
+                    onChange={e => {
+                      // Only allow numbers
+                      const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                      setForm({ ...form, phone_no: val });
+                      // Clear error on change
+                      if (phoneError) setPhoneError("");
+                    }} 
+                    style={phoneError ? { borderColor: "#ef4444", borderWidth: "2px" } : {}}
+                  />
+                  {form.phone_no && (
+                    <span style={{ fontSize: "11px", color: "#666", marginTop: "2px", display: "block" }}>
+                      {form.phone_no.length}/10 digits
+                    </span>
+                  )}
+                  {phoneError && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "4px", color: "#ef4444", fontSize: "12px" }}>
+                      <AlertCircle size={14} />
+                      {phoneError}
+                    </div>
+                  )}
+                </div>
+              </div>
               <div className="emp-field"><label>Position *</label>
                 <select value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} required>
                   <option value=""></option>{POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
