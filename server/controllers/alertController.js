@@ -1,11 +1,12 @@
 const { alerts, products } = require('../models');
 const { Op } = require('sequelize');
+const { sequelize } = require('../models');
+const { syncAlertsForProduct } = require('../services/alertService');
 
 const NEAR_EXPIRY_DAYS = 7;
 
-// Strict priority-based classification — a product belongs to exactly ONE category
 function getApplicableTypes(product) {
-  const types   = [];
+  const types = [];
   const stock   = parseInt(product.stock_quantity)     || 0;
   const minQty  = parseInt(product.min_stock_quantity) || 0;
   const reorder = parseInt(product.reorder_level)      || 0;
@@ -52,18 +53,22 @@ exports.generateAlerts = async (req, res) => {
           where: { product_id: product.product_id, alert_type, is_resolved: false }
         });
         if (!exists) {
-          await alerts.create({ product_id: product.product_id, alert_type, is_resolved: false });
+          await alerts.create({
+            product_id: product.product_id,
+            alert_type,
+            is_resolved: false
+          });
           created++;
         }
       }
 
       const toResolve = ALL_TYPES.filter(t => !applicable.includes(t));
       for (const alert_type of toResolve) {
-        const [count] = await alerts.update(
+        const updated = await alerts.update(
           { is_resolved: true, resolved_date: new Date() },
           { where: { product_id: product.product_id, alert_type, is_resolved: false } }
         );
-        autoResolved += count;
+        autoResolved += updated[0];
       }
     }
 
@@ -145,21 +150,86 @@ exports.getAlertById = async (req, res) => {
 
 // PUT /api/alerts/:id/resolve
 exports.resolveAlert = async (req, res) => {
+  const t = await sequelize.transaction();
   try {
-    const alert = await alerts.findByPk(req.params.id);
-    if (!alert) return res.status(404).json({ message: 'Alert not found' });
+    const alert = await alerts.findByPk(req.params.id, { transaction: t });
+    if (!alert) {
+      await t.rollback();
+      return res.status(404).json({ message: 'Alert not found' });
+    }
 
-    if (alert.is_resolved)
-      return res.status(409).json({ message: 'Alert is already resolved.' });
+    if (alert.is_resolved) {
+      await t.rollback();
+      return res.status(409).json({ message: 'Alert is already resolved. Stock was not modified.' });
+    }
 
-    // Mark resolved only — do NOT touch stock quantity
-    await alert.update({ is_resolved: true, resolved_date: new Date() });
+    // ── Inventory alert types: all trigger a restock ───────────────────────
+    // Out of Stock, Low Stock, and Reorder are all derived from the same
+    // stock_quantity value — resolving any one of them means receiving stock.
+    const INVENTORY_TYPES = ['Out of Stock', 'Low Stock', 'Reorder'];
+    const isInventoryAlert = INVENTORY_TYPES.includes(alert.alert_type);
+
+    let stockBefore = null;
+    let stockAfter  = null;
+    let productName = null;
+    let reorderQty  = null;
+
+    if (isInventoryAlert) {
+      const product = await products.findByPk(alert.product_id, { transaction: t });
+      if (!product) {
+        await t.rollback();
+        return res.status(404).json({ message: 'Related product not found' });
+      }
+
+      stockBefore = parseInt(product.stock_quantity) || 0;
+      reorderQty  = parseInt(product.reorder_level)  || 0;
+      stockAfter  = stockBefore + reorderQty;
+      productName = product.product_name;
+
+      // 1. Update the product stock
+      await product.update({ stock_quantity: stockAfter }, { transaction: t });
+
+      // 2. Resolve ALL open inventory alerts for this product atomically
+      await alerts.update(
+        { is_resolved: true, resolved_date: new Date() },
+        {
+          where: { product_id: alert.product_id, alert_type: INVENTORY_TYPES, is_resolved: false },
+          transaction: t
+        }
+      );
+
+      await t.commit();
+
+      // 3. Re-evaluate all alert conditions with fresh stock — may re-open
+      //    alerts if new stock still triggers a threshold (e.g. still below min)
+      await syncAlertsForProduct(await products.findByPk(alert.product_id));
+
+    } else {
+      // ── Near Expiry and any other alert type: resolve independently ────
+      await alert.update(
+        { is_resolved: true, resolved_date: new Date() },
+        { transaction: t }
+      );
+      await t.commit();
+    }
 
     const io = req.app.get('io');
     if (io) io.emit('alerts:updated');
 
-    return res.status(200).json({ message: 'Alert resolved successfully.', data: alert });
+    const message = isInventoryAlert
+      ? `Stock restocked for "${productName}". Updated from ${stockBefore} to ${stockAfter}. All related inventory alerts recalculated.`
+      : 'Alert resolved successfully.';
+
+    return res.status(200).json({
+      message,
+      data: alert,
+      ...(isInventoryAlert && {
+        restock: { productName, stockBefore, stockAfter, reorderQty }
+      })
+    });
+
   } catch (error) {
+    await t.rollback();
     console.error('resolveAlert error:', error.message);
     res.status(500).json({ error: error.message });
   }

@@ -432,18 +432,32 @@ function AlertModal({ activeType, setActiveType, onClose }) {
                     <td style={td}>
                       <button
                         disabled={resolved}
-                        onClick={() => resolveAlert(id)}
+                        onClick={() => resolveAlert(id, a.alert_type)}
                         style={{
                           padding: "5px 12px", borderRadius: 7,
-                          border: resolved ? "1.5px solid #e5e7eb" : `1.5px solid ${THEME_BORDER}`,
-                          background: resolved ? "#f3f4f6" : THEME_BG,
-                          color: resolved ? "#9ca3af" : THEME,
+                          border: resolved
+                            ? "1.5px solid #e5e7eb"
+                            : INVENTORY_ALERT_TYPES.includes(a.alert_type)
+                              ? "1.5px solid #8b3a3a"
+                              : "1.5px solid #e5e7eb",
+                          background: resolved
+                            ? "#f3f4f6"
+                            : INVENTORY_ALERT_TYPES.includes(a.alert_type)
+                              ? "rgba(139,58,58,0.07)"
+                              : "#fff",
+                          color: resolved
+                            ? "#9ca3af"
+                            : INVENTORY_ALERT_TYPES.includes(a.alert_type)
+                              ? "#8b3a3a"
+                              : "#2c2c2c",
                           cursor: resolved ? "not-allowed" : "pointer",
                           fontSize: "0.8rem", fontWeight: 600,
                           whiteSpace: "nowrap",
                         }}
                       >
-                        Resolve
+                        {!resolved && INVENTORY_ALERT_TYPES.includes(a.alert_type)
+                          ? "⟳ Receive Stock"
+                          : "Resolve"}
                       </button>
                     </td>
                   </tr>

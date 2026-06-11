@@ -3,6 +3,7 @@ const router = express.Router();
 const alertController = require('../controllers/alertController');
 
 // POST /api/alerts/generate — scan all products and auto-generate alerts
+// GET /api/alerts/generate — scan all products and auto-generate alerts
 router.post('/generate', alertController.generateAlerts);
 
 // GET /api/alerts — supports ?unresolved=true&alert_type=Low Stock

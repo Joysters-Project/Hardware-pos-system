@@ -199,7 +199,7 @@ export default function AnalyticalDashboard() {
 
           <div className="chart-wrapper">
             {activeData.revenue?.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={280}>
                 <AreaChart data={activeData.revenue} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="chart-gradient-maroon" x1="0" y1="0" x2="0" y2="1">
@@ -259,7 +259,7 @@ export default function AnalyticalDashboard() {
             </div>
             <div className="chart-wrapper">
               {activeData.efficiency?.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height={280}>
                   <LineChart data={activeData.efficiency} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                     <XAxis
@@ -320,7 +320,7 @@ export default function AnalyticalDashboard() {
             </div>
             <div className="chart-wrapper">
               {activeData.categories?.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={activeData.categories} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                     <XAxis
