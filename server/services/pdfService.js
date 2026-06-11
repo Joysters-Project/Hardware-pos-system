@@ -463,10 +463,76 @@ const generateForecastReportPDF = (forecasts) => {
   });
 };
 
+/**
+ * generateSupplierPerformanceReportPDF
+ */
+const generateSupplierPerformanceReportPDF = (performances) => {
+  return generatePDFBuffer((doc) => {
+    doc.rect(0, 0, doc.page.width, 90).fill('#8b3a3a');
+    doc.fillColor('#ffffff').fontSize(22).font('Helvetica-Bold')
+       .text(COMPANY.name, 50, 20);
+    doc.fontSize(9).font('Helvetica')
+       .text(COMPANY.address, 50, 48)
+       .text('SUPPLIER PERFORMANCE & EVALUATION REPORT', 0, 30, { align: 'right', width: doc.page.width - 50 });
+
+    doc.fillColor('#333333');
+    doc.y = 110;
+
+    doc.fontSize(10).font('Helvetica-Bold').text(`Generated Date: ${new Date().toLocaleDateString('en-LK')}`, 50, doc.y);
+    doc.y += 25;
+
+    // Table Header
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#8b3a3a');
+    doc.text('Supplier Code', 50, doc.y, { width: 70 });
+    doc.text('Supplier Name', 125, doc.y, { width: 140 });
+    doc.text('Score', 270, doc.y, { width: 40, align: 'right' });
+    doc.text('On-Time %', 320, doc.y, { width: 55, align: 'right' });
+    doc.text('Avg Delay', 385, doc.y, { width: 50, align: 'right' });
+    doc.text('Orders', 445, doc.y, { width: 40, align: 'right' });
+    doc.text('Tier', 495, doc.y, { width: 50, align: 'right' });
+
+    doc.y += 15;
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#dddddd').stroke();
+    doc.y += 10;
+    doc.fillColor('#333333').font('Helvetica');
+
+    performances.forEach(p => {
+      doc.fontSize(8.5);
+      doc.text(p.supplier_code || 'N/A', 50, doc.y, { width: 70 });
+      doc.text(p.supplier_name || 'N/A', 125, doc.y, { width: 140 });
+      doc.text(Number(p.performance_score || 0).toFixed(1), 270, doc.y, { width: 40, align: 'right' });
+      doc.text(`${Number(p.on_time_delivery_pct || p.on_time_pct || 0).toFixed(0)}%`, 320, doc.y, { width: 55, align: 'right' });
+      doc.text(`${Number(p.avg_delay_days || 0).toFixed(1)}d`, 385, doc.y, { width: 50, align: 'right' });
+      doc.text((p.total_orders || p.po_count || 0).toString(), 445, doc.y, { width: 40, align: 'right' });
+      
+      let tierColor = '#8b3a3a'; // Bronze/Default
+      const tier = p.performance_tier || p.tier || 'Bronze';
+      if (tier === 'Gold') tierColor = '#d97706';
+      else if (tier === 'Silver') tierColor = '#4b5563';
+
+      doc.fillColor(tierColor).font('Helvetica-Bold').text(tier, 495, doc.y, { width: 50, align: 'right' });
+      doc.fillColor('#333333').font('Helvetica');
+
+      doc.y += 20;
+
+      if (doc.y > 720) {
+        doc.addPage();
+        doc.y = 50;
+      }
+    });
+
+    // Footer
+    doc.rect(0, doc.page.height - 30, doc.page.width, 30).fill('#8b3a3a');
+    doc.fillColor('#ffffff').fontSize(8)
+       .text('Mathumithan Hardware Store Supplier Performance Report.', 50, doc.page.height - 20, { align: 'center', width: doc.page.width - 100 });
+  });
+};
+
 module.exports = {
   generatePurchaseOrderPDF,
   generatePaymentReceiptPDF,
   generateSupplierStatementPDF,
   generateOutstandingBalanceReportPDF,
-  generateForecastReportPDF
+  generateForecastReportPDF,
+  generateSupplierPerformanceReportPDF
 };

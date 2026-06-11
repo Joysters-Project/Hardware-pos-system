@@ -6,7 +6,6 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./components/DashboardLayout";
 
-// Existing pages
 import Login from "./pages/Login";
 import RoleSelect from "./pages/RoleSelect";
 import Signup from "./pages/Signup";
@@ -32,7 +31,6 @@ import ReturnSystem from "./components/ReturnSystem";
 import Receipts from "./pages/Receipts";
 import ReportsPage from "./pages/ReportsPage";
 
-// Procurement pages & components
 import ProcurementWorkspace from "./components/procurement/ProcurementWorkspace";
 import SupplierList from "./pages/suppliers/SupplierList";
 import SupplierForm from "./pages/suppliers/SupplierForm";
@@ -45,17 +43,12 @@ import PaymentDashboard from "./pages/procurement/PaymentDashboard";
 import AnalyticsDashboard from "./pages/procurement/AnalyticsDashboard";
 import ForecastDashboard from "./pages/procurement/ForecastDashboard";
 import NotificationCenter from "./pages/procurement/NotificationCenter";
+import ProcurementReports from "./pages/procurement/ProcurementReports";
 
 const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: false,
-      staleTime: 30_000,
-    },
-  },
+  defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
 });
 
-// Wraps a procurement page inside DashboardLayout
 function ProcPage({ active, children }) {
   return <DashboardLayout active={active}>{children}</DashboardLayout>;
 }
@@ -67,7 +60,7 @@ function AppRoutes() {
     return (
       <div style={{
         display: "flex", justifyContent: "center", alignItems: "center",
-        height: "100vh", backgroundColor: "#f5f5f5", fontSize: "18px", color: "#333"
+        height: "100vh", backgroundColor: "#f5f5f5", fontSize: "18px", color: "#333",
       }}>
         Loading...
       </div>
@@ -88,20 +81,20 @@ function AppRoutes() {
       <Route path="/dashboard/manager" element={<ProtectedRoute requiredRole="manager"><ManagerDashboard /></ProtectedRoute>} />
 
       {/* Shared */}
-      <Route path="/departments"  element={<ProtectedRoute><Departments /></ProtectedRoute>} />
-      <Route path="/products"     element={<ProtectedRoute><Products /></ProtectedRoute>} />
-      <Route path="/products/add" element={<ProtectedRoute><AddProduct /></ProtectedRoute>} />
-      <Route path="/employees"    element={<ProtectedRoute><Employees /></ProtectedRoute>} />
-      <Route path="/catalog"      element={<ProtectedRoute><Catalog /></ProtectedRoute>} />
-      <Route path="/billing"      element={<ProtectedRoute><BillingSystem /></ProtectedRoute>} />
+      <Route path="/departments"    element={<ProtectedRoute><Departments /></ProtectedRoute>} />
+      <Route path="/products"       element={<ProtectedRoute><Products /></ProtectedRoute>} />
+      <Route path="/products/add"   element={<ProtectedRoute><AddProduct /></ProtectedRoute>} />
+      <Route path="/employees"      element={<ProtectedRoute><Employees /></ProtectedRoute>} />
+      <Route path="/catalog"        element={<ProtectedRoute><Catalog /></ProtectedRoute>} />
+      <Route path="/billing"        element={<ProtectedRoute><BillingSystem /></ProtectedRoute>} />
       <Route path="/due-collection" element={<ProtectedRoute><DueCollection /></ProtectedRoute>} />
-      <Route path="/returns"      element={<ProtectedRoute><ReturnPage userRole={role} /></ProtectedRoute>} />
-      <Route path="/return-logs"  element={<ProtectedRoute><ReturnLogsPage /></ProtectedRoute>} />
-      <Route path="/reports"      element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
-      <Route path="/receipts"     element={<ProtectedRoute><Receipts /></ProtectedRoute>} />
-      <Route path="/assets"       element={<ProtectedRoute><Assets /></ProtectedRoute>} />
-      <Route path="/expenses"     element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
-      <Route path="/salary"       element={<ProtectedRoute><SalaryManagement /></ProtectedRoute>} />
+      <Route path="/returns"        element={<ProtectedRoute><ReturnPage userRole={role} /></ProtectedRoute>} />
+      <Route path="/return-logs"    element={<ProtectedRoute><ReturnLogsPage /></ProtectedRoute>} />
+      <Route path="/reports"        element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
+      <Route path="/receipts"       element={<ProtectedRoute><Receipts /></ProtectedRoute>} />
+      <Route path="/assets"         element={<ProtectedRoute><Assets /></ProtectedRoute>} />
+      <Route path="/expenses"       element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
+      <Route path="/salary"         element={<ProtectedRoute><SalaryManagement /></ProtectedRoute>} />
       <Route path="/salary/history" element={<ProtectedRoute><SalaryHistory /></ProtectedRoute>} />
 
       {/* Manager-prefixed */}
@@ -128,18 +121,19 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<ProcurementDashboard />} />
-        <Route path="suppliers" element={<SupplierList />} />
-        <Route path="suppliers/add" element={<SupplierForm />} />
-        <Route path="suppliers/edit/:id" element={<SupplierForm />} />
-        <Route path="suppliers/:id" element={<SupplierDetail />} />
-        <Route path="orders" element={<PurchaseOrderList />} />
-        <Route path="orders/create" element={<CreatePurchaseOrder />} />
-        <Route path="orders/:id" element={<PurchaseOrderDetail />} />
-        <Route path="payments" element={<PaymentDashboard />} />
-        <Route path="analytics" element={<AnalyticsDashboard />} />
-        <Route path="forecast" element={<ForecastDashboard />} />
-        <Route path="notifications" element={<NotificationCenter />} />
+        <Route index                      element={<ProcurementDashboard />} />
+        <Route path="suppliers"           element={<SupplierList />} />
+        <Route path="suppliers/add"       element={<SupplierForm />} />
+        <Route path="suppliers/edit/:id"  element={<SupplierForm />} />
+        <Route path="suppliers/:id"       element={<SupplierDetail />} />
+        <Route path="orders"              element={<PurchaseOrderList />} />
+        <Route path="orders/create"       element={<CreatePurchaseOrder />} />
+        <Route path="orders/:id"          element={<PurchaseOrderDetail />} />
+        <Route path="payments"            element={<PaymentDashboard />} />
+        <Route path="analytics"           element={<AnalyticsDashboard />} />
+        <Route path="forecast"            element={<ForecastDashboard />} />
+        <Route path="reports"             element={<ProcurementReports />} />
+        <Route path="notifications"       element={<NotificationCenter />} />
       </Route>
 
       {/* Fallback */}

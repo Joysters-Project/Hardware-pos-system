@@ -1,4 +1,4 @@
-const { suppliers, purchase_orders, supplier_payments } = require('../models');
+const { suppliers, purchase_orders, supplier_payments, supplier_documents } = require('../models');
 const { fn, col, Op } = require('sequelize');
 const { logActivity } = require('../services/auditService');
 const pdfService = require('../services/pdfService');
@@ -163,6 +163,34 @@ exports.updateSupplierRating = async (req, res) => {
   }
 };
 
+// DELETE /api/procurement/suppliers/:id
+exports.deleteSupplier = async (req, res) => {
+  try {
+    const supplier = await suppliers.findByPk(req.params.id);
+    if (!supplier) return res.status(404).json({ message: 'Supplier not found' });
+
+    const openOrders = await purchase_orders.count({
+      where: { supplier_id: req.params.id, status: { [Op.in]: ['Pending','Approved','Shipped'] } },
+    });
+    if (openOrders > 0) {
+      return res.status(400).json({ error: 'Cannot delete supplier with open purchase orders. Cancel or complete them first.' });
+    }
+
+    await supplier.destroy();
+
+    await logActivity(
+      req.user?.user_id, req.user?.role,
+      'DELETE_SUPPLIER',
+      `Deleted supplier ${supplier.supplier_code} — ${supplier.supplier_name}`,
+      getIp(req)
+    );
+
+    res.json({ message: 'Supplier deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 /**
  * getSupplierStatement
  * GET /api/procurement/suppliers/:id/statement
@@ -242,6 +270,151 @@ exports.downloadStatementPDF = async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=Statement_${supplier.supplier_code || supplier.supplier_id}.pdf`);
     res.send(pdfBuffer);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/**
+ * emailSupplierStatement
+ * POST /api/procurement/suppliers/:id/statement/email
+ */
+exports.emailSupplierStatement = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.body;
+    const supplier = await suppliers.findByPk(req.params.id);
+    if (!supplier) {
+      return res.status(404).json({ error: 'Supplier not found' });
+    }
+
+    const orderWhere = { supplier_id: req.params.id, status: { [Op.ne]: 'Cancelled' } };
+    const paymentWhere = { supplier_id: req.params.id, payment_status: { [Op.ne]: 'Cancelled' } };
+
+    if (startDate && endDate) {
+      orderWhere.po_date = { [Op.between]: [startDate, endDate] };
+      paymentWhere.due_date = { [Op.between]: [startDate, endDate] };
+    }
+
+    const [orders, payments] = await Promise.all([
+      purchase_orders.findAll({ where: orderWhere }),
+      supplier_payments.findAll({ where: paymentWhere })
+    ]);
+
+    const pdfBuffer = await pdfService.generateSupplierStatementPDF(
+      supplier,
+      payments,
+      orders,
+      { startDate, endDate }
+    );
+
+    const emailService = require('../services/emailService');
+    await emailService.sendSupplierStatementEmail(supplier, pdfBuffer, { startDate, endDate });
+
+    await logActivity(
+      req.user?.user_id, req.user?.role,
+      'EMAIL_SUPPLIER_STATEMENT',
+      `Emailed account statement to ${supplier.supplier_name} (${supplier.email})`,
+      getIp(req)
+    );
+
+    res.json({ message: 'Statement emailed successfully!' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/**
+ * getSupplierDocuments
+ * GET /api/procurement/suppliers/:id/documents
+ */
+exports.getSupplierDocuments = async (req, res) => {
+  try {
+    const docs = await supplier_documents.findAll({
+      where: { supplier_id: req.params.id },
+      order: [['uploaded_at', 'DESC']]
+    });
+    res.json(docs);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/**
+ * uploadSupplierDocument
+ * POST /api/procurement/suppliers/:id/documents
+ */
+exports.uploadSupplierDocument = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const { document_type } = req.body;
+    if (!document_type) {
+      return res.status(400).json({ error: 'document_type is required' });
+    }
+
+    const supplierId = req.params.id;
+    const supplier = await suppliers.findByPk(supplierId);
+    if (!supplier) {
+      return res.status(404).json({ error: 'Supplier not found' });
+    }
+
+    const relativePath = `/uploads/documents/${req.file.filename}`;
+
+    const doc = await supplier_documents.create({
+      supplier_id: supplierId,
+      document_type,
+      file_name: req.file.originalname,
+      file_path: relativePath,
+      file_size: req.file.size
+    });
+
+    await logActivity(
+      req.user?.user_id, req.user?.role,
+      'UPLOAD_SUPPLIER_DOCUMENT',
+      `Uploaded ${document_type} document (${req.file.originalname}) for supplier ${supplier.supplier_name}`,
+      getIp(req)
+    );
+
+    res.status(201).json({ message: 'Document uploaded successfully', document: doc });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/**
+ * deleteSupplierDocument
+ * DELETE /api/procurement/suppliers/:id/documents/:docId
+ */
+exports.deleteSupplierDocument = async (req, res) => {
+  try {
+    const doc = await supplier_documents.findByPk(req.params.docId);
+    if (!doc) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    // Attempt to delete file from disk
+    const fs = require('fs');
+    const path = require('path');
+    const filePath = path.join(__dirname, '..', doc.file_path);
+
+    fs.unlink(filePath, (err) => {
+      if (err) {
+        console.warn(`[SupplierController] Failed to delete document file from disk: ${err.message}`);
+      }
+    });
+
+    await doc.destroy();
+
+    await logActivity(
+      req.user?.user_id, req.user?.role,
+      'DELETE_SUPPLIER_DOCUMENT',
+      `Deleted document ${doc.file_name} for supplier_id=${doc.supplier_id}`,
+      getIp(req)
+    );
+
+    res.json({ message: 'Document deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

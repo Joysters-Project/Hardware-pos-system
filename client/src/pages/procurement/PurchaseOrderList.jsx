@@ -61,7 +61,7 @@ export default function PurchaseOrderList() {
             <RefreshCw size={14} className={isLoading ? 'proc-spin' : ''} /> Refresh
           </motion.button>
           <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-            className="proc-btn-primary" onClick={() => navigate('/procurement/create')}>
+            className="proc-btn-primary" onClick={() => navigate('/procurement/orders/create')}>
             <Plus size={15} /> Create PO
           </motion.button>
         </div>
@@ -140,7 +140,7 @@ export default function PurchaseOrderList() {
                       <div className="proc-action-btns">
                         <motion.button whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
                           className="proc-icon-btn view" title="View"
-                          onClick={() => navigate(`/procurement/${po.po_id}`)}>
+                          onClick={() => navigate(`/procurement/orders/${po.po_id}`)}>
                           <Eye size={14} />
                         </motion.button>
                         <motion.button whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}

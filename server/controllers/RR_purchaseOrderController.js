@@ -197,6 +197,14 @@ exports.updateStatus = async (req, res) => {
           transaction,
         });
 
+        // Record inventory movement
+        await logActivity(
+          req.user?.user_id, req.user?.role,
+          'INVENTORY_MOVEMENT',
+          `Received ${item.quantity} units of product_id=${item.product_id} from PO ${po.po_number || '#' + po.po_id}`,
+          getIp(req)
+        ).catch(() => {});
+
         // Resolve any low-stock alerts for this product
         await alerts.update(
           { is_resolved: true, resolved_date: new Date() },
@@ -237,9 +245,15 @@ exports.updateStatus = async (req, res) => {
 
         // 2. Send status update email to supplier
         if (fullPO.supplier?.email) {
-          emailService.sendPOStatusUpdateEmail(fullPO).catch(err => {
-            console.error(`[PO Status Update] Failed to send status email: ${err.message}`);
-          });
+          if (status === 'Cancelled') {
+            emailService.sendPOCancelledEmail(fullPO).catch(err => {
+              console.error(`[PO Status Update] Failed to send cancel email: ${err.message}`);
+            });
+          } else {
+            emailService.sendPOStatusUpdateEmail(fullPO).catch(err => {
+              console.error(`[PO Status Update] Failed to send status email: ${err.message}`);
+            });
+          }
         }
 
         // 3. Create procurement notification
@@ -305,38 +319,84 @@ exports.deletePurchaseOrder = async (req, res) => {
   }
 };
 
-// EXPORT PDF — simple HTML response (pdfkit not needed, browser prints it)
+// POST /api/procurement/purchase-orders/:id/send-email
+exports.sendPOEmail = async (req, res) => {
+  try {
+    const po = await purchase_orders.findByPk(req.params.id, {
+      include: [
+        { model: suppliers },
+        { model: po_items, include: [products] },
+      ],
+    });
+    if (!po) return res.status(404).json({ message: 'Purchase Order not found' });
+    if (!po.supplier?.email) return res.status(400).json({ error: 'Supplier has no email configured' });
+
+    await emailService.sendPOCreatedEmail(po);
+    res.json({ message: `Purchase Order email sent to ${po.supplier.email}` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// POST /api/procurement/purchase-orders/:poId/items/:itemId/send-comment-email
+exports.sendItemCommentEmail = async (req, res) => {
+  try {
+    const po = await purchase_orders.findByPk(req.params.poId, {
+      include: [{ model: suppliers }, { model: po_items, include: [products] }],
+    });
+    if (!po) return res.status(404).json({ message: 'Purchase Order not found' });
+    if (!po.supplier?.email) return res.status(400).json({ error: 'Supplier has no email configured' });
+
+    const item = po.po_items?.find(i => i.id === parseInt(req.params.itemId));
+    if (!item) return res.status(404).json({ message: 'Line item not found' });
+    if (!item.comment?.trim()) return res.status(400).json({ error: 'No comment to send for this item' });
+
+    await emailService.sendItemCommentEmail({
+      supplier:    po.supplier,
+      poNumber:    po.po_number || `#${po.po_id}`,
+      productName: item.product?.product_name || `Product #${item.product_id}`,
+      quantity:    item.quantity,
+      unitPrice:   item.unit_price,
+      comment:     item.comment,
+    });
+
+    res.json({ message: `Item note emailed to ${po.supplier.email}` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// PATCH /api/procurement/purchase-orders/:poId/items/:itemId/comment
+exports.updateItemComment = async (req, res) => {
+  try {
+    const item = await po_items.findOne({
+      where: { id: req.params.itemId, po_id: req.params.poId },
+    });
+    if (!item) return res.status(404).json({ message: 'Line item not found' });
+    await item.update({ comment: req.body.comment || null });
+    res.json({ message: 'Comment updated', item });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// EXPORT PDF
 exports.exportPurchaseOrderPDF = async (req, res) => {
   try {
     const po = await purchase_orders.findByPk(req.params.id, {
       include: [
         { model: suppliers },
-        { model: po_items, include: [{ model: products, attributes: ['product_name', 'type', 'batch_no'] }] },
+        { model: po_items, include: [products] }
       ],
     });
     if (!po) return res.status(404).json({ message: 'Purchase Order not found' });
 
-    const itemRows = (po.po_items || []).map((item) => `
-      <tr>
-        <td>${item.product?.product_name || '-'}</td>
-        <td style="text-align:center">${item.quantity}</td>
-        <td style="text-align:right">LKR ${Number(item.unit_price).toFixed(2)}</td>
-        <td style="text-align:right">LKR ${Number(item.total_price).toFixed(2)}</td>
-      </tr>`).join('');
+    const pdfService = require('../services/pdfService');
+    const pdfBuffer = await pdfService.generatePurchaseOrderPDF(po);
 
-    res.setHeader('Content-Type', 'text/html');
-    res.send(`<!DOCTYPE html><html><head><title>PO ${po.po_number}</title>
-      <style>body{font-family:Arial,sans-serif;margin:40px}h1{color:#333}table{width:100%;border-collapse:collapse;margin-top:20px}
-      th,td{border:1px solid #ddd;padding:8px}th{background:#f5f5f5}.total{text-align:right;font-size:18px;font-weight:bold;margin-top:16px}
-      </style></head><body>
-      <h1>Purchase Order — ${po.po_number}</h1>
-      <p><b>Supplier:</b> ${po.supplier?.supplier_name || '-'} | <b>Date:</b> ${po.po_date} | <b>Status:</b> ${po.status}</p>
-      <p><b>Expected Delivery:</b> ${po.expected_delivery || '-'}</p>
-      <table><thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
-      <tbody>${itemRows}</tbody></table>
-      <div class="total">Grand Total: LKR ${Number(po.total_amount).toFixed(2)}</div>
-      ${po.notes ? `<p><b>Notes:</b> ${po.notes}</p>` : ''}
-      <script>window.print();</script></body></html>`);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=PurchaseOrder_${po.po_number || po.po_id}.pdf`);
+    res.send(pdfBuffer);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

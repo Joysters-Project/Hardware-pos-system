@@ -260,6 +260,7 @@ function ProductList() {
                       <TableHead className="font-semibold">Unit</TableHead>
                       <TableHead className="font-semibold">Cost Price</TableHead>
                       <TableHead className="font-semibold">Unit Price</TableHead>
+                      <TableHead className="font-semibold">Expiry Date</TableHead>
                       <TableHead className="font-semibold">Stock</TableHead>
                       <TableHead className="font-semibold">Status</TableHead>
                       <TableHead className="text-right font-semibold">Actions</TableHead>
@@ -287,6 +288,9 @@ function ProductList() {
                           </TableCell>
                           <TableCell className="font-mono font-medium text-slate-800">
                             LKR{Number(product.unit_price).toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-slate-600">
+                            {product.expiry_date ? new Date(product.expiry_date).toLocaleDateString() : '—'}
                           </TableCell>
                           <TableCell className="font-mono">{product.stock_quantity}</TableCell>
                           <TableCell>

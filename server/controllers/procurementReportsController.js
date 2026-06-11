@@ -8,12 +8,12 @@ exports.supplierPerformance = async (req, res) => {
       attributes: [
         'supplier_id',
         [fn('COUNT', col('purchase_orders.po_id')), 'total_orders'],
-        [fn('SUM', literal("CASE WHEN status = 'Received' THEN 1 ELSE 0 END")), 'received_count'],
+        [fn('SUM', literal("CASE WHEN purchase_orders.status = 'Received' THEN 1 ELSE 0 END")), 'received_count'],
         [fn('SUM', literal(
-          "CASE WHEN status = 'Received' AND actual_delivery_date <= expected_delivery THEN 1 ELSE 0 END"
+          "CASE WHEN purchase_orders.status = 'Received' AND actual_delivery_date <= expected_delivery THEN 1 ELSE 0 END"
         )), 'on_time_count'],
         [fn('AVG', literal(
-          "CASE WHEN status = 'Received' AND actual_delivery_date > expected_delivery " +
+          "CASE WHEN purchase_orders.status = 'Received' AND actual_delivery_date > expected_delivery " +
           "THEN DATEDIFF(actual_delivery_date, expected_delivery) ELSE NULL END"
         )), 'avg_delay_days'],
       ],
@@ -62,7 +62,7 @@ exports.purchaseSummary = async (req, res) => {
         'supplier_id',
         [fn('COUNT', col('purchase_orders.po_id')), 'total_orders'],
         [fn('SUM', col('total_amount')), 'total_value'],
-        [fn('SUM', literal("CASE WHEN status = 'Received' THEN total_amount ELSE 0 END")), 'received_value'],
+        [fn('SUM', literal("CASE WHEN purchase_orders.status = 'Received' THEN total_amount ELSE 0 END")), 'received_value'],
       ],
       include: [{ model: suppliers, attributes: ['supplier_name', 'supplier_code'] }],
       where,
@@ -98,6 +98,59 @@ exports.outstandingOrders = async (req, res) => {
       order: [['expected_delivery', 'ASC']],
     });
     res.json(orders);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// GET /api/procurement/reports/outstanding/pdf
+exports.downloadOutstandingReportPDF = async (req, res) => {
+  try {
+    const { supplier_payments } = require('../models');
+    const supplierList = await suppliers.findAll({ order: [['supplier_name', 'ASC']] });
+    
+    const data = [];
+    for (const supplier of supplierList) {
+      const outstandingSum = await supplier_payments.sum('balance_amount', {
+        where: {
+          supplier_id: supplier.supplier_id,
+          payment_status: { [Op.in]: ['Pending', 'Partially Paid', 'Overdue'] }
+        }
+      }) || 0.00;
+      
+      data.push({
+        supplier_code: supplier.supplier_code,
+        supplier_name: supplier.supplier_name,
+        performance_tier: supplier.performance_tier,
+        outstanding_balance: parseFloat(outstandingSum)
+      });
+    }
+
+    const pdfService = require('../services/pdfService');
+    const pdfBuffer = await pdfService.generateOutstandingBalanceReportPDF(data);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=Outstanding_AP_Report.pdf');
+    res.send(pdfBuffer);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// GET /api/procurement/reports/supplier-performance/pdf
+exports.downloadPerformanceReportPDF = async (req, res) => {
+  try {
+    const list = await suppliers.findAll({
+      where: { status: 'Active' },
+      order: [['performance_score', 'DESC']]
+    });
+
+    const pdfService = require('../services/pdfService');
+    const pdfBuffer = await pdfService.generateSupplierPerformanceReportPDF(list);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=Supplier_Performance_Report.pdf');
+    res.send(pdfBuffer);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

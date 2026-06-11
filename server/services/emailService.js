@@ -301,6 +301,8 @@ const sendPOStatusUpdateEmail = async (po) => {
       throw new Error('SMTP credentials missing');
     }
 
+    const pdfBuffer = await pdfService.generatePurchaseOrderPDF(po);
+
     const htmlBody = `
       <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e0e0e0">
         <div style="background:linear-gradient(135deg,#8b3a3a,#a84545);padding:28px 32px;">
@@ -324,7 +326,7 @@ const sendPOStatusUpdateEmail = async (po) => {
               <td style="padding:12px 16px;font-size:13px;color:#333;font-weight:600;">LKR ${Number(po.total_amount).toLocaleString('en-LK', { minimumFractionDigits: 2 })}</td>
             </tr>
           </table>
-          <p style="margin:24px 0 0;font-size:13px;color:#aaa;">If you have any questions, please contact our procurement department.</p>
+          <p style="margin:24px 0 0;font-size:13px;color:#aaa;">If you have any questions, please contact our procurement department. The updated Purchase Order is attached to this email.</p>
         </div>
         <div style="background:#f7f7f7;padding:16px 32px;text-align:center;border-top:1px solid #eee;">
           <p style="margin:0;font-size:11px;color:#aaa;">${COMPANY.name} &bull; ${COMPANY.address} &bull; ${COMPANY.phone}</p>
@@ -336,7 +338,11 @@ const sendPOStatusUpdateEmail = async (po) => {
       from: `"${COMPANY.name}" <${process.env.SMTP_EMAIL || process.env.EMAIL_USER}>`,
       to: recipientEmail,
       subject,
-      html: htmlBody
+      html: htmlBody,
+      attachments: [{
+        filename: `PurchaseOrder_${poNum}.pdf`,
+        content: pdfBuffer
+      }]
     });
 
     await logEmail(recipientEmail, subject, type, 'purchase_order', po.po_id, 'sent');
@@ -346,9 +352,221 @@ const sendPOStatusUpdateEmail = async (po) => {
   }
 };
 
+/**
+ * sendSupplierStatementEmail
+ */
+const sendSupplierStatementEmail = async (supplier, pdfBuffer, dateRange = {}) => {
+  const recipientEmail = supplier.email;
+  const subject = `Supplier Account Statement — Mathumithan Hardware`;
+  const type = 'SUPPLIER_STATEMENT';
+
+  if (!recipientEmail) {
+    console.warn(`[EmailService] No email for supplier ${supplier.supplier_id}. Skipping statement email.`);
+    await logEmail('None', subject, type, 'supplier', supplier.supplier_id, 'failed', 'Supplier has no email configured');
+    throw new Error('Supplier email not configured');
+  }
+
+  try {
+    const transporter = createTransporter();
+    if (!transporter) {
+      throw new Error('SMTP credentials missing');
+    }
+
+    const periodStr = dateRange.startDate && dateRange.endDate
+      ? `for period ${dateRange.startDate} to ${dateRange.endDate}`
+      : 'to date';
+
+    const htmlBody = `
+      <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e0e0e0">
+        <div style="background:linear-gradient(135deg,#8b3a3a,#a84545);padding:28px 32px;">
+          <h1 style="margin:0;color:#fff;font-size:22px;">${COMPANY.name}</h1>
+          <p style="margin:6px 0 0;color:rgba(255,255,255,0.8);font-size:13px;">Supplier Account Statement</p>
+        </div>
+        <div style="padding:28px 32px;">
+          <p style="font-size:15px;color:#333;margin:0 0 20px;">Dear <strong>${supplier.supplier_name}</strong>,</p>
+          <p style="font-size:14px;color:#555;margin:0 0 24px;">Please find attached your supplier statement ${periodStr}.</p>
+          <p style="margin:24px 0 0;font-size:13px;color:#aaa;">The detailed statement document is attached in PDF format.</p>
+        </div>
+        <div style="background:#f7f7f7;padding:16px 32px;text-align:center;border-top:1px solid #eee;">
+          <p style="margin:0;font-size:11px;color:#aaa;">${COMPANY.name} &bull; ${COMPANY.address} &bull; ${COMPANY.phone}</p>
+        </div>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: `"${COMPANY.name}" <${process.env.SMTP_EMAIL || process.env.EMAIL_USER}>`,
+      to: recipientEmail,
+      subject,
+      html: htmlBody,
+      attachments: [{
+        filename: `Statement_${supplier.supplier_code || supplier.supplier_id}.pdf`,
+        content: pdfBuffer
+      }]
+    });
+
+    await logEmail(recipientEmail, subject, type, 'supplier', supplier.supplier_id, 'sent');
+  } catch (err) {
+    console.error(`[EmailService] Failed to send supplier statement email: ${err.message}`);
+    await logEmail(recipientEmail || 'Unknown', subject, type, 'supplier', supplier.supplier_id, 'failed', err.message);
+    throw err;
+  }
+};
+
+/**
+ * sendPOCancelledEmail — sent when a PO is cancelled
+ */
+const sendPOCancelledEmail = async (po) => {
+  const supplier = po.supplier || {};
+  const recipientEmail = supplier.email;
+  const poNum = po.po_number || `#${po.po_id}`;
+  const subject = `Purchase Order Cancelled — ${poNum}`;
+  const type = 'PO_CANCELLED';
+
+  if (!recipientEmail) {
+    await logEmail('None', subject, type, 'purchase_order', po.po_id, 'failed', 'Supplier has no email configured');
+    return;
+  }
+
+  try {
+    const transporter = createTransporter();
+    if (!transporter) throw new Error('SMTP credentials missing');
+
+    const itemsHtml = (po.po_items || []).map(item => `
+      <tr style="background:#fff;">
+        <td style="padding:10px 14px;font-size:13px;color:#333;">${item.product?.product_name || `Product #${item.product_id}`}</td>
+        <td style="padding:10px 14px;font-size:13px;color:#333;text-align:center;">${item.quantity}</td>
+        <td style="padding:10px 14px;font-size:13px;color:#333;text-align:right;">LKR ${Number(item.unit_price).toFixed(2)}</td>
+        <td style="padding:10px 14px;font-size:13px;color:#333;text-align:right;">LKR ${Number(item.total_price).toFixed(2)}</td>
+        ${item.comment ? `<td style="padding:10px 14px;font-size:12px;color:#888;">${item.comment}</td>` : '<td style="padding:10px 14px;font-size:12px;color:#ccc;">—</td>'}
+      </tr>
+    `).join('');
+
+    const htmlBody = `
+      <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:640px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e0e0e0">
+        <div style="background:linear-gradient(135deg,#c62828,#e53935);padding:28px 32px;">
+          <h1 style="margin:0;color:#fff;font-size:22px;">${COMPANY.name}</h1>
+          <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">Purchase Order Cancellation Notice</p>
+        </div>
+        <div style="padding:28px 32px;">
+          <p style="font-size:15px;color:#333;margin:0 0 16px;">Dear <strong>${supplier.supplier_name}</strong>,</p>
+          <p style="font-size:14px;color:#555;margin:0 0 8px;">We regret to inform you that Purchase Order <strong style="color:#c62828;">${poNum}</strong> has been <strong>cancelled</strong>.</p>
+          ${po.notes ? `<div style="background:#fff8f8;border-left:4px solid #c62828;padding:12px 16px;border-radius:6px;margin:16px 0;"><strong style="font-size:13px;color:#c62828;">Reason:</strong><p style="margin:4px 0 0;font-size:13px;color:#555;">${po.notes}</p></div>` : ''}
+          <table style="width:100%;border-collapse:collapse;margin-top:20px;border-radius:8px;overflow:hidden;">
+            <thead>
+              <tr style="background:linear-gradient(135deg,#8b3a3a,#a84545);">
+                <th style="padding:11px 14px;font-size:12px;color:#fff;text-align:left;">Product</th>
+                <th style="padding:11px 14px;font-size:12px;color:#fff;text-align:center;">Qty</th>
+                <th style="padding:11px 14px;font-size:12px;color:#fff;text-align:right;">Unit Price</th>
+                <th style="padding:11px 14px;font-size:12px;color:#fff;text-align:right;">Total</th>
+                <th style="padding:11px 14px;font-size:12px;color:#fff;text-align:left;">Comment</th>
+              </tr>
+            </thead>
+            <tbody>${itemsHtml}</tbody>
+            <tfoot>
+              <tr style="background:#fdf5f5;">
+                <td colspan="3" style="padding:12px 14px;font-size:13px;font-weight:700;color:#8b3a3a;">Grand Total</td>
+                <td style="padding:12px 14px;font-size:14px;font-weight:700;color:#8b3a3a;text-align:right;">LKR ${Number(po.total_amount).toLocaleString('en-LK',{minimumFractionDigits:2})}</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+          <p style="margin:24px 0 0;font-size:13px;color:#aaa;">If you have any questions, please contact our procurement team directly.</p>
+        </div>
+        <div style="background:#f7f7f7;padding:14px 32px;text-align:center;border-top:1px solid #eee;">
+          <p style="margin:0;font-size:11px;color:#aaa;">${COMPANY.name} &bull; ${COMPANY.address} &bull; ${COMPANY.phone}</p>
+        </div>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: `"${COMPANY.name}" <${process.env.SMTP_EMAIL || process.env.EMAIL_USER}>`,
+      to: recipientEmail,
+      subject,
+      html: htmlBody,
+    });
+
+    await logEmail(recipientEmail, subject, type, 'purchase_order', po.po_id, 'sent');
+  } catch (err) {
+    console.error(`[EmailService] Failed to send cancellation email: ${err.message}`);
+    await logEmail(recipientEmail || 'Unknown', subject, type, 'purchase_order', po.po_id, 'failed', err.message);
+  }
+};
+
+/**
+ * sendItemCommentEmail — sends a specific line item comment/note to the supplier
+ */
+const sendItemCommentEmail = async ({ supplier, poNumber, productName, quantity, unitPrice, comment }) => {
+  const recipientEmail = supplier.email;
+  const subject = `Note Regarding Your Order Item — ${poNumber}`;
+  const type = 'ITEM_COMMENT';
+
+  if (!recipientEmail) {
+    throw new Error('Supplier email not configured');
+  }
+
+  const transporter = createTransporter();
+  if (!transporter) throw new Error('SMTP credentials missing');
+
+  const htmlBody = `
+    <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:580px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e0e0e0">
+      <div style="background:linear-gradient(135deg,#8b3a3a,#a84545);padding:24px 28px;">
+        <h1 style="margin:0;color:#fff;font-size:20px;">${COMPANY.name}</h1>
+        <p style="margin:5px 0 0;color:rgba(255,255,255,0.8);font-size:12px;">Item Note — Purchase Order ${poNumber}</p>
+      </div>
+      <div style="padding:24px 28px;">
+        <p style="font-size:14px;color:#333;margin:0 0 18px;">Dear <strong>${supplier.supplier_name}</strong>,</p>
+        <p style="font-size:13px;color:#555;margin:0 0 20px;">
+          We have a note regarding a specific item in Purchase Order <strong>${poNumber}</strong>.
+        </p>
+
+        <div style="background:#fdf6f6;border-radius:8px;padding:16px 18px;border:1px solid #f0e0e0;margin-bottom:20px;">
+          <div style="font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:8px;">Item Details</div>
+          <table style="width:100%;border-collapse:collapse;">
+            <tr>
+              <td style="padding:6px 0;font-size:12px;color:#888;width:40%;">Product</td>
+              <td style="padding:6px 0;font-size:13px;color:#2c2c2c;font-weight:600;">${productName}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;font-size:12px;color:#888;">Quantity</td>
+              <td style="padding:6px 0;font-size:13px;color:#2c2c2c;font-weight:600;">${quantity}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;font-size:12px;color:#888;">Unit Price</td>
+              <td style="padding:6px 0;font-size:13px;color:#2c2c2c;font-weight:600;">LKR ${Number(unitPrice).toFixed(2)}</td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="background:#fff8f0;border-left:4px solid #e65100;border-radius:0 8px 8px 0;padding:14px 18px;">
+          <div style="font-size:11px;color:#e65100;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Note / Instruction</div>
+          <p style="margin:0;font-size:14px;color:#333;line-height:1.6;">${comment}</p>
+        </div>
+
+        <p style="margin:20px 0 0;font-size:12px;color:#aaa;">Please acknowledge this note and contact us if you have any questions.</p>
+      </div>
+      <div style="background:#f7f7f7;padding:12px 28px;text-align:center;border-top:1px solid #eee;">
+        <p style="margin:0;font-size:11px;color:#aaa;">${COMPANY.name} &bull; ${COMPANY.address} &bull; ${COMPANY.phone}</p>
+      </div>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from: `"${COMPANY.name}" <${process.env.SMTP_EMAIL || process.env.EMAIL_USER}>`,
+    to: recipientEmail,
+    subject,
+    html: htmlBody,
+  });
+
+  await logEmail(recipientEmail, subject, type, 'po_item', null, 'sent');
+};
+
 module.exports = {
   sendPOCreatedEmail,
   sendPaymentReceiptEmail,
   sendPaymentOverdueEmail,
-  sendPOStatusUpdateEmail
+  sendPOStatusUpdateEmail,
+  sendSupplierStatementEmail,
+  sendPOCancelledEmail,
+  sendItemCommentEmail,
 };
+

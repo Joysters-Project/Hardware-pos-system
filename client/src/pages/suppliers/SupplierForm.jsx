@@ -55,7 +55,7 @@ export default function SupplierForm() {
     try {
       if (isEdit) await updateMutation.mutateAsync({ id, data: payload });
       else        await createMutation.mutateAsync(payload);
-      navigate('/suppliers');
+      navigate('/procurement/suppliers');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to save supplier');
     }
@@ -92,7 +92,7 @@ export default function SupplierForm() {
       <motion.div className="proc-header"
         initial={{ opacity: 0, y: -24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <motion.button className="proc-back-btn" onClick={() => navigate('/suppliers')}
+          <motion.button className="proc-back-btn" onClick={() => navigate('/procurement/suppliers')}
             whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}>
             <ArrowLeft size={16} />
           </motion.button>
@@ -144,7 +144,7 @@ export default function SupplierForm() {
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
             <motion.button type="button" className="proc-btn-outline"
               whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-              onClick={() => navigate('/suppliers')}>
+              onClick={() => navigate('/procurement/suppliers')}>
               Cancel
             </motion.button>
             <motion.button type="submit" className="proc-btn-primary" disabled={saving}

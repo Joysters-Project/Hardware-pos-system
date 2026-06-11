@@ -40,6 +40,7 @@ function ProductForm() {
     reorder_level: '',
     type: '',
     batch_no: '',
+    expiry_date: '',
     category_id: '',
     brand_id: '',
     unit_id: '',
@@ -89,6 +90,7 @@ function ProductForm() {
         reorder_level: product.reorder_level?.toString() || '',
         type: product.type || '',
         batch_no: product.batch_no || '',
+        expiry_date: product.expiry_date ? String(product.expiry_date).slice(0, 10) : '',
         category_id: product.category_id?.toString() || '',
         brand_id: product.brand_id?.toString() || '',
         unit_id: product.unit_id?.toString() || '',
@@ -130,6 +132,7 @@ function ProductForm() {
         reorder_level: parseInt(formData.reorder_level) || 0,
         type: formData.type,
         batch_no: formData.batch_no || null,
+        expiry_date: formData.expiry_date || null,
         category_id: parseInt(formData.category_id),
         brand_id: formData.brand_id ? parseInt(formData.brand_id) : null,
         unit_id: parseInt(formData.unit_id),
@@ -283,6 +286,20 @@ function ProductForm() {
                       value={formData.batch_no}
                       onChange={handleChange}
                       placeholder="e.g., BATCH-2024-001"
+                      className="border-slate-200 focus:border-blue-500 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="expiry_date" className="text-slate-700">
+                      Expiry Date
+                    </Label>
+                    <Input
+                      id="expiry_date"
+                      name="expiry_date"
+                      type="date"
+                      value={formData.expiry_date}
+                      onChange={handleChange}
                       className="border-slate-200 focus:border-blue-500 focus:ring-blue-500"
                     />
                   </div>

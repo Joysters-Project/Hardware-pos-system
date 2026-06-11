@@ -7,22 +7,26 @@ import api from '../api/axios';
 // ── API functions ────────────────────────────────────────────────────────────
 
 const supplierApi = {
-  getAll:       ()        => api.get('/procurement/suppliers'),
-  getById:      (id)      => api.get(`/procurement/suppliers/${id}`),
-  create:       (data)    => api.post('/procurement/suppliers', data),
-  update:       (id, data)=> api.put(`/procurement/suppliers/${id}`, data),
+  getAll:       ()           => api.get('/procurement/suppliers'),
+  getById:      (id)         => api.get(`/procurement/suppliers/${id}`),
+  create:       (data)       => api.post('/procurement/suppliers', data),
+  update:       (id, data)   => api.put(`/procurement/suppliers/${id}`, data),
   updateStatus: (id, status) => api.patch(`/procurement/suppliers/${id}/status`, { status }),
   updateRating: (id, rating) => api.put(`/procurement/suppliers/${id}/rating`, { rating }),
+  delete:       (id)         => api.delete(`/procurement/suppliers/${id}`),
 };
 
 const poApi = {
-  getAll:    ()        => api.get('/procurement/purchase-orders'),
-  getById:   (id)      => api.get(`/procurement/purchase-orders/${id}`),
-  create:    (data)    => api.post('/procurement/purchase-orders', data),
-  updateStatus: (id, data) => api.put(`/procurement/purchase-orders/${id}/status`, data),
-  cancel:    (id, notes)   => api.put(`/procurement/purchase-orders/${id}/cancel`, { notes, cancel_reason: notes }),
-  exportPDF: (id)      => api.get(`/procurement/purchase-orders/${id}/export-pdf`, { responseType: 'blob' }),
-  delete:    (id)      => api.delete(`/procurement/purchase-orders/${id}`),
+  getAll:       ()           => api.get('/procurement/purchase-orders'),
+  getById:      (id)         => api.get(`/procurement/purchase-orders/${id}`),
+  create:       (data)       => api.post('/procurement/purchase-orders', data),
+  updateStatus: (id, data)   => api.put(`/procurement/purchase-orders/${id}/status`, data),
+  cancel:       (id, notes)  => api.put(`/procurement/purchase-orders/${id}/cancel`, { notes, cancel_reason: notes }),
+  exportPDF:    (id)         => api.get(`/procurement/purchase-orders/${id}/export-pdf`, { responseType: 'blob' }),
+  delete:       (id)         => api.delete(`/procurement/purchase-orders/${id}`),
+  sendEmail:    (id)         => api.post(`/procurement/purchase-orders/${id}/send-email`),
+  updateItemComment:       (poId, itemId, comment) => api.patch(`/procurement/purchase-orders/${poId}/items/${itemId}/comment`, { comment }),
+  sendItemCommentEmail:    (poId, itemId)          => api.post(`/procurement/purchase-orders/${poId}/items/${itemId}/send-comment-email`),
 };
 
 const dashboardApi = {
@@ -114,6 +118,18 @@ export function useUpdateSupplierRating() {
   });
 }
 
+export function useDeleteSupplier() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => supplierApi.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['procurement-suppliers'] });
+      toast.success('Supplier removed successfully!');
+    },
+    onError: (e) => toast.error(e.response?.data?.error || 'Failed to delete supplier'),
+  });
+}
+
 // ── Purchase Order Hooks ─────────────────────────────────────────────────────
 
 export function usePurchaseOrders() {
@@ -178,6 +194,34 @@ export function useDeletePurchaseOrder() {
       toast.success('Purchase Order deleted successfully!');
     },
     onError: (e) => toast.error(e.response?.data?.error || 'Failed to delete Purchase Order'),
+  });
+}
+
+export function useSendPOEmail() {
+  return useMutation({
+    mutationFn: (id) => poApi.sendEmail(id),
+    onSuccess: (res) => toast.success(res.data?.message || 'Email sent to supplier!'),
+    onError: (e) => toast.error(e.response?.data?.error || 'Failed to send email'),
+  });
+}
+
+export function useUpdateItemComment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ poId, itemId, comment }) => poApi.updateItemComment(poId, itemId, comment),
+    onSuccess: (_, { poId }) => {
+      qc.invalidateQueries({ queryKey: ['purchaseOrder', String(poId)] });
+      toast.success('Comment saved!');
+    },
+    onError: (e) => toast.error(e.response?.data?.error || 'Failed to save comment'),
+  });
+}
+
+export function useSendItemCommentEmail() {
+  return useMutation({
+    mutationFn: ({ poId, itemId }) => poApi.sendItemCommentEmail(poId, itemId),
+    onSuccess: (res) => toast.success(res.data?.message || 'Item note emailed to supplier!'),
+    onError: (e) => toast.error(e.response?.data?.error || 'Failed to send item note email'),
   });
 }
 
@@ -485,6 +529,86 @@ export function useDownloadStatementPDF() {
       toast.success('Statement PDF downloaded!');
     },
     onError: () => toast.error('Failed to download statement PDF')
+  });
+}
+
+export function useEmailSupplierStatement() {
+  return useMutation({
+    mutationFn: ({ id, params }) => api.post(`/procurement/suppliers/${id}/statement/email`, params),
+    onSuccess: () => {
+      toast.success('Supplier statement email sent successfully!');
+    },
+    onError: (e) => toast.error(e.response?.data?.error || 'Failed to email supplier statement')
+  });
+}
+
+export function useSupplierDocuments(supplierId) {
+  return useQuery({
+    queryKey: ['procurement-supplier-documents', supplierId],
+    queryFn: async () => (await api.get(`/procurement/suppliers/${supplierId}/documents`)).data,
+    enabled: !!supplierId
+  });
+}
+
+export function useUploadSupplierDocument() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, formData }) => api.post(`/procurement/suppliers/${id}/documents`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }),
+    onSuccess: (res, variables) => {
+      qc.invalidateQueries({ queryKey: ['procurement-supplier-documents', variables.id] });
+      toast.success('Document uploaded successfully!');
+    },
+    onError: (e) => toast.error(e.response?.data?.error || 'Failed to upload document')
+  });
+}
+
+export function useDeleteSupplierDocument() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, docId }) => api.delete(`/procurement/suppliers/${id}/documents/${docId}`),
+    onSuccess: (res, variables) => {
+      qc.invalidateQueries({ queryKey: ['procurement-supplier-documents', variables.id] });
+      toast.success('Document deleted successfully!');
+    },
+    onError: (e) => toast.error(e.response?.data?.error || 'Failed to delete document')
+  });
+}
+
+export function useDownloadOutstandingReportPDF() {
+  return useMutation({
+    mutationFn: () => api.get('/procurement/reports/outstanding/pdf', { responseType: 'blob' }),
+    onSuccess: (response) => {
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'Outstanding_AP_Report.pdf');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success('Outstanding Payables Report PDF downloaded!');
+    },
+    onError: () => toast.error('Failed to download Outstanding Payables Report PDF')
+  });
+}
+
+export function useDownloadPerformanceReportPDF() {
+  return useMutation({
+    mutationFn: () => api.get('/procurement/reports/supplier-performance/pdf', { responseType: 'blob' }),
+    onSuccess: (response) => {
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'Supplier_Performance_Report.pdf');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success('Supplier Performance Report PDF downloaded!');
+    },
+    onError: () => toast.error('Failed to download Supplier Performance Report PDF')
   });
 }
 

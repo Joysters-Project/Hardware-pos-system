@@ -75,12 +75,12 @@ const calculateSupplierScore = async (supplierId) => {
     const ratingScore = (supplier.performance_rating || 4) * 20; // Star rating out of 5
 
     // Total weighted score
-    // weights: onTime (30%), delay (20%), success (25%), volume (15%), rating (10%)
-    const finalScore = (onTimeScore * 0.30) + 
-                       (delayScore * 0.20) + 
-                       (successScore * 0.25) + 
-                       (volumeScore * 0.15) + 
-                       (ratingScore * 0.10);
+    // weights: onTime (40%), delay (25%), success (20%), volume (10%), rating (5%)
+    const finalScore = (onTimeScore * 0.40) + 
+                       (delayScore * 0.25) + 
+                       (successScore * 0.20) + 
+                       (volumeScore * 0.10) + 
+                       (ratingScore * 0.05);
 
     // Determine performance tier
     let tier = 'Bronze';

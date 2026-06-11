@@ -21,6 +21,7 @@ const buildPayload = (form) => ({
   reorder_level: toNumberOrNull(form.reorder_level, parseInt),
   type: form.type.trim(),
   batch_no: form.batch_no.trim() || null,
+  expiry_date: form.expiry_date || null,
   status: form.status || "active",
   category_id: toNumberOrNull(form.category_id, parseInt),
   brand_id: toNumberOrNull(form.brand_id, parseInt),
@@ -36,6 +37,7 @@ const EDIT_FIELDS = [
   { name: "reorder_level", placeholder: "Reorder Level *", type: "number" },
   { name: "type", placeholder: "Type *", type: "text" },
   { name: "batch_no", placeholder: "Batch No", type: "text" },
+  { name: "expiry_date", placeholder: "Expiry Date", type: "date" },
 ];
 
 function ProductsPage() {
@@ -174,6 +176,7 @@ function ProductsPage() {
       reorder_level: p.reorder_level ?? "",
       type: p.type || "",
       batch_no: p.batch_no || "",
+      expiry_date: p.expiry_date ? String(p.expiry_date).slice(0, 10) : "",
       status: p.status || "active",
       category_id: p.category_id ?? "",
       brand_id: p.brand_id ?? "",
@@ -252,6 +255,7 @@ function ProductsPage() {
               <th>Unit</th>
               <th>Price</th>
               <th>Stock Qty</th>
+              <th>Expiry Date</th>
               <th>Min Stock</th>
               <th>Status</th>
               <th>Actions</th>
@@ -259,9 +263,9 @@ function ProductsPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="10" className="empty-row">Loading...</td></tr>
+              <tr><td colSpan="11" className="empty-row">Loading...</td></tr>
             ) : filteredProducts.length === 0 ? (
-              <tr><td colSpan="10" className="empty-row">No products found.</td></tr>
+              <tr><td colSpan="11" className="empty-row">No products found.</td></tr>
             ) : filteredProducts.map((p) => (
               <tr key={p.product_id}>
                 <td><span className="id-badge">#{p.product_id}</span></td>
@@ -275,6 +279,7 @@ function ProductsPage() {
                     {p.stock_quantity ?? 0}
                   </span>
                 </td>
+                <td>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString() : "—"}</td>
                 <td>{p.min_stock_quantity ?? 0}</td>
                 <td>
                   <span className={`status-pill ${String(p.status).toLowerCase() === "active" ? "active" : "inactive"}`}>
