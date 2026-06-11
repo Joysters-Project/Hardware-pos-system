@@ -8,12 +8,17 @@ const { logActivity } = require('../services/auditService');
 const users = db.users;
 
 // ─── Nodemailer Transporter ───────────────────────────────────────────────────
-const createTransporter = () => nodemailer.createTransport({
-  host: 'smtp.gmail.com', port: 465, secure: true,
-  auth: { user: process.env.SMTP_EMAIL, pass: process.env.SMTP_PASSWORD },
-  tls: { rejectUnauthorized: false },
-  connectionTimeout: 15000, socketTimeout: 15000, family: 4,
-});
+const createTransporter = () => {
+  if (!process.env.SMTP_EMAIL || !process.env.SMTP_PASSWORD) {
+    throw new Error('SMTP credentials are not configured. Set SMTP_EMAIL and SMTP_PASSWORD in your .env file.');
+  }
+  return nodemailer.createTransport({
+    host: 'smtp.gmail.com', port: 465, secure: true,
+    auth: { user: process.env.SMTP_EMAIL, pass: process.env.SMTP_PASSWORD },
+    tls: { rejectUnauthorized: false },
+    connectionTimeout: 15000, socketTimeout: 15000, family: 4,
+  });
+};
 
 const sendOtpEmail = async (toEmail, toName, otp) => {
   const transporter = createTransporter();
@@ -138,7 +143,7 @@ const sendOtpForReset = async (req, res) => {
     if (!email) return res.status(400).json({ message: 'Email is required' });
     const normalizedEmail = email.trim().toLowerCase();
 
-    const employee = await models.employees.findOne({ where: { email: normalizedEmail } });
+    const employee = await db.employees.findOne({ where: { email: normalizedEmail } });
     if (!employee) return res.status(404).json({ message: 'No account found with this email' });
 
     const user = await users.findOne({ where: { employee_id: employee.employee_id } });
@@ -178,7 +183,7 @@ const verifyOtpForReset = async (req, res) => {
     if (!email || !otp) return res.status(400).json({ message: 'Email and OTP are required' });
     const normalizedEmail = email.trim().toLowerCase();
 
-    const employee = await models.employees.findOne({ where: { email: normalizedEmail } });
+    const employee = await db.employees.findOne({ where: { email: normalizedEmail } });
     if (!employee) return res.status(404).json({ message: 'No account found with this email' });
     const user = await users.findOne({ where: { employee_id: employee.employee_id } });
     if (!user) return res.status(404).json({ message: 'No user account linked to this email' });
@@ -241,7 +246,7 @@ const simpleRegister = async (req, res) => {
     if (!username || !password || !firstName || !lastName || !email || !role || !employee_id)
       return res.status(400).json({ message: 'All fields are required' });
 
-    const employee = await models.employees.findByPk(employee_id);
+    const employee = await db.employees.findByPk(employee_id);
     if (!employee) return res.status(400).json({ message: 'Employee ID not found' });
     if (employee.email !== email) return res.status(400).json({ message: 'Email does not match the employee record' });
     if (employee.first_name !== firstName || employee.last_name !== lastName)
