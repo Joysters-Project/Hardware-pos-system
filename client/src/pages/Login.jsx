@@ -34,7 +34,7 @@ function Login() {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/login", {
+      const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -42,26 +42,31 @@ function Login() {
         body: JSON.stringify({
           user_name: userName,
           password: password,
-          role: role //Role is sending to backend
+          role: roleParam
         })
       });
 
-      const data = await response.json();
+      const rawBody = await response.text();
+      let data = {};
+      try {
+        data = rawBody ? JSON.parse(rawBody) : {};
+      } catch (parseError) {
+        data = { message: rawBody || 'Unexpected server response' };
+      }
 
       if (response.ok) {
-        toast.success(" Login successful!");
+        toast.success("Login successful!");
 
-        // Use AuthContext instead of direct localStorage
         if (data.token) {
-          login(data.user_name || userName, data.token, (role || "").toLowerCase());
+          login(data.user_name || userName, data.token, roleParam.toLowerCase());
         }
 
-        setTimeout(() => navigate("/dashboard/" + role.toLowerCase()), 1500);
+        setTimeout(() => navigate("/dashboard/" + roleParam.toLowerCase()), 1500);
       } else {
-        toast.error(data.message || data || " Login failed");
+        toast.error(data.message || 'Login failed');
       }
     } catch (error) {
-      toast.error(" Connection error: " + error.message);
+      toast.error("Connection error: " + error.message);
       console.error("Login error:", error);
     } finally {
       setLoading(false);

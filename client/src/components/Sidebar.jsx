@@ -18,6 +18,9 @@ import {
   ShoppingCart,
   RefreshCw,
   ShieldAlert,
+  TrendingUp,
+  Truck,
+  ClipboardList,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import "../styles/Sidebar.css";
@@ -57,6 +60,12 @@ const getNavItems = (role) => {
         label: "Receipts",
         icon: Receipt,
         path: "/receipts",
+      },
+      {
+        key: "reports",
+        label: "Reports",
+        icon: TrendingUp,
+        path: "/reports",
       },
     ];
   }
@@ -103,6 +112,12 @@ const getNavItems = (role) => {
       path: `${prefix}/assets`,
     },
     {
+      key: "reports",
+      label: "Reports",
+      icon: TrendingUp,
+      path: "/reports",
+    },
+    {
       key: "expenses",
       label: "Expenses",
       icon: Receipt,
@@ -115,6 +130,12 @@ const getNavItems = (role) => {
     // Audit Logs is Admin-only
     ...(normalizedRole === "admin"
       ? [{ key: "audit", label: "Audit Logs", icon: ShieldAlert, path: "/audit-logs" }]
+      : []),
+    // Procurement — Admin and Manager
+    ...(normalizedRole !== "cashier"
+      ? [
+          { key: "procurement", label: "Procurement",   icon: Truck,          path: "/procurement" }
+        ]
       : []),
   ];
 };

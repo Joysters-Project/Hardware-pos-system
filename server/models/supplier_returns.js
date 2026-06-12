@@ -2,7 +2,7 @@ const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
   return sequelize.define('supplier_returns', {
-    sr_id: {
+    supplier_return_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
       primaryKey: true,
@@ -24,14 +24,10 @@ module.exports = (sequelize) => {
       type: DataTypes.INTEGER,
       allowNull: false
     },
-    reason: {
-      type: DataTypes.STRING(200),
-      allowNull: true
-    },
     status: {
-      type: DataTypes.ENUM('PENDING', 'SENT', 'CREDITED'),
+      type: DataTypes.STRING(50),
       allowNull: false,
-      defaultValue: 'PENDING'
+      defaultValue: 'PENDING_APPROVAL'
     },
     created_at: {
       type: DataTypes.DATE,

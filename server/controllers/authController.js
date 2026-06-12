@@ -5,8 +5,7 @@ const jwt        = require('jsonwebtoken');
 const db         = require('../models');
 const { logActivity } = require('../services/auditService');
 
-const users  = db.users;
-const models = db;
+const users = db.users;
 
 // ─── Nodemailer Transporter ───────────────────────────────────────────────────
 const createTransporter = () => nodemailer.createTransport({
@@ -52,7 +51,7 @@ const login = async (req, res) => {
     const { user_name, password, role } = req.body;
     const user = await users.findOne({
       where: { user_name },
-      include: [{ model: models.employees, attributes: ['department_id'] }]
+      include: [{ model: db.employees, attributes: ['department_id'] }]
     });
     if (!user) return res.status(401).json({ message: 'Invalid Username or Password' });
 

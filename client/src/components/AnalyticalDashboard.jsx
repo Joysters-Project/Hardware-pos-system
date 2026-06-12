@@ -25,13 +25,13 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip as RechartsTooltip,
+  Tooltip,
   Legend
 } from "recharts";
 import toast from "react-hot-toast";
 import "../styles/AnalyticalDashboard.css";
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = "/api";
 
 export default function AnalyticalDashboard() {
   const [timeframe, setTimeframe] = useState("daily"); // daily, weekly, monthly
@@ -219,7 +219,7 @@ export default function AnalyticalDashboard() {
                     tickLine={false}
                     tick={{ fill: "#2c2c2c", fontSize: 11, fontWeight: 600 }}
                   />
-                  <RechartsTooltip
+                  <Tooltip
                     contentStyle={{
                       backgroundColor: "#2c2c2c",
                       border: "1px solid #8b3a3a",
@@ -273,7 +273,7 @@ export default function AnalyticalDashboard() {
                       tickLine={false}
                       tick={{ fill: "#2c2c2c", fontSize: 11, fontWeight: 600 }}
                     />
-                    <RechartsTooltip
+                    <Tooltip
                       contentStyle={{
                         backgroundColor: "#2c2c2c",
                         border: "1px solid #8b3a3a",
@@ -334,7 +334,7 @@ export default function AnalyticalDashboard() {
                       tickLine={false}
                       tick={{ fill: "#2c2c2c", fontSize: 11, fontWeight: 600 }}
                     />
-                    <RechartsTooltip
+                    <Tooltip
                       contentStyle={{
                         backgroundColor: "#2c2c2c",
                         border: "1px solid #8b3a3a",

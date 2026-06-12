@@ -21,11 +21,13 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
-    "mysql2": "^3.20.0",
+    "mysql2": "^3.22.5",
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.10",
     "pdfkit": "^0.18.0",
-    "sequelize": "^6.37.8"
+    "pg-connection-string": "^2.13.0",
+    "sequelize": "^6.37.7",
+    "uuid": "^14.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14",

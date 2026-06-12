@@ -17,7 +17,17 @@ exports.createPurchaseOrder = async (req, res) => {
 // GET All Purchase Orders
 exports.getAllPurchaseOrders = async (req, res) => {
   try {
-    const purchaseOrders = await purchase_orders.findAll();
+    const { products } = require('../models');
+    const purchaseOrders = await purchase_orders.findAll({
+      include: [
+        { model: suppliers, attributes: ['supplier_id', 'supplier_name'] },
+        {
+          model: po_items,
+          include: [{ model: products, attributes: ['product_id', 'product_name'] }]
+        }
+      ],
+      order: [['po_date', 'DESC']]
+    });
 
     res.status(200).json(purchaseOrders);
   } catch (error) {
