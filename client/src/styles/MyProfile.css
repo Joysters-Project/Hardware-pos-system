@@ -81,7 +81,7 @@
 }
 
 /* Camera overlay — appears on hover, never covers photo at rest */
-.pf-photo-overlay {
+/* .pf-photo-overlay {
   position: absolute;
   inset: 0;
   background: rgba(0,0,0,0.48);
@@ -97,11 +97,11 @@
   font-weight: 600;
   opacity: 0;
   transition: opacity 0.2s;
-}
+} */
 
-.pf-photo-ring:hover .pf-photo-overlay {
+/* .pf-photo-ring:hover .pf-photo-overlay {
   opacity: 1;
-}
+} */
 
 .pf-photo-delete {
   display: inline-flex;

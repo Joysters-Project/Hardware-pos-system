@@ -193,15 +193,15 @@ export default function MyProfile() {
                 : <div className="pf-photo-initials">{getInitials(fullName)}</div>
               }
               {/* camera overlay — click triggers file input */}
-              <button
+              {/* <button
                 type="button"
                 className="pf-photo-overlay"
                 onClick={() => fileRef.current?.click()}
                 title="Change photo"
-              >
-                <Camera size={18} />
-                <span>Change</span>
-              </button>
+              > */}
+                {/* <Camera size={18} /> */}
+                {/* <span>Change</span> */}
+              {/* </button> */}
               <input
                 ref={fileRef}
                 type="file"
