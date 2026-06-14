@@ -3,6 +3,7 @@ const { Op } = require('sequelize');
 const fs   = require('fs');
 const path = require('path');
 const { logActivity } = require('../services/auditService');
+const { validateSriLankanPhone, normalizeSriLankanPhone } = require('../utils/phoneValidation');
 
 const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
 
@@ -51,10 +52,20 @@ const createEmployee = async (req, res) => {
     if (!first_name || !last_name) return res.status(400).json({ message: 'First name and last name are required' });
     if (email) { const ex = await db.employees.findOne({ where: { email } }); if (ex) return res.status(400).json({ message: 'Email already in use' }); }
     if (nic)   { const ex = await db.employees.findOne({ where: { nic   } }); if (ex) return res.status(400).json({ message: 'NIC already in use' }); }
+    
+    // Validate phone number if provided
+    let validatedPhone = phone_no || null;
+    if (phone_no) {
+      const phoneValidation = validateSriLankanPhone(phone_no);
+      if (!phoneValidation.isValid) {
+        return res.status(400).json({ message: `Invalid phone number: ${phoneValidation.message}` });
+      }
+      validatedPhone = phoneValidation.formatted;
+    }
 
     const profile_photo = req.file ? `uploads/employee_photos/${req.file.filename}` : null;
     const emp = await db.employees.create({
-      first_name, last_name, nic: nic || null, phone_no: phone_no || null,
+      first_name, last_name, nic: nic || null, phone_no: validatedPhone,
       email: email || null, address: address || null, position: position || null,
       salary: salary || null, join_date: join_date || null, hire_date: join_date || null,
       status: status || 'Active', profile_photo, department_id: department_id || null,
@@ -80,9 +91,19 @@ const updateEmployee = async (req, res) => {
     const { first_name, last_name, nic, phone_no, email, address, position, salary, join_date, status, department_id } = req.body;
     if (!first_name || !last_name) return res.status(400).json({ message: 'First name and last name are required' });
 
+    // Validate phone number if provided
+    let validatedPhone = phone_no || null;
+    if (phone_no) {
+      const phoneValidation = validateSriLankanPhone(phone_no);
+      if (!phoneValidation.isValid) {
+        return res.status(400).json({ message: `Invalid phone number: ${phoneValidation.message}` });
+      }
+      validatedPhone = phoneValidation.formatted;
+    }
+
     // Build change log
     const changes = [];
-    if (emp.phone_no !== phone_no) changes.push(`Phone changed from ${emp.phone_no || '—'} to ${phone_no || '—'}`);
+    if (emp.phone_no !== validatedPhone) changes.push(`Phone changed from ${emp.phone_no || '—'} to ${validatedPhone || '—'}`);
     if (emp.position !== position) changes.push(`Position changed from ${emp.position || '—'} to ${position || '—'}`);
     if (String(emp.salary) !== String(salary)) changes.push(`Salary changed from ${emp.salary || '—'} to ${salary || '—'}`);
     if (emp.status !== status)     changes.push(`Status changed from ${emp.status} to ${status}`);
@@ -96,7 +117,7 @@ const updateEmployee = async (req, res) => {
     }
 
     await emp.update({
-      first_name, last_name, nic: nic || null, phone_no: phone_no || null,
+      first_name, last_name, nic: nic || null, phone_no: validatedPhone,
       email: email || null, address: address || null, position: position || null,
       salary: salary || null, join_date: join_date || null, hire_date: join_date || null,
       status: status || emp.status, profile_photo, department_id: department_id || null,
