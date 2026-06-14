@@ -1,5 +1,5 @@
 const BillingService = require('../services/billingService');
-const { bills, bill_items, products, customers } = require('../models');
+const { bills, bill_items, products, customers, payments } = require('../models');
 const { Op } = require('sequelize');
 
 // CREATE Bill (runs entire invoice workflow inside a transaction)
@@ -80,7 +80,23 @@ exports.getAllBills = async (req, res) => {
     if (customer_id) whereClause.customer_id = customer_id;
     if (status) whereClause.status = status;
 
-    const billList = await bills.findAll({ where: whereClause });
+    const billList = await bills.findAll({
+      where: whereClause,
+      include: [
+        {
+          model: customers,
+          attributes: ['customer_id', 'customer_name', 'phone_no', 'address']
+        },
+        {
+          model: bill_items,
+          include: [{ model: products, attributes: ['product_name'] }]
+        },
+        {
+          model: payments,
+          attributes: ['payment_id', 'payment_date', 'amount_paid', 'payment_method', 'collected_by']
+        }
+      ]
+    });
 
     res.status(200).json(billList);
   } catch (error) {

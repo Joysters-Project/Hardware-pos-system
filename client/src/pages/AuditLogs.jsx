@@ -93,7 +93,7 @@ function AuditLogPage() {
   const formatTime = (t) => {
     if (!t) return '—';
     const d = new Date(t);
-    return d.toLocaleDateString('en-LK') + ' ' + d.toLocaleTimeString('en-LK', { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
 
   const getUserName = (log) => {

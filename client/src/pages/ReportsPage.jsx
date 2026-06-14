@@ -868,10 +868,10 @@ function ReportsPage() {
         {/* Header */}
         <div className="rp-header">
           <div>
-            <h1>Reports</h1>
-            <p>View detailed Sales, Return and Borrow reports with filters</p>
+            <h1>Reports & Logs</h1>
+            <p>View detailed Sales and Borrow reports, and Return logs with filters</p>
           </div>
-          <button className="rp-back-btn" onClick={() => navigate(-1)}>Back</button>
+          {/* <button className="rp-back-btn" onClick={() => navigate(-1)}>Back</button> */}
         </div>
 
         {/* Tab nav */}

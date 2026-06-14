@@ -55,11 +55,32 @@ exports.getCashierStats = async (req, res) => {
       });
     }
 
+    // Fetch recent transactions (latest 10 bills today with customer info)
+    const recentBills = await db.bills.findAll({
+      where: whereClause,
+      order: [['bill_date', 'DESC']],
+      limit: 10,
+      include: [{ model: db.customers, attributes: ['customer_name'] }]
+    });
+
+    const recentTransactions = recentBills.map(bill => {
+      const date = new Date(bill.bill_date);
+      const timeStr = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      return {
+        bill_id: bill.bill_id,
+        customer: bill.customer ? bill.customer.customer_name : 'Walk-in',
+        amount: parseFloat(bill.total_amount) || 0,
+        status: bill.status || 'completed',
+        time: timeStr
+      };
+    });
+
     res.json({
       salesToday: todaySales,
       itemsSold: itemsSold,
       returnsCount: returnsCount,
-      transactionsCount: todayBills.length
+      transactionsCount: todayBills.length,
+      recentTransactions
     });
 
   } catch (error) {
