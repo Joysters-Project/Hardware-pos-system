@@ -9,7 +9,7 @@ import {
 import toast from "react-hot-toast";
 import api from "../utils/axios";
 import AdminDashboard from "./AdminDashboard";
-//import ManagerDashboard from "./ManagerDashboard";
+import ManagerDashboard from "./ManagerDashboard";
 import "../styles/Salary.css";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -129,10 +129,10 @@ function SalaryPage() {
         <td>#${p.salary_payment_id}</td>
         <td><strong>${p.employee ? `${p.employee.first_name} ${p.employee.last_name}` : `EMP-${p.employee_id}`}</strong></td>
         <td>${MONTHS[(p.payment_month || 1) - 1]} ${p.payment_year}</td>
-        <td>LKR ${Number(p.basic_salary).toLocaleString("en-LK")}</td>
-        <td style="color:#2e7d32">+LKR ${Number(p.bonus_amount || 0).toLocaleString("en-LK")}</td>
-        <td style="color:#c62828">-LKR ${Number(p.deduction_amount || 0).toLocaleString("en-LK")}</td>
-        <td><strong style="color:#1565c0">LKR ${Number(p.final_salary).toLocaleString("en-LK")}</strong></td>
+        <td>LKR ${Number(p.basic_salary).toLocaleString("en-US")}</td>
+        <td style="color:#2e7d32">+LKR ${Number(p.bonus_amount || 0).toLocaleString("en-US")}</td>
+        <td style="color:#c62828">-LKR ${Number(p.deduction_amount || 0).toLocaleString("en-US")}</td>
+        <td><strong style="color:#1565c0">LKR ${Number(p.final_salary).toLocaleString("en-US")}</strong></td>
         <td>${p.payment_method || "—"}</td>
         <td>
           <span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;
@@ -168,7 +168,7 @@ function SalaryPage() {
       <div class="summary">
         <div class="s-box"><strong>${stats.paid}</strong>Paid This Month</div>
         <div class="s-box"><strong>${stats.pending}</strong>Pending</div>
-        <div class="s-box"><strong>LKR ${payments.filter(p => p.payment_status === "Paid").reduce((s, p) => s + Number(p.final_salary || 0), 0).toLocaleString("en-LK")}</strong>Total Paid</div>
+        <div class="s-box"><strong>LKR ${payments.filter(p => p.payment_status === "Paid").reduce((s, p) => s + Number(p.final_salary || 0), 0).toLocaleString("en-US")}</strong>Total Paid</div>
       </div>
       <table>
         <thead><tr><th>#</th><th>Employee</th><th>Period</th><th>Basic</th><th>Bonus</th><th>Deduction</th><th>Final Salary</th><th>Method</th><th>Status</th></tr></thead>
@@ -291,10 +291,10 @@ function SalaryPage() {
                   {p.employee?.email && <div className="sal-emp-email">{p.employee.email}</div>}
                 </td>
                 <td>{MONTHS[(p.payment_month || 1) - 1]} {p.payment_year}</td>
-                <td>{Number(p.basic_salary).toLocaleString("en-LK")}</td>
-                <td className="sal-bonus">+{Number(p.bonus_amount || 0).toLocaleString("en-LK")}</td>
-                <td className="sal-deduct">-{Number(p.deduction_amount || 0).toLocaleString("en-LK")}</td>
-                <td className="sal-final"><strong>LKR {Number(p.final_salary).toLocaleString("en-LK")}</strong></td>
+                <td>{Number(p.basic_salary).toLocaleString("en-US")}</td>
+                <td className="sal-bonus">+{Number(p.bonus_amount || 0).toLocaleString("en-US")}</td>
+                <td className="sal-deduct">-{Number(p.deduction_amount || 0).toLocaleString("en-US")}</td>
+                <td className="sal-final"><strong>LKR {Number(p.final_salary).toLocaleString("en-US")}</strong></td>
                 <td>{p.payment_method || "—"}</td>
                 <td>
                   <span className={`sal-status-pill ${p.payment_status?.toLowerCase() === "paid" ? "paid" : "pending"}`}>
@@ -408,7 +408,7 @@ function SalaryPage() {
                 </div>
                 <div className="sal-field">
                   <label>Final Salary (auto)</label>
-                  <div className="sal-final-preview">LKR {Number(finalSalary()).toLocaleString("en-LK")}</div>
+                  <div className="sal-final-preview">LKR {Number(finalSalary()).toLocaleString("en-US")}</div>
                 </div>
                 <div className="sal-field full">
                   <label>Remarks</label>
@@ -446,7 +446,7 @@ function SalaryPage() {
                 <strong>{MONTHS[(payModal.payment_month || 1) - 1]} {payModal.payment_year}</strong>
               </div>
               <div className="sal-pay-row"><span>Final Salary</span>
-                <strong className="sal-pay-amount">LKR {Number(payModal.final_salary).toLocaleString("en-LK")}</strong>
+                <strong className="sal-pay-amount">LKR {Number(payModal.final_salary).toLocaleString("en-US")}</strong>
               </div>
               <div className="sal-field" style={{ marginTop: "1rem" }}>
                 <label>Payment Method</label>

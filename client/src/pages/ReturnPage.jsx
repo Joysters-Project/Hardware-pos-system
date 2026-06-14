@@ -183,10 +183,23 @@ function ReturnPage({ userRole }) {
   const totalBill = selectedBill ? parseFloat(selectedBill.total_amount) : 0;
   const originalBalanceDue = selectedBill ? parseFloat(selectedBill.balance_due) : 0;
   const howMuchPaid = Math.max(0, totalBill - originalBalanceDue);
-  
   const totalReturnedValue = parseFloat(calcTotalRefund()) || 0;
-  const actualRefundToCustomer = Math.min(totalReturnedValue, howMuchPaid);
-  const remainingBalancePayable = Math.max(0, originalBalanceDue - (totalReturnedValue - actualRefundToCustomer));
+
+  let actualRefundToCustomer = 0;
+  let remainingBalancePayable = 0;
+
+  if (originalBalanceDue > 0) {
+    if (totalReturnedValue <= originalBalanceDue) {
+      remainingBalancePayable = originalBalanceDue - totalReturnedValue;
+      actualRefundToCustomer = 0;
+    } else {
+      remainingBalancePayable = 0;
+      actualRefundToCustomer = totalReturnedValue - originalBalanceDue;
+    }
+  } else {
+    remainingBalancePayable = 0;
+    actualRefundToCustomer = totalReturnedValue;
+  }
 
   return (
     <DashboardLayout active="returns">
@@ -203,9 +216,6 @@ function ReturnPage({ userRole }) {
               ← Back to Search
             </button>
           )}
-          <button className="ret-back-btn" onClick={() => navigate(-1)}>
-            Back
-          </button>
         </div>
       </div>
 
@@ -243,7 +253,9 @@ function ReturnPage({ userRole }) {
                 <div key={b.bill_id} className="ret-bill-result-item" onClick={() => selectBill(b)}>
                   <div>
                     <div className="bill-no">Bill #{b.bill_no}</div>
-                    <div className="bill-date">{new Date(b.bill_date).toLocaleString()}</div>
+                    <div className="bill-date">
+                      {new Date(b.bill_date).toLocaleString()} &nbsp;·&nbsp; <strong style={{ color: '#333' }}>{b.customer?.customer_name || 'Walk-in'}</strong> {b.customer?.phone_no ? `(${b.customer.phone_no})` : ''}
+                    </div>
                   </div>
                   <div className="bill-total">Rs. {parseFloat(b.total_amount).toFixed(2)}</div>
                 </div>
@@ -344,6 +356,16 @@ function ReturnPage({ userRole }) {
               <span>{selectedBill.bill_no}</span>
             </div>
             <div className="ret-summary-row">
+              <span>Customer</span>
+              <span>{selectedBill.customer?.customer_name || 'Walk-in'}</span>
+            </div>
+            {selectedBill.customer?.phone_no && (
+              <div className="ret-summary-row">
+                <span>Phone</span>
+                <span>{selectedBill.customer.phone_no}</span>
+              </div>
+            )}
+            <div className="ret-summary-row">
               <span>Items Selected</span>
               <span>{Object.keys(returnItems).length}</span>
             </div>
@@ -351,7 +373,7 @@ function ReturnPage({ userRole }) {
             <hr className="ret-divider" />
 
             <div className="ret-summary-row">
-              <span>Original Price</span>
+              <span>Total Bill</span>
               <span>Rs. {totalBill.toFixed(2)}</span>
             </div>
             <div className="ret-summary-row">
@@ -359,7 +381,11 @@ function ReturnPage({ userRole }) {
               <span>Rs. {howMuchPaid.toFixed(2)}</span>
             </div>
             <div className="ret-summary-row">
-              <span>How Much Should Be Paid</span>
+              <span>Returned Products Value</span>
+              <span>Rs. {totalReturnedValue.toFixed(2)}</span>
+            </div>
+            <div className="ret-summary-row">
+              <span>How much should be Pay</span>
               <span style={{ color: remainingBalancePayable > 0 ? '#b30000' : '#333', fontWeight: 'bold' }}>
                 Rs. {remainingBalancePayable.toFixed(2)}
               </span>

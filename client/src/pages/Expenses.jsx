@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
 import { Eye, Pencil, Trash2, Plus, Search, RefreshCw, FileDown, X, ChevronLeft, ChevronRight, Receipt } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
-import AdminDashboard from "./AdminDashboard";
-import ManagerDashboard from "./ManagerDashboard";
+import DashboardLayout from "../components/DashboardLayout";
 import "../styles/Expenses.css";
 
 const EXPENSE_TYPES = ["Asset Purchase", "Salary", "Utility Bills", "Maintenance", "Transport", "Office Supplies", "Other"];
@@ -84,7 +82,7 @@ function ExpensesPage() {
       <tr style="background:${i % 2 === 0 ? "#fff" : "#fdf8f8"}">
         <td>#${exp.expense_id}</td>
         <td><span style="padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;background:${(TYPE_COLORS[exp.expense_type] || "#8b3a3a") + "18"};color:${TYPE_COLORS[exp.expense_type] || "#8b3a3a"}">${exp.expense_type}</span></td>
-        <td><strong>LKR ${Number(exp.amount || 0).toLocaleString("en-LK")}</strong></td>
+        <td><strong>LKR ${Number(exp.amount || 0).toLocaleString("en-US")}</strong></td>
         <td>${exp.expense_date ? new Date(exp.expense_date).toLocaleDateString() : "—"}</td>
         <td>${exp.department?.department_name || getDeptName(exp.department_id)}</td>
         <td>${exp.asset?.asset_name || (exp.asset_id ? getAssetName(exp.asset_id) : "—")}</td>
@@ -105,8 +103,8 @@ function ExpensesPage() {
       <p style="font-size:11px;color:#888;margin-top:3px">Total records: ${filtered.length}</p></div>
       <div class="meta">Generated: ${new Date().toLocaleString()}</div></div>
       <div class="summary">
-        <div class="s-box"><strong>LKR ${Number(summary.total || 0).toLocaleString("en-LK")}</strong>Total Expenses</div>
-        ${(summary.by_type || []).slice(0, 3).map(t => `<div class="s-box"><strong>LKR ${Number(t.total || 0).toLocaleString("en-LK")}</strong>${t.expense_type}</div>`).join("")}
+        <div class="s-box"><strong>LKR ${Number(summary.total || 0).toLocaleString("en-US")}</strong>Total Expenses</div>
+        ${(summary.by_type || []).slice(0, 3).map(t => `<div class="s-box"><strong>LKR ${Number(t.total || 0).toLocaleString("en-US")}</strong>${t.expense_type}</div>`).join("")}
       </div>
       <table><thead><tr><th>#</th><th>Type</th><th>Amount</th><th>Date</th><th>Department</th><th>Linked Asset</th><th>Description</th></tr></thead>
       <tbody>${rows}</tbody></table>
@@ -126,6 +124,7 @@ function ExpensesPage() {
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   return (
+    <DashboardLayout active="expenses">
     <div className="exp-container">
       <div className="exp-header">
         <div className="exp-header-left">
@@ -140,13 +139,13 @@ function ExpensesPage() {
 
       <div className="exp-stats">
         <div className="exp-stat-card exp-stat-highlight">
-          <div className="exp-stat-value">LKR {Number(summary.total || 0).toLocaleString("en-LK")}</div>
+          <div className="exp-stat-value">LKR {Number(summary.total || 0).toLocaleString("en-US")}</div>
           <div className="exp-stat-label">Total Expenses</div>
         </div>
         {(summary.by_type || []).slice(0, 3).map(t => (
           <div className="exp-stat-card" key={t.expense_type}>
             <div className="exp-stat-value" style={{ color: TYPE_COLORS[t.expense_type] || "#8b3a3a", fontSize: "1.1rem" }}>
-              LKR {Number(t.total || 0).toLocaleString("en-LK")}
+              LKR {Number(t.total || 0).toLocaleString("en-US")}
             </div>
             <div className="exp-stat-label">{t.expense_type}</div>
           </div>
@@ -180,7 +179,7 @@ function ExpensesPage() {
                   <tr key={exp.expense_id}>
                     <td><span className="exp-id-badge">#{exp.expense_id}</span></td>
                     <td><span className="exp-type-pill" style={{ background: (TYPE_COLORS[exp.expense_type] || "#8b3a3a") + "18", color: TYPE_COLORS[exp.expense_type] || "#8b3a3a" }}>{exp.expense_type}</span></td>
-                    <td className="exp-amount-cell">LKR {Number(exp.amount || 0).toLocaleString("en-LK")}</td>
+                    <td className="exp-amount-cell">LKR {Number(exp.amount || 0).toLocaleString("en-US")}</td>
                     <td>{exp.expense_date ? new Date(exp.expense_date).toLocaleDateString() : "—"}</td>
                     <td>{exp.department?.department_name || getDeptName(exp.department_id)}</td>
                     <td>{exp.asset?.asset_name || (exp.asset_id ? getAssetName(exp.asset_id) : "—")}</td>
@@ -248,7 +247,7 @@ function ExpensesPage() {
           </div>
           <div className="exp-view-grid">
             {[["Type", <span className="exp-type-pill" style={{ background: (TYPE_COLORS[viewExpense.expense_type] || "#8b3a3a") + "18", color: TYPE_COLORS[viewExpense.expense_type] || "#8b3a3a" }}>{viewExpense.expense_type}</span>],
-            ["Amount", `LKR ${Number(viewExpense.amount).toLocaleString("en-LK")}`],
+            ["Amount", `LKR ${Number(viewExpense.amount).toLocaleString("en-US")}`],
             ["Date", viewExpense.expense_date ? new Date(viewExpense.expense_date).toLocaleDateString() : "—"],
             ["Department", viewExpense.department?.department_name || getDeptName(viewExpense.department_id)],
             ["Linked Asset", viewExpense.asset?.asset_name || (viewExpense.asset_id ? getAssetName(viewExpense.asset_id) : "—")],
@@ -258,13 +257,8 @@ function ExpensesPage() {
         </div>
       </div>}
     </div>
+    </DashboardLayout>
   );
 }
 
-export default function Expenses() {
-  const location = useLocation();
-  const role = (localStorage.getItem("role") || "admin").toLowerCase();
-  const isManager = location.pathname.startsWith("/manager/") || role === "manager";
-  const Layout = isManager ? ManagerDashboard : AdminDashboard;
-  return <Layout active="expenses"><ExpensesPage /></Layout>;
-}
+export default ExpensesPage;

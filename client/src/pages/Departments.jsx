@@ -132,7 +132,7 @@ function DepartmentsPage() {
       <tr style="background:${i % 2 === 0 ? "#fff" : "#fdf8f8"}">
         <td>#${a.asset_id}</td>
         <td><strong>${a.asset_name}</strong></td>
-        <td>LKR ${Number(a.cost).toLocaleString("en-LK")}</td>
+        <td>LKR ${Number(a.cost).toLocaleString("en-US")}</td>
         <td><span style="padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;
           background:${(ASSET_COLORS[a.status] || "#333") + "18"};color:${ASSET_COLORS[a.status] || "#333"}">${a.status}</span></td>
         <td>${a.purchase_date ? new Date(a.purchase_date).toLocaleDateString() : "—"}</td>
@@ -150,7 +150,7 @@ function DepartmentsPage() {
       <div class="hdr"><div><h1>Assets — ${dept.department_name}</h1>
       <p style="font-size:11px;color:#888;margin-top:3px">${dept.assets.length} asset(s)</p></div>
       <div class="meta">Generated: ${new Date().toLocaleString()}</div></div>
-      <div class="summary">Total Active Asset Value: <strong>LKR ${totalCost.toLocaleString("en-LK")}</strong></div>
+      <div class="summary">Total Active Asset Value: <strong>LKR ${totalCost.toLocaleString("en-US")}</strong></div>
       <table><thead><tr><th>#</th><th>Asset Name</th><th>Cost</th><th>Status</th><th>Purchased</th></tr></thead>
       <tbody>${rows}</tbody></table>
       <div class="footer">Mathumithan Hardware POS System • ${dept.department_name} Department</div>
@@ -438,7 +438,7 @@ function DepartmentsPage() {
                       <tr key={a.asset_id}>
                         <td>#{a.asset_id}</td>
                         <td><strong>{a.asset_name}</strong></td>
-                        <td>LKR {Number(a.cost).toLocaleString("en-LK")}</td>
+                        <td>LKR {Number(a.cost).toLocaleString("en-US")}</td>
                         <td><span className={`dept-status-badge asset-${a.status?.toLowerCase()}`}>{a.status}</span></td>
                         <td>{a.purchase_date ? new Date(a.purchase_date).toLocaleDateString() : "N/A"}</td>
                       </tr>

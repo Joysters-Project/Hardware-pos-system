@@ -101,10 +101,10 @@ function SalaryHistoryPage() {
           </div>
           <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
             {[
-              { label: "Current Salary", val: `LKR ${Number(summary.current_salary || 0).toLocaleString("en-LK")}` },
+              { label: "Current Salary", val: `LKR ${Number(summary.current_salary || 0).toLocaleString("en-US")}` },
               { label: "Last Payment",   val: summary.last_payment_month || "—" },
               { label: "Next Due",       val: summary.next_due_date || "—" },
-              { label: "Paid This Year", val: `LKR ${Number(summary.total_paid_this_year || 0).toLocaleString("en-LK")}`, highlight: true },
+              { label: "Paid This Year", val: `LKR ${Number(summary.total_paid_this_year || 0).toLocaleString("en-US")}`, highlight: true },
             ].map(({ label, val, highlight }) => (
               <div key={label}>
                 <div className="salary-stat-label">{label}</div>
@@ -142,7 +142,7 @@ function SalaryHistoryPage() {
       {payments.length > 0 && (
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", color: "#666", padding: "0.5rem 0.25rem" }}>
           <span>{payments.length} record(s) found</span>
-          <span>Total Paid: <strong style={{ color: "#2e7d32" }}>LKR {totalPaid.toLocaleString("en-LK", { minimumFractionDigits: 2 })}</strong></span>
+          <span>Total Paid: <strong style={{ color: "#2e7d32" }}>LKR {totalPaid.toLocaleString("en-US", { minimumFractionDigits: 2 })}</strong></span>
         </div>
       )}
 
@@ -171,11 +171,11 @@ function SalaryHistoryPage() {
                   {p.employee?.email && <div className="sal-emp-email">{p.employee.email}</div>}
                 </td>
                 <td>{MONTHS[(p.payment_month || 1) - 1]} {p.payment_year}</td>
-                <td>{Number(p.basic_salary).toLocaleString("en-LK")}</td>
-                <td className="sal-bonus">+{Number(p.bonus_amount || 0).toLocaleString("en-LK")}</td>
-                <td className="sal-deduct">-{Number(p.deduction_amount || 0).toLocaleString("en-LK")}</td>
-                <td className="sal-final"><strong>LKR {Number(p.final_salary).toLocaleString("en-LK")}</strong></td>
-                <td>{p.payment_date ? new Date(p.payment_date).toLocaleDateString("en-LK") : "—"}</td>
+                <td>{Number(p.basic_salary).toLocaleString("en-US")}</td>
+                <td className="sal-bonus">+{Number(p.bonus_amount || 0).toLocaleString("en-US")}</td>
+                <td className="sal-deduct">-{Number(p.deduction_amount || 0).toLocaleString("en-US")}</td>
+                <td className="sal-final"><strong>LKR {Number(p.final_salary).toLocaleString("en-US")}</strong></td>
+                <td>{p.payment_date ? new Date(p.payment_date).toLocaleDateString("en-US") : "—"}</td>
                 <td>{p.payment_method || "—"}</td>
                 <td>
                   <span className={`sal-status-pill ${p.payment_status?.toLowerCase() === "paid" ? "paid" : "pending"}`}>

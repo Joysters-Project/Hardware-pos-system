@@ -101,7 +101,7 @@ function EmployeesPage() {
         <td>${getDeptName(e.department_id)}</td>
         <td>${e.phone_no || "—"}</td>
         <td>${e.email || "—"}</td>
-        <td>LKR ${Number(e.salary || 0).toLocaleString("en-LK")}</td>
+        <td>LKR ${Number(e.salary || 0).toLocaleString("en-US")}</td>
         <td><span style="padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;
           background:${e.status === "Active" ? "#e8f5e9" : e.status === "Resigned" ? "#fce4e4" : "#fff3e0"};
           color:${e.status === "Active" ? "#2e7d32" : e.status === "Resigned" ? "#c62828" : "#e65100"}">${e.status}</span></td>
@@ -153,7 +153,7 @@ function EmployeesPage() {
       <table>
         <tr><td>Position</td><td>${emp.position || "—"}</td></tr>
         <tr><td>Department</td><td>${emp.department?.department_name || getDeptName(emp.department_id)}</td></tr>
-        <tr><td>Salary</td><td>LKR ${Number(emp.salary || 0).toLocaleString("en-LK")}</td></tr>
+        <tr><td>Salary</td><td>LKR ${Number(emp.salary || 0).toLocaleString("en-US")}</td></tr>
         <tr><td>Join Date</td><td>${emp.join_date ? new Date(emp.join_date).toLocaleDateString() : "—"}</td></tr>
         <tr><td>Status</td><td>${emp.status || "Active"}</td></tr>
       </table>
@@ -234,7 +234,7 @@ function EmployeesPage() {
                     <td>{e.position}</td>
                     <td>{getDeptName(e.department_id)}</td>
                     <td>{e.phone_no || "—"}</td>
-                    <td className="emp-salary-cell">LKR {Number(e.salary || 0).toLocaleString("en-LK")}</td>
+                    <td className="emp-salary-cell">LKR {Number(e.salary || 0).toLocaleString("en-US")}</td>
                     <td><span className={`emp-status-pill ${e.status?.toLowerCase()}`}>{e.status}</span></td>
                     <td><div className="emp-action-btns">
                       <button className="emp-icon-btn btn-view" title="View" onClick={() => handleView(e)}><Eye size={14} /></button>
@@ -324,7 +324,7 @@ function EmployeesPage() {
           </div>
           <div className="emp-view-grid">
             {[["NIC", viewEmp.nic || "—"], ["Phone", viewEmp.phone_no || "—"], ["Email", viewEmp.email || "—"],
-            ["Salary", `LKR ${Number(viewEmp.salary || 0).toLocaleString("en-LK")}`],
+            ["Salary", `LKR ${Number(viewEmp.salary || 0).toLocaleString("en-US")}`],
             ["Join Date", viewEmp.join_date ? new Date(viewEmp.join_date).toLocaleDateString() : "—"],
             ["Address", viewEmp.address || "—"]].map(([l, v]) => (
               <div className="emp-view-row" key={l}><span className="emp-view-label">{l}</span><span className="emp-view-value">{v}</span></div>

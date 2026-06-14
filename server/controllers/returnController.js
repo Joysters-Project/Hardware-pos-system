@@ -88,6 +88,10 @@ exports.lookupBill = async (req, res) => {
           {
             model: bill_items,
             include: [{ model: products, attributes: ['product_name'] }]
+          },
+          {
+            model: customers,
+            attributes: ['customer_id', 'customer_name', 'phone_no']
           }
         ],
         order: [['bill_date', 'DESC']]
@@ -119,6 +123,10 @@ exports.lookupBill = async (req, res) => {
         {
           model: bill_items,
           include: [{ model: products, attributes: ['product_name'] }]
+        },
+        {
+          model: customers,
+          attributes: ['customer_id', 'customer_name', 'phone_no']
         }
       ]
     });
@@ -128,8 +136,8 @@ exports.lookupBill = async (req, res) => {
     }
 
     res.status(200).json({ success: true, data: billsForCustomer });
-    console.error('Lookup bill error:', error);
   } catch (error) {
+    console.error('Lookup bill error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -160,19 +168,23 @@ exports.getAllReturns = async (req, res) => {
     const { return_items } = require('../models');
 
     // Build the include array — supplier_returns is optional
+    const { customers } = require('../models');
     const includeArr = [
       {
         model: bills,
-        attributes: ['bill_no', 'total_amount', 'balance_due'],
+        attributes: ['bill_no', 'bill_id', 'total_amount', 'balance_due', 'bill_date', 'customer_id'],
         required: false,
-        include: [{ model: payments, attributes: ['amount_paid'] }]
+        include: [
+          { model: payments, attributes: ['amount_paid'] },
+          { model: customers, attributes: ['customer_id', 'customer_name', 'phone_no'] }
+        ]
       },
       {
         model: return_items,
         as: 'items',
         required: false,
         where: Object.keys(itemWhere).length ? itemWhere : undefined,
-        include: [{ model: products, attributes: ['product_name'] }]
+        include: [{ model: products, attributes: ['product_name', 'product_id'] }]
       }
     ];
 
@@ -192,11 +204,12 @@ exports.getAllReturns = async (req, res) => {
       order: [['return_date', 'DESC']]
     });
 
-    // Attach financial summary to each return
+    // Attach financial summary and detailed return summary to each return
     // Sequelize auto-alias for belongsTo(bills) is 'bill' (singular)
     const returnList = returnListRaw.map(ret => {
       const plain = ret.get({ plain: true });
       const bill = plain.bill || plain.bills || {};
+      const returnItems = plain.items || [];
       const currentBillTotal = parseFloat(bill.total_amount) || 0;
       const billPayments = bill.payments || [];
       
@@ -212,9 +225,34 @@ exports.getAllReturns = async (req, res) => {
         .reduce((sum, p) => sum + parseFloat(p.amount_paid), 0);
 
       const refundable = Math.min(plain.total_refund_amount || 0, originalPaid);
+      
+      // Calculate per-product totals
+      const productTotals = {};
+      let grandTotalReturned = 0;
+      
+      returnItems.forEach(item => {
+        const productName = item.product?.product_name || 'Unknown Product';
+        const refundAmount = parseFloat(item.refund_amount) || 0;
+        
+        if (!productTotals[productName]) {
+          productTotals[productName] = {
+            product_name: productName,
+            total_returned_qty: 0,
+            total_amount_per_product: 0
+          };
+        }
+        
+        productTotals[productName].total_returned_qty += item.return_quantity;
+        productTotals[productName].total_amount_per_product += refundAmount;
+        grandTotalReturned += refundAmount;
+      });
+      
       return {
         ...plain,
         bill: bill,
+        bill_number: bill.bill_no,
+        returned_products: Object.values(productTotals),
+        grand_total_returned: parseFloat(grandTotalReturned.toFixed(2)),
         financial_summary: {
           total_bill: originalBillTotal,
           total_paid: originalPaid,
