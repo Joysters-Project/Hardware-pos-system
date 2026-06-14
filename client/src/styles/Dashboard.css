@@ -1213,3 +1213,153 @@
     justify-content: space-between;
   }
 }
+
+/* ── Cashier Dashboard ─────────────────────────────────────────── */
+.header { margin-bottom: 1.5rem; }
+.header h1 { font-size: 1.5rem; font-weight: 700; color: #1f2937; margin: 0 0 0.25rem; }
+.header p  { font-size: 0.875rem; color: #6b7280; margin: 0; }
+
+/* Horizontal stat cards row */
+.cashier-stats-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.cashier-stat-card {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.1rem 1.25rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  border: 1px solid #f3f4f6;
+}
+
+.cashier-stat-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.cashier-stat-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.cashier-stat-label {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.cashier-stat-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #1f2937;
+  line-height: 1.2;
+}
+
+.cashier-stat-sub {
+  font-size: 0.72rem;
+  color: #9ca3af;
+}
+
+/* Recent transactions list */
+.recent-section h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 0.75rem;
+}
+
+.cashier-txn-list {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+  border: 1px solid #f3f4f6;
+  overflow: hidden;
+}
+
+.cashier-txn-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid #f3f4f6;
+  gap: 1rem;
+  transition: background 0.15s;
+}
+
+.cashier-txn-row:last-child { border-bottom: none; }
+.cashier-txn-row:hover { background: #f9fafb; }
+
+.cashier-txn-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.cashier-txn-id {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.cashier-txn-customer {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.cashier-txn-mid {
+  flex: 0 0 auto;
+}
+
+.cashier-txn-time {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.cashier-txn-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+}
+
+.cashier-txn-amount {
+  font-size: 0.938rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.cashier-txn-status {
+  font-size: 0.688rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.cashier-txn-empty {
+  padding: 2rem;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.875rem;
+}

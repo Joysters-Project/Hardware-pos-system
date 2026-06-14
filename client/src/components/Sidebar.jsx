@@ -116,6 +116,12 @@ const getNavItems = (role) => {
       path: "/reports",
     },
     {
+      key: "returns",
+      label: "Returns",
+      icon: RefreshCw,
+      path: "/returns",
+    },
+    {
       key: "expenses",
       label: "Expenses",
       icon: Receipt,

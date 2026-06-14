@@ -31,8 +31,7 @@ import {
 } from "recharts";
 import toast from "react-hot-toast";
 import "../styles/AnalyticalDashboard.css";
-
-const API_BASE = "/api";
+const API_BASE = "http://localhost:5000/api";
 
 export default function AnalyticalDashboard() {
   const [timeframe, setTimeframe] = useState("daily"); // daily, weekly, monthly
@@ -61,7 +60,7 @@ export default function AnalyticalDashboard() {
   const fetchMetrics = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API_BASE}/dashboard/analytical`);
+      const res = await api.get(`/dashboard/analytical`);
       if (res.data) {
         setKpis(res.data.kpis || {});
         setTransactions(res.data.recentTransactions || []);
@@ -95,7 +94,7 @@ export default function AnalyticalDashboard() {
   }, [transactions, searchQuery]);
 
   const handleExportPDF = () => {
-    window.open(`${API_BASE}/dashboard/analytical/export-pdf`, "_blank");
+    window.open(`/api/dashboard/analytical/export-pdf`, "_blank");
     toast.success("Downloading analytical report PDF...");
   };
 

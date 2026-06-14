@@ -8,7 +8,6 @@ import RoleSelect from "./pages/RoleSelect";
 import Signup from "./pages/Signup";
 import Recipts from "./pages/Receipts";
 import ReturnPage from "./pages/ReturnPage";
-import ReturnLogsPage from "./pages/ReturnLogs";
 
 import ForgotPassword from "./pages/ForgotPassword";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -108,10 +107,6 @@ function AppRoutes() {
       <Route 
         path="/returns" 
         element={<ProtectedRoute><ReturnPage userRole={role} /></ProtectedRoute>} 
-      />
-      <Route 
-        path="/return-logs" 
-        element={<ProtectedRoute><ReturnLogsPage /></ProtectedRoute>} 
       />
       <Route 
         path="/reports" 

@@ -93,7 +93,7 @@ function AssetsPage() {
       <tr style="background:${i % 2 === 0 ? "#fff" : "#fdf8f8"}">
         <td>#${a.asset_id}</td><td><strong>${a.asset_name}</strong></td>
         <td>${a.department?.department_name || getDeptName(a.department_id)}</td>
-        <td>LKR ${Number(a.cost || 0).toLocaleString("en-LK")}</td>
+        <td>LKR ${Number(a.cost || 0).toLocaleString("en-US")}</td>
         <td>${a.condition_type === "Other" ? a.custom_condition : a.condition_type}</td>
         <td><span style="padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;background:#f0f0f0;color:${STATUS_COLORS[a.status] || "#333"}">${a.status}</span></td>
         <td>${a.purchase_date ? new Date(a.purchase_date).toLocaleDateString() : "—"}</td>
@@ -109,7 +109,7 @@ function AssetsPage() {
       .footer{margin-top:20px;text-align:center;font-size:10px;color:#aaa;border-top:1px solid #eee;padding-top:10px}
       </style></head><body>
       <div class="hdr"><div><h1>Assets Report — Mathumithan Hardware</h1>
-      <p style="font-size:11px;color:#888;margin-top:3px">Total: ${filtered.length} asset(s) | Active Value: LKR ${assets.filter(a => a.status !== "Disposed").reduce((s, a) => s + parseFloat(a.cost || 0), 0).toLocaleString("en-LK")}</p></div>
+      <p style="font-size:11px;color:#888;margin-top:3px">Total: ${filtered.length} asset(s) | Active Value: LKR ${assets.filter(a => a.status !== "Disposed").reduce((s, a) => s + parseFloat(a.cost || 0), 0).toLocaleString("en-US")}</p></div>
       <div class="meta">Generated: ${new Date().toLocaleString()}</div></div>
       <table><thead><tr><th>#</th><th>Asset Name</th><th>Department</th><th>Cost</th><th>Condition</th><th>Status</th><th>Purchased</th><th>Expires</th></tr></thead>
       <tbody>${rows}</tbody></table>
@@ -144,7 +144,7 @@ function AssetsPage() {
       <div className="asset-stats">
         {[["Total", assets.length, "#8b3a3a"], ["Active", assets.filter(a => a.status === "Active").length, "#2e7d32"],
         ["Disposed", assets.filter(a => a.status === "Disposed").length, "#616161"],
-        [`LKR ${totalCost.toLocaleString("en-LK")}`, null, "#1565c0", "Active Value"]].map(([v, _, c, l], i) => (
+        [`LKR ${totalCost.toLocaleString("en-US")}`, null, "#1565c0", "Active Value"]].map(([v, _, c, l], i) => (
           <div className="asset-stat-card" key={i}>
             <div className="asset-stat-value" style={{ color: c }}>{v}</div>
             <div className="asset-stat-label">{l || ["Total", "Active", "Disposed", "Active Value"][i]}</div>
@@ -180,7 +180,7 @@ function AssetsPage() {
                     <td><span className="asset-id-badge">#{a.asset_id}</span></td>
                     <td className="asset-name-cell">{a.asset_name}</td>
                     <td>{a.department?.department_name || getDeptName(a.department_id)}</td>
-                    <td className="asset-cost-cell">LKR {Number(a.cost || 0).toLocaleString("en-LK")}</td>
+                    <td className="asset-cost-cell">LKR {Number(a.cost || 0).toLocaleString("en-US")}</td>
                     <td>{a.condition_type === "Other" ? a.custom_condition : a.condition_type}</td>
                     <td><span className="asset-status-pill" style={{ background: STATUS_COLORS[a.status] + "18", color: STATUS_COLORS[a.status] || "#333" }}>{a.status}</span></td>
                     <td>{a.purchase_date ? new Date(a.purchase_date).toLocaleDateString() : "—"}</td>
@@ -270,7 +270,7 @@ function AssetsPage() {
           </div>
           <div className="asset-view-grid">
             {[["Asset Name", viewAsset.asset_name], ["Department", viewAsset.department?.department_name || getDeptName(viewAsset.department_id)],
-            ["Cost", `LKR ${Number(viewAsset.cost).toLocaleString("en-LK")}`],
+            ["Cost", `LKR ${Number(viewAsset.cost).toLocaleString("en-US")}`],
             ["Condition", viewAsset.condition_type === "Other" ? viewAsset.custom_condition : viewAsset.condition_type],
             ["Status", viewAsset.status], ["Purchase Date", viewAsset.purchase_date ? new Date(viewAsset.purchase_date).toLocaleDateString() : "—"],
             ["Expiration", viewAsset.expiration_date ? new Date(viewAsset.expiration_date).toLocaleDateString() : "—"]
@@ -281,7 +281,7 @@ function AssetsPage() {
             <div className="asset-inner-wrap"><table className="asset-inner-table">
               <thead><tr><th>Type</th><th>Amount</th><th>Date</th></tr></thead>
               <tbody>{viewAsset.expenses.map(exp => <tr key={exp.expense_id}>
-                <td>{exp.expense_type}</td><td>LKR {Number(exp.amount).toLocaleString("en-LK")}</td>
+                <td>{exp.expense_type}</td><td>LKR {Number(exp.amount).toLocaleString("en-US")}</td>
                 <td>{exp.expense_date ? new Date(exp.expense_date).toLocaleDateString() : "—"}</td>
               </tr>)}</tbody>
             </table></div>
