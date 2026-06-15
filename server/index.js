@@ -7,6 +7,7 @@ const path = require('path');
 // These files rely on the .env variables being ready
 const db = require('./models');// This automatically looks for models/index.js
 const authRoutes = require('./routes/auth'); // Path to your routes/auth.js file
+const { startNearExpiryCron } = require('./cron/nearExpiryCron');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -21,6 +22,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 db.sequelize.sync({ force: false })
   .then(() => {
     console.log('✅ Database connected successfully');
+    startNearExpiryCron();
   })
   .catch((err) => {
     console.error('❌ Database connection failed:', err.message);

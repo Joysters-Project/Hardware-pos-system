@@ -16,6 +16,7 @@ import ManagerDashboard from "./pages/ManagerDashboard";
 import Departments from "./pages/Departments";
 import Products from "./pages/Products";
 import AddProduct from "./pages/AddProduct";
+import Alerts from "./pages/Alerts";
 import Employees from "./pages/Employees";
 import Catalog from "./pages/Catalog";
 import Assets from "./pages/Assets";
@@ -82,6 +83,10 @@ function AppRoutes() {
       <Route 
         path="/products/add" 
         element={<ProtectedRoute><AddProduct /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/alerts" 
+        element={<ProtectedRoute><Alerts /></ProtectedRoute>} 
       />
       <Route 
         path="/employees" 
@@ -158,6 +163,10 @@ function AppRoutes() {
       <Route 
         path="/manager/expenses" 
         element={<ProtectedRoute requiredRole="manager"><Expenses /></ProtectedRoute>} 
+      />
+      <Route
+        path="/manager/alerts"
+        element={<ProtectedRoute requiredRole="manager"><Alerts /></ProtectedRoute>}
       />
 
       <Route

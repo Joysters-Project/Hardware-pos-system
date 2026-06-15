@@ -738,103 +738,89 @@ function BorrowReport() {
       {loading && <div className="rp-status">Loading partially paid bills…</div>}
       {error && <div className="rp-status error">{error}</div>}
       {!loading && !error && (
-        <div className="rp-table-wrap">
-          <table className="rp-table">
-            <thead>
-              <tr>
-                <th>Bill No</th><th>Date</th><th>Customer</th><th>Phone</th>
-                <th className="right">Total Amount</th><th className="right">Paid</th><th className="right">Balance Due</th><th>Items</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr><td colSpan={8} className="rp-empty">No partially paid bills found.</td></tr>
-              ) : rows.map(b => (
-                <React.Fragment key={b.bill_id}>
-                  <tr
-                    style={{ cursor: b.bill_items?.length ? 'pointer' : 'default' }}
-                    onClick={() => b.bill_items?.length && setExpandedBill(expandedBill === b.bill_id ? null : b.bill_id)}
-                  >
-                    <td className="bold">#{b.bill_no}</td>
-                    <td>{fmtDate(b.bill_date)}</td>
-                    <td>{getCustomerName(b)}</td>
-                    <td>{getCustomerPhone(b)}</td>
-                    <td className="right">{fmt(b.total_amount)}</td>
-                    <td className="right green">{fmt(Number(b.total_amount || 0) - Number(b.balance_due || 0))}</td>
-                    <td className="right red"><strong>{fmt(b.balance_due)}</strong></td>
-                    <td>{b.bill_items?.length || 0} {b.bill_items?.length ? (expandedBill === b.bill_id ? '▲' : '▼') : ''}</td>
-                  </tr>
-                  {expandedBill === b.bill_id && b.bill_items?.length > 0 && (
-                    <tr className="rp-expanded-row">
-                      <td colSpan={8}>
-                        <div className="rp-vertical-details">
-                          {/* 1. Customer & Bill Info */}
-                          <div className="rp-details-col">
-                            <h3>Customer & Bill Info</h3>
-                            <div className="rp-detail-line"><strong>Bill Number:</strong> <span>#{b.bill_no}</span></div>
-                            <div className="rp-detail-line"><strong>Bill Date:</strong> <span>{fmtDate(b.bill_date)}</span></div>
-                            <div className="rp-detail-line"><strong>Status:</strong> <span className={`rp-badge ${(b.status || '').toLowerCase()}`}>{b.status || '–'}</span></div>
-                            <div className="rp-detail-line"><strong>Customer:</strong> <span>{getCustomerName(b)}</span></div>
-                            <div className="rp-detail-line"><strong>Phone:</strong> <span>{getCustomerPhone(b)}</span></div>
-                            <div className="rp-detail-line"><strong>Address:</strong> <span>{getCustomerAddress(b)}</span></div>
-                          </div>
+        <>
+          <div className="rp-returns-list">
+            {rows.length === 0 ? (
+              <div className="rp-empty-card">No partially paid bills found.</div>
+            ) : (
+              rows.map((b) => (
+                <div key={b.bill_id} className="rp-ret-card vertical-card">
+                  <div className="rp-ret-vertical-grid">
+                    {/* Column 1: Customer & Bill Info */}
+                    <div className="rp-ret-col">
+                      <h4>Customer &amp; Bill Info</h4>
+                      <div className="rp-ret-row"><strong>Bill No:</strong> <span>#{b.bill_no}</span></div>
+                      <div className="rp-ret-row"><strong>Bill Date:</strong> <span>{fmtDate(b.bill_date)}</span></div>
+                      <div className="rp-ret-row"><strong>Status:</strong> <span className={`rp-badge ${(b.status || '').toLowerCase()}`}>{b.status || '–'}</span></div>
+                      <div className="rp-ret-row"><strong>Customer:</strong> <span>{getCustomerName(b)}</span></div>
+                      <div className="rp-ret-row"><strong>Phone:</strong> <span>{getCustomerPhone(b)}</span></div>
+                      <div className="rp-ret-row"><strong>Address:</strong> <span>{getCustomerAddress(b)}</span></div>
+                    </div>
 
-                          {/* 2. Products Details */}
-                          <div className="rp-details-col">
-                            <h3>Products Details</h3>
-                            <div className="rp-vertical-items-list">
-                              {b.bill_items.map((item, idx) => (
-                                <div key={idx} className="rp-vertical-item-card">
-                                  <div className="rp-item-row bold">
-                                    <span>{item.product?.product_name || `Product #${item.product_id}`}</span>
-                                  </div>
-                                  <div className="rp-item-vertical-details">
-                                    <div><strong>Qty:</strong> {item.quantity}</div>
-                                    <div><strong>Unit Price:</strong> {fmt(item.price_per_unit)}</div>
-                                    {Number(item.discount || 0) > 0 && <div><strong>Discount:</strong> {fmt(item.discount)}</div>}
-                                    <div><strong>Total:</strong> {fmt(item.total_price)}</div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* 3. Financial & Payments */}
-                          <div className="rp-details-col">
-                            <h3>Financial Summary</h3>
-                            <div className="rp-detail-line"><strong>Original Bill Amount:</strong> <span>{fmt(b.total_amount)}</span></div>
-                            <div className="rp-detail-line"><strong>Paid So Far:</strong> <span style={{ color: '#2e7d32', fontWeight: 'bold' }}>{fmt(Number(b.total_amount || 0) - Number(b.balance_due || 0))}</span></div>
-                            <div className="rp-detail-line"><strong>Balance Outstanding:</strong> <span style={{ color: '#b71c1c', fontWeight: 'bold' }}>{fmt(b.balance_due)}</span></div>
-
-                            <div style={{ marginTop: '15px' }}>
-                              <h4 style={{ fontSize: '13px', color: '#800000', borderBottom: '1px solid #f0dada', paddingBottom: '4px', marginBottom: '8px', fontWeight: 'bold' }}>Payment History</h4>
-                              {b.payments && b.payments.length > 0 ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                  {b.payments.map((p, pIdx) => (
-                                    <div key={pIdx} style={{ fontSize: '12px', background: 'white', padding: '6px 10px', borderRadius: '4px', border: '1px solid #eee' }}>
-                                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <strong>{fmt(p.amount_paid)}</strong>
-                                        <span style={{ color: '#888', fontWeight: '600' }}>{p.payment_method}</span>
-                                      </div>
-                                      <div style={{ color: '#999', fontSize: '10px', marginTop: '2px' }}>
-                                        {fmtDate(p.payment_date)} {p.collected_by ? `· Collected by User #${p.collected_by}` : ''}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div style={{ fontStyle: 'italic', fontSize: '12px', color: '#999' }}>No payments recorded.</div>
+                    {/* Column 2: Products Details */}
+                    <div className="rp-ret-col">
+                      <h4>Products Details</h4>
+                      <div className="rp-ret-items-list-vertical">
+                        {b.bill_items && b.bill_items.length > 0 ? (
+                          b.bill_items.map((item, idx) => (
+                            <div
+                              key={idx}
+                              style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '8px',
+                                marginBottom: idx < b.bill_items.length - 1 ? '14px' : '0',
+                                paddingBottom: idx < b.bill_items.length - 1 ? '10px' : '0',
+                                borderBottom: idx < b.bill_items.length - 1 ? '1px dashed #e5cccc' : 'none'
+                              }}
+                            >
+                              <div className="rp-ret-row"><strong>Product:</strong> <span>{item.product?.product_name || `Product #${item.product_id}`}</span></div>
+                              <div className="rp-ret-row"><strong>Qty:</strong> <span>{item.quantity}</span></div>
+                              <div className="rp-ret-row"><strong>Unit Price:</strong> <span>{fmt(item.price_per_unit)}</span></div>
+                              {Number(item.discount || 0) > 0 && (
+                                <div className="rp-ret-row"><strong>Discount:</strong> <span>{fmt(item.discount)}</span></div>
                               )}
+                              <div className="rp-ret-row"><strong>Item Total:</strong> <span>{fmt(item.total_price)}</span></div>
                             </div>
+                          ))
+                        ) : (
+                          <div style={{ fontStyle: 'italic', fontSize: '13px', color: '#999' }}>No item details available.</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Column 3: Financial Summary */}
+                    <div className="rp-ret-col">
+                      <h4>Financial Summary</h4>
+                      <div className="rp-ret-row"><strong>Total Bill Amount:</strong> <span>{fmt(b.total_amount)}</span></div>
+                      <div className="rp-ret-row"><strong>Amount Paid:</strong> <span style={{ color: '#2e7d32', fontWeight: 'bold' }}>{fmt(Number(b.total_amount || 0) - Number(b.balance_due || 0))}</span></div>
+                      <div className="rp-ret-row"><strong>Balance Outstanding:</strong> <span style={{ color: '#b71c1c', fontWeight: 'bold' }}>{fmt(b.balance_due)}</span></div>
+                      <div className="rp-ret-row"><strong>Items Count:</strong> <span>{b.bill_items?.length || 0} items</span></div>
+
+                      {b.payments && b.payments.length > 0 && (
+                        <div style={{ marginTop: '10px' }}>
+                          <h4 style={{ fontSize: '13px', color: '#800000', borderBottom: '1px solid #f0dada', paddingBottom: '4px', marginBottom: '8px', fontWeight: 'bold', margin: '0 0 8px' }}>Payment History</h4>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {b.payments.map((p, pIdx) => (
+                              <div key={pIdx} style={{ fontSize: '12px', background: 'white', padding: '6px 10px', borderRadius: '4px', border: '1px solid #eee' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                  <strong>{fmt(p.amount_paid)}</strong>
+                                  <span style={{ color: '#888', fontWeight: '600' }}>{p.payment_method}</span>
+                                </div>
+                                <div style={{ color: '#999', fontSize: '10px', marginTop: '2px' }}>
+                                  {fmtDate(p.payment_date)}{p.collected_by ? ` · Collected by User #${p.collected_by}` : ''}
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </div>
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
           <div className="rp-pager">
             <span>{filtered.length} records · Page {safePage} of {totalPages}</span>
             <div className="rp-pager-btns">
@@ -842,7 +828,7 @@ function BorrowReport() {
               <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}>Next</button>
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

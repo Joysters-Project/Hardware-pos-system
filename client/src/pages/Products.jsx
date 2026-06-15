@@ -7,25 +7,65 @@ import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
 import "../styles/Products.css";
 
+const INITIAL_FORM = {
+	product_name: "",
+	unit_price: "",
+	cost_price: "",
+	stock_quantity: "",
+	min_stock_quantity: "",
+	reorder_level: "",
+	expiry_date: "",
+	type: "",
+	batch_no: "",
+	status: "active",
+	category_id: "",
+	brand_id: "",
+	unit_id: "",
+};
+
+const REQUIRED_FIELDS = [
+	"product_name",
+	"unit_price",
+	"cost_price",
+	"stock_quantity",
+	"min_stock_quantity",
+	"reorder_level",
+	"expiry_date",
+	"type",
+	"category_id",
+	"unit_id",
+];
+
 const toNumberOrNull = (value, parser = Number) => {
   if (value === "" || value === null || value === undefined) return null;
   return parser(value);
 };
 
 const buildPayload = (form) => ({
-  product_name: form.product_name.trim(),
-  unit_price: toNumberOrNull(form.unit_price, parseFloat),
-  cost_price: toNumberOrNull(form.cost_price, parseFloat),
-  stock_quantity: toNumberOrNull(form.stock_quantity, parseInt),
-  min_stock_quantity: toNumberOrNull(form.min_stock_quantity, parseInt),
-  reorder_level: toNumberOrNull(form.reorder_level, parseInt),
-  type: form.type.trim(),
-  batch_no: form.batch_no.trim() || null,
-  status: form.status || "active",
-  category_id: toNumberOrNull(form.category_id, parseInt),
-  brand_id: toNumberOrNull(form.brand_id, parseInt),
-  unit_id: toNumberOrNull(form.unit_id, parseInt),
+	product_name: form.product_name.trim(),
+	unit_price: toNumberOrNull(form.unit_price, parseFloat),
+	cost_price: toNumberOrNull(form.cost_price, parseFloat),
+	stock_quantity: toNumberOrNull(form.stock_quantity, parseInt),
+	min_stock_quantity: toNumberOrNull(form.min_stock_quantity, parseInt),
+	reorder_level: toNumberOrNull(form.reorder_level, parseInt),
+	expiry_date: form.expiry_date ? new Date(form.expiry_date).toISOString() : null,
+	type: form.type.trim(),
+	batch_no: form.batch_no.trim() || null,
+	status: form.status || "active",
+	category_id: toNumberOrNull(form.category_id, parseInt),
+	brand_id: toNumberOrNull(form.brand_id, parseInt),
+	unit_id: toNumberOrNull(form.unit_id, parseInt),
 });
+
+const validateForm = (form) => {
+	for (const f of REQUIRED_FIELDS) {
+		if (f === "expiry_date" && !form[f]) continue;
+		if (!String(form[f] ?? "").trim()) {
+			return `Please fill in the required field: ${f.replace(/_/g, " ")}`;
+		}
+	}
+	return null;
+};
 
 const EDIT_FIELDS = [
   { name: "product_name", placeholder: "Product Name *", type: "text" },
@@ -49,6 +89,7 @@ function ProductsPage() {
   const [units, setUnits] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [product, setProduct] = useState(INITIAL_FORM);
 
   // Edit modal state
   const [editModal, setEditModal] = useState(false);
@@ -121,30 +162,28 @@ function ProductsPage() {
     setTimeout(() => { win.print(); win.close(); }, 400);
   };
 
-  const loadPageData = async () => {
-    setLoading(true);
-    try {
-      const [productsRes, categoryRes, brandsRes, unitsRes] = await Promise.all([
-        api.get("/products"),
-        api.get("/category"),
-        api.get("/brands"),
-        api.get("/units"),
-      ]);
-      const normalize = (res) => {
-        if (Array.isArray(res.data)) return res.data;
-        if (Array.isArray(res.data?.data)) return res.data.data;
-        return [];
-      };
-      setProducts(normalize(productsRes));
-      setCategories(normalize(categoryRes));
-      setBrands(normalize(brandsRes));
-      setUnits(normalize(unitsRes));
-    } catch (error) {
-      toast.error(error?.response?.data?.error || "Failed to load products");
-    } finally {
-      setLoading(false);
-    }
-  };
+	const loadPageData = async () => {
+		setLoading(true);
+		try {
+			const [productsRes, categoryRes, brandsRes, unitsRes] = await Promise.all([
+				api.get("/products"),
+				api.get("/category"),
+				api.get("/brands"),
+				api.get("/units"),
+			]);
+			// console.log("CATEGORY DATA:", categoryRes.data);
+			// console.log("BRANDS DATA:", brandsRes.data);
+			// console.log("UNITS DATA:", unitsRes.data);
+			setProducts(Array.isArray(productsRes.data) ? productsRes.data : []);
+			setCategories(Array.isArray(categoryRes.data) ? categoryRes.data : []);
+			setBrands(Array.isArray(brandsRes.data) ? brandsRes.data : []);
+			setUnits(Array.isArray(unitsRes.data) ? unitsRes.data : []);
+		} catch (error) {
+			toast.error("Failed to load products");
+		} finally {
+			setLoading(false);
+		}
+	};
 
   useEffect(() => { loadPageData(); }, []);
 
@@ -164,6 +203,63 @@ function ProductsPage() {
       ));
   }, [products, search]);
 
+	const handleChange = (e) => {
+		setProduct((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+	};
+
+	const resetForm = () => {
+		setProduct(INITIAL_FORM);
+		setEditId(null);
+	};
+
+	const saveProduct = async (e) => {
+		e.preventDefault();
+
+		const validationError = validateForm(product);
+		if (validationError) {
+			toast.error(validationError);
+			return;
+		}
+
+		setSubmitting(true);
+		try {
+			const payload = buildPayload(product);
+
+			if (editId) {
+				await api.put(`/products/${editId}`, payload);
+				toast.success("Product updated");
+			} else {
+				await api.post("/products", payload);
+				toast.success("Product added");
+			}
+
+			resetForm();
+			await loadPageData();
+		} catch (error) {
+			toast.error(error.response?.data?.error || "Failed to save product");
+		} finally {
+			setSubmitting(false);
+		}
+	};
+
+	const editProduct = (p) => {
+		setProduct({
+			product_name: p.product_name || "",
+			unit_price: p.unit_price ?? "",
+			cost_price: p.cost_price ?? "",
+			stock_quantity: p.stock_quantity ?? "",
+			min_stock_quantity: p.min_stock_quantity ?? "",
+			reorder_level: p.reorder_level ?? "",
+			type: p.type || "",
+			batch_no: p.batch_no || "",
+			status: p.status || "active",
+			category_id: p.category_id ?? "",
+			brand_id: p.brand_id ?? "",
+            expiry_date: p.expiry_date ?? "",
+			unit_id: p.unit_id ?? "",
+		});
+		setEditId(p.product_id);
+	};
   const openEdit = (p) => {
     setEditForm({
       product_name: p.product_name || "",
@@ -232,6 +328,109 @@ function ProductsPage() {
         </div>
       </div>
 
+			<input
+				className="search"
+				placeholder="Search by ID, name, type, or batch..."
+				value={search}
+				onChange={(e) => setSearch(e.target.value)}
+			/>
+
+			<form className="product-form" onSubmit={saveProduct}>
+				<input
+					name="product_name"
+					placeholder="Product Name *"
+					value={product.product_name}
+					onChange={handleChange}
+				/>
+				<input
+					name="unit_price"
+					type="number"
+					min="0"
+					step="0.01"
+					placeholder="Unit Price *"
+					value={product.unit_price}
+					onChange={handleChange}
+				/>
+				<input
+					name="cost_price"
+					type="number"
+					min="0"
+					step="0.01"
+					placeholder="Cost Price *"
+					value={product.cost_price}
+					onChange={handleChange}
+				/>
+				<input
+					name="stock_quantity"
+					type="number"
+					min="0"
+					placeholder="Stock Quantity *"
+					value={product.stock_quantity}
+					onChange={handleChange}
+				/>
+				<input
+					name="min_stock_quantity"
+					type="number"
+					min="0"
+					placeholder="Min Stock *"
+					value={product.min_stock_quantity}
+					onChange={handleChange}
+				/>
+				<input
+					name="reorder_level"
+					type="number"
+					min="0"
+					placeholder="Reorder Level *"
+					value={product.reorder_level}
+					onChange={handleChange}
+				/>
+                <input name="expiry_date" type="date" placeholder="Expiry Date (optional)" value={product.expiry_date ? product.expiry_date.split("T")[0] : ""} onChange={handleChange} />
+				<input name="type" placeholder="Type *" value={product.type} onChange={handleChange} />
+				<input name="batch_no" placeholder="Batch No (optional)" value={product.batch_no} onChange={handleChange} />
+
+				<select name="category_id" value={product.category_id} onChange={handleChange}>
+					<option value="">Select Category *</option>
+					{categories.map((c) => (
+						<option key={c.category_id} value={c.category_id}>
+							{c.category_name}
+						</option>
+					))}
+				</select>
+
+				<select name="brand_id" value={product.brand_id} onChange={handleChange}>
+					<option value="">Select Brand (optional)</option>
+					{brands.map((b) => (
+						<option key={b.brand_id} value={b.brand_id}>
+							{b.brand_name}
+						</option>
+					))}
+				</select>
+
+				<select name="unit_id" value={product.unit_id} onChange={handleChange}>
+					<option value="">Select Unit *</option>
+					{units.map((u) => (
+						<option key={u.unit_id} value={u.unit_id}>
+							{u.unit_name}
+						</option>
+					))}
+				</select>
+
+				<select name="status" value={product.status} onChange={handleChange}>
+					<option value="active">Active</option>
+					<option value="inactive">Inactive</option>
+				</select>
+
+				<div className="form-actions">
+					<button type="submit" className="save-btn" disabled={submitting}>
+						{submitting ? "Saving..." : editId ? "Update Product" : "Add Product"}
+					</button>
+					{editId && (
+						<button type="button" className="cancel-btn" onClick={resetForm}>
+							Cancel Edit
+						</button>
+					)}
+				</div>
+			</form>
       <div className="search-bar-wrap">
         <input
           className="search"
@@ -241,209 +440,65 @@ function ProductsPage() {
         />
       </div>
 
-      <div className="table-wrap">
-        <table className="products-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th>Category</th>
-              <th>Brand</th>
-              <th>Unit</th>
-              <th>Price</th>
-              <th>Stock Qty</th>
-              <th>Min Stock</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan="10" className="empty-row">Loading...</td></tr>
-            ) : filteredProducts.length === 0 ? (
-              <tr><td colSpan="10" className="empty-row">No products found.</td></tr>
-            ) : filteredProducts.map((p) => (
-              <tr key={p.product_id}>
-                <td><span className="id-badge">#{p.product_id}</span></td>
-                <td className="name-cell">{p.product_name}</td>
-                <td>{categoryMap.get(Number(p.category_id)) || "—"}</td>
-                <td>{brandMap.get(Number(p.brand_id)) || "—"}</td>
-                <td>{unitMap.get(Number(p.unit_id)) || "—"}</td>
-                <td className="price-cell">Rs. {Number(p.unit_price || 0).toFixed(2)}</td>
-                <td>
-                  <span className={`stock-badge ${p.stock_quantity <= p.min_stock_quantity ? "low" : ""}`}>
-                    {p.stock_quantity ?? 0}
-                  </span>
-                </td>
-                <td>{p.min_stock_quantity ?? 0}</td>
-                <td>
-                  <span className={`status-pill ${String(p.status).toLowerCase() === "active" ? "active" : "inactive"}`}>
-                    {p.status || "active"}
-                  </span>
-                </td>
-                <td>
-                  <div className="action-btns">
-                    <button className="icon-btn view" title="View" onClick={() => setViewProduct(p)}>
-                      <Eye size={15} />
-                    </button>
-                    <button className="icon-btn edit" title="Edit" onClick={() => openEdit(p)}>
-                      <Pencil size={15} />
-                    </button>
-                    <button className="icon-btn delete" title="Delete" onClick={() => deleteProduct(p.product_id)}>
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Edit Modal */}
-      {editModal && (
-        <div className="modal-overlay" onClick={() => setEditModal(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Edit Product</h2>
-              <button className="modal-close" onClick={() => setEditModal(false)}>✕</button>
-            </div>
-            <form className="modal-form" onSubmit={saveEdit}>
-              {EDIT_FIELDS.map((f) => (
-                <div className="modal-field" key={f.name}>
-                  <label>{f.placeholder}</label>
-                  <input
-                    name={f.name}
-                    type={f.type}
-                    step={f.step}
-                    min={f.type === "number" ? "0" : undefined}
-                    placeholder={f.placeholder}
-                    value={editForm[f.name]}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))}
-                  />
-                </div>
-              ))}
-              <div className="modal-field">
-                <label>Category *</label>
-                <select name="category_id" value={editForm.category_id} onChange={(e) => setEditForm((p) => ({ ...p, category_id: e.target.value }))}>
-                  <option value="">Select Category</option>
-                  {categories.map((c) => <option key={c.category_id} value={c.category_id}>{c.category_name}</option>)}
-                </select>
-              </div>
-              <div className="modal-field">
-                <label>Brand</label>
-                <select name="brand_id" value={editForm.brand_id} onChange={(e) => setEditForm((p) => ({ ...p, brand_id: e.target.value }))}>
-                  <option value="">Select Brand</option>
-                  {brands.map((b) => <option key={b.brand_id} value={b.brand_id}>{b.brand_name}</option>)}
-                </select>
-              </div>
-              <div className="modal-field">
-                <label>Unit *</label>
-                <select name="unit_id" value={editForm.unit_id} onChange={(e) => setEditForm((p) => ({ ...p, unit_id: e.target.value }))}>
-                  <option value="">Select Unit</option>
-                  {units.map((u) => <option key={u.unit_id} value={u.unit_id}>{u.unit_name}</option>)}
-                </select>
-              </div>
-              <div className="modal-field">
-                <label>Status</label>
-                <select name="status" value={editForm.status} onChange={(e) => setEditForm((p) => ({ ...p, status: e.target.value }))}>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="modal-cancel" onClick={() => setEditModal(false)}>Cancel</button>
-                <button type="submit" className="modal-save" disabled={submitting}>{submitting ? "Saving..." : "Save Changes"}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* View Modal */}
-      {viewProduct && (
-        <div className="modal-overlay" onClick={() => setViewProduct(null)}>
-          <div className="modal-box view-modal" onClick={(e) => e.stopPropagation()} ref={printRef}>
-            <div className="modal-header">
-              <h2>Product Details</h2>
-              <div className="view-header-actions">
-                <button className="export-pdf-btn" onClick={exportPDF} title="Export as PDF">
-                  <FileDown size={15} />
-                  Export PDF
-                </button>
-                <button className="modal-close" onClick={() => setViewProduct(null)}>✕</button>
-              </div>
-            </div>
-
-            <div className="view-section">
-              <p className="view-section-title">Basic Information</p>
-              <div className="view-grid">
-                {[
-                  ["Product ID", `#${viewProduct.product_id}`],
-                  ["Product Name", viewProduct.product_name],
-                  ["Type", viewProduct.type || "—"],
-                  ["Batch No", viewProduct.batch_no || "—"],
-                  ["Status", <span key="s" className={`status-pill ${String(viewProduct.status).toLowerCase() === "active" ? "active" : "inactive"}`}>{viewProduct.status || "active"}</span>],
-                ].map(([label, value]) => (
-                  <div className="view-row" key={label}>
-                    <span className="view-label">{label}</span>
-                    <span className="view-value">{value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="view-section">
-              <p className="view-section-title">Classification</p>
-              <div className="view-grid">
-                {[
-                  ["Category", categoryMap.get(Number(viewProduct.category_id)) || "—"],
-                  ["Brand", brandMap.get(Number(viewProduct.brand_id)) || "—"],
-                  ["Unit", unitMap.get(Number(viewProduct.unit_id)) || "—"],
-                ].map(([label, value]) => (
-                  <div className="view-row" key={label}>
-                    <span className="view-label">{label}</span>
-                    <span className="view-value">{value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="view-section">
-              <p className="view-section-title">Pricing</p>
-              <div className="view-grid">
-                {[
-                  ["Unit Price", `Rs. ${Number(viewProduct.unit_price || 0).toFixed(2)}`],
-                  ["Cost Price", `Rs. ${Number(viewProduct.cost_price || 0).toFixed(2)}`],
-                ].map(([label, value]) => (
-                  <div className="view-row" key={label}>
-                    <span className="view-label">{label}</span>
-                    <span className="view-value">{value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="view-section">
-              <p className="view-section-title">Stock Details</p>
-              <div className="view-grid">
-                {[
-                  ["Stock Quantity", viewProduct.stock_quantity ?? 0],
-                  ["Min Stock", viewProduct.min_stock_quantity ?? 0],
-                  ["Reorder Level", viewProduct.reorder_level ?? 0],
-                ].map(([label, value]) => (
-                  <div className="view-row" key={label}>
-                    <span className="view-label">{label}</span>
-                    <span className="view-value">{value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+			<div className="table-wrap">
+				<table className="products-table">
+					<thead>
+						<tr>
+							<th>ID</th>
+							<th>Name</th>
+							<th>Category</th>
+							<th>Brand</th>
+							<th>Unit</th>
+							<th>Price</th>
+							<th>Stock Qty</th>
+							<th>Min Stock</th>
+							<th>Reorder Level</th>
+							<th>Expiry Date</th>
+							<th>Status</th>
+							<th>Actions</th>
+						</tr>
+					</thead>
+					<tbody>
+						{filteredProducts.length === 0 && !loading ? (
+							<tr>
+								<td colSpan="11" className="empty-row">
+									No products found.
+								</td>
+							</tr>
+						) : (
+							filteredProducts.map((p) => (
+								<tr key={p.product_id}>
+									<td>{p.product_id}</td>
+									<td>{p.product_name}</td>
+									<td>{categoryMap.get(Number(p.category_id)) || p.category_id}</td>
+									<td>{brandMap.get(Number(p.brand_id)) || "-"}</td>
+									<td>{unitMap.get(Number(p.unit_id)) || p.unit_id}</td>
+									<td>{Number(p.unit_price || 0).toFixed(2)}</td>
+									<td>{p.stock_quantity ?? 0}</td>
+									<td>{p.min_stock_quantity ?? 0}</td>
+									<td>{p.reorder_level ?? 0}</td>
+                                    <td>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString() : "-"}</td>
+									<td>
+										<span className={`status-pill ${String(p.status).toLowerCase() === "active" ? "active" : "inactive"}`}>
+											{p.status || "active"}
+										</span>
+									</td>
+									<td>
+										<button className="edit-btn" onClick={() => editProduct(p)}>
+											Edit
+										</button>
+										<button className="delete-btn" onClick={() => deleteProduct(p.product_id)}>
+											Delete
+										</button>
+									</td>
+								</tr>
+							))
+						)}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	);
 }
 
 export default function Products() {

@@ -4,7 +4,15 @@ import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import DashboardLayout from "../components/DashboardLayout";
+import {
+  DollarSign,
+  ShoppingCart,
+  RotateCcw,
+  Clock,
+  TrendingUp
+} from "lucide-react";
 import "../styles/Dashboard.css";
+import "../styles/AnalyticalDashboard.css";
 
 function CashierDashboard() {
   const navigate = useNavigate();
@@ -63,83 +71,131 @@ function CashierDashboard() {
     navigate("/", { replace: true });
   };
 
-  const statusColor = (status) => {
-    const s = (status || "").toLowerCase();
-    if (s === "paid" || s === "completed") return "#10b981";
-    if (s === "partial") return "#f59e0b";
-    if (s === "pending") return "#6b7280";
-    return "#6b7280";
-  };
+  const kpiCards = [
+    {
+      id: 1,
+      title: "Sales Today",
+      icon: DollarSign,
+      renderValue: () => (
+        <div className="kpi-value-wrapper">
+          <span className="kpi-currency">Rs</span>
+          <span className="kpi-number">{stats.salesToday.toFixed(2)}</span>
+        </div>
+      ),
+      trend: "+Today",
+      label: `${stats.transactionsCount} transactions`
+    },
+    {
+      id: 2,
+      title: "Items Sold",
+      icon: ShoppingCart,
+      renderValue: () => <div className="kpi-value">{stats.itemsSold}</div>,
+      trend: "This shift",
+      label: "units dispatched"
+    },
+    {
+      id: 3,
+      title: "Returns",
+      icon: RotateCcw,
+      renderValue: () => <div className="kpi-value">{stats.returnsCount}</div>,
+      trend: "Today",
+      label: "processed returns"
+    },
+    {
+      id: 4,
+      title: "Shift Time",
+      icon: Clock,
+      renderValue: () => <div className="kpi-value">{shiftTime}</div>,
+      trend: "Active",
+      label: "time elapsed"
+    }
+  ];
 
   return (
     <DashboardLayout active="home">
-      <div className="header">
-        <h1>Welcome, {userName}! 👋</h1>
-        <p>Cashier Dashboard</p>
-      </div>
+      <div className="analytics-container">
 
-      {/* Horizontal stat cards */}
-      <div className="cashier-stats-row">
-        <div className="cashier-stat-card">
-          <div className="cashier-stat-icon" style={{ background: "#ede9fe" }}>💰</div>
-          <div className="cashier-stat-info">
-            <span className="cashier-stat-label">Sales Today</span>
-            <span className="cashier-stat-value">Rs {stats.salesToday.toFixed(2)}</span>
-            <span className="cashier-stat-sub">{stats.transactionsCount} transactions</span>
+        {/* Page Header */}
+        <div className="analytics-header">
+          <div>
+            <h1>Welcome, {userName}!</h1>
+            <p>Cashier Dashboard &mdash; real-time shift overview</p>
+          </div>
+          <div className="analytics-timeframe-badge">
+            <Clock size={15} />
+            <span>Shift: {shiftTime}</span>
           </div>
         </div>
-        <div className="cashier-stat-card">
-          <div className="cashier-stat-icon" style={{ background: "#dbeafe" }}>🛒</div>
-          <div className="cashier-stat-info">
-            <span className="cashier-stat-label">Items Sold</span>
-            <span className="cashier-stat-value">{stats.itemsSold}</span>
-            <span className="cashier-stat-sub">This shift</span>
-          </div>
-        </div>
-        <div className="cashier-stat-card">
-          <div className="cashier-stat-icon" style={{ background: "#fee2e2" }}>↩️</div>
-          <div className="cashier-stat-info">
-            <span className="cashier-stat-label">Returns</span>
-            <span className="cashier-stat-value">{stats.returnsCount}</span>
-            <span className="cashier-stat-sub">Today</span>
-          </div>
-        </div>
-        <div className="cashier-stat-card">
-          <div className="cashier-stat-icon" style={{ background: "#dcfce7" }}>⏱️</div>
-          <div className="cashier-stat-info">
-            <span className="cashier-stat-label">Shift Time</span>
-            <span className="cashier-stat-value">{shiftTime}</span>
-            <span className="cashier-stat-sub">Elapsed</span>
-          </div>
-        </div>
-      </div>
 
-      {/* Recent Transactions — newest first */}
-      <div className="recent-section">
-        <h2>Recent Transactions</h2>
-        <div className="cashier-txn-list">
-          {(!stats.recentTransactions || stats.recentTransactions.length === 0) ? (
-            <div className="cashier-txn-empty">No transactions today yet.</div>
-          ) : (
-            stats.recentTransactions.map((txn) => (
-              <div key={txn.bill_id} className="cashier-txn-row">
-                <div className="cashier-txn-left">
-                  <span className="cashier-txn-id">#{txn.bill_id}</span>
-                  <span className="cashier-txn-customer">{txn.customer}</span>
-                </div>
-                <div className="cashier-txn-mid">
-                  <span className="cashier-txn-time">{txn.time}</span>
-                </div>
-                <div className="cashier-txn-right">
-                  <span className="cashier-txn-amount">Rs {txn.amount.toFixed(2)}</span>
-                  <span className="cashier-txn-status" style={{ color: statusColor(txn.status) }}>
-                    {txn.status.toUpperCase()}
+        {/* KPI Cards — same design as Admin Dashboard */}
+        <div className="kpi-grid">
+          {kpiCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <div key={card.id} className="kpi-card">
+                <div className="kpi-card-header">
+                  <span className="kpi-title">{card.title}</span>
+                  <span className="kpi-icon-wrapper">
+                    <Icon size={18} />
                   </span>
                 </div>
+                {card.renderValue()}
+                <div className="kpi-card-footer">
+                  <span className="trend-badge up">
+                    <TrendingUp size={12} />
+                    {card.trend}
+                  </span>
+                  <span className="trend-lbl">{card.label}</span>
+                </div>
               </div>
-            ))
-          )}
+            );
+          })}
         </div>
+
+        {/* Recent Transactions — same ledger panel style as Admin Dashboard */}
+        <div className="ledger-panel">
+          <div className="ledger-panel-header">
+            <h3>Recent Transactions</h3>
+          </div>
+
+          <div className="ledger-list">
+            {(!stats.recentTransactions || stats.recentTransactions.length === 0) ? (
+              <div className="empty-message-wrapper">
+                <p className="empty-message">No transactions today yet.</p>
+              </div>
+            ) : (
+              stats.recentTransactions.map((txn, index) => {
+                const s = (txn.status || "").toLowerCase();
+                const statusClass = (s === "paid" || s === "completed") ? "completed" : "pending";
+                return (
+                  <div
+                    key={txn.bill_id}
+                    className="ledger-row stagger-item"
+                    style={{ animationDelay: `${index * 40}ms` }}
+                  >
+                    <div className="ledger-left">
+                      <span className="ledger-id-badge">#{txn.bill_id}</span>
+                      <span className="ledger-customer-name">{txn.customer}</span>
+                    </div>
+                    <div className="ledger-center">
+                      <span className="ledger-timestamp">{txn.time}</span>
+                    </div>
+                    <div className="ledger-right">
+                      <span className="ledger-amount">
+                        <span className="ledger-currency">Rs</span>
+                        {" "}{txn.amount.toFixed(2)}
+                      </span>
+                      <span className={`ledger-status ${statusClass}`}>
+                        {txn.status.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
       </div>
     </DashboardLayout>
   );
