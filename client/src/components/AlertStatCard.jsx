@@ -312,24 +312,12 @@ function AlertModal({ activeType, setActiveType, onClose }) {
 
   const INVENTORY_ALERT_TYPES = ["Out of Stock", "Low Stock", "Reorder"];
 
-  async function resolveAlert(id, alertType) {
+  async function resolveAlert(id) {
     try {
       const res = await api.put(`/alerts/${id}/resolve`);
-      const { message, restock } = res.data;
-
-      toast.success(message, { duration: restock ? 5000 : 3000 });
-
-      if (restock) {
-        // Inventory restock: all three inventory alert types were recalculated
-        // on the server. Re-fetch this tab from source of truth so the table
-        // reflects exactly what the DB contains (rows may disappear if resolved).
-        await fetchForType(activeType);
-      } else {
-        // Near Expiry or other: just mark this single row resolved in-place
-        setAlerts((s) =>
-          s.map((it) => (it.alert_id === id || it.id === id ? { ...it, is_resolved: true } : it))
-        );
-      }
+      toast.success(res.data.message || "Alert resolved.", { duration: 3000 });
+      // Re-fetch the current tab so resolved rows disappear from the unresolved list
+      await fetchForType(activeType);
     } catch (err) {
       const msg = err?.response?.data?.message || "Failed to resolve alert";
       toast.error(msg);
@@ -444,32 +432,18 @@ function AlertModal({ activeType, setActiveType, onClose }) {
                     <td style={td}>
                       <button
                         disabled={resolved}
-                        onClick={() => resolveAlert(id, a.alert_type)}
+                        onClick={() => resolveAlert(id)}
                         style={{
                           padding: "5px 12px", borderRadius: 7,
-                          border: resolved
-                            ? "1.5px solid #e5e7eb"
-                            : INVENTORY_ALERT_TYPES.includes(a.alert_type)
-                              ? "1.5px solid #8b3a3a"
-                              : "1.5px solid #e5e7eb",
-                          background: resolved
-                            ? "#f3f4f6"
-                            : INVENTORY_ALERT_TYPES.includes(a.alert_type)
-                              ? "rgba(139,58,58,0.07)"
-                              : "#fff",
-                          color: resolved
-                            ? "#9ca3af"
-                            : INVENTORY_ALERT_TYPES.includes(a.alert_type)
-                              ? "#8b3a3a"
-                              : "#2c2c2c",
+                          border: resolved ? "1.5px solid #e5e7eb" : `1.5px solid ${THEME_BORDER}`,
+                          background: resolved ? "#f3f4f6" : THEME_BG,
+                          color: resolved ? "#9ca3af" : THEME,
                           cursor: resolved ? "not-allowed" : "pointer",
                           fontSize: "0.8rem", fontWeight: 600,
                           whiteSpace: "nowrap",
                         }}
                       >
-                        {!resolved && INVENTORY_ALERT_TYPES.includes(a.alert_type)
-                          ? "⟳ Receive Stock"
-                          : "Resolve"}
+                        Resolve
                       </button>
                     </td>
                   </tr>

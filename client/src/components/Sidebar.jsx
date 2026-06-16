@@ -19,6 +19,8 @@ import {
   RefreshCw,
   ShieldAlert,
   TrendingUp,
+  Truck,
+  ClipboardList,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import "../styles/Sidebar.css";
@@ -134,6 +136,12 @@ const getNavItems = (role) => {
     // Audit Logs is Admin-only
     ...(normalizedRole === "admin"
       ? [{ key: "audit", label: "Audit Logs", icon: ShieldAlert, path: "/audit-logs" }]
+      : []),
+    // Procurement — Admin and Manager
+    ...(normalizedRole !== "cashier"
+      ? [
+          { key: "procurement", label: "Procurement",   icon: Truck,          path: "/procurement" }
+        ]
       : []),
   ];
 };

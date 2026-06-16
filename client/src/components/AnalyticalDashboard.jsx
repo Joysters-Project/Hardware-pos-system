@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-// import AlertStatCard from "../components/AlertStatCard";
-import axios from "axios";
+import api from "../api/axios";
 import {
   TrendingUp,
   TrendingDown,
@@ -31,7 +30,7 @@ import {
 } from "recharts";
 import toast from "react-hot-toast";
 import "../styles/AnalyticalDashboard.css";
-const API_BASE = "http://localhost:5000/api";
+
 
 export default function AnalyticalDashboard() {
   const [timeframe, setTimeframe] = useState("daily"); // daily, weekly, monthly
@@ -172,7 +171,6 @@ export default function AnalyticalDashboard() {
             </div>
           );
         })}
-        {/* <AlertStatCard /> */}
       </div>
 
       {/* Multi-Chart Grid Panel (3 related graphs) */}
@@ -200,7 +198,7 @@ export default function AnalyticalDashboard() {
 
           <div className="chart-wrapper">
             {activeData.revenue?.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
+              <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={activeData.revenue} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="chart-gradient-maroon" x1="0" y1="0" x2="0" y2="1">
@@ -260,7 +258,7 @@ export default function AnalyticalDashboard() {
             </div>
             <div className="chart-wrapper">
               {activeData.efficiency?.length > 0 ? (
-                <ResponsiveContainer width="100%" height={280}>
+                <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={activeData.efficiency} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                     <XAxis
@@ -321,7 +319,7 @@ export default function AnalyticalDashboard() {
             </div>
             <div className="chart-wrapper">
               {activeData.categories?.length > 0 ? (
-                <ResponsiveContainer width="100%" height={280}>
+                <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={activeData.categories} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                     <XAxis
@@ -407,12 +405,10 @@ export default function AnalyticalDashboard() {
                   </span>
                 </div>
               </div>
-              
             ))
           )}
         </div>
       </div>
-      
     </div>
   );
 }
