@@ -21,6 +21,7 @@ import {
   TrendingUp,
   Truck,
   ClipboardList,
+  UserCircle,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import "../styles/Sidebar.css";
@@ -133,9 +134,7 @@ const getNavItems = (role) => {
       : []),
     // Procurement — Admin and Manager
     ...(normalizedRole !== "cashier"
-      ? [
-          { key: "procurement", label: "Procurement",   icon: Truck,          path: "/procurement" }
-        ]
+      ? [{ key: "procurement", label: "Procurement", icon: Truck, path: "/procurement" }]
       : []),
   ];
 };
@@ -259,7 +258,9 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
         <div className="sidebar-float__footer">
           <Link
             to="/profile"
-            className="sidebar-float__user-block"
+            className={`sidebar-float__user-block ${
+              location.pathname === "/profile" ? "sidebar-float__user-block--active" : ""
+            }`}
             title={isCollapsed ? `${userName} (${displayRole})` : undefined}
           >
             <div className="sidebar-float__avatar">{initials}</div>

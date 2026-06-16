@@ -7,6 +7,7 @@
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  animation: page-fade-up 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* ── Page header ── */

@@ -26,6 +26,7 @@ import Expenses from "./pages/Expenses";
 import SalaryManagement from "./pages/SalaryManagement";
 import AuditLogs from "./pages/AuditLogs";
 import SalaryHistory from "./pages/SalaryHistory";
+import MyProfile from "./pages/MyProfile";
 import BillingSystem from "./components/billingSystem";
 import DueCollection from "./components/DueCollection";
 import ReturnSystem from "./components/ReturnSystem";
@@ -112,6 +113,9 @@ function AppRoutes() {
 
       {/* Admin-only */}
       <Route path="/audit-logs" element={<ProtectedRoute requiredRole="admin"><AuditLogs /></ProtectedRoute>} />
+
+      {/* Profile — all authenticated roles */}
+      <Route path="/profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
 
       {/* ── Procurement Module ── */}
       <Route

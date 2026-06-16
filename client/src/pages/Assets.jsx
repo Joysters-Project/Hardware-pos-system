@@ -223,9 +223,9 @@ function AssetsPage() {
                 <input type="number" min="0" step="0.01" value={form.cost}
                   onChange={e => setForm({ ...form, cost: e.target.value, expense_amount: e.target.value })} required /></div>
               <div className="asset-field"><label>Purchase Date *</label>
-                <input type="date" value={form.purchase_date} onChange={e => setForm({ ...form, purchase_date: e.target.value })} required /></div>
+                <input type="date" value={form.purchase_date} max={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, purchase_date: e.target.value })} required /></div>
               <div className="asset-field"><label>Expiration Date</label>
-                <input type="date" value={form.expiration_date} onChange={e => setForm({ ...form, expiration_date: e.target.value })} /></div>
+                <input type="date" value={form.expiration_date} min={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, expiration_date: e.target.value })} /></div>
               <div className="asset-field"><label>Status</label>
                 <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
                   {ASSET_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}

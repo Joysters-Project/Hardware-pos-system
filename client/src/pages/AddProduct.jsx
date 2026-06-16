@@ -138,7 +138,7 @@ function AddProductPage() {
 						</div>
 						<div className="field-group">
 							<label>Expiry Date</label>
-							<input name="expiry_date" type="date" value={form.expiry_date} onChange={handleChange} />
+							<input name="expiry_date" type="date" value={form.expiry_date} min={new Date().toISOString().split("T")[0]}onChange={handleChange} />
 						</div>
 						<div className="field-group">
 							<label>Status</label>

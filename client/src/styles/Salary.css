@@ -13,6 +13,7 @@
   flex-direction: column;
   gap: 1.25rem;
   box-sizing: border-box;
+  animation: page-fade-up 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* ── Header ── */
