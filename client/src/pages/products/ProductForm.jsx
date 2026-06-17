@@ -1,104 +1,73 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Save, Loader2, Package, Tag, DollarSign, Boxes, Hash } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Package, Tag, DollarSign, Boxes, Hash, Calendar } from 'lucide-react';
 import { productService, categoryService, brandService, unitService } from '../../services/api';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
-import { PageTransition } from '@/components/PageTransition';
 import toast from 'react-hot-toast';
-
-const formVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.5, staggerChildren: 0.08 },
-  },
-};
+import '../../styles/ProductForm.css';
 
 const fieldVariants = {
-  hidden: { opacity: 0, x: -20 },
+  hidden:  { opacity: 0, x: -16 },
   visible: { opacity: 1, x: 0 },
 };
 
-function ProductForm() {
+export default function ProductForm() {
   const navigate = useNavigate();
-  const { id } = useParams();
-  const isEdit = Boolean(id);
+  const { id }   = useParams();
+  const isEdit   = Boolean(id);
 
   const [formData, setFormData] = useState({
-    product_name: '',
-    unit_price: '',
-    cost_price: '',
-    stock_quantity: '0',
-    min_stock_quantity: '0',
-    reorder_level: '',
-    type: '',
-    batch_no: '',
-    expiry_date: '',
-    category_id: '',
-    brand_id: '',
-    unit_id: '',
+    product_name: '', unit_price: '', cost_price: '',
+    stock_quantity: '0', min_stock_quantity: '0', reorder_level: '',
+    type: '', batch_no: '', expiry_date: '',
+    category_id: '', brand_id: '', unit_id: '',
   });
   const [categories, setCategories] = useState([]);
-  const [brands, setBrands] = useState([]);
-  const [units, setUnits] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(isEdit);
-  const [error, setError] = useState(null);
+  const [brands,     setBrands]     = useState([]);
+  const [units,      setUnits]      = useState([]);
+  const [loading,    setLoading]    = useState(false);
+  const [fetching,   setFetching]   = useState(isEdit);
+  const [error,      setError]      = useState(null);
 
   useEffect(() => {
     fetchReferenceData();
-    if (isEdit) {
-      fetchProduct();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (isEdit) fetchProduct();
   }, [id]);
 
   const fetchReferenceData = async () => {
     try {
-      const [categoriesRes, brandsRes, unitsRes] = await Promise.all([
-        categoryService.getAll(),
-        brandService.getAll(),
-        unitService.getAll(),
+      const [catRes, brandRes, unitRes] = await Promise.all([
+        categoryService.getAll(), brandService.getAll(), unitService.getAll(),
       ]);
-      setCategories(categoriesRes.data);
-      setBrands(brandsRes.data);
-      setUnits(unitsRes.data);
-    } catch (err) {
+      setCategories(catRes.data);
+      setBrands(brandRes.data);
+      setUnits(unitRes.data);
+    } catch {
       toast.error('Failed to load reference data');
-      console.error(err);
     }
   };
 
   const fetchProduct = async () => {
     try {
       setFetching(true);
-      const response = await productService.getById(id);
-      const product = response.data;
+      const { data: p } = await productService.getById(id);
       setFormData({
-        product_name: product.product_name || '',
-        unit_price: product.unit_price?.toString() || '',
-        cost_price: product.cost_price?.toString() || '',
-        stock_quantity: product.stock_quantity?.toString() || '0',
-        min_stock_quantity: product.min_stock_quantity?.toString() || '0',
-        reorder_level: product.reorder_level?.toString() || '',
-        type: product.type || '',
-        batch_no: product.batch_no || '',
-        expiry_date: product.expiry_date ? String(product.expiry_date).slice(0, 10) : '',
-        category_id: product.category_id?.toString() || '',
-        brand_id: product.brand_id?.toString() || '',
-        unit_id: product.unit_id?.toString() || '',
+        product_name:       p.product_name        || '',
+        unit_price:         p.unit_price?.toString()         || '',
+        cost_price:         p.cost_price?.toString()         || '',
+        stock_quantity:     p.stock_quantity?.toString()     || '0',
+        min_stock_quantity: p.min_stock_quantity?.toString() || '0',
+        reorder_level:      p.reorder_level?.toString()      || '',
+        type:               p.type      || '',
+        batch_no:           p.batch_no  || '',
+        expiry_date:        p.expiry_date ? String(p.expiry_date).slice(0, 10) : '',
+        category_id:        p.category_id?.toString() || '',
+        brand_id:           p.brand_id?.toString()   || '',
+        unit_id:            p.unit_id?.toString()    || '',
       });
-    } catch (err) {
+    } catch {
       setError('Failed to fetch product');
       toast.error('Failed to fetch product');
-      console.error(err);
     } finally {
       setFetching(false);
     }
@@ -106,38 +75,32 @@ function ProductForm() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
-
     if (!formData.product_name || !formData.unit_price || !formData.cost_price || !formData.category_id || !formData.unit_id) {
-      setError('Product name, unit price, cost price, category, and unit are required');
+      setError('Product name, unit price, cost price, category and unit are required');
       return;
     }
-
     try {
       setLoading(true);
       const data = {
-        product_name: formData.product_name,
-        unit_price: parseFloat(formData.unit_price),
-        cost_price: parseFloat(formData.cost_price),
-        stock_quantity: parseInt(formData.stock_quantity) || 0,
+        product_name:       formData.product_name,
+        unit_price:         parseFloat(formData.unit_price),
+        cost_price:         parseFloat(formData.cost_price),
+        stock_quantity:     parseInt(formData.stock_quantity)     || 0,
         min_stock_quantity: parseInt(formData.min_stock_quantity) || 0,
-        reorder_level: parseInt(formData.reorder_level) || 0,
-        type: formData.type,
-        batch_no: formData.batch_no || null,
-        expiry_date: formData.expiry_date || null,
-        category_id: parseInt(formData.category_id),
-        brand_id: formData.brand_id ? parseInt(formData.brand_id) : null,
-        unit_id: parseInt(formData.unit_id),
+        reorder_level:      parseInt(formData.reorder_level)      || 0,
+        type:               formData.type,
+        batch_no:           formData.batch_no    || null,
+        expiry_date:        formData.expiry_date || null,
+        category_id:        parseInt(formData.category_id),
+        brand_id:           formData.brand_id ? parseInt(formData.brand_id) : null,
+        unit_id:            parseInt(formData.unit_id),
       };
-
       if (isEdit) {
         await productService.update(id, data);
         toast.success('Product updated successfully');
@@ -147,10 +110,9 @@ function ProductForm() {
       }
       navigate('/products');
     } catch (err) {
-      const message = err.response?.data?.error || 'Failed to save product';
-      setError(message);
-      toast.error(message);
-      console.error(err);
+      const msg = err.response?.data?.error || 'Failed to save product';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -158,346 +120,172 @@ function ProductForm() {
 
   if (fetching) {
     return (
-      <PageTransition>
-        <div className="space-y-8">
-          <div className="flex items-center gap-4">
-            <Skeleton className="h-10 w-10" />
-            <div className="space-y-2">
-              <Skeleton className="h-8 w-48" />
-              <Skeleton className="h-4 w-64" />
-            </div>
+      <div className="pf-skeleton-page">
+        <div className="pf-skeleton-header">
+          <div className="pf-skeleton-box" style={{ width: 38, height: 38, borderRadius: 9 }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="pf-skeleton-box" style={{ width: 200, height: 28 }} />
+            <div className="pf-skeleton-box" style={{ width: 260, height: 16 }} />
           </div>
-          <Card className="max-w-3xl border-0 shadow-xl">
-            <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100">
-              <Skeleton className="h-6 w-48" />
-              <Skeleton className="h-4 w-96" />
-            </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              {[...Array(8)].map((_, i) => (
-                <div key={i} className="space-y-2">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
-              ))}
-            </CardContent>
-          </Card>
         </div>
-      </PageTransition>
+        <div className="pf-card" style={{ maxWidth: 820 }}>
+          <div className="pf-card-header"><h2>Loading...</h2></div>
+          <div className="pf-card-body">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div className="pf-skeleton-box" style={{ width: 100, height: 14 }} />
+                <div className="pf-skeleton-box" style={{ width: '100%', height: 40 }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <PageTransition>
-      <div className="space-y-8">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-4"
-        >
-          <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-            <Link to="/products">
-              <Button variant="outline" size="icon" className="shadow-md hover:shadow-lg">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
-          </motion.div>
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent">
-              {isEdit ? 'Edit Product' : 'Add Product'}
-            </h1>
-            <p className="mt-1 text-slate-500">
-              {isEdit ? 'Update product information' : 'Add a new product to your inventory'}
-            </p>
+    <motion.div className="pf-page"
+      initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+
+      {/* Header */}
+      <div className="pf-header">
+        <Link to="/products" className="pf-back-btn">
+          <ArrowLeft size={16} />
+        </Link>
+        <div>
+          <h1>{isEdit ? 'Edit Product' : 'Add Product'}</h1>
+          <p>{isEdit ? 'Update product information' : 'Add a new product to your inventory'}</p>
+        </div>
+      </div>
+
+      {/* Form Card */}
+      <form onSubmit={handleSubmit}>
+        <motion.div className="pf-card"
+          initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <div className="pf-card-header">
+            <Package size={18} />
+            <div>
+              <h2>Product Information</h2>
+              <p>Fields marked with * are required</p>
+            </div>
+          </div>
+
+          <div className="pf-card-body">
+            {error && (
+              <motion.div className="pf-error"
+                initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}>
+                {error}
+              </motion.div>
+            )}
+
+            {/* Product Name */}
+            <motion.div className="pf-field" variants={fieldVariants} initial="hidden" animate="visible" transition={{ delay: 0.12 }}>
+              <label className="pf-label"><Tag size={13} /> Product Name <span className="pf-req">*</span></label>
+              <input className="pf-input" name="product_name" value={formData.product_name}
+                onChange={handleChange} placeholder="Enter product name" required />
+            </motion.div>
+
+            {/* Type, Batch, Expiry */}
+            <motion.div className="pf-grid-3" variants={fieldVariants} initial="hidden" animate="visible" transition={{ delay: 0.16 }}>
+              <div className="pf-field">
+                <label className="pf-label"><Package size={13} /> Product Type</label>
+                <input className="pf-input" name="type" value={formData.type}
+                  onChange={handleChange} placeholder="e.g. Hardware" />
+              </div>
+              <div className="pf-field">
+                <label className="pf-label"><Hash size={13} /> Batch Number</label>
+                <input className="pf-input" name="batch_no" value={formData.batch_no}
+                  onChange={handleChange} placeholder="e.g. BATCH-001" />
+              </div>
+              <div className="pf-field">
+                <label className="pf-label"><Calendar size={13} /> Expiry Date</label>
+                <input className="pf-input" type="date" name="expiry_date"
+                  value={formData.expiry_date} onChange={handleChange} />
+              </div>
+            </motion.div>
+
+            {/* Prices */}
+            <motion.div className="pf-grid-2" variants={fieldVariants} initial="hidden" animate="visible" transition={{ delay: 0.2 }}>
+              <div className="pf-field">
+                <label className="pf-label"><DollarSign size={13} /> Cost Price <span className="pf-req">*</span></label>
+                <input className="pf-input" type="number" step="0.01" min="0" name="cost_price"
+                  value={formData.cost_price} onChange={handleChange} placeholder="0.00" required />
+              </div>
+              <div className="pf-field">
+                <label className="pf-label"><DollarSign size={13} /> Unit Price <span className="pf-req">*</span></label>
+                <input className="pf-input" type="number" step="0.01" min="0" name="unit_price"
+                  value={formData.unit_price} onChange={handleChange} placeholder="0.00" required />
+              </div>
+            </motion.div>
+
+            {/* Category, Brand, Unit */}
+            <motion.div className="pf-grid-3" variants={fieldVariants} initial="hidden" animate="visible" transition={{ delay: 0.24 }}>
+              <div className="pf-field">
+                <label className="pf-label">Category <span className="pf-req">*</span></label>
+                <select className="pf-select" name="category_id" value={formData.category_id}
+                  onChange={handleChange} required>
+                  <option value="">Select Category</option>
+                  {categories.map(c => (
+                    <option key={c.category_id} value={c.category_id}>{c.category_name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="pf-field">
+                <label className="pf-label">Brand</label>
+                <select className="pf-select" name="brand_id" value={formData.brand_id} onChange={handleChange}>
+                  <option value="">Select Brand</option>
+                  {brands.map(b => (
+                    <option key={b.brand_id} value={b.brand_id}>{b.brand_name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="pf-field">
+                <label className="pf-label">Unit <span className="pf-req">*</span></label>
+                <select className="pf-select" name="unit_id" value={formData.unit_id}
+                  onChange={handleChange} required>
+                  <option value="">Select Unit</option>
+                  {units.map(u => (
+                    <option key={u.unit_id} value={u.unit_id}>{u.unit_name}</option>
+                  ))}
+                </select>
+              </div>
+            </motion.div>
+
+            {/* Stock Levels */}
+            <motion.div className="pf-grid-3" variants={fieldVariants} initial="hidden" animate="visible" transition={{ delay: 0.28 }}>
+              <div className="pf-field">
+                <label className="pf-label"><Boxes size={13} /> Stock Quantity</label>
+                <input className="pf-input" type="number" min="0" name="stock_quantity"
+                  value={formData.stock_quantity} onChange={handleChange} />
+              </div>
+              <div className="pf-field">
+                <label className="pf-label"><Boxes size={13} /> Min Stock Quantity</label>
+                <input className="pf-input" type="number" min="0" name="min_stock_quantity"
+                  value={formData.min_stock_quantity} onChange={handleChange} />
+              </div>
+              <div className="pf-field">
+                <label className="pf-label"><Boxes size={13} /> Reorder Level</label>
+                <input className="pf-input" type="number" min="0" name="reorder_level"
+                  value={formData.reorder_level} onChange={handleChange} />
+              </div>
+            </motion.div>
+
+            <hr className="pf-divider" />
+
+            {/* Actions */}
+            <motion.div className="pf-footer" variants={fieldVariants} initial="hidden" animate="visible" transition={{ delay: 0.32 }}>
+              <Link to="/products" className="pf-btn-cancel">Cancel</Link>
+              <motion.button type="submit" className="pf-btn-submit" disabled={loading}
+                whileHover={{ scale: loading ? 1 : 1.02 }} whileTap={{ scale: loading ? 1 : 0.98 }}>
+                {loading
+                  ? <><Loader2 size={15} className="pf-spinner" /> Saving...</>
+                  : <><Save size={15} /> {isEdit ? 'Update Product' : 'Add Product'}</>
+                }
+              </motion.button>
+            </motion.div>
           </div>
         </motion.div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit}>
-          <motion.div
-            variants={formVariants}
-            initial="hidden"
-            animate="visible"
-            className="max-w-3xl"
-          >
-            <Card className="border-0 shadow-xl overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white">
-                <CardTitle className="flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  Product Information
-                </CardTitle>
-                <CardDescription className="text-blue-100">
-                  Fill in the details for the product. Fields marked with * are required.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-6 space-y-6">
-                {error && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-600"
-                  >
-                    {error}
-                  </motion.div>
-                )}
-
-                {/* Product Name */}
-                <motion.div variants={fieldVariants} className="space-y-2">
-                  <Label htmlFor="product_name" className="text-slate-700">
-                    <Tag className="inline h-4 w-4 mr-1" />
-                    Product Name <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="product_name"
-                    name="product_name"
-                    value={formData.product_name}
-                    onChange={handleChange}
-                    placeholder="Enter product name"
-                    required
-                    className="border-slate-200 focus:border-blue-500 focus:ring-blue-500"
-                  />
-                </motion.div>
-
-                {/* Type and Batch */}
-                <motion.div variants={fieldVariants} className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="type" className="text-slate-700">
-                      <Package className="inline h-4 w-4 mr-1" />
-                      Product Type
-                    </Label>
-                    <Input
-                      id="type"
-                      name="type"
-                      value={formData.type}
-                      onChange={handleChange}
-                      placeholder="e.g., Hardware, Electronics"
-                      className="border-slate-200 focus:border-blue-500 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="batch_no" className="text-slate-700">
-                      <Hash className="inline h-4 w-4 mr-1" />
-                      Batch Number
-                    </Label>
-                    <Input
-                      id="batch_no"
-                      name="batch_no"
-                      value={formData.batch_no}
-                      onChange={handleChange}
-                      placeholder="e.g., BATCH-2024-001"
-                      className="border-slate-200 focus:border-blue-500 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="expiry_date" className="text-slate-700">
-                      Expiry Date
-                    </Label>
-                    <Input
-                      id="expiry_date"
-                      name="expiry_date"
-                      type="date"
-                      value={formData.expiry_date}
-                      onChange={handleChange}
-                      className="border-slate-200 focus:border-blue-500 focus:ring-blue-500"
-                    />
-                  </div>
-                </motion.div>
-
-                {/* Prices */}
-                <motion.div variants={fieldVariants} className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="cost_price" className="text-slate-700">
-                      <DollarSign className="inline h-4 w-4 mr-1" />
-                      Cost Price <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="cost_price"
-                      name="cost_price"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.cost_price}
-                      onChange={handleChange}
-                      placeholder="0.00"
-                      required
-                      className="border-slate-200 focus:border-blue-500 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="unit_price" className="text-slate-700">
-                      <DollarSign className="inline h-4 w-4 mr-1" />
-                      Unit Price <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="unit_price"
-                      name="unit_price"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.unit_price}
-                      onChange={handleChange}
-                      placeholder="0.00"
-                      required
-                      className="border-slate-200 focus:border-blue-500 focus:ring-blue-500"
-                    />
-                  </div>
-                </motion.div>
-
-                {/* Category, Brand, Unit */}
-                <motion.div variants={fieldVariants} className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="category_id" className="text-slate-700">
-                      Category <span className="text-red-500">*</span>
-                    </Label>
-                    <Select
-                      id="category_id"
-                      name="category_id"
-                      value={formData.category_id}
-                      onChange={handleChange}
-                      required
-                      className="border-slate-200 focus:border-blue-500"
-                    >
-                      <option value="">Select Category</option>
-                      {categories.map((cat) => (
-                        <option key={cat.category_id} value={cat.category_id}>
-                          {cat.category_name}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="brand_id" className="text-slate-700">
-                      Brand
-                    </Label>
-                    <Select
-                      id="brand_id"
-                      name="brand_id"
-                      value={formData.brand_id}
-                      onChange={handleChange}
-                      className="border-slate-200 focus:border-blue-500"
-                    >
-                      <option value="">Select Brand</option>
-                      {brands.map((brand) => (
-                        <option key={brand.brand_id} value={brand.brand_id}>
-                          {brand.brand_name}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="unit_id" className="text-slate-700">
-                      Unit <span className="text-red-500">*</span>
-                    </Label>
-                    <Select
-                      id="unit_id"
-                      name="unit_id"
-                      value={formData.unit_id}
-                      onChange={handleChange}
-                      required
-                      className="border-slate-200 focus:border-blue-500"
-                    >
-                      <option value="">Select Unit</option>
-                      {units.map((unit) => (
-                        <option key={unit.unit_id} value={unit.unit_id}>
-                          {unit.unit_name}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-                </motion.div>
-
-                {/* Stock Levels */}
-                <motion.div variants={fieldVariants} className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="stock_quantity" className="text-slate-700">
-                      <Boxes className="inline h-4 w-4 mr-1" />
-                      Stock Quantity
-                    </Label>
-                    <Input
-                      id="stock_quantity"
-                      name="stock_quantity"
-                      type="number"
-                      min="0"
-                      value={formData.stock_quantity}
-                      onChange={handleChange}
-                      className="border-slate-200 focus:border-blue-500 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="min_stock_quantity" className="text-slate-700">
-                      <Boxes className="inline h-4 w-4 mr-1" />
-                      Min Stock Quantity
-                    </Label>
-                    <Input
-                      id="min_stock_quantity"
-                      name="min_stock_quantity"
-                      type="number"
-                      min="0"
-                      value={formData.min_stock_quantity}
-                      onChange={handleChange}
-                      className="border-slate-200 focus:border-blue-500 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="reorder_level" className="text-slate-700">
-                      <Boxes className="inline h-4 w-4 mr-1" />
-                      Reorder Level
-                    </Label>
-                    <Input
-                      id="reorder_level"
-                      name="reorder_level"
-                      type="number"
-                      min="0"
-                      value={formData.reorder_level}
-                      onChange={handleChange}
-                      className="border-slate-200 focus:border-blue-500 focus:ring-blue-500"
-                    />
-                  </div>
-                </motion.div>
-
-                {/* Actions */}
-                <motion.div
-                  variants={fieldVariants}
-                  className="flex gap-4 pt-6 border-t border-slate-200"
-                >
-                  <Link to="/products" className="flex-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full hover:bg-slate-100"
-                    >
-                      Cancel
-                    </Button>
-                  </Link>
-                  <motion.div className="flex-1" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                    <Button
-                      type="submit"
-                      className="w-full gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 shadow-lg shadow-blue-500/25"
-                      disabled={loading}
-                    >
-                      {loading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Save className="h-4 w-4" />
-                      )}
-                      {isEdit ? 'Update Product' : 'Add Product'}
-                    </Button>
-                  </motion.div>
-                </motion.div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </form>
-      </div>
-    </PageTransition>
+      </form>
+    </motion.div>
   );
 }
-
-export default ProductForm;
