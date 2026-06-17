@@ -242,7 +242,7 @@
 }
 
 .bill-total::before {
-  content: '₹';
+  content: '';
 }
 
 .select-result-btn {

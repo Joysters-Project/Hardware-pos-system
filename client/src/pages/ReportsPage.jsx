@@ -2,11 +2,77 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import api from '../api/axios';
+import { jsPDF } from 'jspdf';
 import { useAuth } from '../context/AuthContext';
 import '../styles/ReportsPage.css';
+import '../styles/Returns.css';
 
 /* ─── helpers ─── */
 const fmt = (v) => `Rs. ${Number(v ?? 0).toFixed(2)}`;
+const csvEscape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+const dateStamp = () => new Date().toISOString().slice(0, 10);
+const textRowsToPdf = (pdf, headers, rows, left, top, widths, pageWidth, pageHeight) => {
+  const rowHeight = 18;
+  let y = top;
+  const totalWidth = widths.reduce((sum, w) => sum + w, 0);
+
+  const drawHeader = () => {
+    pdf.setFillColor(248, 228, 229);
+    pdf.rect(left, y - 14, totalWidth, rowHeight, 'F');
+    pdf.setFontSize(10);
+    pdf.setTextColor('#800000');
+    let x = left + 4;
+    headers.forEach((label, index) => {
+      pdf.text(String(label), x, y);
+      x += widths[index];
+    });
+    y += rowHeight;
+  };
+
+  drawHeader();
+
+  rows.forEach((row, index) => {
+    if (y + rowHeight > pageHeight - 40) {
+      pdf.addPage();
+      y = 40;
+      drawHeader();
+    }
+    pdf.setFontSize(9);
+    pdf.setTextColor('#333');
+    let x = left + 4;
+    row.forEach((cell, colIndex) => {
+      const text = String(cell ?? '–');
+      pdf.text(text, x, y);
+      x += widths[colIndex];
+    });
+    y += rowHeight;
+  });
+};
+const createReportPdf = (title, headers, rows) => {
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  pdf.setFontSize(16);
+  pdf.setTextColor('#800000');
+  pdf.text(title, 40, 40);
+  pdf.setFontSize(10);
+  pdf.setTextColor('#555');
+  pdf.text(`Generated on ${new Date().toLocaleString()}`, 40, 58);
+
+  const widths = headers.map(() => Math.floor((pageWidth - 80) / headers.length));
+  textRowsToPdf(pdf, headers, rows, 40, 90, widths, pageWidth, pageHeight);
+  return pdf;
+};
+const downloadBlob = (filename, data, type) => {
+  const blob = new Blob([data], { type });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
+};
 const fmtDate = (v) => {
   if (!v) return '–';
   const d = new Date(v);
@@ -23,6 +89,7 @@ const dateKey = (v) => {
    SALES REPORT TAB
 ═══════════════════════════════════════════════════════════ */
 function SalesReport() {
+  const { isAuthenticated } = useAuth();
   const [bills, setBills] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,14 +105,26 @@ function SalesReport() {
     const load = async () => {
       try {
         setLoading(true);
+        
+        if (!isAuthenticated) {
+          setError('Not authenticated. Please log in.');
+          return;
+        }
+        
         const [bRes, cRes] = await Promise.all([api.get('/bills'), api.get('/customers')]);
         setBills(Array.isArray(bRes.data) ? bRes.data : []);
         setCustomers(Array.isArray(cRes.data) ? cRes.data : []);
-      } catch { setError('Failed to load sales data.'); }
+      } catch (e) {
+        if (e.response?.status === 401) {
+          setError('Authentication failed. Please log in again.');
+        } else {
+          setError('Failed to load sales data.');
+        }
+      }
       finally { setLoading(false); }
     };
     load();
-  }, []);
+  }, [isAuthenticated]);
 
   const custMap = useMemo(() =>
     customers.reduce((m, c) => { m[c.customer_id] = c; return m; }, {}), [customers]);
@@ -74,7 +153,29 @@ function SalesReport() {
   const safePage = Math.min(Math.max(page, 1), totalPages);
   const rows = filtered.slice((safePage - 1) * PAGE, safePage * PAGE);
 
+  const salesHeaders = ['Bill No', 'Date', 'Customer', 'Phone', 'Total', 'Paid', 'Balance', 'Status'];
+  const salesRows = filtered.map((b) => [
+    b.bill_no,
+    fmtDate(b.bill_date),
+    getName(b),
+    getPhone(b),
+    fmt(b.total_amount),
+    fmt(Number(b.total_amount || 0) - Number(b.balance_due || 0)),
+    fmt(b.balance_due),
+    b.status || '–',
+  ]);
+
   const reset = () => { setSearch(''); setBillSearch(''); setDateFilter(''); setStatusFilter(''); setPage(1); };
+
+  const handleDownloadSalesCsv = () => {
+    const csv = [salesHeaders, ...salesRows].map((row) => row.map(csvEscape).join(',')).join('\r\n');
+    downloadBlob(`sales-report-${dateStamp()}.csv`, csv, 'text/csv;charset=utf-8;');
+  };
+
+  const handleDownloadSalesPdf = () => {
+    const pdf = createReportPdf('Sales Report', salesHeaders, salesRows);
+    pdf.save(`sales-report-${dateStamp()}.pdf`);
+  };
 
   return (
     <div className="rp-section">
@@ -109,6 +210,16 @@ function SalesReport() {
           <option value="PARTIAL">Partial</option>
         </select>
         <button className="rp-reset-btn" onClick={reset}>Reset</button>
+      </div>
+
+      <div className="rp-export-row">
+        <span className="rp-export-label">Export report:</span>
+        <button type="button" className="rp-export-btn pdf" onClick={handleDownloadSalesPdf} disabled={filtered.length === 0}>
+          Download PDF
+        </button>
+        <button type="button" className="rp-export-btn csv" onClick={handleDownloadSalesCsv} disabled={filtered.length === 0}>
+          Download CSV
+        </button>
       </div>
 
       {loading && <div className="rp-status">Loading sales data…</div>}
@@ -158,181 +269,324 @@ function SalesReport() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   RETURNS REPORT TAB
+   RETURNS LOGS TAB
 ═══════════════════════════════════════════════════════════ */
 function ReturnsReport() {
-  const { role } = useAuth();
+  const { role, isAuthenticated } = useAuth();
   const [returnsData, setReturnsData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [destFilter, setDestFilter] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [filter, setFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const isManagerOrAdmin = ['manager', 'admin'].includes(role?.toLowerCase());
+  const isCashier = role?.toLowerCase() === 'cashier';
+  const isAuthorized = isManagerOrAdmin || isCashier;
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        setLoading(true);
-        const params = {};
-        if (destFilter) params.destination = destFilter;
-        if (dateFrom) params.from_date = new Date(dateFrom).toISOString();
-        if (dateTo) { const d = new Date(dateTo); d.setHours(23, 59, 59); params.to_date = d.toISOString(); }
-        const res = await api.get('/returns', { params });
-        setReturnsData(res.data?.data || []);
-      } catch (e) {
-        setError(e.response?.data?.error || 'Failed to load return data.');
-      } finally { setLoading(false); }
-    };
-    load();
-  }, [destFilter, dateFrom, dateTo]);
+    if (isCashier && dateFilter !== 'today') setDateFilter('today');
+  }, [isCashier, dateFilter]);
 
-  const filtered = useMemo(() => {
-    if (!search) return returnsData;
-    const q = search.toLowerCase();
-    return returnsData.filter(r =>
-      String(r.return_id).includes(q) ||
-      (r.bill?.bill_no || '').toLowerCase().includes(q)
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setError('Not authenticated. Please log in.');
+      return;
+    }
+    if (!isAuthorized) return;
+    fetchReturns();
+  }, [filter, dateFilter, isAuthorized, isAuthenticated]);
+
+  const fetchReturns = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const params = {};
+      if (filter) params.destination = filter;
+      const effectiveDateFilter = isCashier ? 'today' : dateFilter;
+      if (effectiveDateFilter === 'today') {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        params.from_date = today.toISOString();
+      } else if (effectiveDateFilter === 'this_month') {
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+        params.from_date = startOfMonth.toISOString();
+      }
+      const response = await api.get('/returns', { params });
+      setReturnsData(response.data?.data || []);
+    } catch (err) {
+      if (err.response?.status === 401) {
+        setError('Authentication failed. Please log in again.');
+      } else {
+        setError(err.response?.data?.message || err.response?.data?.error || 'Unable to load return logs');
+      }
+      setReturnsData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const reset = () => { setFilter(''); setSearch(''); if (!isCashier) setDateFilter('all'); };
+
+  if (!isAuthorized) {
+    return (
+      <div className="rp-section">
+        <div className="rp-status error">
+          <h2>Access Denied</h2>
+          <p>Return logs are only available to authorized personnel.</p>
+        </div>
+      </div>
     );
-  }, [returnsData, search]);
+  }
 
-  const totalRefund = filtered.reduce((s, r) => s + Number(r.total_refund_amount || 0), 0);
+  const filteredReturns = returnsData.filter(r => {
+    const q = search.toLowerCase();
+    return !q || 
+      String(r.return_id || '').includes(q) ||
+      (r.bill?.bill_no || r.bills?.bill_no || r.bill_number || '').toLowerCase().includes(q) ||
+      (r.bill?.customer?.customer_name || '').toLowerCase().includes(q) ||
+      (r.bill?.customer?.phone_no || '').includes(q);
+  });
 
-  const reset = () => { setDestFilter(''); setDateFrom(''); setDateTo(''); setSearch(''); };
+  const totalRefunded = filteredReturns.reduce((s, r) => s + Number(r.total_refund_amount || 0), 0);
+  const totalItems = filteredReturns.reduce((s, r) => s + (r.items?.length || 0), 0);
+
+  const handleDownloadReturnsCsv = () => {
+    const csvHeaders = [
+      'Return ID', 'Date', 'Status', 'Processed By', 'Customer Name', 'Customer Phone',
+      'Bill No', 'Original Bill Amount', 'Paid Amount', 'Total Refunded', 'Should Return', 'Remaining Balance',
+      'Product', 'Return Qty', 'Item Refund', 'Reason', 'Destination', 'Notes'
+    ];
+
+    const csvRows = [];
+    filteredReturns.forEach((r) => {
+      const fs = r.financial_summary;
+      const billNo = r.bill?.bill_no || r.bills?.bill_no || r.bill_number || '–';
+      const totalBillAmount = r.bill?.total_amount || 0;
+      const originalBill = fs?.total_bill || totalBillAmount;
+      const paidAmount = fs?.total_paid || 0;
+      const remainingBalance = Math.max(0, (originalBill - paidAmount) - r.total_refund_amount);
+
+      if (!r.items || r.items.length === 0) {
+        csvRows.push([
+          r.return_id,
+          fmtDateTime(r.return_date),
+          r.status || '–',
+          r.processed_by || '–',
+          r.bill?.customer?.customer_name || 'Walk-in',
+          r.bill?.customer?.phone_no || '–',
+          billNo,
+          fmt(originalBill),
+          fmt(paidAmount),
+          fmt(r.total_refund_amount),
+          fmt(fs?.refundable_amount || 0),
+          fmt(remainingBalance),
+          '–', '–', '–', '–', '–', '–'
+        ]);
+      } else {
+        r.items.forEach((item) => {
+          csvRows.push([
+            r.return_id,
+            fmtDateTime(r.return_date),
+            r.status || '–',
+            r.processed_by || '–',
+            r.bill?.customer?.customer_name || 'Walk-in',
+            r.bill?.customer?.phone_no || '–',
+            billNo,
+            fmt(originalBill),
+            fmt(paidAmount),
+            fmt(r.total_refund_amount),
+            fmt(fs?.refundable_amount || 0),
+            fmt(remainingBalance),
+            item.product?.product_name || `Product #${item.product_id}`,
+            item.return_quantity,
+            fmt(item.refund_amount),
+            item.return_reason || '–',
+            item.destination,
+            item.destination_note || '–'
+          ]);
+        });
+      }
+    });
+
+    const csv = [csvHeaders, ...csvRows].map((row) => row.map(csvEscape).join(',')).join('\r\n');
+    downloadBlob(`returns-logs-${dateStamp()}.csv`, csv, 'text/csv;charset=utf-8;');
+  };
+
+  const handleDownloadReturnsPdf = () => {
+    const pdfHeaders = ['Return ID', 'Bill No', 'Customer', 'Date', 'Status', 'Refunded', 'Remaining Bal', 'Products (Qty)'];
+    const pdfRows = filteredReturns.map((r) => {
+      const fs = r.financial_summary;
+      const billNo = r.bill?.bill_no || r.bills?.bill_no || r.bill_number || '–';
+      const totalBillAmount = r.bill?.total_amount || 0;
+      const originalBill = fs?.total_bill || totalBillAmount;
+      const paidAmount = fs?.total_paid || 0;
+      const remainingBalance = Math.max(0, (originalBill - paidAmount) - r.total_refund_amount);
+      
+      const productsStr = r.items && r.items.length > 0
+        ? r.items.map(item => `${item.product?.product_name || `Product #${item.product_id}`} (${item.return_quantity})`).join(', ')
+        : '–';
+
+      return [
+        r.return_id,
+        billNo,
+        r.bill?.customer?.customer_name || 'Walk-in',
+        fmtDate(r.return_date),
+        r.status || '–',
+        fmt(r.total_refund_amount),
+        fmt(remainingBalance),
+        productsStr
+      ];
+    });
+
+    const pdf = createReportPdf('Returns Logs', pdfHeaders, pdfRows);
+    pdf.save(`returns-logs-${dateStamp()}.pdf`);
+  };
+
+  // Helper for displaying time in return logs cards
+  const fmtDateTime = (v) => {
+    if (!v) return '–';
+    const d = new Date(v);
+    return isNaN(d) ? v : d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
 
   return (
     <div className="rp-section">
-      {/* Summary */}
+      {/* Summary cards */}
       <div className="rp-stats-row">
         <div className="rp-stat-card">
           <div className="rp-stat-label">Total Returns</div>
-          <div className="rp-stat-value">{filtered.length}</div>
+          <div className="rp-stat-value">{filteredReturns.length}</div>
         </div>
         <div className="rp-stat-card">
           <div className="rp-stat-label">Total Refunded</div>
-          <div className="rp-stat-value red">{fmt(totalRefund)}</div>
+          <div className="rp-stat-value red">{fmt(totalRefunded)}</div>
         </div>
         <div className="rp-stat-card">
           <div className="rp-stat-label">Items Returned</div>
-          <div className="rp-stat-value">{filtered.reduce((s, r) => s + (r.items?.length || 0), 0)}</div>
+          <div className="rp-stat-value">{totalItems}</div>
         </div>
       </div>
 
       {/* Filters */}
       <div className="rp-filters">
-        <input placeholder="Search by Return ID or Bill No" value={search} onChange={e => setSearch(e.target.value)} />
-        <select value={destFilter} onChange={e => setDestFilter(e.target.value)}>
+        <input 
+          placeholder="Search Return ID / Bill No / Customer" 
+          value={search} 
+          onChange={e => setSearch(e.target.value)} 
+          style={{ minWidth: '260px' }}
+        />
+        <select value={filter} onChange={e => setFilter(e.target.value)}>
           <option value="">All Destinations</option>
           <option value="STOCK">Stock</option>
           <option value="REPAIR">Repair</option>
           <option value="SUPPLIER">Supplier</option>
           <option value="DAMAGED_STOCK">Damaged Stock</option>
         </select>
+
         {isManagerOrAdmin && (
-          <>
-            <div className="rp-date-group">
-              <label>From</label>
-              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
-            </div>
-            <div className="rp-date-group">
-              <label>To</label>
-              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
-            </div>
-          </>
+          <select value={dateFilter} onChange={e => setDateFilter(e.target.value)}>
+            <option value="all">All Time</option>
+            <option value="today">Today</option>
+            <option value="this_month">This Month</option>
+          </select>
         )}
+
+        {isCashier && (
+          <div style={{ padding: '9px 14px', background: '#fdf2f2', borderRadius: '6px', border: '1px solid #e09090', color: '#800000', fontSize: '13px', fontWeight: '600' }}>
+            Viewing Today's Returns Only
+          </div>
+        )}
+
         <button className="rp-reset-btn" onClick={reset}>Reset</button>
       </div>
 
-      {loading && <div className="rp-status">Loading return data…</div>}
+      <div className="rp-export-row">
+        <span className="rp-export-label">Export report:</span>
+        <button type="button" className="rp-export-btn pdf" onClick={handleDownloadReturnsPdf} disabled={filteredReturns.length === 0}>
+          Download PDF
+        </button>
+        <button type="button" className="rp-export-btn csv" onClick={handleDownloadReturnsCsv} disabled={filteredReturns.length === 0}>
+          Download CSV
+        </button>
+      </div>
+
+      {/* Error */}
       {error && <div className="rp-status error">{error}</div>}
-      {!loading && !error && (
+
+      {/* Loading */}
+      {loading ? (
+        <div className="rp-status">Loading return logs…</div>
+      ) : (
         <div className="rp-returns-list">
-          {filtered.length === 0 ? (
+          {filteredReturns.length === 0 ? (
             <div className="rp-empty-card">No return records found.</div>
-          ) : filtered.map(record => {
-            const fs = record.financial_summary;
-            return (
-              <div key={record.return_id} className="rp-ret-card">
-                {/* Card header */}
-                <div className="rp-ret-header">
-                  <div className="rp-ret-meta">
-                    <div className="rp-ret-meta-item">
-                      <span className="meta-label">Return ID</span>
-                      <span className="meta-value">#{record.return_id}</span>
+          ) : (
+            filteredReturns.map((record) => {
+              const fs = record.financial_summary;
+              const billNo = record.bill?.bill_no || record.bills?.bill_no || record.bill_number || '–';
+              const totalBillAmount = record.bill?.total_amount || 0;
+              return (
+                <div key={record.return_id} className="rp-ret-card vertical-card">
+                  {/* Vertical Details Block with 3 columns */}
+                  <div className="rp-ret-vertical-grid">
+                    {/* Column 1: Return Information */}
+                    <div className="rp-ret-col">
+                      <h4>Return Information</h4>
+                      <div className="rp-ret-row"><strong>Return ID:</strong> <span>#{record.return_id}</span></div>
+                      <div className="rp-ret-row"><strong>Date:</strong> <span>{fmtDateTime(record.return_date)}</span></div>
+                      <div className="rp-ret-row"><strong>Status:</strong> <span className={`rp-badge ${(record.status || '').toLowerCase().replace('_', '-')}`}>{record.status}</span></div>
+                      <div className="rp-ret-row"><strong>Processed By:</strong> <span>User #{record.processed_by || '–'}</span></div>
+                      <div className="rp-ret-row"><strong>Customer Name:</strong> <span>{record.bill?.customer?.customer_name || 'Walk-in'}</span></div>
+                      <div className="rp-ret-row"><strong>Customer Phone:</strong> <span>{record.bill?.customer?.phone_no || '–'}</span></div>
                     </div>
-                    <div className="rp-ret-meta-item">
-                      <span className="meta-label">Bill No</span>
-                      <span className="meta-value accent">{record.bill?.bill_no || record.bills?.bill_no || '–'}</span>
+
+                    {/* Column 2: Returned Products Details (Middle Column) */}
+                    <div className="rp-ret-col">
+                      <h4>Returned Products Details</h4>
+                      <div className="rp-ret-items-list-vertical">
+                        {record.items && record.items.map((item, idx) => (
+                          <div 
+                            key={item.return_item_id || idx} 
+                            style={{ 
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '10px',
+                              marginBottom: idx < record.items.length - 1 ? '16px' : '0', 
+                              paddingBottom: idx < record.items.length - 1 ? '12px' : '0', 
+                              borderBottom: idx < record.items.length - 1 ? '1px dashed #e5cccc' : 'none' 
+                            }}
+                          >
+                            <div className="rp-ret-row"><strong>Product:</strong> <span>{item.product?.product_name || '–'}</span></div>
+                            <div className="rp-ret-row"><strong>Qty:</strong> <span>{item.return_quantity}</span></div>
+                            <div className="rp-ret-row"><strong>Refund:</strong> <span>{fmt(item.refund_amount)}</span></div>
+                            <div className="rp-ret-row"><strong>Reason:</strong> <span>{item.return_reason || '–'}</span></div>
+                            <div className="rp-ret-row"><strong>Destination:</strong> <span className="rp-dest-badge">{item.destination}</span></div>
+                            {item.destination_note && (
+                              <div className="rp-ret-row"><strong>Notes:</strong> <span>{item.destination_note}</span></div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="rp-ret-meta-item">
-                      <span className="meta-label">Date</span>
-                      <span className="meta-value">{fmtDate(record.return_date)}</span>
+
+                    {/* Column 3: Financial Details */}
+                    <div className="rp-ret-col">
+                      <h4>Financial Details</h4>
+                      <div className="rp-ret-row"><strong>Bill Number:</strong> <span>{billNo}</span></div>
+                      <div className="rp-ret-row"><strong>Original Bill Amount:</strong> <span>{fmt(fs?.total_bill || totalBillAmount)}</span></div>
+                      <div className="rp-ret-row"><strong>Paid Amount:</strong> <span>{fmt(fs?.total_paid || 0)}</span></div>
+                      <div className="rp-ret-row"><strong>Total Returned Value:</strong> <span style={{ color: '#b71c1c', fontWeight: 'bold' }}>{fmt(record.total_refund_amount)}</span></div>
+                      <div className="rp-ret-row"><strong>Should Return to Customer:</strong> <span style={{ color: '#2e7d32', fontWeight: 'bold' }}>{fmt(fs?.refundable_amount || 0)}</span></div>
+                      <div className="rp-ret-row"><strong>Remaining Balance Payable:</strong> <span style={{ color: '#e65100', fontWeight: 'bold' }}>{fmt(Math.max(0, ((fs?.total_bill || totalBillAmount) - (fs?.total_paid || 0)) - record.total_refund_amount))}</span></div>
                     </div>
-                    <div className="rp-ret-meta-item">
-                      <span className="meta-label">Status</span>
-                      <span className={`rp-badge ${(record.status || '').toLowerCase()}`}>{record.status}</span>
-                    </div>
-                  </div>
-                  <div className="rp-ret-refund">
-                    <span className="meta-label">Refunded</span>
-                    <span className="meta-value green">{fmt(record.total_refund_amount)}</span>
                   </div>
                 </div>
-
-                {/* Financial summary strip */}
-                {fs && (
-                  <div className="rp-fin-strip">
-                    <div className="rp-fin-item">
-                      <span>Total Bill</span>
-                      <strong>{fmt(fs.total_bill)}</strong>
-                    </div>
-                    <div className="rp-fin-item">
-                      <span>How Much Paid</span>
-                      <strong className="green">{fmt(fs.total_paid)}</strong>
-                    </div>
-                    <div className="rp-fin-item">
-                      <span>Requested Refund</span>
-                      <strong className="red">{fmt(record.total_refund_amount)}</strong>
-                    </div>
-                    <div className="rp-fin-item">
-                      <span>Customer Can Get</span>
-                      <strong className="amber">{fmt(fs.refundable_amount)}</strong>
-                    </div>
-                  </div>
-                )}
-
-                {/* Items table */}
-                {record.items && record.items.length > 0 && (
-                  <div className="rp-ret-body">
-                    <table className="rp-table">
-                      <thead>
-                        <tr>
-                          <th>Product</th>
-                          <th className="center">Qty</th>
-                          <th>Reason</th>
-                          <th className="center">Destination</th>
-                          <th className="right">Refund</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {record.items.map(item => (
-                          <tr key={item.return_item_id}>
-                            <td>{item.product?.product_name || '–'}</td>
-                            <td className="center">{item.return_quantity}</td>
-                            <td>{item.return_reason}</td>
-                            <td className="center"><span className="rp-dest-badge">{item.destination}</span></td>
-                            <td className="right">{fmt(item.refund_amount)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       )}
     </div>
@@ -340,17 +594,18 @@ function ReturnsReport() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   BORROW REPORT TAB  (Purchase Orders used as borrow tracking)
+   BORROW REPORT TAB  (Partially Paid Bills)
 ═══════════════════════════════════════════════════════════ */
 function BorrowReport() {
-  const [orders, setOrders] = useState([]);
+  const { isAuthenticated } = useAuth();
+  const [bills, setBills] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [expandedPo, setExpandedPo] = useState(null);
+  const [expandedBill, setExpandedBill] = useState(null);
   const [page, setPage] = useState(1);
   const PAGE = 10;
 
@@ -358,62 +613,107 @@ function BorrowReport() {
     const load = async () => {
       try {
         setLoading(true);
-        const res = await api.get('/purchase_orders');
-        setOrders(Array.isArray(res.data) ? res.data : (res.data?.data || []));
-      } catch {
-        setError('Failed to load borrow / purchase order data.');
+        
+        if (!isAuthenticated) {
+          setError('Not authenticated. Please log in.');
+          return;
+        }
+        
+        const [bRes, cRes] = await Promise.all([
+          api.get('/bills'),
+          api.get('/customers')
+        ]);
+        
+        const allBills = Array.isArray(bRes.data) ? bRes.data : (bRes.data?.data || []);
+        const allCustomers = Array.isArray(cRes.data) ? cRes.data : (cRes.data?.data || []);
+        
+        // Filter for partial bills and ensure they have customer and bill_items details
+        const partialBills = allBills.filter(b => (b.status || '').toUpperCase() === 'PARTIAL');
+        setBills(partialBills);
+        setCustomers(allCustomers);
+      } catch (e) {
+        if (e.response?.status === 401) {
+          setError('Authentication failed. Please log in again.');
+        } else {
+          setError(e.response?.data?.error || 'Failed to load partially paid bills.');
+        }
       } finally { setLoading(false); }
     };
     load();
-  }, []);
+  }, [isAuthenticated]);
+
+  const custMap = useMemo(() =>
+    customers.reduce((m, c) => { m[c.customer_id] = c; return m; }, {}), [customers]);
+
+  const getCustomerName = (b) => b.customer?.customer_name || custMap[b.customer_id]?.customer_name || 'Walk-in';
+  const getCustomerPhone = (b) => b.customer?.phone_no || custMap[b.customer_id]?.phone_no || '–';
+  const getCustomerAddress = (b) => b.customer?.address || custMap[b.customer_id]?.address || '–';
 
   const filtered = useMemo(() => {
-    return orders.filter(o => {
+    return bills.filter(b => {
       const q = search.toLowerCase();
-      const matchSearch = !q || String(o.po_id || '').includes(q) ||
-        (o.supplier?.supplier_name || '').toLowerCase().includes(q);
-      const matchStatus = !statusFilter || (o.status || '').toUpperCase() === statusFilter;
-      const matchFrom = !dateFrom || dateKey(o.po_date) >= dateFrom;
-      const matchTo = !dateTo || dateKey(o.po_date) <= dateTo;
-      return matchSearch && matchStatus && matchFrom && matchTo;
+      const matchSearch = !q || String(b.bill_no || '').includes(q) ||
+        getCustomerName(b).toLowerCase().includes(q) ||
+        getCustomerPhone(b).includes(q);
+      const matchFrom = !dateFrom || dateKey(b.bill_date) >= dateFrom;
+      const matchTo = !dateTo || dateKey(b.bill_date) <= dateTo;
+      return matchSearch && matchFrom && matchTo;
     });
-  }, [orders, search, statusFilter, dateFrom, dateTo]);
+  }, [bills, customers, search, dateFrom, dateTo]);
 
-  const totalValue = filtered.reduce((s, o) => s + Number(o.total_amount || 0), 0);
+  const totalBilled = filtered.reduce((s, b) => s + Number(b.total_amount || 0), 0);
+  const totalPaid = filtered.reduce((s, b) => s + (Number(b.total_amount || 0) - Number(b.balance_due || 0)), 0);
+  const totalDue = filtered.reduce((s, b) => s + Number(b.balance_due || 0), 0);
+
+  const borrowHeaders = ['Bill No', 'Date', 'Customer', 'Phone', 'Total Amount', 'Paid Amount', 'Balance Due', 'Items'];
+  const borrowRows = filtered.map((b) => [
+    b.bill_no,
+    fmtDate(b.bill_date),
+    getCustomerName(b),
+    getCustomerPhone(b),
+    fmt(b.total_amount),
+    fmt(Number(b.total_amount || 0) - Number(b.balance_due || 0)),
+    fmt(b.balance_due),
+    b.bill_items?.length || 0,
+  ]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE));
   const safePage = Math.min(Math.max(page, 1), totalPages);
   const rows = filtered.slice((safePage - 1) * PAGE, safePage * PAGE);
 
+  const handleDownloadBorrowCsv = () => {
+    const csv = [borrowHeaders, ...borrowRows].map((row) => row.map(csvEscape).join(',')).join('\r\n');
+    downloadBlob(`borrow-report-${dateStamp()}.csv`, csv, 'text/csv;charset=utf-8;');
+  };
+
+  const handleDownloadBorrowPdf = () => {
+    const pdf = createReportPdf('Borrow Report - Partially Paid Bills', borrowHeaders, borrowRows);
+    pdf.save(`borrow-report-${dateStamp()}.pdf`);
+  };
+
   return (
     <div className="rp-section">
       <div className="rp-stats-row">
         <div className="rp-stat-card">
-          <div className="rp-stat-label">Total Orders</div>
+          <div className="rp-stat-label">Total Partial Bills</div>
           <div className="rp-stat-value">{filtered.length}</div>
         </div>
         <div className="rp-stat-card">
-          <div className="rp-stat-label">Total Value</div>
-          <div className="rp-stat-value">{fmt(totalValue)}</div>
+          <div className="rp-stat-label">Total Billed</div>
+          <div className="rp-stat-value">{fmt(totalBilled)}</div>
         </div>
         <div className="rp-stat-card">
-          <div className="rp-stat-label">Pending</div>
-          <div className="rp-stat-value amber">{filtered.filter(o => (o.status || '').toUpperCase() === 'PENDING').length}</div>
+          <div className="rp-stat-label">Amount Paid</div>
+          <div className="rp-stat-value green">{fmt(totalPaid)}</div>
         </div>
         <div className="rp-stat-card">
-          <div className="rp-stat-label">Received</div>
-          <div className="rp-stat-value green">{filtered.filter(o => (o.status || '').toUpperCase() === 'RECEIVED').length}</div>
+          <div className="rp-stat-label">Balance Outstanding</div>
+          <div className="rp-stat-value red">{fmt(totalDue)}</div>
         </div>
       </div>
 
       <div className="rp-filters">
-        <input placeholder="Search PO ID / Supplier" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
-        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
-          <option value="">All Status</option>
-          <option value="PENDING">Pending</option>
-          <option value="RECEIVED">Received</option>
-          <option value="CANCELLED">Cancelled</option>
-        </select>
+        <input placeholder="Search Bill No / Customer / Phone" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
         <div className="rp-date-group">
           <label>From</label>
           <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} />
@@ -422,67 +722,105 @@ function BorrowReport() {
           <label>To</label>
           <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} />
         </div>
-        <button className="rp-reset-btn" onClick={() => { setSearch(''); setStatusFilter(''); setDateFrom(''); setDateTo(''); setPage(1); }}>Reset</button>
+        <button className="rp-reset-btn" onClick={() => { setSearch(''); setDateFrom(''); setDateTo(''); setPage(1); }}>Reset</button>
       </div>
 
-      {loading && <div className="rp-status">Loading borrow data…</div>}
+      <div className="rp-export-row">
+        <span className="rp-export-label">Export report:</span>
+        <button type="button" className="rp-export-btn pdf" onClick={handleDownloadBorrowPdf} disabled={filtered.length === 0}>
+          Download PDF
+        </button>
+        <button type="button" className="rp-export-btn csv" onClick={handleDownloadBorrowCsv} disabled={filtered.length === 0}>
+          Download CSV
+        </button>
+      </div>
+
+      {loading && <div className="rp-status">Loading partially paid bills…</div>}
       {error && <div className="rp-status error">{error}</div>}
       {!loading && !error && (
-        <div className="rp-table-wrap">
-          <table className="rp-table">
-            <thead>
-              <tr>
-                <th>PO ID</th><th>Date</th><th>Expected Delivery</th><th>Supplier</th>
-                <th className="right">Total Value</th><th>Items</th><th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr><td colSpan={7} className="rp-empty">No records found.</td></tr>
-              ) : rows.map(o => (
-                <React.Fragment key={o.po_id}>
-                  <tr
-                    style={{ cursor: o.po_items?.length ? 'pointer' : 'default' }}
-                    onClick={() => o.po_items?.length && setExpandedPo(expandedPo === o.po_id ? null : o.po_id)}
-                  >
-                    <td className="bold">PO-{o.po_id}</td>
-                    <td>{fmtDate(o.po_date)}</td>
-                    <td>{fmtDate(o.expected_delivery)}</td>
-                    <td>{o.supplier?.supplier_name || '–'}</td>
-                    <td className="right">{fmt(o.total_amount)}</td>
-                    <td>{o.po_items?.length || 0} {o.po_items?.length ? (expandedPo === o.po_id ? '▲' : '▼') : ''}</td>
-                    <td>
-                      <span className={`rp-badge ${(o.status || '').toLowerCase()}`}>{o.status || '–'}</span>
-                    </td>
-                  </tr>
-                  {expandedPo === o.po_id && o.po_items?.length > 0 && (
-                    <tr className="rp-expanded-row">
-                      <td colSpan={7}>
-                        <table className="rp-table rp-sub-table">
-                          <thead>
-                            <tr>
-                              <th>Product</th>
-                              <th className="right">Quantity</th>
-                              <th className="right">Total Price</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {o.po_items.map((item, idx) => (
-                              <tr key={idx}>
-                                <td>{item.product?.product_name || `Product #${item.product_id}`}</td>
-                                <td className="right">{item.quantity}</td>
-                                <td className="right">{fmt(item.total_price)}</td>
-                              </tr>
+        <>
+          <div className="rp-returns-list">
+            {rows.length === 0 ? (
+              <div className="rp-empty-card">No partially paid bills found.</div>
+            ) : (
+              rows.map((b) => (
+                <div key={b.bill_id} className="rp-ret-card vertical-card">
+                  <div className="rp-ret-vertical-grid">
+                    {/* Column 1: Customer & Bill Info */}
+                    <div className="rp-ret-col">
+                      <h4>Customer &amp; Bill Info</h4>
+                      <div className="rp-ret-row"><strong>Bill No:</strong> <span>#{b.bill_no}</span></div>
+                      <div className="rp-ret-row"><strong>Bill Date:</strong> <span>{fmtDate(b.bill_date)}</span></div>
+                      <div className="rp-ret-row"><strong>Status:</strong> <span className={`rp-badge ${(b.status || '').toLowerCase()}`}>{b.status || '–'}</span></div>
+                      <div className="rp-ret-row"><strong>Customer:</strong> <span>{getCustomerName(b)}</span></div>
+                      <div className="rp-ret-row"><strong>Phone:</strong> <span>{getCustomerPhone(b)}</span></div>
+                      <div className="rp-ret-row"><strong>Address:</strong> <span>{getCustomerAddress(b)}</span></div>
+                    </div>
+
+                    {/* Column 2: Products Details */}
+                    <div className="rp-ret-col">
+                      <h4>Products Details</h4>
+                      <div className="rp-ret-items-list-vertical">
+                        {b.bill_items && b.bill_items.length > 0 ? (
+                          b.bill_items.map((item, idx) => (
+                            <div
+                              key={idx}
+                              style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '8px',
+                                marginBottom: idx < b.bill_items.length - 1 ? '14px' : '0',
+                                paddingBottom: idx < b.bill_items.length - 1 ? '10px' : '0',
+                                borderBottom: idx < b.bill_items.length - 1 ? '1px dashed #e5cccc' : 'none'
+                              }}
+                            >
+                              <div className="rp-ret-row"><strong>Product:</strong> <span>{item.product?.product_name || `Product #${item.product_id}`}</span></div>
+                              <div className="rp-ret-row"><strong>Qty:</strong> <span>{item.quantity}</span></div>
+                              <div className="rp-ret-row"><strong>Unit Price:</strong> <span>{fmt(item.price_per_unit)}</span></div>
+                              {Number(item.discount || 0) > 0 && (
+                                <div className="rp-ret-row"><strong>Discount:</strong> <span>{fmt(item.discount)}</span></div>
+                              )}
+                              <div className="rp-ret-row"><strong>Item Total:</strong> <span>{fmt(item.total_price)}</span></div>
+                            </div>
+                          ))
+                        ) : (
+                          <div style={{ fontStyle: 'italic', fontSize: '13px', color: '#999' }}>No item details available.</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Column 3: Financial Summary */}
+                    <div className="rp-ret-col">
+                      <h4>Financial Summary</h4>
+                      <div className="rp-ret-row"><strong>Total Bill Amount:</strong> <span>{fmt(b.total_amount)}</span></div>
+                      <div className="rp-ret-row"><strong>Amount Paid:</strong> <span style={{ color: '#2e7d32', fontWeight: 'bold' }}>{fmt(Number(b.total_amount || 0) - Number(b.balance_due || 0))}</span></div>
+                      <div className="rp-ret-row"><strong>Balance Outstanding:</strong> <span style={{ color: '#b71c1c', fontWeight: 'bold' }}>{fmt(b.balance_due)}</span></div>
+                      <div className="rp-ret-row"><strong>Items Count:</strong> <span>{b.bill_items?.length || 0} items</span></div>
+
+                      {b.payments && b.payments.length > 0 && (
+                        <div style={{ marginTop: '10px' }}>
+                          <h4 style={{ fontSize: '13px', color: '#800000', borderBottom: '1px solid #f0dada', paddingBottom: '4px', marginBottom: '8px', fontWeight: 'bold', margin: '0 0 8px' }}>Payment History</h4>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {b.payments.map((p, pIdx) => (
+                              <div key={pIdx} style={{ fontSize: '12px', background: 'white', padding: '6px 10px', borderRadius: '4px', border: '1px solid #eee' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                  <strong>{fmt(p.amount_paid)}</strong>
+                                  <span style={{ color: '#888', fontWeight: '600' }}>{p.payment_method}</span>
+                                </div>
+                                <div style={{ color: '#999', fontSize: '10px', marginTop: '2px' }}>
+                                  {fmtDate(p.payment_date)}{p.collected_by ? ` · Collected by User #${p.collected_by}` : ''}
+                                </div>
+                              </div>
                             ))}
-                          </tbody>
-                        </table>
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
           <div className="rp-pager">
             <span>{filtered.length} records · Page {safePage} of {totalPages}</span>
             <div className="rp-pager-btns">
@@ -490,7 +828,7 @@ function BorrowReport() {
               <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}>Next</button>
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
@@ -501,7 +839,7 @@ function BorrowReport() {
 ═══════════════════════════════════════════════════════════ */
 const TABS = [
   { key: 'sales',   label: '💳 Sales Report'  },
-  { key: 'returns', label: '↩️ Return Report'  },
+  { key: 'returns', label: '↩️ Return Logs'  },
   { key: 'borrow',  label: '📦 Borrow Report'  },
 ];
 
@@ -509,16 +847,17 @@ function ReportsPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('sales');
 
+  
   return (
     <DashboardLayout active="reports">
       <div className="rp-container">
         {/* Header */}
         <div className="rp-header">
           <div>
-            <h1>Reports</h1>
-            <p>View detailed Sales, Return and Borrow reports with filters</p>
+            <h1>Reports & Logs</h1>
+            <p>View detailed Sales and Borrow reports, and Return logs with filters</p>
           </div>
-          <button className="rp-back-btn" onClick={() => navigate(-1)}>Back</button>
+          {/* <button className="rp-back-btn" onClick={() => navigate(-1)}>Back</button> */}
         </div>
 
         {/* Tab nav */}

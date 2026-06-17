@@ -1,7 +1,6 @@
-import { useAuth } from "../context/AuthContext";
+import React from "react";
 import DashboardLayout from "../components/DashboardLayout";
 import AnalyticalDashboard from "../components/AnalyticalDashboard";
-import "../styles/Dashboard.css";
 
 function AdminDashboard({ children, active }) {
   return (

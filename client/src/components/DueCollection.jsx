@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import toast from "react-hot-toast";
+import { validateSriLankanPhone, filterSriLankanPhoneInput } from "../utils/phoneValidation";
 import SuccessAnim from "./SuccessAnim";
 import DashboardLayout from "./DashboardLayout";
 import "../styles/DueCollection.css";
@@ -34,13 +35,13 @@ const DueCollection = () => {
       return toast.error("Enter a phone number");
     }
     
-    const phoneRegex = /^\d{10}$/;
-    if (!phoneRegex.test(searchQuery.trim())) {
-      return toast.error("Phone number must be exactly 10 digits");
+    const phoneValidation = validateSriLankanPhone(searchQuery);
+    if (!phoneValidation.isValid) {
+      return toast.error(phoneValidation.message);
     }
 
     try {
-      const cusRes = await api.get(`/customers?phone=${encodeURIComponent(searchQuery)}`);
+      const cusRes = await api.get(`/customers?phone=${encodeURIComponent(phoneValidation.formatted)}`);
       const foundCus = cusRes.data.data || cusRes.data; 
       
       if (!foundCus || !foundCus.customer_id) {
@@ -137,10 +138,10 @@ const DueCollection = () => {
         <div className="due-left">
           <div className="due-search-box">
             <input 
-              type="text" 
-              placeholder="Search by 10-digit phone number..." 
+              type="tel" 
+              placeholder="Search by 10-digit phone number (070-078)..." 
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              onChange={(e) => setSearchQuery(filterSriLankanPhoneInput(e.target.value))}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               maxLength="10"
             />

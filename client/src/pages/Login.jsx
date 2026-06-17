@@ -57,8 +57,15 @@ function Login() {
       if (response.ok) {
         toast.success("Login successful!");
 
-        if (data.token) {
-          login(data.user_name || userName, data.token, roleParam.toLowerCase());
+        if (data.token && data.user) {
+          // Store all user information
+          localStorage.setItem('userId', data.user.user_id);
+          localStorage.setItem('userName', data.user.user_name);
+          localStorage.setItem('userFirstName', data.user.first_name);
+          localStorage.setItem('userLastName', data.user.last_name);
+          localStorage.setItem('userFullName', `${data.user.first_name} ${data.user.last_name}`);
+          
+          login(data.user.user_name, data.token, roleParam.toLowerCase());
         }
 
         setTimeout(() => navigate("/dashboard/" + roleParam.toLowerCase()), 1500);

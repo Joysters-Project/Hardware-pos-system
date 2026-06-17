@@ -67,10 +67,9 @@
 
 .dept-header h1 {
   margin: 0;
-  font-size: 1.75rem;
+  font-size: 1.85rem;
+  color: #2c2c2c;
   font-weight: 700;
-  color: #1a1a1a;
-  line-height: 1.2;
 }
 
 .dept-header p {

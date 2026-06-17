@@ -72,9 +72,18 @@ class ReturnService {
         total_refund_amount += refund_amount;
       }
 
-      const totalPaid = await payments.sum('amount_paid', { where: { bill_id }, transaction: t }) || 0;
-      // Actual cash/credit refund is capped by what they paid so far (avoid negative net payments)
-      const actual_cash_refund = Math.min(total_refund_amount, Math.max(0, Number(totalPaid)));
+      const original_balance_due = parseFloat(bill.balance_due) || 0;
+      let actual_cash_refund = 0;
+      if (original_balance_due > 0) {
+        if (total_refund_amount <= original_balance_due) {
+          actual_cash_refund = 0;
+        } else {
+          actual_cash_refund = total_refund_amount - original_balance_due;
+        }
+      } else {
+        const totalPaid = await payments.sum('amount_paid', { where: { bill_id }, transaction: t }) || 0;
+        actual_cash_refund = Math.min(total_refund_amount, Math.max(0, Number(totalPaid)));
+      }
 
       // Create Return Header (stores the actual cash refund amount given)
       const newReturn = await returns.create({
