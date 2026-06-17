@@ -56,6 +56,18 @@ exports.deleteAlert = async (req, res) => {
   }
 };
 
+// RESOLVE Alert
+exports.resolveAlert = async (req, res) => {
+  try {
+    const alert = await alerts.findByPk(req.params.id);
+    if (!alert) return res.status(404).json({ message: 'Alert not found' });
+    await alert.update({ is_resolved: true });
+    res.status(200).json({ message: 'Alert resolved successfully', data: alert });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // GET /api/alerts/expiry-alerts  — products expiring within N days (default 30)
 exports.getExpiryAlerts = async (req, res) => {
   try {
