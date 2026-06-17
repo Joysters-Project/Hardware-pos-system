@@ -84,10 +84,27 @@ const login = async (req, res) => {
       await user.update({ failed_attempts: 0, lock_time: null });
       const department_id = user.employee?.department_id || null;
       const secret = process.env.JWT_SECRET || 'MySuperSecretKey123!';
-      const token  = jwt.sign({ user_id: user.user_id, role: user.role, department_id }, secret, { expiresIn: '1h' });
+      const token  = jwt.sign({ 
+        user_id: user.user_id, 
+        user_name: user.user_name,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        role: user.role, 
+        department_id 
+      }, secret, { expiresIn: '1h' });
 
       await logActivity(user.user_id, user.role, 'LOGIN', `User "${user.user_name}" logged into the system`, ip);
-      return res.status(200).json({ message: 'Login successful', token });
+      return res.status(200).json({ 
+        message: 'Login successful', 
+        token,
+        user: {
+          user_id: user.user_id,
+          user_name: user.user_name,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          role: user.role
+        }
+      });
     } else {
       let attempts = (user.failed_attempts || 0) + 1;
       let updates  = { failed_attempts: attempts };

@@ -58,6 +58,10 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
     localStorage.removeItem("userName");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("userFirstName");
+    localStorage.removeItem("userLastName");
+    localStorage.removeItem("userFullName");
     localStorage.removeItem("loginTime");
     
     // Set flag to prevent back button

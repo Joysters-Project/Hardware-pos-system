@@ -5,7 +5,7 @@ const { Op } = require('sequelize');
 // CREATE Bill (runs entire invoice workflow inside a transaction)
 exports.createBill = async (req, res) => {
   try {
-    let userId = req.user?.id;
+    let userId = req.user?.user_id;
 
     if (!userId && req.body.user_id) {
       const requestedUser = await BillingService.findUserById(req.body.user_id);

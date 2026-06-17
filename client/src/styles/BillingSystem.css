@@ -1339,3 +1339,85 @@ body {
     color: #000;
   }
 }
+
+/* Cart Table Styles */
+.cart-table-modern {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cart-table-modern thead {
+  background: var(--gray-100);
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.cart-table-modern th {
+  padding: 0.75rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--gray-600);
+  text-align: left;
+}
+
+.cart-table-modern tbody tr {
+  border-bottom: 1px solid var(--gray-100);
+  transition: background 0.15s;
+}
+
+.cart-table-modern tbody tr:hover {
+  background: var(--gray-50);
+}
+
+.cart-table-modern td {
+  padding: 0.875rem 0.5rem;
+  vertical-align: middle;
+}
+
+.table-item-name {
+  font-weight: 600;
+  color: var(--gray-800);
+  font-size: 0.875rem;
+  margin-bottom: 0.125rem;
+}
+
+.table-item-price {
+  font-size: 0.688rem;
+  color: var(--gray-400);
+}
+
+.qty-input-table {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: center;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.qty-input-table:focus {
+  border-color: var(--primary-dark);
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+.table-remove-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--gray-400);
+  padding: 0.25rem;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.table-remove-btn:hover {
+  color: var(--danger);
+  background: var(--danger-light);
+}

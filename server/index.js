@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const authMiddleware = require('./middleware/authMiddleware');
 
 //1. just require the DB object
 // These files rely on the .env variables being ready
@@ -67,15 +68,15 @@ app.use('/api/units', unitRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/customers', customerRoutes);
-app.use('/api/bills', billRoutes); // This covers your Sales/POS logic
+app.use('/api/bills', authMiddleware, billRoutes); // This covers your Sales/POS logic
 app.use('/api/bill_items', billItemsRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/returns', returnRoutes);
+app.use('/api/payments', authMiddleware, paymentRoutes);
+app.use('/api/returns', authMiddleware, returnRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/purchase_orders', purchaseOrderRoutes);
 app.use('/api/po_items', poItemsRoutes);
 app.use('/api/schema', schemaRoutes);
-app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/dashboard', authMiddleware, dashboardRoutes);
 app.use('/api/assets', assetRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/salary', salaryRoutes);

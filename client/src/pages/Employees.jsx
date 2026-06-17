@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import { Eye, Pencil, Trash2, Plus, Search, RefreshCw, FileDown, X, ChevronLeft, ChevronRight, Users, AlertCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
-import { validateSriLankanPhone, formatSriLankanPhone } from "../utils/phoneValidation";
+import { validateSriLankanPhone, formatSriLankanPhone, filterSriLankanPhoneInput } from "../utils/phoneValidation";
 import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
 import "../styles/Employees.css";
@@ -300,9 +300,9 @@ function EmployeesPage() {
                     value={form.phone_no} 
                     maxLength="10"
                     onChange={e => {
-                      // Only allow numbers
-                      const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
-                      setForm({ ...form, phone_no: val });
+                      // Only allow valid Sri Lankan mobile patterns (070-078)
+                      const filtered = filterSriLankanPhoneInput(e.target.value);
+                      setForm({ ...form, phone_no: filtered });
                       // Clear error on change
                       if (phoneError) setPhoneError("");
                     }} 

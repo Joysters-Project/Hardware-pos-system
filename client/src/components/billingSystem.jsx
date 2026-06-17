@@ -8,6 +8,7 @@ import {
   TrendingUp, Clock, Zap, LayoutGrid, ListOrdered
 } from 'lucide-react';
 import api from '../api/axios';
+import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import SuccessAnim from './SuccessAnim';
@@ -19,6 +20,7 @@ const BillingSystem = () => {
   const [payData, setPayData] = useState({ amountPaid: '', customerName: '', customerPhone: '', customerAddress: '' });
   const [customerExists, setCustomerExists] = useState(false);
   const [customerLookupMessage, setCustomerLookupMessage] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [lastBill, setLastBill] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -40,8 +42,8 @@ const BillingSystem = () => {
     }, 300);
   };
 
-  const cashierName = localStorage.getItem('cashierName') || localStorage.getItem('username') || 'System User';
-  const cashierId = localStorage.getItem('cashierId') || localStorage.getItem('userId') || 'SYS';
+  const cashierName = localStorage.getItem('userFullName') || localStorage.getItem('userName') || 'System User';
+  const cashierId = localStorage.getItem('userId') || 'SYS';
 
   const formatDateTime = (value) => {
     if (!value) return '';
@@ -298,16 +300,29 @@ const BillingSystem = () => {
     if (!phone.trim()) {
       setCustomerExists(false);
       setCustomerLookupMessage('');
+      setPhoneError('');
       return;
     }
 
+    // Validate the phone number first
+    const phoneValidation = validateSriLankanPhone(phone);
+    if (!phoneValidation.isValid) {
+      setPhoneError(phoneValidation.message);
+      setCustomerExists(false);
+      setCustomerLookupMessage('');
+      return;
+    }
+    setPhoneError('');
+
+    const formattedPhone = phoneValidation.formatted;
+
     try {
-      const res = await api.get(`/customers?phone=${encodeURIComponent(phone)}`);
+      const res = await api.get(`/customers?phone=${encodeURIComponent(formattedPhone)}`);
       const customer = res.data.data;
       if (customer) {
         setPayData((prev) => ({ ...prev,
           customerName: customer.customer_name,
-          customerPhone: phone,
+          customerPhone: formattedPhone,
           customerAddress: customer.address || ''
         }));
         setCustomerExists(true);
@@ -366,12 +381,13 @@ const BillingSystem = () => {
 
   // Update quantity
   const handleUpdateQty = (index, newQty) => {
-    if (!Number.isFinite(newQty) || newQty <= 0) {
+    const qty = parseFloat(newQty);
+    if (!Number.isFinite(qty) || qty <= 0) {
       handleRemoveFromCart(index);
       return;
     }
     setCart(cart.map((item, i) =>
-      i === index ? { ...item, quantity: newQty } : item
+      i === index ? { ...item, quantity: qty } : item
     ));
   };
 
@@ -390,6 +406,17 @@ const BillingSystem = () => {
   const handleCheckout = async () => {
     if (cart.length === 0) return alert("Cart is empty!");
     if (amountPaidValue <= 0) return alert("Enter the amount received before completing transaction!");
+    // Validate phone number if provided
+    if (payData.customerPhone.trim()) {
+      const phoneValidation = validateSriLankanPhone(payData.customerPhone);
+      if (!phoneValidation.isValid) {
+        setPhoneError(phoneValidation.message);
+        return alert(`Invalid phone number: ${phoneValidation.message}`);
+      }
+      setPhoneError('');
+      // Use formatted phone number
+      setPayData((prev) => ({ ...prev, customerPhone: phoneValidation.formatted }));
+    }
     // For partial payments require customer phone/name/address for new customers
     if (isPartial) {
       if (!payData.customerPhone.trim()) return alert("Phone required for Partial Payment!");
@@ -432,6 +459,7 @@ const BillingSystem = () => {
       });
       setCart([]);
       setPayData({ amountPaid: '', customerName: '', customerPhone: '', customerAddress: '' });
+      setPhoneError('');
 
       // Reload catalog to reflect updated stock
       try {
@@ -659,38 +687,53 @@ const BillingSystem = () => {
               )}
             </div>
 
-            {/* Cart Items */}
+            {/* Cart Items as Table */}
             {cart.length === 0 ? (
               <div className="cart-empty-modern">
                 <div className="empty-cart-icon">🛒</div>
-                <div className="empty-cart-text">Cart is empty</div>
+                <div className="empty-cart-text">No items added</div>
                 <div className="empty-cart-sub">Search or click a product to add</div>
               </div>
             ) : (
               <div className="cart-items-modern">
-                {cart.map((item, idx) => (
-                  <div key={idx} className="cart-item-modern">
-                    <div className="item-info">
-                      <div className="item-name">{item.product_name}</div>
-                      <div className="item-price-each">Rs.{item.unit_price.toFixed(2)} each</div>
-                    </div>
-                    <div className="item-controls">
-                      <button className="qty-btn" onClick={() => handleUpdateQty(idx, item.quantity - 1)}>
-                        <Minus size={12} />
-                      </button>
-                      <span className="qty-display">{item.quantity}</span>
-                      <button className="qty-btn" onClick={() => handleUpdateQty(idx, item.quantity + 1)}>
-                        <Plus size={12} />
-                      </button>
-                    </div>
-                    <div className="item-total">
-                      Rs.{(item.unit_price * item.quantity).toFixed(2)}
-                    </div>
-                    <button className="item-remove" onClick={() => handleRemoveFromCart(idx)}>
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
+                <table className="cart-table-modern">
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th style={{ width: '120px', textAlign: 'center' }}>Quantity</th>
+                      <th style={{ width: '100px', textAlign: 'right' }}>Subtotal</th>
+                      <th style={{ width: '40px' }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cart.map((item, idx) => (
+                      <tr key={idx}>
+                        <td>
+                          <div className="table-item-name">{item.product_name}</div>
+                          <div className="table-item-price">Rs.{item.unit_price.toFixed(2)} each</div>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <input
+                            type="number"
+                            className="qty-input-table"
+                            value={item.quantity}
+                            onChange={(e) => handleUpdateQty(idx, parseFloat(e.target.value) || 0)}
+                            min="0.01"
+                            step="0.01"
+                          />
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <strong>Rs.{(item.unit_price * item.quantity).toFixed(2)}</strong>
+                        </td>
+                        <td>
+                          <button className="table-remove-btn" onClick={() => handleRemoveFromCart(idx)}>
+                            <X size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
 
@@ -770,14 +813,29 @@ const BillingSystem = () => {
                     <input
                       placeholder="Phone Number (Required)"
                       value={payData.customerPhone || ''}
+                      type="tel"
+                      maxLength={10}
                       onChange={(e) => {
-                        const phone = e.target.value;
-                        setPayData((prev) => ({ ...prev, customerPhone: phone }));
+                        const filtered = filterSriLankanPhoneInput(e.target.value);
+                        setPayData((prev) => ({ ...prev, customerPhone: filtered }));
                         setCustomerExists(false);
                         setCustomerLookupMessage('');
+                        if (phoneError) setPhoneError('');
                       }}
                       onBlur={(e) => lookupCustomerByPhone(e.target.value)}
+                      style={phoneError ? { borderColor: '#ef4444', borderWidth: '2px' } : {}}
                     />
+                    {payData.customerPhone && (
+                      <span style={{ fontSize: '11px', color: '#888', marginTop: '2px', display: 'block' }}>
+                        {payData.customerPhone.length}/10 digits
+                      </span>
+                    )}
+                    {phoneError && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', color: '#ef4444', fontSize: '12px' }}>
+                        <AlertCircle size={13} />
+                        {phoneError}
+                      </div>
+                    )}
                   </div>
                   <div className="partial-input-group">
                     <MapPin size={14} className="input-icon" />
@@ -844,7 +902,7 @@ const BillingSystem = () => {
         animate={animSuccess}
         onDismiss={handleSuccessDismiss}
         message="Transaction Complete!"
-        subMessage={`Bill total: Rs. ${total.toFixed(2)}`}
+        subMessage={lastBill ? `Bill Total: Rs. ${(lastBill.total_amount ?? 0).toFixed(2)}` : `Bill total: Rs. ${total.toFixed(2)}`}
       />
 
       {/* Receipt Modal */}

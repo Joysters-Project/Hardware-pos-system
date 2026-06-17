@@ -1,3 +1,16 @@
 {
-    "search.useGlobalIgnoreFiles": true
+    "search.useGlobalIgnoreFiles": true,
+
+    // Disable fetching schemas from remote schemastore.org (fixes ENOTFOUND error)
+    "json.schemaDownload.enable": false,
+
+    // Map package.json files to VS Code's built-in bundled schema (no internet needed)
+    "json.schemas": [
+        {
+            "fileMatch": [
+                "package.json"
+            ],
+            "url": "vscode://schemas/package.json"
+        }
+    ]
 }

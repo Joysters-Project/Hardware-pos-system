@@ -36,7 +36,7 @@ function CashierDashboard() {
 
     const fetchStats = async () => {
       try {
-        const userId = localStorage.getItem('cashierId') || localStorage.getItem('userId') || '';
+        const userId = localStorage.getItem('userId') || '';
         const res = await api.get(`/dashboard/cashier?userId=${userId}`);
         setStats(res.data);
       } catch (err) {

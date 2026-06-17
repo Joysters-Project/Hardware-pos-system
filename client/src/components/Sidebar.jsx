@@ -19,6 +19,7 @@ import {
   RefreshCw,
   ShieldAlert,
   TrendingUp,
+  Bell,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import "../styles/Sidebar.css";
@@ -126,6 +127,12 @@ const getNavItems = (role) => {
       label: "Expenses",
       icon: Receipt,
       path: `${prefix}/expenses`,
+    },
+    {
+      key: "alerts",
+      label: "Alerts",
+      icon: Bell,
+      path: `${prefix}/alerts`,
     },
     // Salary is Admin-only — hidden for manager role
     ...(role !== "manager"

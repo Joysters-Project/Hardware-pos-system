@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import api from '../utils/axios';
+import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
+import toast from 'react-hot-toast';
 import '../styles/Returns.css';
 
 const DESTINATIONS = [
@@ -45,6 +47,16 @@ function ReturnPage({ userRole }) {
   const searchBills = async () => {
     const trimmed = (searchValue || '').toString().trim();
     if (!trimmed) return;
+    
+    // Validate phone number if searching by phone
+    if (searchMode === 'phone') {
+      const phoneValidation = validateSriLankanPhone(trimmed);
+      if (!phoneValidation.isValid) {
+        toast.error(phoneValidation.message);
+        return;
+      }
+    }
+    
     setLoading(true);
     try {
       const params = searchMode === 'bill_no' ? { bill_no: trimmed } : { phone: trimmed };
@@ -53,6 +65,7 @@ function ReturnPage({ userRole }) {
       setSearchResults(Array.isArray(data) ? data : [data]);
     } catch {
       setSearchResults([]);
+      toast.error('No bills found');
     } finally {
       setLoading(false);
     }
@@ -237,10 +250,18 @@ function ReturnPage({ userRole }) {
           </div>
           <div className="ret-search-box">
             <input
-              type="text"
+              type={searchMode === 'phone' ? 'tel' : 'text'}
               value={searchValue}
-              onChange={e => setSearchValue(e.target.value)}
-              placeholder={searchMode === 'bill_no' ? 'e.g. 10042' : 'e.g. 9876543210'}
+              onChange={e => {
+                if (searchMode === 'phone') {
+                  // Only allow valid Sri Lankan mobile patterns (070-078)
+                  setSearchValue(filterSriLankanPhoneInput(e.target.value));
+                } else {
+                  setSearchValue(e.target.value);
+                }
+              }}
+              placeholder={searchMode === 'bill_no' ? 'e.g. INV-2024-0001' : 'e.g. 0771234567 (070-078 only)'}
+              maxLength={searchMode === 'phone' ? 10 : undefined}
             />
             <button onClick={searchBills}>Search</button>
           </div>
