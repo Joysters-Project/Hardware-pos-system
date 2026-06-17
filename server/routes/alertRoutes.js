@@ -9,8 +9,8 @@ router.post('/', alertController.createAlert);
 // GET All Alerts
 router.get('/', alertController.getAllAlerts);
 
-// GET unresolved alert count
-router.get('/count', alertController.getAlertCount);
+// GET Expiry Alerts
+router.get('/expiry-alerts', alertController.getExpiryAlerts);
 
 // GET Alert by ID
 router.get('/:id', alertController.getAlertById);

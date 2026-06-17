@@ -10,7 +10,7 @@
   "test": {
     "username": "root",
     "password": "",
-    "database": "database_test",
+    "database": "pos_database",
     "host": "127.0.0.1",
     "port": 3306,
     "dialect": "mysql"
@@ -18,7 +18,7 @@
   "production": {
     "username": "root",
     "password": "",
-    "database": "database_production",
+    "database": "pos_database",
     "host": "127.0.0.1",
     "port": 3306,
     "dialect": "mysql"

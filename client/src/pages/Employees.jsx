@@ -8,8 +8,8 @@ import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
 import "../styles/Employees.css";
 
-const BASE_URL = "";
-const POSITIONS = ["Admin", "Manager", "Cashier", "Supervisor", "Sales", "Warehouse", "IT", "HR", "Accountant", "Other"];
+const BASE_URL = "http://localhost:5000";
+const POSITIONS = ["Admin", "Manager", "Cashier", "Supervisor", "Sales", "Warehouse", "IT", "HR", "Accountant","Other"];
 const EMPTY_FORM = { first_name: "", last_name: "", nic: "", phone_no: "", email: "", address: "", position: "", salary: "", join_date: "", status: "Active", department_id: "" };
 
 function EmployeesPage() {
@@ -67,6 +67,17 @@ function EmployeesPage() {
   const handleSubmit = async (evt) => {
     evt.preventDefault();
     if (!form.first_name || !form.last_name) { toast.error("First and last name required"); return; }
+    if (!form.email) {
+    toast.error("Email is required");
+    return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (!emailRegex.test(form.email.trim())) {
+    toast.error("Please enter a valid email address");
+    return;
+  }
     
     // Validate phone number if provided
     if (form.phone_no) {
@@ -323,15 +334,15 @@ function EmployeesPage() {
               </div>
               <div className="emp-field"><label>Position *</label>
                 <select value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} required>
-                  <option value="">Select</option>{POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                  <option value=""></option>{POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
                 </select></div>
               <div className="emp-field"><label>Salary (LKR) *</label>
                 <input type="number" min="0" value={form.salary} onChange={e => setForm({ ...form, salary: e.target.value })} required /></div>
               <div className="emp-field"><label>Join Date</label>
-                <input type="date" value={form.join_date} onChange={e => setForm({ ...form, join_date: e.target.value })} /></div>
+                <input type="date" value={form.join_date} max={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, join_date: e.target.value })} /></div>
               <div className="emp-field"><label>Department *</label>
                 <select value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })} required>
-                  <option value="">Select</option>{departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
+                  <option value=""></option>{departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
                 </select></div>
               <div className="emp-field"><label>Status</label>
                 <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>

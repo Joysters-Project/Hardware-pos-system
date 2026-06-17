@@ -42,19 +42,19 @@ const toNumberOrNull = (value, parser = Number) => {
 };
 
 const buildPayload = (form) => ({
-	product_name: form.product_name.trim(),
-	unit_price: toNumberOrNull(form.unit_price, parseFloat),
-	cost_price: toNumberOrNull(form.cost_price, parseFloat),
-	stock_quantity: toNumberOrNull(form.stock_quantity, parseInt),
-	min_stock_quantity: toNumberOrNull(form.min_stock_quantity, parseInt),
-	reorder_level: toNumberOrNull(form.reorder_level, parseInt),
-	expiry_date: form.expiry_date ? new Date(form.expiry_date).toISOString() : null,
-	type: form.type.trim(),
-	batch_no: form.batch_no.trim() || null,
-	status: form.status || "active",
-	category_id: toNumberOrNull(form.category_id, parseInt),
-	brand_id: toNumberOrNull(form.brand_id, parseInt),
-	unit_id: toNumberOrNull(form.unit_id, parseInt),
+  product_name: form.product_name.trim(),
+  unit_price: toNumberOrNull(form.unit_price, parseFloat),
+  cost_price: toNumberOrNull(form.cost_price, parseFloat),
+  stock_quantity: toNumberOrNull(form.stock_quantity, parseInt),
+  min_stock_quantity: toNumberOrNull(form.min_stock_quantity, parseInt),
+  reorder_level: toNumberOrNull(form.reorder_level, parseInt),
+  type: form.type.trim(),
+  batch_no: form.batch_no.trim() || null,
+  expiry_date: form.expiry_date || null,
+  status: form.status || "active",
+  category_id: toNumberOrNull(form.category_id, parseInt),
+  brand_id: toNumberOrNull(form.brand_id, parseInt),
+  unit_id: toNumberOrNull(form.unit_id, parseInt),
 });
 
 const validateForm = (form) => {
@@ -76,6 +76,7 @@ const EDIT_FIELDS = [
   { name: "reorder_level", placeholder: "Reorder Level *", type: "number" },
   { name: "type", placeholder: "Type *", type: "text" },
   { name: "batch_no", placeholder: "Batch No", type: "text" },
+  { name: "expiry_date", placeholder: "Expiry Date", type: "date" },
 ];
 
 function ProductsPage() {
@@ -213,6 +214,7 @@ function ProductsPage() {
       reorder_level: p.reorder_level ?? "",
       type: p.type || "",
       batch_no: p.batch_no || "",
+      expiry_date: p.expiry_date ? String(p.expiry_date).slice(0, 10) : "",
       status: p.status || "active",
       category_id: p.category_id ?? "",
       brand_id: p.brand_id ?? "",
@@ -281,63 +283,66 @@ function ProductsPage() {
         />
       </div>
 
-			<div className="table-wrap">
-				<table className="products-table">
-					<thead>
-						<tr>
-							<th>ID</th>
-							<th>Name</th>
-							<th>Category</th>
-							<th>Brand</th>
-							<th>Unit</th>
-							<th>Price</th>
-							<th>Stock Qty</th>
-							<th>Min Stock</th>
-							<th>Reorder Level</th>
-							<th>Expiry Date</th>
-							<th>Status</th>
-							<th>Actions</th>
-						</tr>
-					</thead>
-					<tbody>
-						{filteredProducts.length === 0 && !loading ? (
-							<tr>
-								<td colSpan="11" className="empty-row">
-									No products found.
-								</td>
-							</tr>
-						) : (
-							filteredProducts.map((p) => (
-								<tr key={p.product_id}>
-									<td>{p.product_id}</td>
-									<td>{p.product_name}</td>
-									<td>{categoryMap.get(Number(p.category_id)) || p.category_id}</td>
-									<td>{brandMap.get(Number(p.brand_id)) || "-"}</td>
-									<td>{unitMap.get(Number(p.unit_id)) || p.unit_id}</td>
-									<td>{Number(p.unit_price || 0).toFixed(2)}</td>
-									<td>{p.stock_quantity ?? 0}</td>
-									<td>{p.min_stock_quantity ?? 0}</td>
-									<td>{p.reorder_level ?? 0}</td>
-                                    <td>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString() : "-"}</td>
-									<td>
-										<span className={`status-pill ${String(p.status).toLowerCase() === "active" ? "active" : "inactive"}`}>
-											{p.status || "active"}
-										</span>
-									</td>
-									<td>
-										<button className="edit-btn" onClick={() => openEdit(p)}>
-											Edit
-										</button>
-										<button className="delete-btn" onClick={() => deleteProduct(p.product_id)}>
-											Delete
-										</button>
-									</td>
-								</tr>
-							))
-						)}
-					</tbody>
-				</table>
-			</div>
+      <div className="table-wrap">
+        <table className="products-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Category</th>
+              <th>Brand</th>
+              <th>Unit</th>
+              <th>Price</th>
+              <th>Stock Qty</th>
+              <th>Expiry Date</th>
+              <th>Min Stock</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan="11" className="empty-row">Loading...</td></tr>
+            ) : filteredProducts.length === 0 ? (
+              <tr><td colSpan="11" className="empty-row">No products found.</td></tr>
+            ) : filteredProducts.map((p) => (
+              <tr key={p.product_id}>
+                <td><span className="id-badge">#{p.product_id}</span></td>
+                <td className="name-cell">{p.product_name}</td>
+                <td>{categoryMap.get(Number(p.category_id)) || "—"}</td>
+                <td>{brandMap.get(Number(p.brand_id)) || "—"}</td>
+                <td>{unitMap.get(Number(p.unit_id)) || "—"}</td>
+                <td className="price-cell">Rs. {Number(p.unit_price || 0).toFixed(2)}</td>
+                <td>
+                  <span className={`stock-badge ${p.stock_quantity <= p.min_stock_quantity ? "low" : ""}`}>
+                    {p.stock_quantity ?? 0}
+                  </span>
+                </td>
+                <td>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString() : "—"}</td>
+                <td>{p.min_stock_quantity ?? 0}</td>
+                <td>
+                  <span className={`status-pill ${String(p.status).toLowerCase() === "active" ? "active" : "inactive"}`}>
+                    {p.status || "active"}
+                  </span>
+                </td>
+                <td>
+                  <div className="action-btns">
+                    <button className="icon-btn view" title="View" onClick={() => setViewProduct(p)}>
+                      <Eye size={15} />
+                    </button>
+                    <button className="icon-btn edit" title="Edit" onClick={() => openEdit(p)}>
+                      <Pencil size={15} />
+                    </button>
+                    <button className="icon-btn delete" title="Delete" onClick={() => deleteProduct(p.product_id)}>
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {editModal && (
         <div className="modal-overlay">

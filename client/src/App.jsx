@@ -1,12 +1,14 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import DashboardLayout from "./components/DashboardLayout";
+
 import Login from "./pages/Login";
 import RoleSelect from "./pages/RoleSelect";
 import Signup from "./pages/Signup";
-import Recipts from "./pages/Receipts";
 import ReturnPage from "./pages/ReturnPage";
 
 import ForgotPassword from "./pages/ForgotPassword";
@@ -24,52 +26,61 @@ import Expenses from "./pages/Expenses";
 import SalaryManagement from "./pages/SalaryManagement";
 import AuditLogs from "./pages/AuditLogs";
 import SalaryHistory from "./pages/SalaryHistory";
+import MyProfile from "./pages/MyProfile";
 import BillingSystem from "./components/billingSystem";
 import DueCollection from "./components/DueCollection";
 import ReturnSystem from "./components/ReturnSystem";
 import Receipts from "./pages/Receipts";
 import ReportsPage from "./pages/ReportsPage";
 
+import ProcurementWorkspace from "./components/procurement/ProcurementWorkspace";
+import SupplierList from "./pages/suppliers/SupplierList";
+import SupplierForm from "./pages/suppliers/SupplierForm";
+import SupplierDetail from "./pages/suppliers/SupplierDetail";
+import PurchaseOrderList from "./pages/procurement/PurchaseOrderList";
+import CreatePurchaseOrder from "./pages/procurement/CreatePurchaseOrder";
+import PurchaseOrderDetail from "./pages/procurement/PurchaseOrderDetail";
+import ProcurementDashboard from "./pages/procurement/ProcurementDashboard";
+import PaymentDashboard from "./pages/procurement/PaymentDashboard";
+import AnalyticsDashboard from "./pages/procurement/AnalyticsDashboard";
+import ForecastDashboard from "./pages/procurement/ForecastDashboard";
+import NotificationCenter from "./pages/procurement/NotificationCenter";
+import ProcurementReports from "./pages/procurement/ProcurementReports";
+
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+});
+
+function ProcPage({ active, children }) {
+  return <DashboardLayout active={active}>{children}</DashboardLayout>;
+}
+
 function AppRoutes() {
   const { isAuthenticated, loading, role } = useAuth();
 
   if (loading) {
-    return <div style={{ 
-      display: 'flex', 
-      justifyContent: 'center', 
-      alignItems: 'center', 
-      height: '100vh',
-      backgroundColor: '#f5f5f5',
-      fontSize: '18px',
-      color: '#333'
-    }}>Loading...</div>;
+    return (
+      <div style={{
+        display: "flex", justifyContent: "center", alignItems: "center",
+        height: "100vh", backgroundColor: "#f5f5f5", fontSize: "18px", color: "#333",
+      }}>
+        Loading...
+      </div>
+    );
   }
 
   return (
     <Routes>
-      {/* Public routes - always available */}
+      {/* Public */}
       <Route path="/" element={<RoleSelect />} />
       <Route path="/login/:role" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
 
-      {/* Protected routes for Admin */}
-      <Route 
-        path="/dashboard/admin" 
-        element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} 
-      />
-
-      {/* Protected routes for Cashier */}
-      <Route 
-        path="/dashboard/cashier" 
-        element={<ProtectedRoute requiredRole="cashier"><CashierDashboard /></ProtectedRoute>} 
-      />
-
-      {/* Protected routes for Manager */}
-      <Route 
-        path="/dashboard/manager" 
-        element={<ProtectedRoute requiredRole="manager"><ManagerDashboard /></ProtectedRoute>} 
-      />
+      {/* Dashboards */}
+      <Route path="/dashboard/admin"   element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+      <Route path="/dashboard/cashier" element={<ProtectedRoute requiredRole="cashier"><CashierDashboard /></ProtectedRoute>} />
+      <Route path="/dashboard/manager" element={<ProtectedRoute requiredRole="manager"><ManagerDashboard /></ProtectedRoute>} />
 
       {/* Shared protected routes */}
       <Route 
@@ -170,22 +181,34 @@ function AppRoutes() {
       />
 
       <Route
-        path="/audit-logs"
-        element={<ProtectedRoute requiredRole="admin"><AuditLogs /></ProtectedRoute>}
-      />
-      {/* Fallback redirect */}
+        path="/procurement"
+        element={
+          <ProtectedRoute>
+            <ProcPage active="procurement">
+              <ProcurementWorkspace />
+            </ProcPage>
+          </ProtectedRoute>
+        }
+      >
+        <Route index                      element={<ProcurementDashboard />} />
+        <Route path="suppliers"           element={<SupplierList />} />
+        <Route path="suppliers/add"       element={<SupplierForm />} />
+        <Route path="suppliers/edit/:id"  element={<SupplierForm />} />
+        <Route path="suppliers/:id"       element={<SupplierDetail />} />
+        <Route path="orders"              element={<PurchaseOrderList />} />
+        <Route path="orders/create"       element={<CreatePurchaseOrder />} />
+        <Route path="orders/:id"          element={<PurchaseOrderDetail />} />
+        <Route path="payments"            element={<PaymentDashboard />} />
+        <Route path="analytics"           element={<AnalyticsDashboard />} />
+        <Route path="forecast"            element={<ForecastDashboard />} />
+        <Route path="reports"             element={<ProcurementReports />} />
+        <Route path="notifications"       element={<NotificationCenter />} />
+      </Route>
+
+      {/* Fallback */}
       <Route
         path="*"
-        element={
-          <Navigate
-            to={
-              isAuthenticated
-                ? `/dashboard/${role || "admin"}`
-                : "/"
-            }
-            replace
-          />
-        }
+        element={<Navigate to={isAuthenticated ? `/dashboard/${role || "admin"}` : "/"} replace />}
       />
     </Routes>
   );
@@ -193,14 +216,14 @@ function AppRoutes() {
 
 function App() {
   return (
-    <>
+    <QueryClientProvider client={queryClient}>
       <Toaster position="top-center" reverseOrder={false} />
       <BrowserRouter>
         <AuthProvider>
           <AppRoutes />
         </AuthProvider>
       </BrowserRouter>
-    </>
+    </QueryClientProvider>
   );
 }
 

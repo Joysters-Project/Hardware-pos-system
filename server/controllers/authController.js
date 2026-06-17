@@ -57,7 +57,7 @@ const login = async (req, res) => {
 
     if (!role || user.role.toLowerCase() !== role.toLowerCase()) {
       console.warn(`[Login] Role mismatch — DB: "${user.role}", sent: "${role}"`);
-      return res.status(403).json({ message: `Access denied: You are registered as "${user.role}". Please select the correct role.` });
+      return res.status(403).json({ message: `Access denied` });
     }
     if (user.status !== 'Active') return res.status(403).json({ message: 'User is inactive' });
 
