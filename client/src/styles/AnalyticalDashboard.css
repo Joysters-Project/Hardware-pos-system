@@ -48,26 +48,30 @@
   border: 1px solid rgba(139, 58, 58, 0.15);
 }
 
-/* ---------- KPI Cards ---------- */
-.kpi-grid {
+/* ---------- KPI Grid (Anime HUD Stat Cards) ---------- */
+.analytics-container .kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  gap: 20px;
+  align-items: stretch;
+  width: 100%;
+  margin: 0 auto;
 }
 
-.kpi-card {
-  min-height: 148px;
-  background: linear-gradient(160deg, #ffffff 0%, #fffaf9 100%);
-  border: 1px solid #efe2e2;
-  border-radius: 14px;
-  padding: 18px;
-  box-shadow: 0 10px 24px rgba(139, 58, 58, 0.06);
+.analytics-container .kpi-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-card);
+  padding: 24px;
+  box-shadow: var(--shadow-card);
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), 
+  min-height: 170px;
+  min-width: 0;
+  transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1),
               box-shadow 0.3s cubic-bezier(0.25, 1, 0.5, 1),
               border-color 0.3s cubic-bezier(0.25, 1, 0.5, 1);
   cursor: pointer;
