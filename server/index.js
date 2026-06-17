@@ -291,3 +291,4 @@ server.listen(PORT, () => {
 
 // Save models for global access if needed
 app.set('models', db);
+});
