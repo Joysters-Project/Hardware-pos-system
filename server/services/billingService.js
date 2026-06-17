@@ -124,10 +124,33 @@ class BillingService {
                 payment_method: saleData.payment_method || 'CASH'
             }, { transaction: t });
 
-            // 7. Final Audit Log (outside transaction so it never blocks the bill)
-            process.nextTick(() => logActivity(userId, null, 'INVOICE_CREATED',
-              `Invoice ${bill_no} created. Total: ${saleData.total_amount}, Paid: ${saleData.amount_paid}, Due: ${saleData.balance_due || 0}`
-            ));
+            // 7. Final Audit Log and Inventory Sync (outside transaction so it never blocks checkout)
+            process.nextTick(async () => {
+                try {
+                    await logActivity(userId, null, 'INVOICE_CREATED',
+                      `Invoice ${bill_no} created. Total: ${saleData.total_amount}, Paid: ${saleData.amount_paid}, Due: ${saleData.balance_due || 0}`
+                    );
+
+                    // Import services dynamically to avoid circular dependencies
+                    const autoReorderService = require('./autoReorderService');
+                    const forecastService = require('./forecastService');
+
+                    for (const item of saleData.items) {
+                        // Record inventory movement
+                        await logActivity(userId, null, 'INVENTORY_MOVEMENT',
+                          `Sales checkout: reduced stock of product_id=${item.product_id} by ${item.quantity} units for Invoice ${bill_no}`
+                        );
+
+                        // Check reorder level and update suggestions / notifications
+                        await autoReorderService.checkProductReorder(item.product_id);
+
+                        // Update forecast calculations
+                        await forecastService.getProductForecast(item.product_id);
+                    }
+                } catch (err) {
+                    console.error('[BillingService] Post-commit inventory sync error:', err.message);
+                }
+            });
 
             const billData = bill.toJSON();
             billData.lowStockAlerts = lowStockAlerts;

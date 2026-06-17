@@ -72,7 +72,7 @@ class ReturnService {
         total_refund_amount += refund_amount;
       }
 
-      const totalPaid = await payments.sum('amount_paid', { where: { bill_id }, transaction: t }) || 0;
+        const totalPaid = await payments.sum('amount_paid', { where: { bill_id }, transaction: t }) || 0;
       // Actual cash/credit refund is capped by what they paid so far (avoid negative net payments)
       const actual_cash_refund = Math.min(total_refund_amount, Math.max(0, Number(totalPaid)));
 

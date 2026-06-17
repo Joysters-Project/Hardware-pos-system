@@ -3,19 +3,23 @@ const { alerts, products } = require('../models');
 const NEAR_EXPIRY_DAYS = 7;
 const ALL_TYPES = ['Out of Stock', 'Low Stock', 'Reorder', 'Near Expiry'];
 
+// Strict priority-based classification — a product belongs to exactly ONE category
 function getApplicableTypes(product) {
-  const types = [];
+  const types   = [];
   const stock   = parseInt(product.stock_quantity)     || 0;
   const minQty  = parseInt(product.min_stock_quantity) || 0;
   const reorder = parseInt(product.reorder_level)      || 0;
 
+  // Mutually exclusive — evaluated in priority order
   if (stock === 0) {
     types.push('Out of Stock');
-  } else {
-    if (stock <= minQty)  types.push('Low Stock');
-    if (stock <= reorder) types.push('Reorder');
+  } else if (stock > 0 && stock < minQty) {
+    types.push('Low Stock');
+  } else if (stock === reorder) {
+    types.push('Reorder');
   }
 
+  // Near Expiry is independent of stock level
   if (product.expiry_date) {
     const daysLeft = Math.ceil(
       (new Date(product.expiry_date) - new Date()) / (1000 * 60 * 60 * 24)

@@ -1,12 +1,17 @@
-require('dotenv').config();
+require('dotenv').config({ path: __dirname + '/.env' });
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const http = require('http');
 const { Server } = require('socket.io');
 
-const db = require('./models');
-const authRoutes = require('./routes/auth');
+//1. just require the DB object
+// These files rely on the .env variables being ready
+const db = require('./models');// This automatically looks for models/index.js
+const authRoutes = require('./routes/auth'); // Path to your routes/auth.js file
+const seedDefaultAdmin = require('./scripts/seedDefaultAdmin');
+const ensureSupplierSchema = require('./scripts/ensureSupplierSchema');
+
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
@@ -33,8 +38,10 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Using { force: false } — never mutate schema on startup.
 // All schema changes are handled by Sequelize CLI migrations (npx sequelize-cli db:migrate).
 db.sequelize.sync({ force: false })
-  .then(() => {
+  .then(async () => {
     console.log('✅ Database connected successfully');
+    await ensureSupplierSchema();
+    await seedDefaultAdmin();
   })
   .catch((err) => {
     console.error('❌ Database connection failed:', err.message);
@@ -66,6 +73,15 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 const assetRoutes  = require('./routes/assetRoutes');
 const expenseRoutes = require('./routes/expenseRoutes');
 const salaryRoutes = require('./routes/salaryRoutes');
+const RR_supplierRoutes         = require('./routes/RR_supplierRoutes');
+const RR_purchaseOrderRoutes    = require('./routes/RR_purchaseOrderRoutes');
+const procurementDashboardRoutes = require('./routes/procurementDashboardRoutes');
+const procurementReportsRoutes   = require('./routes/procurementReportsRoutes');
+const procurementPaymentRoutes   = require('./routes/procurementPaymentRoutes');
+const autoReorderRoutes          = require('./routes/autoReorderRoutes');
+const forecastRoutes             = require('./routes/forecastRoutes');
+const procurementNotificationRoutes = require('./routes/procurementNotificationRoutes');
+const supplierPerformanceRoutes  = require('./routes/supplierPerformanceRoutes');
 const cron         = require('node-cron');
 
 // 4. Register API Routes
@@ -92,6 +108,17 @@ app.use('/api/assets', assetRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/salary', salaryRoutes);
 
+// Procurement Module
+app.use('/api/procurement/suppliers',       RR_supplierRoutes);
+app.use('/api/procurement/purchase-orders', RR_purchaseOrderRoutes);
+app.use('/api/procurement/dashboard',       procurementDashboardRoutes);
+app.use('/api/procurement/reports',         procurementReportsRoutes);
+app.use('/api/procurement/payments',        procurementPaymentRoutes);
+app.use('/api/procurement/reorder',         autoReorderRoutes);
+app.use('/api/procurement/forecast',        forecastRoutes);
+app.use('/api/procurement/notifications',   procurementNotificationRoutes);
+app.use('/api/procurement/performance',     supplierPerformanceRoutes);
+
 // Cron: daily at 08:00 — log pending salary reminders to console
 cron.schedule('0 8 * * *', async () => {
   try {
@@ -106,6 +133,50 @@ cron.schedule('0 8 * * *', async () => {
       console.log(`🔔 Salary Reminder: ${pending} pending salary payment(s). Due in ${daysLeft} day(s) (${dueDay}th).`);
     }
   } catch (e) { console.error('Cron error:', e.message); }
+});
+
+// Daily 07:00 — Check all products for auto-reorder suggestions
+cron.schedule('0 7 * * *', async () => {
+  try {
+    const autoReorderService = require('./services/autoReorderService');
+    const count = await autoReorderService.checkAndGenerateSuggestions();
+    console.log(`[Cron] Daily auto-reorder check generated ${count} suggestions.`);
+  } catch (e) {
+    console.error('[Cron] Auto-reorder check error:', e.message);
+  }
+});
+
+// Daily 08:00 — Mark overdue payments
+cron.schedule('0 8 * * *', async () => {
+  try {
+    const paymentService = require('./services/supplierPaymentService');
+    const count = await paymentService.checkAndMarkOverdue();
+    console.log(`[Cron] Daily overdue payment check marked ${count} invoices overdue.`);
+  } catch (e) {
+    console.error('[Cron] Overdue payment check error:', e.message);
+  }
+});
+
+// Daily 06:00 — Recalculate supplier performance scores
+cron.schedule('0 6 * * *', async () => {
+  try {
+    const performanceService = require('./services/supplierPerformanceService');
+    const count = await performanceService.recalculateAllSuppliers();
+    console.log(`[Cron] Daily supplier performance score update completed for ${count} suppliers.`);
+  } catch (e) {
+    console.error('[Cron] Supplier performance recalculation error:', e.message);
+  }
+});
+
+// Daily 06:30 — Recalculate product forecasts
+cron.schedule('30 6 * * *', async () => {
+  try {
+    const forecastService = require('./services/forecastService');
+    const list = await forecastService.calculateForecasts();
+    console.log(`[Cron] Daily forecast calculations updated for ${list.length} products.`);
+  } catch (e) {
+    console.error('[Cron] Forecast calculation error:', e.message);
+  }
 });
 
 // 5. Default Route

@@ -7,7 +7,7 @@ const getIp   = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() |
 exports.createProduct = async (req, res) => {
   const ip = getIp(req);
   try {
-    const { repair_quantity, expiry_date, ...safeBody } = req.body;
+    const { repair_quantity, ...safeBody } = req.body;
     const product = await products.create(safeBody);
     await syncAlertsForProduct(product);
     const io = req.app.get('io');
@@ -61,7 +61,7 @@ exports.updateProduct = async (req, res) => {
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
     const changes = [];
-    const { repair_quantity, expiry_date, ...safeBody } = req.body;
+    const { repair_quantity, ...safeBody } = req.body;
     if (safeBody.stock_quantity !== undefined && String(product.stock_quantity) !== String(safeBody.stock_quantity))
       changes.push(`Stock changed from ${product.stock_quantity} to ${safeBody.stock_quantity}`);
     if (safeBody.selling_price !== undefined && String(product.selling_price) !== String(safeBody.selling_price))
