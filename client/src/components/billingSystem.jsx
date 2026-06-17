@@ -19,6 +19,7 @@ const BillingSystem = () => {
   const [cart, setCart] = useState([]);
   const [payData, setPayData] = useState({ amountPaid: '', customerName: '', customerPhone: '', customerAddress: '' });
   const [customerExists, setCustomerExists] = useState(false);
+  const [saveCustomer, setSaveCustomer] = useState(false);
   const [customerLookupMessage, setCustomerLookupMessage] = useState('');
   const [phoneError, setPhoneError] = useState('');
   const [lastBill, setLastBill] = useState(null);
@@ -326,6 +327,7 @@ const BillingSystem = () => {
           customerAddress: customer.address || ''
         }));
         setCustomerExists(true);
+        setSaveCustomer(true);
         setCustomerLookupMessage('Existing customer found');
       } else {
         setCustomerExists(false);
@@ -402,6 +404,7 @@ const BillingSystem = () => {
   const cartItemCount = cart.reduce((acc, i) => acc + i.quantity, 0);
   // allow checkout once cart has items and an amount is entered; specific customer validation happens on submit
   const canCheckout = cart.length > 0 && amountPaidValue > 0;
+  const showCustomerDetails = isPartial || saveCustomer || customerExists;
 
   const handleCheckout = async () => {
     if (cart.length === 0) return alert("Cart is empty!");
@@ -417,11 +420,11 @@ const BillingSystem = () => {
       // Use formatted phone number
       setPayData((prev) => ({ ...prev, customerPhone: phoneValidation.formatted }));
     }
-    // For partial payments require customer phone/name/address for new customers
-    if (isPartial) {
-      if (!payData.customerPhone.trim()) return alert("Phone required for Partial Payment!");
-      if (!customerExists && !payData.customerName.trim()) return alert("Customer name required for new customer partial payment!");
-      if (!customerExists && !payData.customerAddress.trim()) return alert("Customer address required for new customer partial payment!");
+
+    if (saveCustomer || customerExists || isPartial) {
+      if (!payData.customerPhone.trim()) return alert('Phone required to save customer!');
+      if (!customerExists && !payData.customerName.trim()) return alert('Customer name required to save customer!');
+      if (isPartial && !customerExists && !payData.customerAddress.trim()) return alert('Customer address required for new customer partial payment!');
     }
 
     try {
@@ -437,7 +440,7 @@ const BillingSystem = () => {
         discount: 0,
         amount_paid: amountPaidValue,
         balance_due: isPartial ? Math.abs(balance) : 0,
-        customer: payData.customerPhone ? { name: payData.customerName, phone: payData.customerPhone, address: payData.customerAddress } : null,
+        customer: (saveCustomer || customerExists || isPartial) && payData.customerPhone ? { name: payData.customerName, phone: payData.customerPhone, address: payData.customerAddress } : null,
       };
 
       const res = await api.post('/bills', payload);
@@ -459,6 +462,9 @@ const BillingSystem = () => {
       });
       setCart([]);
       setPayData({ amountPaid: '', customerName: '', customerPhone: '', customerAddress: '' });
+      setSaveCustomer(false);
+      setCustomerExists(false);
+      setCustomerLookupMessage('');
       setPhoneError('');
 
       // Reload catalog to reflect updated stock
@@ -749,6 +755,22 @@ const BillingSystem = () => {
                 <span className="summary-total-value">Rs.{total.toFixed(2)}</span>
               </div>
 
+              {amountPaidValue > 0 && !isPartial && (
+                <div className="customer-save-toggle-row">
+                  <div>
+                    <div className="customer-save-title">Save customer on this full payment</div>
+                    <div className="customer-save-subtitle">Only full payments ask whether to save the customer or not.</div>
+                  </div>
+                  <button
+                    type="button"
+                    className={`customer-save-toggle ${saveCustomer || customerExists ? 'on' : ''}`}
+                    onClick={() => setSaveCustomer(prev => !prev)}
+                  >
+                    {(saveCustomer || customerExists) ? 'On' : 'Off'}
+                  </button>
+                </div>
+              )}
+
               {/* Amount Received */}
               <div className="amount-input-group">
                 <label className="amount-label">
@@ -771,126 +793,135 @@ const BillingSystem = () => {
                 </div>
               </div>
 
-              {/* Change or Due */}
-              {amountPaidValue > 0 && (
-                balance >= 0 ? (
-                  <div className="change-card positive">
-                    <CheckCircle size={18} />
-                    <div>
-                      <div className="change-label">Change to Return</div>
-                      <div className="change-value">Rs.{balance.toFixed(2)}</div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="change-card negative">
-                    <AlertCircle size={18} />
-                    <div>
-                      <div className="change-label">Balance Due</div>
-                      <div className="change-value">Rs.{Math.abs(balance).toFixed(2)}</div>
-                    </div>
-                  </div>
-                )
-              )}
-
-              {/* Customer Info for Partial or Full Payment */}
-              {amountPaidValue > 0 && (
-                <div className="partial-info-modern">
-                  <div className="partial-header">
-                    <User size={14} />
-                    <span>Customer Information</span>
-                  </div>
-                  <div className="partial-input-group">
-                    <User size={14} className="input-icon" />
-                    <input
-                      placeholder="Customer Name (Required)"
-                      value={payData.customerName || ''}
-                      onChange={(e) => setPayData({...payData, customerName: e.target.value})}
-                      readOnly={customerExists}
-                    />
-                  </div>
-                  <div className="partial-input-group">
-                    <Phone size={14} className="input-icon" />
-                    <input
-                      placeholder="Phone Number (Required)"
-                      value={payData.customerPhone || ''}
-                      type="tel"
-                      maxLength={10}
-                      onChange={(e) => {
-                        const filtered = filterSriLankanPhoneInput(e.target.value);
-                        setPayData((prev) => ({ ...prev, customerPhone: filtered }));
-                        setCustomerExists(false);
-                        setCustomerLookupMessage('');
-                        if (phoneError) setPhoneError('');
-                      }}
-                      onBlur={(e) => lookupCustomerByPhone(e.target.value)}
-                      style={phoneError ? { borderColor: '#ef4444', borderWidth: '2px' } : {}}
-                    />
-                    {payData.customerPhone && (
-                      <span style={{ fontSize: '11px', color: '#888', marginTop: '2px', display: 'block' }}>
-                        {payData.customerPhone.length}/10 digits
-                      </span>
-                    )}
-                    {phoneError && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', color: '#ef4444', fontSize: '12px' }}>
-                        <AlertCircle size={13} />
-                        {phoneError}
+              <div className="payment-summary-scroll">
+                {/* Change or Due */}
+                {amountPaidValue > 0 && (
+                  balance >= 0 ? (
+                    <div className="change-card positive">
+                      <CheckCircle size={18} />
+                      <div>
+                        <div className="change-label">Change to Return</div>
+                        <div className="change-value">Rs.{balance.toFixed(2)}</div>
                       </div>
+                    </div>
+                  ) : (
+                    <div className="change-card negative">
+                      <AlertCircle size={18} />
+                      <div>
+                        <div className="change-label">Balance Due</div>
+                        <div className="change-value">Rs.{Math.abs(balance).toFixed(2)}</div>
+                      </div>
+                    </div>
+                  )
+                )}
+
+                {/* Customer Info for Partial Payment */}
+                {showCustomerDetails && (
+                  <div className="partial-info-modern">
+                    <div className="partial-header">
+                      <User size={14} />
+                      <span>{isPartial ? 'Customer Information' : 'Customer Information'}</span>
+                    </div>
+                    {isPartial && (
+                      <p className="partial-message found" style={{ marginTop: 0 }}>
+                        Partial payment will save this customer automatically.
+                      </p>
+                    )}
+                    {customerExists && (
+                      <p className="partial-message found" style={{ marginTop: 0 }}>
+                        Existing customer loaded
+                      </p>
+                    )}
+                    <div className="partial-input-group">
+                      <User size={14} className="input-icon" />
+                      <input
+                        placeholder="Customer Name (Required)"
+                        value={payData.customerName || ''}
+                        onChange={(e) => setPayData({...payData, customerName: e.target.value})}
+                        readOnly={customerExists}
+                      />
+                    </div>
+                    <div className="partial-input-group">
+                      <Phone size={14} className="input-icon" />
+                      <input
+                        placeholder="Phone Number (Required)"
+                        value={payData.customerPhone || ''}
+                        type="tel"
+                        maxLength={10}
+                        onChange={(e) => {
+                          const filtered = filterSriLankanPhoneInput(e.target.value);
+                          setPayData((prev) => ({ ...prev, customerPhone: filtered }));
+                          setCustomerExists(false);
+                          setCustomerLookupMessage('');
+                          if (phoneError) setPhoneError('');
+                        }}
+                        onBlur={(e) => lookupCustomerByPhone(e.target.value)}
+                        style={phoneError ? { borderColor: '#ef4444', borderWidth: '2px' } : {}}
+                      />
+                      {payData.customerPhone && (
+                        <span style={{ fontSize: '11px', color: '#888', marginTop: '2px', display: 'block' }}>
+                          {payData.customerPhone.length}/10 digits
+                        </span>
+                      )}
+                      {phoneError && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', color: '#ef4444', fontSize: '12px' }}>
+                          <AlertCircle size={13} />
+                          {phoneError}
+                        </div>
+                      )}
+                    </div>
+                    <div className="partial-input-group">
+                      <MapPin size={14} className="input-icon" />
+                      <input
+                        placeholder="Address"
+                        value={payData.customerAddress || ''}
+                        onChange={(e) => setPayData({...payData, customerAddress: e.target.value})}
+                        readOnly={customerExists}
+                      />
+                    </div>
+                    {customerLookupMessage && (
+                      <p className={`partial-message ${customerExists ? 'found' : 'new'}`}>
+                        {customerLookupMessage}
+                      </p>
                     )}
                   </div>
-                  <div className="partial-input-group">
-                    <MapPin size={14} className="input-icon" />
-                    <input
-                      placeholder="Address"
-                      value={payData.customerAddress || ''}
-                      onChange={(e) => setPayData({...payData, customerAddress: e.target.value})}
-                      readOnly={customerExists}
-                    />
-                  </div>
-                  {customerLookupMessage && (
-                    <p className={`partial-message ${customerExists ? 'found' : 'new'}`}>
-                      {customerLookupMessage}
-                    </p>
-                  )}
-                  {isFullPaid && (
-                    <p className="partial-message full-payment">
-                      Full payment recorded. Phone number and customer name are required to complete this transaction.
-                    </p>
-                  )}
-                </div>
-              )}
+                )}
 
-              {/* Recent Items Quick Add */}
-              {recentItems.length > 0 && cart.length === 0 && (
-                <div className="recent-items-modern">
-                  <div className="recent-header">
-                    <Sparkles size={12} />
-                    <span>Recent Items</span>
+                {/* Recent Items Quick Add */}
+                {recentItems.length > 0 && cart.length === 0 && (
+                  <div className="recent-items-modern">
+                    <div className="recent-header">
+                      <Sparkles size={12} />
+                      <span>Recent Items</span>
+                    </div>
+                    <div className="recent-list">
+                      {recentItems.map((item, idx) => (
+                        <button 
+                          key={idx} 
+                          className="recent-item"
+                          onClick={() => handleAddRecent(item)}
+                        >
+                          {item.product_name}
+                          <span className="recent-price">Rs.{item.unit_price.toFixed(2)}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="recent-list">
-                    {recentItems.map((item, idx) => (
-                      <button 
-                        key={idx} 
-                        className="recent-item"
-                        onClick={() => handleAddRecent(item)}
-                      >
-                        {item.product_name}
-                        <span className="recent-price">Rs.{item.unit_price.toFixed(2)}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Checkout Button */}
-              <button
-                onClick={handleCheckout}
-                disabled={cart.length === 0 || amountPaidValue <= 0}
-                className={`checkout-btn-modern ${canCheckout ? 'active' : 'disabled'}`}
-              >
-                <span className="checkout-kbd">F9</span>
-                Complete Transaction
-                <ArrowRight size={16} />
-              </button>
+              <div className="checkout-footer-modern">
+                <button
+                  onClick={handleCheckout}
+                  disabled={cart.length === 0 || amountPaidValue <= 0}
+                  className={`checkout-btn-modern ${canCheckout ? 'active' : 'disabled'}`}
+                >
+                  <span className="checkout-kbd">F9</span>
+                  Complete Transaction
+                  <ArrowRight size={16} />
+                </button>
+              </div>
             </div>
           </div>
         </div>
