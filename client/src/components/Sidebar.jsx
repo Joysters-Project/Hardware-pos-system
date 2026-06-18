@@ -22,6 +22,7 @@ import {
   Truck,
   ClipboardList,
   UserCircle,
+  Bell,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import "../styles/Sidebar.css";

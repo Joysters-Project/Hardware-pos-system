@@ -11,6 +11,7 @@ const authRoutes = require('./routes/auth'); // Path to your routes/auth.js file
 const seedDefaultAdmin = require('./scripts/seedDefaultAdmin');
 const ensureSupplierSchema = require('./scripts/ensureSupplierSchema');
 
+const { startNearExpiryCron } = require('./cron/nearExpiryCron');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -27,6 +28,7 @@ db.sequelize.sync({ force: false })
     console.log('✅ Database connected successfully');
     await ensureSupplierSchema();
     await seedDefaultAdmin();
+    startNearExpiryCron();
   })
   .catch((err) => {
     console.error('❌ Database connection failed:', err.message);

@@ -18,6 +18,7 @@ import ManagerDashboard from "./pages/ManagerDashboard";
 import Departments from "./pages/Departments";
 import Products from "./pages/Products";
 import AddProduct from "./pages/AddProduct";
+import ProductForm from "./pages/products/ProductForm";
 import Alerts from "./pages/Alerts";
 import Employees from "./pages/Employees";
 import Catalog from "./pages/Catalog";
@@ -82,6 +83,37 @@ function AppRoutes() {
       <Route path="/dashboard/cashier" element={<ProtectedRoute requiredRole="cashier"><CashierDashboard /></ProtectedRoute>} />
       <Route path="/dashboard/manager" element={<ProtectedRoute requiredRole="manager"><ManagerDashboard /></ProtectedRoute>} />
 
+      {/* Shared */}
+      <Route path="/departments"    element={<ProtectedRoute><Departments /></ProtectedRoute>} />
+      <Route path="/products"       element={<ProtectedRoute><Products /></ProtectedRoute>} />
+      <Route path="/products/add"   element={<ProtectedRoute><AddProduct /></ProtectedRoute>} />
+      <Route path="/products/edit/:id" element={<ProtectedRoute><ProductForm /></ProtectedRoute>} />
+      <Route path="/employees"      element={<ProtectedRoute><Employees /></ProtectedRoute>} />
+      <Route path="/catalog"        element={<ProtectedRoute><Catalog /></ProtectedRoute>} />
+      <Route path="/billing"        element={<ProtectedRoute><BillingSystem /></ProtectedRoute>} />
+      <Route path="/due-collection" element={<ProtectedRoute><DueCollection /></ProtectedRoute>} />
+      <Route path="/returns"        element={<ProtectedRoute><ReturnPage userRole={role} /></ProtectedRoute>} />
+      {/* <Route path="/return-logs"    element={<ProtectedRoute><ReturnLogsPage /></ProtectedRoute>} /> */}
+      <Route path="/reports"        element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
+      <Route path="/receipts"       element={<ProtectedRoute><Receipts /></ProtectedRoute>} />
+      <Route path="/assets"         element={<ProtectedRoute><Assets /></ProtectedRoute>} />
+      <Route path="/expenses"       element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
+      <Route path="/salary"         element={<ProtectedRoute><SalaryManagement /></ProtectedRoute>} />
+      <Route path="/salary/history" element={<ProtectedRoute><SalaryHistory /></ProtectedRoute>} />
+
+      {/* Manager-prefixed */}
+      <Route path="/manager/departments"    element={<ProtectedRoute requiredRole="manager"><Departments /></ProtectedRoute>} />
+      <Route path="/manager/products"       element={<ProtectedRoute requiredRole="manager"><Products /></ProtectedRoute>} />
+      <Route path="/manager/products/add"   element={<ProtectedRoute requiredRole="manager"><AddProduct /></ProtectedRoute>} />
+      <Route path="/manager/products/edit/:id" element={<ProtectedRoute requiredRole="manager"><ProductForm /></ProtectedRoute>} />
+      <Route path="/manager/employees"      element={<ProtectedRoute requiredRole="manager"><Employees /></ProtectedRoute>} />
+      <Route path="/manager/assets"         element={<ProtectedRoute requiredRole="manager"><Assets /></ProtectedRoute>} />
+      <Route path="/manager/expenses"       element={<ProtectedRoute requiredRole="manager"><Expenses /></ProtectedRoute>} />
+      <Route path="/manager/salary"         element={<ProtectedRoute requiredRole="manager"><SalaryManagement /></ProtectedRoute>} />
+      <Route path="/manager/salary/history" element={<ProtectedRoute requiredRole="manager"><SalaryHistory /></ProtectedRoute>} />
+
+      {/* Admin-only */}
+      <Route path="/audit-logs" element={<ProtectedRoute requiredRole="admin"><AuditLogs /></ProtectedRoute>} />
       {/* Shared protected routes */}
       <Route 
         path="/departments" 
@@ -179,6 +211,9 @@ function AppRoutes() {
         path="/manager/alerts"
         element={<ProtectedRoute requiredRole="manager"><Alerts /></ProtectedRoute>}
       />
+
+      {/* Profile — all authenticated roles */}
+      <Route path="/profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
 
       <Route
         path="/procurement"

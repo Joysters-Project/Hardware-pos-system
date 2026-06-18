@@ -11,6 +11,8 @@ router.get('/', alertController.getAllAlerts);
 
 // GET Expiry Alerts
 router.get('/expiry-alerts', alertController.getExpiryAlerts);
+// GET unresolved alert count
+router.get('/count', alertController.getAlertCount);
 
 // GET Alert by ID
 router.get('/:id', alertController.getAlertById);

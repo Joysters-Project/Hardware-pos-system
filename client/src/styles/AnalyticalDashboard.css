@@ -78,66 +78,38 @@
 }
 
 .kpi-card:hover {
-  transform: translateY(-4px) scale(1.02);
-  box-shadow: var(--shadow-float);
-  border-color: #8b3a3a;
-}
-
-/* Decorative corner lines for Anime-HUD look */
-.kpi-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 12px;
-  height: 12px;
-  border-top: 2px solid #8b3a3a;
-  border-left: 2px solid #8b3a3a;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.kpi-card::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 12px;
-  height: 12px;
-  border-bottom: 2px solid #8b3a3a;
-  border-right: 2px solid #8b3a3a;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.kpi-card:hover::before,
-.kpi-card:hover::after {
-  opacity: 1;
+  transform: translateY(-3px);
+  box-shadow: 0 16px 34px rgba(139, 58, 58, 0.12);
+  border-color: #e4c5c5;
 }
 
 .kpi-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  gap: 12px;
+  margin-bottom: 14px;
 }
 
 .kpi-title {
-  font-size: 0.88rem;
+  font-size: 0.76rem;
   font-weight: 700;
   color: #666666 !important; /* Force high contrast dark grey */
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+  line-height: 1.25;
 }
 
 .kpi-icon-wrapper {
   color: #8b3a3a;
-  background: rgba(139, 58, 58, 0.05);
-  padding: 8px;
-  border-radius: 8px;
+  background: rgba(139, 58, 58, 0.08);
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
   transition: background-color 0.3s;
 }
 
@@ -147,17 +119,20 @@
 }
 
 .kpi-value {
-  font-size: 1.8rem;
+  font-size: clamp(1.35rem, 1.7vw, 1.8rem);
   font-weight: 800;
   color: #2c2c2c !important; /* High contrast value */
-  line-height: 1.2;
+  line-height: 1.1;
+  word-break: break-word;
 }
 
 .kpi-value-wrapper {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  line-height: 1.2;
+  line-height: 1.1;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .kpi-currency {
@@ -169,16 +144,19 @@
 }
 
 .kpi-number {
-  font-size: 1.8rem;
+  font-size: clamp(1.35rem, 1.7vw, 1.8rem);
   font-weight: 800;
   color: #2c2c2c !important;
+  min-width: 0;
+  word-break: break-word;
 }
 
 .kpi-card-footer {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 14px;
+  margin-top: 16px;
+  flex-wrap: wrap;
 }
 
 .trend-badge {
