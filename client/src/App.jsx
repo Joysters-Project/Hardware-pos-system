@@ -34,7 +34,6 @@ import ReturnSystem from "./components/ReturnSystem";
 import Receipts from "./pages/Receipts";
 import ReportsPage from "./pages/ReportsPage";
 
-
 import ProcurementWorkspace from "./components/procurement/ProcurementWorkspace";
 import SupplierList from "./pages/suppliers/SupplierList";
 import SupplierForm from "./pages/suppliers/SupplierForm";
@@ -242,18 +241,12 @@ function AppRoutes() {
         <Route path="notifications"       element={<NotificationCenter />} />
       </Route>
 
-
-    
-
       {/* Fallback */}
       <Route
         path="*"
         element={<Navigate to={isAuthenticated ? `/dashboard/${role || "admin"}` : "/"} replace />}
       />
-
-
     </Routes>
-
   );
 }
 
