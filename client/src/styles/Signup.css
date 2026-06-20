@@ -1,8 +1,4 @@
-.input-box input,
-.input-box select {
-  margin-bottom: 15px;
-  margin-bottom: 0;
-}
+
 
 
 .signup-container {
@@ -252,3 +248,105 @@
     padding-top: 12px;
   }
 } */
+ .form-group input[type="number"] {
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: white !important;
+}
+
+/* Form Group and Error Styling */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 0;
+  position: relative;
+}
+
+.form-group input,
+.form-group select {
+  position: relative;
+  width: 100%;
+  padding: 14px 16px;
+  margin-bottom: 15px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(20, 5, 5, 0.3);
+  outline: none;
+  transition: border-color 0.3s ease;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.form-group input::placeholder,
+.form-group select {
+  color: #ffffff;
+  font-weight: 400;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  border-color: #360208;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.form-group input:focus.input-error,
+.form-group select:focus.input-error {
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.2) !important;
+  transform: translateY(-1px);
+}
+
+.form-group input:hover,
+.form-group select:hover {
+  border-color: #a52a2a;
+
+}
+
+.form-group select option {
+  color: #30232d;
+  /*background: hsl(0, 0%, 100%);*/
+  background: rgba(255, 255, 255, 0.07);
+  font-weight: 400;
+}
+
+.input-error {
+  border-color: #dc3545 !important;
+  background-color: rgba(220, 53, 69, 0.05);
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1) !important;
+}
+
+.input-error:focus {
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.2) !important;
+}
+
+.error-message {
+  display: block;
+  position: absolute;
+  top: 6px;
+  right: 12px;
+  color: #dc3545;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+  animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

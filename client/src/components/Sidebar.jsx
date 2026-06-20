@@ -21,6 +21,8 @@ import {
   TrendingUp,
   Truck,
   ClipboardList,
+  UserCircle,
+  Bell,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import "../styles/Sidebar.css";
@@ -129,6 +131,12 @@ const getNavItems = (role) => {
       icon: Receipt,
       path: `${prefix}/expenses`,
     },
+    {
+      key: "alerts",
+      label: "Alerts",
+      icon: Bell,
+      path: `${prefix}/alerts`,
+    },
     // Salary is Admin-only — hidden for manager role
     ...(role !== "manager"
       ? [{ key: "salary", label: "Salary", icon: Wallet, path: "/salary" }]
@@ -139,9 +147,7 @@ const getNavItems = (role) => {
       : []),
     // Procurement — Admin and Manager
     ...(normalizedRole !== "cashier"
-      ? [
-          { key: "procurement", label: "Procurement",   icon: Truck,          path: "/procurement" }
-        ]
+      ? [{ key: "procurement", label: "Procurement", icon: Truck, path: "/procurement" }]
       : []),
   ];
 };
@@ -263,13 +269,19 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
 
         {/* Footer */}
         <div className="sidebar-float__footer">
-          <div className="sidebar-float__user-block" title={isCollapsed ? `${userName} (${displayRole})` : undefined}>
+          <Link
+            to="/profile"
+            className={`sidebar-float__user-block ${
+              location.pathname === "/profile" ? "sidebar-float__user-block--active" : ""
+            }`}
+            title={isCollapsed ? `${userName} (${displayRole})` : undefined}
+          >
             <div className="sidebar-float__avatar">{initials}</div>
             <div className="sidebar-float__user-info">
               <div className="sidebar-float__user-name">{userName}</div>
               <div className="sidebar-float__user-role">{displayRole}</div>
             </div>
-          </div>
+          </Link>
           <button
             className="sidebar-float__logout"
             onClick={onLogout}

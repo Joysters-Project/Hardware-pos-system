@@ -1,5 +1,6 @@
 const { bills, bill_items, products, audit_log, customers, payments, users, alerts, sequelize } = require('../models');
 const { logActivity } = require('./auditService');
+const { validateSriLankanPhone } = require('../utils/phoneValidation');
 
 class BillingService {
     static async getSystemUserId(transaction = null) {
@@ -29,8 +30,15 @@ class BillingService {
             // 1. Handle Customer (For Partial Payments or Records)
             let customerId = null;
             if (saleData.customer && saleData.customer.phone) {
+                // Validate phone number before storing
+                const phoneValidation = validateSriLankanPhone(saleData.customer.phone);
+                if (!phoneValidation.isValid) {
+                    throw new Error(`Invalid customer phone number: ${phoneValidation.message}`);
+                }
+                const formattedPhone = phoneValidation.formatted;
+
                 const [customer] = await customers.findOrCreate({
-                    where: { phone_no: saleData.customer.phone },
+                    where: { phone_no: formattedPhone },
                     defaults: {
                       customer_name: saleData.customer.name,
                       address: saleData.customer.address || null

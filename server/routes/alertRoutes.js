@@ -10,8 +10,10 @@ router.post('/generate', alertController.generateAlerts);
 // GET /api/alerts — supports ?unresolved=true&alert_type=Low Stock
 router.get('/', alertController.getAllAlerts);
 
-// GET /api/alerts/expiry-alerts
+// GET Expiry Alerts
 router.get('/expiry-alerts', alertController.getExpiryAlerts);
+// GET unresolved alert count
+router.get('/count', alertController.getAlertCount);
 
 // GET /api/alerts/:id
 router.get('/:id', alertController.getAlertById);

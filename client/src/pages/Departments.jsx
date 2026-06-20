@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { Building2, Users, Package, Plus, Search, Pencil, Trash2, Eye, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Building2, Users, Package, Plus, Search, Pencil, Trash2, Eye, X, ChevronLeft, ChevronRight, DollarSign } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
 import AdminDashboard from "./AdminDashboard";
@@ -50,7 +50,12 @@ function DepartmentsPage() {
 
   const openAdd = () => { setForm(EMPTY_FORM); setEditId(null); setShowModal(true); };
   const openEdit = (d) => {
-    setForm({ department_name: d.department_name, budget: d.budget || "", description: d.description || "", status: d.status || "Active" });
+    setForm({
+      department_name: d.department_name,
+      budget: d.budget ?? "",
+      description: d.description || "",
+      status: d.status || "Active"
+    });
     setEditId(d.department_id);
     setShowModal(true);
   };
@@ -59,13 +64,16 @@ function DepartmentsPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.department_name.trim()) { toast.error("Department name is required"); return; }
+    const budgetValue = form.budget === "" ? 0 : Number(form.budget);
+    if (Number.isNaN(budgetValue) || budgetValue < 0) { toast.error("Budget must be a valid number"); return; }
     setLoading(true);
     try {
+      const payload = { ...form, budget: budgetValue };
       if (editId) {
-        await api.put(`/departments/${editId}`, form);
+        await api.put(`/departments/${editId}`, payload);
         toast.success("Department updated!");
       } else {
-        await api.post("/departments", form);
+        await api.post("/departments", payload);
         toast.success("Department created!");
       }
       closeModal();
@@ -270,6 +278,10 @@ function DepartmentsPage() {
                   <p className="dept-card-desc">{d.description || "No description provided."}</p>
 
                   <div className="dept-card-meta">
+                    <div className="dept-meta-item" style={{ "--meta-color": "#8b3a3a" }}>
+                      <DollarSign size={14} />
+                      <span>LKR {Number(d.budget || 0).toLocaleString("en-LK")}</span>
+                    </div>
                     <div className="dept-meta-item" style={{ "--meta-color": "#1565c0" }}>
                       <Users size={14} />
                       <span>{d.employee_count || 0} Employees</span>
@@ -342,14 +354,14 @@ function DepartmentsPage() {
                 />
               </div>
               <div className="dept-field">
-                <label>Budget (LKR)</label>
+                <label>Budget <span className="req">*</span></label>
                 <input
                   type="number"
                   min="0"
                   step="0.01"
                   value={form.budget}
                   onChange={e => setForm({ ...form, budget: e.target.value })}
-                  placeholder="0.00 (optional)"
+                  placeholder="e.g. 500000"
                 />
               </div>
               <div className="dept-field">
@@ -399,6 +411,14 @@ function DepartmentsPage() {
             </div>
 
             <div className="dept-view-stats">
+              <div className="dept-view-stat">
+                <DollarSign size={16} />
+                <span>Budget: LKR {Number(viewDept.budget || 0).toLocaleString("en-LK")}</span>
+              </div>
+              <div className="dept-view-stat">
+                <DollarSign size={16} />
+                <span>Remaining: LKR {Number(viewDept.remaining_budget || 0).toLocaleString("en-LK")}</span>
+              </div>
               <div className="dept-view-stat">
                 <Users size={16} />
                 <span>{(viewDept.employees || []).length} Employees</span>

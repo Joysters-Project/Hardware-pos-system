@@ -574,6 +574,10 @@ body {
 .pos-right-modern {
   flex: 0.9;
   min-width: 380px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .cart-container-modern {
@@ -585,6 +589,7 @@ body {
   flex-direction: column;
   overflow: hidden;
   border: 1px solid rgba(139, 58, 58, 0.15);
+  min-height: 0;
 }
 
 /* Cart Header */
@@ -637,6 +642,7 @@ body {
   flex: 1;
   overflow-y: auto;
   padding: 0 1rem;
+  min-height: 0;
 }
 
 .cart-item-modern {
@@ -757,6 +763,26 @@ body {
   padding: 1.25rem;
   border-top: 1px solid rgba(139, 58, 58, 0.15);
   background: white;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.payment-summary-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 0.25rem;
+}
+
+.checkout-footer-modern {
+  flex-shrink: 0;
+  padding-top: 1rem;
+  margin-top: 1rem;
+  border-top: 1px solid rgba(139, 58, 58, 0.12);
+  background: white;
 }
 
 .summary-row, .summary-total-row {
@@ -791,6 +817,51 @@ body {
   font-weight: 800;
   font-size: 1.25rem;
   color: #8b3a3a;
+}
+
+.customer-save-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid rgba(139, 58, 58, 0.12);
+  border-radius: var(--radius-lg);
+  background: rgba(139, 58, 58, 0.04);
+}
+
+.customer-save-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #2b1515;
+}
+
+.customer-save-subtitle {
+  font-size: 0.75rem;
+  color: #6f5f5c;
+  margin-top: 0.25rem;
+}
+
+.customer-save-toggle {
+  min-width: 54px;
+  border: 1px solid rgba(139, 58, 58, 0.2);
+  border-radius: 999px;
+  padding: 0.4rem 0.75rem;
+  background: white;
+  color: #8b3a3a;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.customer-save-toggle.on {
+  background: #8b3a3a;
+  color: white;
+  border-color: #8b3a3a;
+}
+
+.customer-save-toggle:hover {
+  transform: translateY(-1px);
 }
 
 /* Amount Input */
@@ -1027,6 +1098,10 @@ body {
   background: rgba(139, 58, 58, 0.15);
   color: #a89896;
   cursor: not-allowed;
+}
+
+.checkout-btn-modern {
+  position: relative;
 }
 
 .checkout-kbd {
@@ -1290,10 +1365,21 @@ body {
   
   .pos-right-modern {
     min-width: 100%;
+    height: auto;
   }
   
   .catalog-grid-modern {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+}
+
+@media (min-width: 1201px) {
+  .payment-summary-modern {
+    max-height: calc(100vh - 220px);
+  }
+
+  .payment-summary-scroll {
+    max-height: 260px;
   }
 }
 
@@ -1338,4 +1424,86 @@ body {
   .receipt-store {
     color: #000;
   }
+}
+
+/* Cart Table Styles */
+.cart-table-modern {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cart-table-modern thead {
+  background: var(--gray-100);
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.cart-table-modern th {
+  padding: 0.75rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--gray-600);
+  text-align: left;
+}
+
+.cart-table-modern tbody tr {
+  border-bottom: 1px solid var(--gray-100);
+  transition: background 0.15s;
+}
+
+.cart-table-modern tbody tr:hover {
+  background: var(--gray-50);
+}
+
+.cart-table-modern td {
+  padding: 0.875rem 0.5rem;
+  vertical-align: middle;
+}
+
+.table-item-name {
+  font-weight: 600;
+  color: var(--gray-800);
+  font-size: 0.875rem;
+  margin-bottom: 0.125rem;
+}
+
+.table-item-price {
+  font-size: 0.688rem;
+  color: var(--gray-400);
+}
+
+.qty-input-table {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: center;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.qty-input-table:focus {
+  border-color: var(--primary-dark);
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+.table-remove-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--gray-400);
+  padding: 0.25rem;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.table-remove-btn:hover {
+  color: var(--danger);
+  background: var(--danger-light);
 }

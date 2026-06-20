@@ -1,9 +1,24 @@
 const { suppliers } = require('../models');
+const { validateSriLankanPhone } = require('../utils/phoneValidation');
 
 // CREATE Supplier
 exports.createSupplier = async (req, res) => {
   try {
-    const supplier = await suppliers.create(req.body);
+    let supplierData = { ...req.body };
+
+    // Validate contact/phone number if provided
+    if (supplierData.contact) {
+      const phoneValidation = validateSriLankanPhone(supplierData.contact);
+      if (!phoneValidation.isValid) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid contact number: ${phoneValidation.message}`
+        });
+      }
+      supplierData.contact = phoneValidation.formatted;
+    }
+
+    const supplier = await suppliers.create(supplierData);
 
     res.status(201).json({
       message: "Supplier created successfully",
@@ -49,7 +64,21 @@ exports.updateSupplier = async (req, res) => {
       return res.status(404).json({ message: "Supplier not found" });
     }
 
-    await supplier.update(req.body);
+    let updateData = { ...req.body };
+
+    // Validate contact/phone number if provided
+    if (updateData.contact) {
+      const phoneValidation = validateSriLankanPhone(updateData.contact);
+      if (!phoneValidation.isValid) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid contact number: ${phoneValidation.message}`
+        });
+      }
+      updateData.contact = phoneValidation.formatted;
+    }
+
+    await supplier.update(updateData);
 
     res.status(200).json({
       message: "Supplier updated successfully",

@@ -2,13 +2,15 @@ require('dotenv').config({ path: __dirname + '/.env' });
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const http = require('http');
-const { Server } = require('socket.io');
+const authMiddleware = require('./middleware/authMiddleware');
 
 //1. just require the DB object
 // These files rely on the .env variables being ready
 const db = require('./models');// This automatically looks for models/index.js
 const authRoutes = require('./routes/auth'); // Path to your routes/auth.js file
+const seedDefaultAdmin = require('./scripts/seedDefaultAdmin');
+const ensureSupplierSchema = require('./scripts/ensureSupplierSchema');
+
 const { startNearExpiryCron } = require('./cron/nearExpiryCron');
 const app = express();
 const server = http.createServer(app);
@@ -36,8 +38,10 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Using { force: false } — never mutate schema on startup.
 // All schema changes are handled by Sequelize CLI migrations (npx sequelize-cli db:migrate).
 db.sequelize.sync({ force: false })
-  .then(() => {
-    console.log('✅ Database synced successfully');
+  .then(async () => {
+    console.log('✅ Database connected successfully');
+    await ensureSupplierSchema();
+    await seedDefaultAdmin();
     startNearExpiryCron();
   })
   .catch((err) => {
@@ -51,6 +55,7 @@ app.use('/api/auth',authRoutes);
 const departmentRoutes = require('./routes/departmentRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 const userRoutes = require('./routes/userRoutes');
+const profileRoutes = require('./routes/profileRoutes');
 const auditLogRoutes = require('./routes/auditLogRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const brandRoutes = require('./routes/brandRoutes');
@@ -85,6 +90,7 @@ const cron         = require('node-cron');
 app.use('/api/departments', departmentRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/profile', profileRoutes);
 app.use('/api/audit_log', auditLogRoutes);
 app.use('/api/category', categoryRoutes);
 app.use('/api/brands', brandRoutes);
@@ -92,15 +98,15 @@ app.use('/api/units', unitRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/customers', customerRoutes);
-app.use('/api/bills', billRoutes); // This covers your Sales/POS logic
+app.use('/api/bills', authMiddleware, billRoutes); // This covers your Sales/POS logic
 app.use('/api/bill_items', billItemsRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/returns', returnRoutes);
+app.use('/api/payments', authMiddleware, paymentRoutes);
+app.use('/api/returns', authMiddleware, returnRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/purchase_orders', purchaseOrderRoutes);
 app.use('/api/po_items', poItemsRoutes);
 app.use('/api/schema', schemaRoutes);
-app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/dashboard', authMiddleware, dashboardRoutes);
 app.use('/api/assets', assetRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/salary', salaryRoutes);
