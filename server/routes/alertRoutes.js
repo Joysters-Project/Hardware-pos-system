@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const alertController = require('../controllers/alertController');
+const authMiddleware = require('../middleware/authMiddleware');
 
 // POST /api/alerts/generate — scan all products and auto-generate alerts
 // GET /api/alerts/generate — scan all products and auto-generate alerts

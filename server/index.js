@@ -9,9 +9,7 @@ const { Server } = require('socket.io');
 // These files rely on the .env variables being ready
 const db = require('./models');// This automatically looks for models/index.js
 const authRoutes = require('./routes/auth'); // Path to your routes/auth.js file
-const seedDefaultAdmin = require('./scripts/seedDefaultAdmin');
-const ensureSupplierSchema = require('./scripts/ensureSupplierSchema');
-
+const { startNearExpiryCron } = require('./cron/nearExpiryCron');
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
@@ -38,10 +36,9 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Using { force: false } — never mutate schema on startup.
 // All schema changes are handled by Sequelize CLI migrations (npx sequelize-cli db:migrate).
 db.sequelize.sync({ force: false })
-  .then(async () => {
-    console.log('✅ Database connected successfully');
-    await ensureSupplierSchema();
-    await seedDefaultAdmin();
+  .then(() => {
+    console.log('✅ Database synced successfully');
+    startNearExpiryCron();
   })
   .catch((err) => {
     console.error('❌ Database connection failed:', err.message);
