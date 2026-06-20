@@ -86,9 +86,6 @@ function AlertsPage() {
             Monitor low-stock, reorder, and near-expiry product alerts in one place.
           </p>
         </div>
-        <button className="alerts-refresh" onClick={loadAlerts}>
-          Refresh
-        </button>
       </div>
 
       <div className="alerts-controls">
