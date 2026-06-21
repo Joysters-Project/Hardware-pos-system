@@ -419,6 +419,88 @@ function ProductsPage() {
           </div>
         </div>
       )}
+      {/* View Modal */}
+      {viewProduct && (
+        <div className="modal-overlay" onClick={() => setViewProduct(null)}>
+          <div className="modal-box view-modal" onClick={(e) => e.stopPropagation()} ref={printRef}>
+            <div className="modal-header">
+              <h2>Product Details</h2>
+              <div className="view-header-actions">
+                <button className="export-pdf-btn" onClick={exportPDF} title="Export as PDF">
+                  <FileDown size={15} />
+                  Export PDF
+                </button>
+                <button className="modal-close" onClick={() => setViewProduct(null)}>✕</button>
+              </div>
+            </div>
+
+            <div className="view-section">
+              <p className="view-section-title">Basic Information</p>
+              <div className="view-grid">
+                {[
+                  ["Product ID", `#${viewProduct.product_id}`],
+                  ["Product Name", viewProduct.product_name],
+                  ["Type", viewProduct.type || "—"],
+                  ["Batch No", viewProduct.batch_no || "—"],
+                  ["Status", <span key="s" className={`status-pill ${String(viewProduct.status).toLowerCase() === "active" ? "active" : "inactive"}`}>{viewProduct.status || "active"}</span>],
+                ].map(([label, value]) => (
+                  <div className="view-row" key={label}>
+                    <span className="view-label">{label}</span>
+                    <span className="view-value">{value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="view-section">
+              <p className="view-section-title">Classification</p>
+              <div className="view-grid">
+                {[
+                  ["Category", categoryMap.get(Number(viewProduct.category_id)) || "—"],
+                  ["Brand", brandMap.get(Number(viewProduct.brand_id)) || "—"],
+                  ["Unit", unitMap.get(Number(viewProduct.unit_id)) || "—"],
+                ].map(([label, value]) => (
+                  <div className="view-row" key={label}>
+                    <span className="view-label">{label}</span>
+                    <span className="view-value">{value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="view-section">
+              <p className="view-section-title">Pricing</p>
+              <div className="view-grid">
+                {[
+                  ["Unit Price", `Rs. ${Number(viewProduct.unit_price || 0).toFixed(2)}`],
+                  ["Cost Price", `Rs. ${Number(viewProduct.cost_price || 0).toFixed(2)}`],
+                ].map(([label, value]) => (
+                  <div className="view-row" key={label}>
+                    <span className="view-label">{label}</span>
+                    <span className="view-value">{value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="view-section">
+              <p className="view-section-title">Stock Details</p>
+              <div className="view-grid">
+                {[
+                  ["Stock Quantity", viewProduct.stock_quantity ?? 0],
+                  ["Min Stock", viewProduct.min_stock_quantity ?? 0],
+                  ["Reorder Level", viewProduct.reorder_level ?? 0],
+                ].map(([label, value]) => (
+                  <div className="view-row" key={label}>
+                    <span className="view-label">{label}</span>
+                    <span className="view-value">{value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 		</div>
 	);
 }
