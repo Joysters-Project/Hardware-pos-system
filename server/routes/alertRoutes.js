@@ -3,22 +3,23 @@ const router = express.Router();
 const alertController = require('../controllers/alertController');
 const authMiddleware = require('../middleware/authMiddleware');
 
-// POST /api/alerts/generate — scan all products and auto-generate alerts
-// GET /api/alerts/generate — scan all products and auto-generate alerts
+router.use(authMiddleware);
+
+// POST /api/alerts/generate
+// GET /api/alerts/summary
+// GET /api/alerts/count
+// GET /api/alerts/expiry-alerts
+// GET /api/alerts (list with filters)
 router.post('/generate', alertController.generateAlerts);
-
-// GET /api/alerts — supports ?unresolved=true&alert_type=Low Stock
-router.get('/', alertController.getAllAlerts);
-
-// GET Expiry Alerts
+router.get('/summary',  alertController.getAlertSummary);
+router.get('/count',    alertController.getAlertCount);
 router.get('/expiry-alerts', alertController.getExpiryAlerts);
-// GET unresolved alert count
-router.get('/count', alertController.getAlertCount);
+router.get('/',         alertController.getAllAlerts);
 
 // GET /api/alerts/:id
 router.get('/:id', alertController.getAlertById);
 
-// PUT /api/alerts/:id/resolve  ← MUST be before /:id
+// PUT /api/alerts/:id/resolve
 router.put('/:id/resolve', alertController.resolveAlert);
 
 // PUT /api/alerts/:id
