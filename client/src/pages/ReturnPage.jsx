@@ -1,80 +1,71 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import DashboardLayout from '../components/DashboardLayout';
 import api from '../utils/axios';
+import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
+import toast from 'react-hot-toast';
+import '../styles/Returns.css';
 
 const DESTINATIONS = [
-  { value: 'STOCK', label: 'Back to Stock', description: 'Good item — sellable again' },
-  { value: 'REPAIR', label: 'Send to Repair', description: 'Fixable item — move to repair stock' },
-  { value: 'SUPPLIER', label: 'Send to Supplier', description: 'Defective batch — supplier return / debit note' },
-  { value: 'WRITEOFF', label: 'Write Off / Damaged', description: 'Beyond repair — loss recorded' }
+  { value: 'STOCK',        label: 'Back to Stock'    },
+  { value: 'REPAIR',       label: 'Send to Repair'   },
+  { value: 'SUPPLIER',     label: 'Send to Supplier' },
+  { value: 'DAMAGED_STOCK',label: 'Damaged Stock'    },
 ];
-const RESTRICTED_DESTINATIONS = ['SUPPLIER', 'WRITEOFF'];
+
+const REASONS = [
+  'Damaged',
+  'Defective',
+  'Wrong Item',
+  'Customer Changed Mind',
+  'Expired',
+  'Other',
+];
 
 function ReturnPage({ userRole }) {
   const navigate = useNavigate();
-  const [step, setStep] = useState(0);
-  const [searchMode, setSearchMode] = useState('bill_no');
-  const [searchValue, setSearchValue] = useState('');
+  const [searchMode,    setSearchMode]    = useState('bill_no');
+  const [searchValue,   setSearchValue]   = useState('');
   const [searchResults, setSearchResults] = useState([]);
-  const [selectedBill, setSelectedBill] = useState(null);
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [quantity, setQuantity] = useState(1);
-  const [destination, setDestination] = useState('STOCK');
-  const [destinationNote, setDestinationNote] = useState('');
-  const [supplierId, setSupplierId] = useState('');
-  const [poId, setPoId] = useState('');
-  const [preview, setPreview] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [successData, setSuccessData] = useState(null);
+  const [selectedBill,  setSelectedBill]  = useState(null);
+  const [returnItems,   setReturnItems]   = useState({});   // keyed by product_id
+  const [supplierId,    setSupplierId]    = useState('');
+  const [loading,       setLoading]       = useState(false);
+  const [error,         setError]         = useState('');
+  const [successData,   setSuccessData]   = useState(null);
+  const debounce = useRef(null);
 
-  const isRestrictedUser = !['Manager', 'Admin'].includes(userRole);
-
-  const labels = ['Find Bill', 'Select Item', 'Choose Destination', 'Confirm Return'];
-
-  const resetAll = () => {
-    setStep(0);
-    setSearchValue('');
-    setSearchResults([]);
-    setSelectedBill(null);
-    setSelectedItem(null);
-    setQuantity(1);
-    setDestination('STOCK');
-    setDestinationNote('');
-    setSupplierId('');
-    setPoId('');
-    setPreview(null);
-    setError('');
-    setShowSuccess(false);
-    setSuccessData(null);
-  };
+  /* ---- auto-search ---- */
+  useEffect(() => {
+    const trimmed = (searchValue || '').toString().trim();
+    if (trimmed.length < 1) { setSearchResults([]); return; }
+    if (debounce.current) clearTimeout(debounce.current);
+    debounce.current = window.setTimeout(searchBills, 500);
+    return () => { if (debounce.current) clearTimeout(debounce.current); };
+  }, [searchMode, searchValue]);
 
   const searchBills = async () => {
     const trimmed = (searchValue || '').toString().trim();
-    if (!trimmed) {
-      setError('Enter a bill number or phone number to search');
-      return;
-    }
-    setError('');
-    setLoading(true);
-
-    try {
-      const url = '/returns/lookup-bill';
-      const params = searchMode === 'bill_no'
-        ? { bill_no: trimmed }
-        : { phone: trimmed };
-
-      const response = await api.get(url, { params });
-      const data = response.data?.data ?? response.data;
-      const results = Array.isArray(data) ? data : [data];
-      setSearchResults(results);
-      if (!results || results.length === 0) {
-        setError('No bills found for this search');
+    if (!trimmed) return;
+    
+    // Validate phone number if searching by phone
+    if (searchMode === 'phone') {
+      const phoneValidation = validateSriLankanPhone(trimmed);
+      if (!phoneValidation.isValid) {
+        toast.error(phoneValidation.message);
+        return;
       }
-    } catch (err) {
+    }
+    
+    setLoading(true);
+    try {
+      const params = searchMode === 'bill_no' ? { bill_no: trimmed } : { phone: trimmed };
+      const res = await api.get('/returns/lookup-bill', { params });
+      const data = res.data?.data ?? res.data;
+      setSearchResults(Array.isArray(data) ? data : [data]);
+    } catch {
       setSearchResults([]);
-      setError(err.response?.data?.message || err.response?.data?.error || 'Failed to find bills');
+      toast.error('No bills found');
     } finally {
       setLoading(false);
     }
@@ -82,435 +73,377 @@ function ReturnPage({ userRole }) {
 
   const selectBill = (bill) => {
     setSelectedBill(bill);
-    setSelectedItem(null);
-    setPreview(null);
-    setQuantity(1);
-    setDestination('STOCK');
-    setDestinationNote('');
-    setSupplierId('');
-    setPoId('');
+    setReturnItems({});
+    setSearchResults([]);
+    setSearchValue('');
     setError('');
-    setStep(1);
   };
 
-  const selectItem = async (item) => {
-    setError('');
-    setLoading(true);
-    try {
-      const response = await api.get('/returns/preview', {
-        params: {
-          bill_id: selectedBill.bill_id,
-          product_id: item.product_id,
-          return_qty: 1
-        }
-      });
-
-      setSelectedItem(item);
-      setQuantity(1);
-      setPreview(response.data);
-      setStep(2);
-    } catch (err) {
-      setError(err.response?.data?.message || err.response?.data?.error || 'Failed to load item preview');
-    } finally {
-      setLoading(false);
-    }
+  /* ---- item toggle ---- */
+  const toggleItem = (item) => {
+    setReturnItems(prev => {
+      const next = { ...prev };
+      if (next[item.product_id]) {
+        delete next[item.product_id];
+      } else {
+        next[item.product_id] = {
+          product_id:      item.product_id,
+          product_name:    item.product?.product_name,
+          max_qty:         item.quantity,
+          price_per_unit:  item.price_per_unit,
+          discount:        item.discount,
+          return_quantity: 1,
+          return_reason:   'Customer Changed Mind',
+          destination:     'STOCK',
+          destination_note:'',
+        };
+      }
+      return next;
+    });
   };
 
-  const updateQuantity = async (newQuantity) => {
-    if (!selectedBill || !selectedItem) return;
-    if (newQuantity < 1) return;
-    if (preview && newQuantity > preview.max_returnable) return;
-
-    setQuantity(newQuantity);
-    setError('');
-    setLoading(true);
-    try {
-      const response = await api.get('/returns/preview', {
-        params: {
-          bill_id: selectedBill.bill_id,
-          product_id: selectedItem.product_id,
-          return_qty: newQuantity
-        }
-      });
-      setPreview(response.data);
-    } catch (err) {
-      setError(err.response?.data?.message || err.response?.data?.error || 'Unable to update preview');
-    } finally {
-      setLoading(false);
-    }
+  const selectAll = () => {
+    if (!selectedBill) return;
+    const next = {};
+    selectedBill.bill_items.forEach(item => {
+      next[item.product_id] = {
+        product_id:      item.product_id,
+        product_name:    item.product?.product_name,
+        max_qty:         item.quantity,
+        price_per_unit:  item.price_per_unit,
+        discount:        item.discount,
+        return_quantity: item.quantity,
+        return_reason:   'Customer Changed Mind',
+        destination:     'STOCK',
+        destination_note:'',
+      };
+    });
+    setReturnItems(next);
   };
 
-  const handleDestinationChange = (value) => {
-    if (isRestrictedUser && RESTRICTED_DESTINATIONS.includes(value)) {
-      return;
-    }
-    setDestination(value);
+  const updateField = (productId, field, value) => {
+    setReturnItems(prev => ({
+      ...prev,
+      [productId]: { ...prev[productId], [field]: value },
+    }));
   };
 
-  const summaryNotice = () => {
-    switch (destination) {
-      case 'STOCK':
-        return 'Returned goods will be restocked and made sellable again.';
-      case 'REPAIR':
-        return 'Returned goods will move to repair inventory and await inspection.';
-      case 'SUPPLIER':
-        return 'Returned goods will be prepared for supplier return and debit note processing.';
-      case 'WRITEOFF':
-        return 'Returned goods will be written off as damaged and recorded as a loss.';
-      default:
-        return '';
-    }
+  /* ---- refund calc ---- */
+  const calcTotalRefund = () => {
+    return Object.values(returnItems).reduce((sum, item) => {
+      const perUnitDiscount = Number(item.discount || 0) / Number(item.max_qty || 1);
+      return sum + (Number(item.price_per_unit) - perUnitDiscount) * Number(item.return_quantity);
+    }, 0).toFixed(2);
   };
 
+  /* ---- submit ---- */
   const submitReturn = async () => {
-    setError('');
-    if (!selectedBill || !selectedItem || !preview) {
-      setError('Complete the return workflow before submitting');
-      return;
+    const itemsArr = Object.values(returnItems);
+    if (itemsArr.length === 0) { setError('Please select at least one item to return.'); return; }
+    if (itemsArr.some(i => i.destination === 'SUPPLIER') && !supplierId) {
+      setError('Supplier ID is required for items going back to Supplier.'); return;
     }
-
-    if (destination === 'SUPPLIER' && !supplierId) {
-      setError('Supplier ID is required when destination is SUPPLIER');
-      return;
-    }
-
-    const payload = {
-      bill_id: selectedBill.bill_id,
-      product_id: selectedItem.product_id,
-      return_quantity: quantity,
-      destination,
-      destination_note: destinationNote,
-      supplier_id: supplierId ? Number(supplierId) : null,
-      po_id: poId ? Number(poId) : null,
-      reason: destinationNote || `Return for ${selectedItem.product_name || selectedItem.product_id}`
-    };
-
     setLoading(true);
+    setError('');
     try {
-      const response = await api.post('/returns', payload);
+      const payload = {
+        bill_id:     selectedBill.bill_id,
+        supplier_id: supplierId ? Number(supplierId) : null,
+        items: itemsArr.map(i => ({
+          product_id:       i.product_id,
+          return_quantity:  i.return_quantity,
+          destination:      i.destination,
+          destination_note: i.destination_note,
+          return_reason:    i.return_reason,
+        })),
+      };
+      const res = await api.post('/returns', payload);
       setSuccessData({
-        product_name: selectedItem.product_name || selectedItem.product?.product_name,
-        refund_amount: response.data?.data?.refund_amount ?? preview.refund_amount
+        refund_amount: res.data?.data?.total_refund_amount,
+        items_count:   itemsArr.length,
       });
-      setShowSuccess(true);
-      setTimeout(() => {
-        resetAll();
-      }, 2500);
     } catch (err) {
-      setError(err.response?.data?.error || err.response?.data?.message || 'Failed to process return');
+      setError(err.response?.data?.error || 'Submission failed.');
     } finally {
       setLoading(false);
     }
   };
 
-  const goBack = () => {
-    setError('');
-    if (step === 0) {
-      navigate(-1);
-      return;
+  /* ---- success screen ---- */
+  if (successData) {
+    return (
+      <DashboardLayout active="returns">
+        <div className="ret-success">
+          <div className="ret-success-card">
+            <div className="ret-success-icon">✅</div>
+            <h2>Return Processed!</h2>
+            <p>
+              Successfully returned {successData.items_count} item(s) with a total refund of{' '}
+              <strong>Rs. {successData.refund_amount}</strong>
+            </p>
+            <button
+              className="ret-new-btn"
+              onClick={() => { setSuccessData(null); setSelectedBill(null); setReturnItems({}); }}
+            >
+              Process Another Return
+            </button>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const totalBill = selectedBill ? parseFloat(selectedBill.total_amount) : 0;
+  const originalBalanceDue = selectedBill ? parseFloat(selectedBill.balance_due) : 0;
+  const howMuchPaid = Math.max(0, totalBill - originalBalanceDue);
+  const totalReturnedValue = parseFloat(calcTotalRefund()) || 0;
+
+  let actualRefundToCustomer = 0;
+  let remainingBalancePayable = 0;
+
+  if (originalBalanceDue > 0) {
+    if (totalReturnedValue <= originalBalanceDue) {
+      remainingBalancePayable = originalBalanceDue - totalReturnedValue;
+      actualRefundToCustomer = 0;
+    } else {
+      remainingBalancePayable = 0;
+      actualRefundToCustomer = totalReturnedValue - originalBalanceDue;
     }
-    setStep(step - 1);
-  };
+  } else {
+    remainingBalancePayable = 0;
+    actualRefundToCustomer = totalReturnedValue;
+  }
 
   return (
-    <div className="return-page" style={{ padding: '24px', minHeight: '100vh', background: '#100606', color: '#f5ecec' }}>
-      <div style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button onClick={goBack} style={{ marginBottom: '16px', background: '#2f0707', color: '#f8fafc', border: '1px solid #4f0f0f', padding: '10px 14px', borderRadius: 10, cursor: 'pointer' }}>
-            ← Back
-          </button>
-          {['Manager', 'Admin'].includes(userRole) && (
-            <Link to="/return-logs" style={{ marginBottom: '16px', background: '#3f0f0f', color: '#f8fafc', border: '1px solid #6f1010', padding: '10px 14px', borderRadius: 10, textDecoration: 'none' }}>
-              View Return Logs
-            </Link>
-          )}
+    <DashboardLayout active="returns">
+      <div className="ret-container">
+        {/* Header */}
+        <div className="ret-header">
+        <div>
+          <h1>Return Management</h1>
+          <p>Process customer returns and update inventory</p>
         </div>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          {labels.map((label, index) => (
-            <div key={label} style={{
-              flex: 1,
-              minWidth: 140,
-              padding: '12px',
-              borderRadius: 12,
-              background: step === index ? '#800000' : '#2e0a0a',
-              color: '#f5ecec'
-            }}>
-              <div style={{ fontSize: 12, opacity: 0.8, color: '#d7c0c0' }}>Step {index + 1}</div>
-              <div style={{ fontWeight: 700 }}>{label}</div>
-            </div>
-          ))}
+        <div style={{ display: 'flex', gap: '10px' }}>
+          {selectedBill && (
+            <button className="ret-back-btn" onClick={() => setSelectedBill(null)}>
+              ← Back to Search
+            </button>
+          )}
         </div>
       </div>
 
-      {showSuccess ? (
-        <div style={{ textAlign: 'center', padding: '48px', background: '#220909', borderRadius: 16 }}>
-          <div style={{ fontSize: 72, color: '#ffb7b0' }}>✓</div>
-          <h2 style={{ color: '#f8ecec' }}>Return Processed</h2>
-          <p style={{ marginTop: 8, color: '#e4d3d3' }}>
-            {successData?.product_name} returned for Rs. {successData?.refund_amount}
-          </p>
+      {error && <div className="ret-error">{error}</div>}
+
+      {/* ===== BILL SEARCH ===== */}
+      {!selectedBill ? (
+        <div className="ret-search-card">
+          <h2>Find Invoice</h2>
+          <div className="ret-radio-row">
+            <label>
+              <input type="radio" checked={searchMode === 'bill_no'} onChange={() => setSearchMode('bill_no')} />
+              Bill Number
+            </label>
+            <label>
+              <input type="radio" checked={searchMode === 'phone'} onChange={() => setSearchMode('phone')} />
+              Customer Phone
+            </label>
+          </div>
+          <div className="ret-search-box">
+            <input
+              type={searchMode === 'phone' ? 'tel' : 'text'}
+              value={searchValue}
+              onChange={e => {
+                if (searchMode === 'phone') {
+                  // Only allow valid Sri Lankan mobile patterns (070-078)
+                  setSearchValue(filterSriLankanPhoneInput(e.target.value));
+                } else {
+                  setSearchValue(e.target.value);
+                }
+              }}
+              placeholder={searchMode === 'bill_no' ? 'e.g. INV-2024-0001' : 'e.g. 0771234567 (070-078 only)'}
+              maxLength={searchMode === 'phone' ? 10 : undefined}
+            />
+            <button onClick={searchBills}>Search</button>
+          </div>
+
+          {loading && <p style={{ color: '#888', fontSize: 14 }}>Searching…</p>}
+
+          {searchResults.length > 0 && (
+            <div className="ret-bill-results">
+              {searchResults.map(b => (
+                <div key={b.bill_id} className="ret-bill-result-item" onClick={() => selectBill(b)}>
+                  <div>
+                    <div className="bill-no">Bill #{b.bill_no}</div>
+                    <div className="bill-date">
+                      {new Date(b.bill_date).toLocaleString()} &nbsp;·&nbsp; <strong style={{ color: '#333' }}>{b.customer?.customer_name || 'Walk-in'}</strong> {b.customer?.phone_no ? `(${b.customer.phone_no})` : ''}
+                    </div>
+                  </div>
+                  <div className="bill-total">Rs. {parseFloat(b.total_amount).toFixed(2)}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: step === 2 ? '3fr 1fr' : '1fr', gap: '24px' }}>
-          {(step === 0 || step === 1) && (
-            <div style={{ background: '#1d0707', borderRadius: 16, padding: 24, boxShadow: '0 4px 18px rgba(0,0,0,0.35)' }}>
-              {step === 0 && (
-                <>
-                  <h2>Find Bill</h2>
-                  <div style={{ marginBottom: 16 }}>
-                    <label style={{ marginRight: 12 }}>
-                      <input
-                        type="radio"
-                        name="searchMode"
-                        checked={searchMode === 'bill_no'}
-                        onChange={() => setSearchMode('bill_no')}
-                      />
-                      Bill No
-                    </label>
-                    <label>
-                      <input
-                        type="radio"
-                        name="searchMode"
-                        checked={searchMode === 'phone'}
-                        onChange={() => setSearchMode('phone')}
-                      />
-                      Phone
-                    </label>
-                  </div>
-                  <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+        /* ===== ITEM SELECTION ===== */
+        <div className="ret-content">
+          {/* Left — item list */}
+          <div className="ret-left">
+            <div className="ret-section-header">
+              <h2>Select Items to Return</h2>
+              <button className="ret-select-all-btn" onClick={selectAll}>Select All</button>
+            </div>
+
+            {selectedBill.bill_items?.map(item => {
+              const isSelected = !!returnItems[item.product_id];
+              const ri = returnItems[item.product_id];
+
+              return (
+                <div key={item.product_id} className={`ret-item-card${isSelected ? ' selected' : ''}`}>
+                  {/* Row */}
+                  <div className="ret-item-header" onClick={() => toggleItem(item)}>
                     <input
-                      type="text"
-                      value={searchValue}
-                      onChange={(e) => setSearchValue(e.target.value)}
-                      placeholder={searchMode === 'bill_no' ? 'Enter bill number' : 'Enter phone number'}
-                      style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: '1px solid #4f0f0f', background: '#1b0707', color: '#f5ecec' }}
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleItem(item)}
+                      onClick={e => e.stopPropagation()}
                     />
-                    <button onClick={searchBills} disabled={loading} style={{ padding: '10px 16px', borderRadius: 8, background: '#800000', color: '#fff', border: '1px solid #940000' }}>
-                      {loading ? 'Searching...' : 'Search'}
-                    </button>
-                  </div>
-                  {error && <div style={{ color: '#b91c1c', marginBottom: 16 }}>{error}</div>}
-
-                  <div style={{ display: 'grid', gap: 12 }}>
-                    {searchResults.map((bill) => (
-                      <button
-                        key={bill.bill_id || bill.bill_no}
-                        onClick={() => selectBill(bill)}
-                        style={{
-                          textAlign: 'left',
-                          padding: '16px',
-                          borderRadius: 12,
-                          border: '1px solid #4f0f0f',
-                          background: '#220909',
-                          cursor: 'pointer',
-                          color: '#f4e9e9'
-                        }}
-                      >
-                        <div style={{ fontWeight: 700 }}>Bill: {bill.bill_no}</div>
-                        <div style={{ marginTop: 6 }}>Date: {new Date(bill.bill_date).toLocaleDateString()}</div>
-                        <div style={{ marginTop: 6 }}>Total: Rs. {bill.total_amount}</div>
-                        <div style={{ marginTop: 6 }}>Status: {bill.status}</div>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {step === 1 && selectedBill && (
-                <>
-                  <h2>Select Item</h2>
-                  <div style={{ marginBottom: 16 }}>
-                    <strong>Bill #{selectedBill.bill_no}</strong>
-                    <div>Date: {new Date(selectedBill.bill_date).toLocaleDateString()}</div>
-                  </div>
-                  <div style={{ display: 'grid', gap: 12 }}>
-                    {selectedBill.bill_items?.map((item) => (
-                      <button
-                        key={item.product_id}
-                        onClick={() => selectItem(item)}
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: '1fr auto',
-                          gap: 12,
-                          padding: '16px',
-                          borderRadius: 12,
-                          border: '1px solid #4f0f0f',
-                          background: selectedItem?.product_id === item.product_id ? '#3a0d0d' : '#1c0707',
-                          color: '#f4e9e9'
-                        }}
-                      >
-                        <div>
-                          <div style={{ fontWeight: 700 }}>{item.product?.product_name || `Product ${item.product_id}`}</div>
-                          <div>Qty Sold: {item.quantity}</div>
-                          <div>Price/Unit: Rs. {item.price_per_unit}</div>
-                        </div>
-                        <div style={{ alignSelf: 'center' }}>
-                          <span style={{ padding: '8px 12px', background: '#3a0d0d', borderRadius: 8, color: '#f8ecec' }}>Preview</span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {step === 2 && selectedItem && preview && (
-                <>
-                  <h2>Choose Destination</h2>
-                  <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
-                    {DESTINATIONS.map((option) => {
-                      const disabled = isRestrictedUser && RESTRICTED_DESTINATIONS.includes(option.value);
-                      return (
-                        <label key={option.value} style={{
-                          display: 'block',
-                          padding: '14px',
-                          borderRadius: 12,
-                          border: `1px solid ${disabled ? '#5c0d0d' : '#800000'}`,
-                          background: destination === option.value ? 'rgba(128, 0, 0, 0.22)' : '#1f0707',
-                          opacity: disabled ? 0.5 : 1,
-                          cursor: disabled ? 'not-allowed' : 'pointer',
-                          color: '#f5ecec'
-                        }}>
-                          <input
-                            type="radio"
-                            name="destination"
-                            value={option.value}
-                            checked={destination === option.value}
-                            onChange={() => handleDestinationChange(option.value)}
-                            disabled={disabled}
-                            style={{ marginRight: 8 }}
-                          />
-                          <span style={{ fontWeight: 700 }}>{option.label}</span>
-                          <div style={{ fontSize: 12, color: '#d7c0c0', marginTop: 4 }}>{option.description}</div>
-                          {disabled && <div style={{ fontSize: 12, color: '#ffb3b3', marginTop: 4 }}>Manager approval required</div>}
-                        </label>
-                      );
-                    })}
+                    <div style={{ flex: 1 }}>
+                      <div className="ret-item-name">{item.product?.product_name}</div>
+                      <div className="ret-item-meta">
+                        Qty sold: {item.quantity} &nbsp;·&nbsp; Unit price: Rs. {parseFloat(item.price_per_unit).toFixed(2)}
+                        {item.discount > 0 && ` · Discount: Rs. ${item.discount}`}
+                      </div>
+                    </div>
+                    <div className="ret-item-total">Rs. {parseFloat(item.total_price).toFixed(2)}</div>
                   </div>
 
-                  <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
-                    <div style={{ display: 'grid', gap: 6 }}>
-                      <label>Return Quantity</label>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <button type="button" onClick={() => updateQuantity(Math.max(1, quantity - 1))} disabled={quantity <= 1}>-</button>
+                  {/* Expanded fields */}
+                  {isSelected && (
+                    <div className="ret-item-fields">
+                      <div>
+                        <label>Return Qty (max {item.quantity})</label>
                         <input
                           type="number"
-                          value={quantity}
-                          min="1"
-                          max={preview.max_returnable}
-                          onChange={(e) => updateQuantity(Number(e.target.value))}
-                          style={{ width: 80, textAlign: 'center' }}
+                          min={1}
+                          max={item.quantity}
+                          value={ri.return_quantity}
+                          onChange={e =>
+                            updateField(item.product_id, 'return_quantity',
+                              Math.min(Math.max(1, Number(e.target.value)), item.quantity))
+                          }
                         />
-                        <button type="button" onClick={() => updateQuantity(Math.min(preview.max_returnable, quantity + 1))} disabled={quantity >= preview.max_returnable}>+</button>
-                        <span style={{ color: '#d3bcbc' }}>Max {preview.max_returnable}</span>
                       </div>
-                    </div>
-
-                    <div style={{ display: 'grid', gap: 6 }}>
-                      <label>Notes</label>
-                      <textarea
-                        value={destinationNote}
-                        onChange={(e) => setDestinationNote(e.target.value)}
-                        rows="3"
-                        placeholder="Enter reason or destination note"
-                        style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #4f0f0f', background: '#1b0707', color: '#f5ecec' }}
-                      />
-                    </div>
-
-                    {destination === 'SUPPLIER' && (
-                      <>
-                        <div style={{ display: 'grid', gap: 6 }}>
-                          <label>Supplier ID</label>
-                          <input
-                            type="number"
-                            value={supplierId}
-                            onChange={(e) => setSupplierId(e.target.value)}
-                            placeholder="Enter supplier ID"
-                            style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #4f0f0f', background: '#1b0707', color: '#f5ecec' }}
-                          />
-                        </div>
-                        <div style={{ display: 'grid', gap: 6 }}>
-                          <label>Purchase Order / Debit Note ID</label>
-                          <input
-                            type="number"
-                            value={poId}
-                            onChange={(e) => setPoId(e.target.value)}
-                            placeholder="Enter PO ID if available"
-                            style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #4f0f0f', background: '#1b0707', color: '#f5ecec' }}
-                          />
-                        </div>
-                      </>
-                    )}
-
-                    {error && <div style={{ color: '#b91c1c' }}>{error}</div>}
-
-                    <button onClick={() => setStep(3)} disabled={loading} style={{ padding: '12px 16px', borderRadius: 10, background: '#800000', color: '#fff', border: '1px solid #a00000' }}>
-                      Continue to Confirmation
-                    </button>
-                  </div>
-                </>
-              )}
-
-              {step === 3 && selectedItem && preview && (
-                <>
-                  <h2>Confirm Return</h2>
-                  <div style={{ display: 'grid', gap: 16 }}>
-                    <div>
-                      <strong>Bill:</strong> {selectedBill.bill_no}
-                    </div>
-                    <div>
-                      <strong>Product:</strong> {selectedItem.product?.product_name || selectedItem.product_name || selectedItem.product_id}
-                    </div>
-                    <div>
-                      <strong>Return Quantity:</strong> {quantity}
-                    </div>
-                    <div>
-                      <strong>Destination:</strong> {destination}
-                    </div>
-                    {supplierId && (
                       <div>
-                        <strong>Supplier ID:</strong> {supplierId}
+                        <label>Reason</label>
+                        <select
+                          value={ri.return_reason}
+                          onChange={e => updateField(item.product_id, 'return_reason', e.target.value)}
+                        >
+                          {REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
                       </div>
-                    )}
-                    {poId && (
                       <div>
-                        <strong>PO / Debit Note ID:</strong> {poId}
+                        <label>Destination</label>
+                        <select
+                          value={ri.destination}
+                          onChange={e => updateField(item.product_id, 'destination', e.target.value)}
+                        >
+                          {DESTINATIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+                        </select>
                       </div>
-                    )}
-                    <div>
-                      <strong>Price at Sale:</strong> Rs. {selectedItem.price_per_unit}
+                      <div className="span-full">
+                        <label>Notes (optional)</label>
+                        <input
+                          type="text"
+                          placeholder="Any additional notes…"
+                          value={ri.destination_note}
+                          onChange={e => updateField(item.product_id, 'destination_note', e.target.value)}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <strong>Refund Amount:</strong> Rs. {preview.refund_amount}
-                    </div>
-                    <div style={{ padding: 16, borderRadius: 14, background: '#2f0b0b', color: '#eee5e5' }}>
-                      {summaryNotice()}
-                    </div>
-                    {error && <div style={{ color: '#b91c1c' }}>{error}</div>}
-                    <button onClick={submitReturn} disabled={loading} style={{ padding: '14px 18px', borderRadius: 12, background: '#800000', color: '#fff', border: '1px solid #a00000' }}>
-                      {loading ? 'Processing...' : 'Submit Return'}
-                    </button>
-                  </div>
-                </>
-              )}
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Right — summary */}
+          <div className="ret-right">
+            <h3>Return Summary</h3>
+
+            <div className="ret-summary-row">
+              <span>Bill Number</span>
+              <span>{selectedBill.bill_no}</span>
             </div>
-          )}
-
-          {step === 2 && selectedItem && preview && (
-            <div style={{ background: '#1e0707', borderRadius: 16, padding: 24, height: 'fit-content', color: '#f5ecec' }}>
-              <h3 style={{ color: '#f8ecec' }}>Summary</h3>
-              <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
-                <div><strong>Bill No:</strong> {selectedBill.bill_no}</div>
-                <div><strong>Product:</strong> {selectedItem.product?.product_name || selectedItem.product_name || selectedItem.product_id}</div>
-                <div><strong>Return Qty:</strong> {quantity}</div>
-                <div><strong>Unit Price:</strong> Rs. {selectedItem.price_per_unit}</div>
-                <div><strong>Refund:</strong> Rs. {preview.refund_amount}</div>
-                <div style={{ padding: 12, borderRadius: 12, background: '#2f0b0b', color: '#eee5e5' }}>{summaryNotice()}</div>
+            <div className="ret-summary-row">
+              <span>Customer</span>
+              <span>{selectedBill.customer?.customer_name || 'Walk-in'}</span>
+            </div>
+            {selectedBill.customer?.phone_no && (
+              <div className="ret-summary-row">
+                <span>Phone</span>
+                <span>{selectedBill.customer.phone_no}</span>
               </div>
+            )}
+            <div className="ret-summary-row">
+              <span>Items Selected</span>
+              <span>{Object.keys(returnItems).length}</span>
             </div>
-          )}
+
+            <hr className="ret-divider" />
+
+            <div className="ret-summary-row">
+              <span>Total Bill</span>
+              <span>Rs. {totalBill.toFixed(2)}</span>
+            </div>
+            <div className="ret-summary-row">
+              <span>How Much Paid</span>
+              <span>Rs. {howMuchPaid.toFixed(2)}</span>
+            </div>
+            <div className="ret-summary-row">
+              <span>Returned Products Value</span>
+              <span>Rs. {totalReturnedValue.toFixed(2)}</span>
+            </div>
+            <div className="ret-summary-row">
+              <span>How much should be Pay</span>
+              <span style={{ color: remainingBalancePayable > 0 ? '#b30000' : '#333', fontWeight: 'bold' }}>
+                Rs. {remainingBalancePayable.toFixed(2)}
+              </span>
+            </div>
+
+            <hr className="ret-divider" />
+
+            {/* Supplier ID if needed */}
+            {Object.values(returnItems).some(i => i.destination === 'SUPPLIER') && (
+              <div className="ret-supplier-box">
+                <label>Supplier ID (required)</label>
+                <input
+                  type="number"
+                  value={supplierId}
+                  onChange={e => setSupplierId(e.target.value)}
+                  placeholder="Enter supplier ID"
+                />
+              </div>
+            )}
+
+            <div className="ret-total-row">
+              <span className="label" style={{ fontWeight: '600' }}>Should Return to Customer</span>
+              <span className="amount">Rs. {actualRefundToCustomer.toFixed(2)}</span>
+            </div>
+
+            <button
+              className="ret-confirm-btn"
+              disabled={loading || Object.keys(returnItems).length === 0}
+              onClick={submitReturn}
+            >
+              {loading ? 'Processing…' : 'Confirm Return'}
+            </button>
+          </div>
         </div>
       )}
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }
 

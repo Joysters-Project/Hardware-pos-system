@@ -65,14 +65,23 @@ const bills           = require('./bills');
 const bill_items      = require('./bill_items');
 const payments        = require('./payments');
 const returns         = require('./returns');
+const return_items    = require('./return_items');
 const supplier_returns = require('./supplier_returns');
 const alerts          = require('./alerts');
 const purchase_orders = require('./purchase_orders');
 const po_items        = require('./po_items');
+const assets           = require('./assets');
+const expenses         = require('./expenses');
+const salary_payments  = require('./salary_payments');
+const supplier_payments = require('./supplier_payments');
+const procurement_notifications = require('./procurement_notifications');
+const auto_reorder_suggestions = require('./auto_reorder_suggestions');
+const email_logs = require('./email_logs');
+const supplier_documents = require('./supplier_documents');
 
 // 3. Initialize the DB object
 const db = {
-  sequelize, // CRITICAL: This allows index.js to call .sync()
+  sequelize,
   Sequelize,
   departments:     departments(sequelize),
   employees:       employees(sequelize),
@@ -88,10 +97,19 @@ const db = {
   bill_items:      bill_items(sequelize),
   payments:        payments(sequelize),
   returns:         returns(sequelize),
+  return_items:    return_items(sequelize),
   supplier_returns: supplier_returns(sequelize),
   alerts:          alerts(sequelize),
   purchase_orders: purchase_orders(sequelize),
   po_items:        po_items(sequelize),
+  assets:           assets(sequelize),
+  expenses:         expenses(sequelize),
+  salary_payments:  salary_payments(sequelize),
+  supplier_payments: supplier_payments(sequelize),
+  procurement_notifications: procurement_notifications(sequelize),
+  auto_reorder_suggestions: auto_reorder_suggestions(sequelize),
+  email_logs:       email_logs(sequelize),
+  supplier_documents: supplier_documents(sequelize),
 };
 
 // 4. Define Relationships
@@ -120,19 +138,41 @@ db.customers.hasMany(db.bills, { foreignKey: 'customer_id' });
 db.bills.belongsTo(db.customers, { foreignKey: 'customer_id' });
 db.bills.hasMany(db.bill_items, { foreignKey: 'bill_id' });
 db.bill_items.belongsTo(db.bills, { foreignKey: 'bill_id' });
+db.bill_items.addScope('forBill', {
+  unique: 'bill_product_unique',
+  fields: ['bill_id', 'product_id']
+});
 db.products.hasMany(db.bill_items, { foreignKey: 'product_id' });
 db.bill_items.belongsTo(db.products, { foreignKey: 'product_id' });
 db.bills.hasMany(db.payments, { foreignKey: 'bill_id' });
 db.payments.belongsTo(db.bills, { foreignKey: 'bill_id' });
 db.bills.hasMany(db.returns, { foreignKey: 'bill_id' });
 db.returns.belongsTo(db.bills, { foreignKey: 'bill_id' });
-db.products.hasMany(db.returns, { foreignKey: 'product_id' });
-db.returns.belongsTo(db.products, { foreignKey: 'product_id' });
+
+db.returns.hasMany(db.return_items, { foreignKey: 'return_id', as: 'items' });
+db.return_items.belongsTo(db.returns, { foreignKey: 'return_id' });
+
+db.products.hasMany(db.return_items, { foreignKey: 'product_id' });
+db.return_items.belongsTo(db.products, { foreignKey: 'product_id' });
 
 db.returns.hasOne(db.supplier_returns, { foreignKey: 'return_id' });
 db.supplier_returns.belongsTo(db.returns, { foreignKey: 'return_id' });
 db.supplier_returns.belongsTo(db.suppliers, { foreignKey: 'supplier_id' });
 db.supplier_returns.belongsTo(db.products, { foreignKey: 'product_id' });
+
+// Asset Module
+db.departments.hasMany(db.assets,  { foreignKey: 'department_id' });
+db.assets.belongsTo(db.departments, { foreignKey: 'department_id' });
+
+// Salary Module
+db.employees.hasMany(db.salary_payments, { foreignKey: 'employee_id' });
+db.salary_payments.belongsTo(db.employees, { foreignKey: 'employee_id' });
+
+// Expense Module
+db.departments.hasMany(db.expenses, { foreignKey: 'department_id' });
+db.expenses.belongsTo(db.departments, { foreignKey: 'department_id' });
+db.assets.hasMany(db.expenses, { foreignKey: 'asset_id' });
+db.expenses.belongsTo(db.assets, { foreignKey: 'asset_id' });
 
 // Procurement Module
 db.suppliers.hasMany(db.purchase_orders, { foreignKey: 'supplier_id' });
@@ -141,5 +181,27 @@ db.purchase_orders.hasMany(db.po_items, { foreignKey: 'po_id' });
 db.po_items.belongsTo(db.purchase_orders, { foreignKey: 'po_id' });
 db.products.hasMany(db.po_items, { foreignKey: 'product_id' });
 db.po_items.belongsTo(db.products, { foreignKey: 'product_id' });
+
+// Enhanced Procurement relations
+db.suppliers.hasMany(db.supplier_payments, { foreignKey: 'supplier_id' });
+db.supplier_payments.belongsTo(db.suppliers, { foreignKey: 'supplier_id' });
+
+db.purchase_orders.hasMany(db.supplier_payments, { foreignKey: 'po_id' });
+db.supplier_payments.belongsTo(db.purchase_orders, { foreignKey: 'po_id' });
+
+db.products.hasMany(db.auto_reorder_suggestions, { foreignKey: 'product_id' });
+db.auto_reorder_suggestions.belongsTo(db.products, { foreignKey: 'product_id' });
+
+db.suppliers.hasMany(db.auto_reorder_suggestions, { foreignKey: 'supplier_id' });
+db.auto_reorder_suggestions.belongsTo(db.suppliers, { foreignKey: 'supplier_id' });
+
+db.purchase_orders.hasMany(db.auto_reorder_suggestions, { foreignKey: 'converted_po_id', as: 'convertedPO' });
+db.auto_reorder_suggestions.belongsTo(db.purchase_orders, { foreignKey: 'converted_po_id', as: 'convertedPO' });
+
+db.suppliers.hasMany(db.products, { foreignKey: 'preferred_supplier_id', as: 'preferredProducts' });
+db.products.belongsTo(db.suppliers, { foreignKey: 'preferred_supplier_id', as: 'preferredSupplier' });
+
+db.suppliers.hasMany(db.supplier_documents, { foreignKey: 'supplier_id' });
+db.supplier_documents.belongsTo(db.suppliers, { foreignKey: 'supplier_id' });
 
 module.exports = db;

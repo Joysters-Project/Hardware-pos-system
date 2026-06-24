@@ -2,7 +2,9 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import toast from "react-hot-toast";
+import { validateSriLankanPhone, filterSriLankanPhoneInput } from "../utils/phoneValidation";
 import SuccessAnim from "./SuccessAnim";
+import DashboardLayout from "./DashboardLayout";
 import "../styles/DueCollection.css";
 
 const DueCollection = () => {
@@ -15,6 +17,7 @@ const DueCollection = () => {
   const [paymentMethod, setPaymentMethod] = useState("Cash");
   const [amountInput, setAmountInput] = useState("");
   const [paymentHistory, setPaymentHistory] = useState([]);
+  const [successAmount, setSuccessAmount] = useState(0);
 
   // Animation states
   const [showSuccess, setShowSuccess] = useState(false);
@@ -29,21 +32,18 @@ const DueCollection = () => {
 
   // Perform search
   const handleSearch = async () => {
-    // Validate phone number - exactly 10 digits
     if (!searchQuery.trim()) {
       return toast.error("Enter a phone number");
     }
     
-    const phoneRegex = /^\d{10}$/;
-    if (!phoneRegex.test(searchQuery.trim())) {
-      return toast.error("Phone number must be exactly 10 digits");
+    const phoneValidation = validateSriLankanPhone(searchQuery);
+    if (!phoneValidation.isValid) {
+      return toast.error(phoneValidation.message);
     }
 
     try {
-      // 1. Fetch customer by phone (or generic search)
-      // Since existing route is GET /customers?phone=...
-      const cusRes = await api.get(`/customers?phone=${encodeURIComponent(searchQuery)}`);
-      const foundCus = cusRes.data.data || cusRes.data; // adjust based on API response
+      const cusRes = await api.get(`/customers?phone=${encodeURIComponent(phoneValidation.formatted)}`);
+      const foundCus = cusRes.data.data || cusRes.data; 
       
       if (!foundCus || !foundCus.customer_id) {
         toast.error("Customer not found.");
@@ -51,7 +51,6 @@ const DueCollection = () => {
       }
       setCustomer(foundCus);
 
-      // 2. Fetch partial bills
       const billRes = await api.get(`/bills?customer_id=${foundCus.customer_id}&status=PARTIAL`);
       setBills(billRes.data || []);
       setSelectedBill(null);
@@ -70,7 +69,6 @@ const DueCollection = () => {
   const handleSelectBill = async (bill) => {
     setSelectedBill(bill);
     setAmountInput(bill.balance_due);
-    // Fetch History
     try {
       const histRes = await api.get(`/payments?bill_id=${bill.bill_id}`);
       setPaymentHistory(histRes.data || []);
@@ -79,7 +77,6 @@ const DueCollection = () => {
     }
   };
 
-  // Calculate fields for Right Panel
   const billTotal = selectedBill ? parseFloat(selectedBill.total_amount) : 0;
   const balanceDue = selectedBill ? parseFloat(selectedBill.balance_due) : 0;
   const paidSoFar = billTotal - balanceDue;
@@ -115,13 +112,13 @@ const DueCollection = () => {
         collected_by: cashierId
       });
 
-      // Fire the complex SVG animation overlay
+      setSuccessAmount(collectAmount);
+
       setShowSuccess(true);
       requestAnimationFrame(() => {
         requestAnimationFrame(() => setAnimSuccess(true));
       });
       
-      // Refresh background data
       handleSearch(); 
     } catch (err) {
       console.error(err);
@@ -130,27 +127,24 @@ const DueCollection = () => {
   };
 
   return (
-    <div className="due-container">
+    <DashboardLayout active="due-collection">
       {/* Header */}
-      <div className="due-header">
+      <div className="admin-page-header">
         <div>
-          <h1>Due collection</h1>
-          <p>Collect outstanding balance from partial bills</p>
+          <h1 className="admin-page-title">💼 Due Collection</h1>
+          <p className="admin-page-subtitle">Collect outstanding balance from partial bills</p>
         </div>
-        <button className="due-back-btn" onClick={() => navigate(-1)}>
-          Back
-        </button>
       </div>
 
-      <div className="due-content">
+      <div className="due-content" style={{ marginTop: '8px' }}>
         {/* Left Panel */}
         <div className="due-left">
           <div className="due-search-box">
             <input 
-              type="text" 
-              placeholder="Search by phone number." 
+              type="tel" 
+              placeholder="Search by 10-digit phone number (070-078)..." 
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              onChange={(e) => setSearchQuery(filterSriLankanPhoneInput(e.target.value))}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               maxLength="10"
             />
@@ -168,17 +162,19 @@ const DueCollection = () => {
                   <small style={{ color: '#777' }}>{customer.phone} · {bills.length} partial bills</small>
                 </div>
               </div>
+              <div>
                 <div style={{ color: '#777', fontSize: '13px' }}>Total outstanding</div>
                 <div className="val-red" style={{ fontSize: '18px', fontWeight: 'bold' }}>
-                  <strong>Rs.</strong> {totalOutstanding.toFixed(2)}
+                  Rs {totalOutstanding.toFixed(2)}
                 </div>
+              </div>
             </div>
           )}
 
           <div className="card-title">Outstanding bills</div>
           <div className="bills-table-container">
             {bills.length === 0 ? (
-              <p style={{ color: '#aaa' }}>No outstanding bills found.</p>
+              <p style={{ color: '#aaa', padding: '20px 0' }}>No outstanding bills found.</p>
             ) : (
               <table className="bills-table">
                 <thead>
@@ -227,7 +223,7 @@ const DueCollection = () => {
               {paymentHistory.map(hist => (
                 <div className="history-item" key={hist.payment_id}>
                   <div>
-                    <strong>Rs. {parseFloat(hist.amount_paid).toFixed(2)}</strong> — {hist.payment_method}
+                    <strong>Rs {parseFloat(hist.amount_paid).toFixed(2)}</strong> — {hist.payment_method}
                   </div>
                   <div style={{ color: '#777' }}>
                     {formatDate(hist.payment_date)}, {formatTime(hist.payment_date)}
@@ -321,9 +317,9 @@ const DueCollection = () => {
         animate={animSuccess} 
         onDismiss={handleSuccessDismiss} 
         message="Payment Received"
-        subMessage={`Successfully collected Rs. ${collectAmount.toFixed(2)}`}
+        subMessage={`Successfully collected Rs. ${successAmount.toFixed(2)}`}
       />
-    </div>
+    </DashboardLayout>
   );
 };
 

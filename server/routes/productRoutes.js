@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const productController = require('../controllers/productController');
-const db = require('../models'); // Ensure db is imported for the search logic
+const db = require('../models');
 
 // --- SEARCH LOGIC (From your local HEAD) ---
 router.get('/search', async (req, res) => {
+  console.log('Route /api/products/search called with query:', req.query);
   try {
     const query = (req.query.q || '').trim();
     if (!query) {
@@ -53,7 +54,10 @@ router.get('/search', async (req, res) => {
 router.post('/', productController.createProduct);
 
 // GET All Products
-router.get('/', productController.getAllProducts);
+router.get('/', (req, res, next) => {
+  console.log('Route /api/products/ (list) called');
+  return productController.getAllProducts(req, res, next);
+});
 
 // GET Product by ID
 router.get('/:id', productController.getProductById);

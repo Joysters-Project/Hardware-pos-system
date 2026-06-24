@@ -1,4 +1,6 @@
-const { bills, bill_items, products, audit_log, customers, payments, users, sequelize } = require('../models');
+const { bills, bill_items, products, audit_log, customers, payments, users, alerts, sequelize } = require('../models');
+const { logActivity } = require('./auditService');
+const { validateSriLankanPhone } = require('../utils/phoneValidation');
 
 class BillingService {
     static async getSystemUserId(transaction = null) {
@@ -7,9 +9,11 @@ class BillingService {
             defaults: {
                 first_name: 'System',
                 last_name: 'User',
-                password: 'system',
-                role: 'ADMIN',
-                status: 'Active'
+                password: 'system_placeholder',
+                role: 'Admin',
+                status: 'Active',
+                failed_attempts: 0,
+                is_locked: false
             },
             transaction
         });
@@ -26,8 +30,15 @@ class BillingService {
             // 1. Handle Customer (For Partial Payments or Records)
             let customerId = null;
             if (saleData.customer && saleData.customer.phone) {
+                // Validate phone number before storing
+                const phoneValidation = validateSriLankanPhone(saleData.customer.phone);
+                if (!phoneValidation.isValid) {
+                    throw new Error(`Invalid customer phone number: ${phoneValidation.message}`);
+                }
+                const formattedPhone = phoneValidation.formatted;
+
                 const [customer] = await customers.findOrCreate({
-                    where: { phone_no: saleData.customer.phone },
+                    where: { phone_no: formattedPhone },
                     defaults: {
                       customer_name: saleData.customer.name,
                       address: saleData.customer.address || null
@@ -62,6 +73,7 @@ class BillingService {
             }, { transaction: t });
 
             // 5. Update Inventory & Items
+            const lowStockAlerts = [];
             for (const item of saleData.items) {
                 const quantity = Number(item.quantity) || 0;
                 const pricePerUnit = parseFloat(item.price) || 0;
@@ -82,23 +94,75 @@ class BillingService {
                     where: { product_id: item.product_id },
                     transaction: t
                 });
+
+                const updatedProduct = await products.findByPk(item.product_id, { transaction: t });
+                const stock = updatedProduct.stock_quantity;
+                const minQty = updatedProduct.min_stock_quantity;
+                const reorder = updatedProduct.reorder_level;
+
+                // Determine which inventory alert types now apply
+                const alertsToEnsure = [];
+                if (stock === 0) {
+                    alertsToEnsure.push('Out of Stock');
+                } else {
+                    if (stock <= minQty)  alertsToEnsure.push('Low Stock');
+                    if (stock <= reorder) alertsToEnsure.push('Reorder');
+                }
+
+                for (const alert_type of alertsToEnsure) {
+                    const existing = await alerts.findOne({
+                        where: { product_id: item.product_id, alert_type, is_resolved: false },
+                        transaction: t
+                    });
+                    if (!existing) {
+                        await alerts.create(
+                            { product_id: item.product_id, alert_type, is_resolved: false },
+                            { transaction: t }
+                        );
+                    }
+                }
+
+                if (alertsToEnsure.length > 0) lowStockAlerts.push(updatedProduct.product_name);
             }
 
             // 6. Record Payment
             await payments.create({
                 bill_id: bill.bill_id,
                 amount_paid: saleData.amount_paid,
-                payment_status: 'CASH'
+                payment_method: saleData.payment_method || 'CASH'
             }, { transaction: t });
 
-            // 7. Final Audit Log
-            await audit_log.create({
-                user_id: userId,
-                action: 'GENERATE_BILL',
-                details: `Bill ${bill_no} processed. Paid: ${saleData.amount_paid}, Due: ${saleData.balance_due}`
-            }, { transaction: t });
+            // 7. Final Audit Log and Inventory Sync (outside transaction so it never blocks checkout)
+            process.nextTick(async () => {
+                try {
+                    await logActivity(userId, null, 'INVOICE_CREATED',
+                      `Invoice ${bill_no} created. Total: ${saleData.total_amount}, Paid: ${saleData.amount_paid}, Due: ${saleData.balance_due || 0}`
+                    );
 
-            return bill;
+                    // Import services dynamically to avoid circular dependencies
+                    const autoReorderService = require('./autoReorderService');
+                    const forecastService = require('./forecastService');
+
+                    for (const item of saleData.items) {
+                        // Record inventory movement
+                        await logActivity(userId, null, 'INVENTORY_MOVEMENT',
+                          `Sales checkout: reduced stock of product_id=${item.product_id} by ${item.quantity} units for Invoice ${bill_no}`
+                        );
+
+                        // Check reorder level and update suggestions / notifications
+                        await autoReorderService.checkProductReorder(item.product_id);
+
+                        // Update forecast calculations
+                        await forecastService.getProductForecast(item.product_id);
+                    }
+                } catch (err) {
+                    console.error('[BillingService] Post-commit inventory sync error:', err.message);
+                }
+            });
+
+            const billData = bill.toJSON();
+            billData.lowStockAlerts = lowStockAlerts;
+            return billData;
         });
     }
 }

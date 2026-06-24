@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem("role", userRole);
     localStorage.setItem("userName", userData);
     localStorage.setItem("loginTime", Date.now().toString());
-    
+
     setIsAuthenticated(true);
     setRole(userRole);
     setUser({
@@ -58,11 +58,15 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
     localStorage.removeItem("userName");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("userFirstName");
+    localStorage.removeItem("userLastName");
+    localStorage.removeItem("userFullName");
     localStorage.removeItem("loginTime");
-    
+
     // Set flag to prevent back button
     sessionStorage.setItem("loggedOut", "true");
-    
+
     // Clear state
     setIsAuthenticated(false);
     setRole(null);

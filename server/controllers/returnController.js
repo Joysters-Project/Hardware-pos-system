@@ -1,11 +1,12 @@
+const { returns, products, payments, bills, bill_items, sequelize } = require('../models');
 ﻿const { Op } = require('sequelize');
-const { bills, bill_items, products, customers, returns, supplier_returns } = require('../models');
+const {  customers, supplier_returns } = require('../models');
 const ReturnService = require('../services/returnService');
 
 exports.processReturn = async (req, res) => {
   try {
-    const userId = req.user?.user_id;
-    const userRole = req.user?.role;
+    const userId = req.user?.user_id || 1; // Fallback to 1 if not set
+    const userRole = req.user?.role || 'Admin'; // Fallback to Admin if not set
     const data = await ReturnService.processReturn(req.body, userId, userRole);
 
     res.status(201).json({
@@ -57,18 +58,29 @@ exports.lookupBill = async (req, res) => {
     }
 
     if (bill_no) {
-      const trimmedBillNo = bill_no.trim();
+      const trimmedBillNo = bill_no.toString().trim();
+      const normalizedTerm = trimmedBillNo.toLowerCase();
       const clauses = [];
 
-      // Exact match on bill_no
-      if (trimmedBillNo.length > 0) clauses.push({ bill_no: trimmedBillNo });
+      if (normalizedTerm.length > 0) {
+        clauses.push(
+          bills.sequelize.where(
+            bills.sequelize.fn('LOWER', bills.sequelize.col('bill_no')),
+            normalizedTerm
+          )
+        );
+        clauses.push(
+          bills.sequelize.where(
+            bills.sequelize.fn('LOWER', bills.sequelize.col('bill_no')),
+            { [Op.like]: `%${normalizedTerm}%` }
+          )
+        );
+      }
 
-      // Partial match on bill_no
-      clauses.push({ bill_no: { [Op.like]: `%${trimmedBillNo}%` } });
-
-      // If numeric, allow matching by bill_id as well
       const asId = parseInt(trimmedBillNo, 10);
-      if (!Number.isNaN(asId)) clauses.push({ bill_id: asId });
+      if (!Number.isNaN(asId)) {
+        clauses.push({ bill_id: asId });
+      }
 
       const results = await bills.findAll({
         where: { [Op.or]: clauses },
@@ -76,6 +88,10 @@ exports.lookupBill = async (req, res) => {
           {
             model: bill_items,
             include: [{ model: products, attributes: ['product_name'] }]
+          },
+          {
+            model: customers,
+            attributes: ['customer_id', 'customer_name', 'phone_no']
           }
         ],
         order: [['bill_date', 'DESC']]
@@ -107,6 +123,10 @@ exports.lookupBill = async (req, res) => {
         {
           model: bill_items,
           include: [{ model: products, attributes: ['product_name'] }]
+        },
+        {
+          model: customers,
+          attributes: ['customer_id', 'customer_name', 'phone_no']
         }
       ]
     });
@@ -116,8 +136,8 @@ exports.lookupBill = async (req, res) => {
     }
 
     res.status(200).json({ success: true, data: billsForCustomer });
-    console.error('Lookup bill error:', error);
   } catch (error) {
+    console.error('Lookup bill error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -125,27 +145,125 @@ exports.lookupBill = async (req, res) => {
 exports.getAllReturns = async (req, res) => {
   try {
     const { destination, from_date, to_date } = req.query;
-    const whereClause = {};
+    const headerWhere = {};
+    const itemWhere = {};
 
-    if (destination) whereClause.destination = destination;
-    if (from_date || to_date) {
-      whereClause.return_date = {};
-      if (from_date) whereClause.return_date[Op.gte] = new Date(from_date);
-      if (to_date) whereClause.return_date[Op.lte] = new Date(to_date);
+    const userRole = req.user?.role || '';
+    const isCashier = userRole.toLowerCase() === 'cashier';
+
+    if (destination) itemWhere.destination = destination;
+
+    if (isCashier) {
+      // Cashiers can ONLY see today's returns
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      headerWhere.return_date = { [Op.gte]: today };
+    } else if (from_date || to_date) {
+      headerWhere.return_date = {};
+      if (from_date) headerWhere.return_date[Op.gte] = new Date(from_date);
+      if (to_date) headerWhere.return_date[Op.lte] = new Date(to_date);
     }
 
-    const returnList = await returns.findAll({
-      where: whereClause,
-      include: [
-        { model: bills, attributes: ['bill_no'] },
-        { model: products, attributes: ['product_name'] },
-        { model: supplier_returns, attributes: ['supplier_id', 'quantity', 'status', 'created_at'] }
-      ],
+    // We need to require return_items here since it might not be in the file scope
+    const { return_items } = require('../models');
+
+    // Build the include array — supplier_returns is optional
+    const { customers } = require('../models');
+    const includeArr = [
+      {
+        model: bills,
+        attributes: ['bill_no', 'bill_id', 'total_amount', 'balance_due', 'bill_date', 'customer_id'],
+        required: false,
+        include: [
+          { model: payments, attributes: ['amount_paid'] },
+          { model: customers, attributes: ['customer_id', 'customer_name', 'phone_no'] }
+        ]
+      },
+      {
+        model: return_items,
+        as: 'items',
+        required: false,
+        where: Object.keys(itemWhere).length ? itemWhere : undefined,
+        include: [{ model: products, attributes: ['product_name', 'product_id'] }]
+      }
+    ];
+
+    // Only include supplier_returns if the model exists and is associated
+    try {
+      includeArr.push({
+        model: supplier_returns,
+        required: false,
+        attributes: ['supplier_id', 'quantity', 'status', 'created_at']
+      });
+    } catch (_) { /* skip if not available */ }
+
+    // Fetch returns with associated bill total and payments
+    const returnListRaw = await returns.findAll({
+      where: headerWhere,
+      include: includeArr,
       order: [['return_date', 'DESC']]
+    });
+
+    // Attach financial summary and detailed return summary to each return
+    // Sequelize auto-alias for belongsTo(bills) is 'bill' (singular)
+    const returnList = returnListRaw.map(ret => {
+      const plain = ret.get({ plain: true });
+      const bill = plain.bill || plain.bills || {};
+      const returnItems = plain.items || [];
+      const currentBillTotal = parseFloat(bill.total_amount) || 0;
+      const billPayments = bill.payments || [];
+      
+      // Original bill total before returns = current bill total + sum of all negative payments (refunds) on this bill
+      const totalRefundedOnBill = billPayments
+        .filter(p => parseFloat(p.amount_paid) < 0)
+        .reduce((sum, p) => sum + Math.abs(parseFloat(p.amount_paid)), 0);
+      const originalBillTotal = currentBillTotal + totalRefundedOnBill;
+      
+      // Original paid amount = sum of all positive payments (payments from customer) on this bill
+      const originalPaid = billPayments
+        .filter(p => parseFloat(p.amount_paid) > 0)
+        .reduce((sum, p) => sum + parseFloat(p.amount_paid), 0);
+
+      const refundable = Math.min(plain.total_refund_amount || 0, originalPaid);
+      
+      // Calculate per-product totals
+      const productTotals = {};
+      let grandTotalReturned = 0;
+      
+      returnItems.forEach(item => {
+        const productName = item.product?.product_name || 'Unknown Product';
+        const refundAmount = parseFloat(item.refund_amount) || 0;
+        
+        if (!productTotals[productName]) {
+          productTotals[productName] = {
+            product_name: productName,
+            total_returned_qty: 0,
+            total_amount_per_product: 0
+          };
+        }
+        
+        productTotals[productName].total_returned_qty += item.return_quantity;
+        productTotals[productName].total_amount_per_product += refundAmount;
+        grandTotalReturned += refundAmount;
+      });
+      
+      return {
+        ...plain,
+        bill: bill,
+        bill_number: bill.bill_no,
+        returned_products: Object.values(productTotals),
+        grand_total_returned: parseFloat(grandTotalReturned.toFixed(2)),
+        financial_summary: {
+          total_bill: originalBillTotal,
+          total_paid: originalPaid,
+          refundable_amount: refundable
+        }
+      };
     });
 
     res.status(200).json({ success: true, data: returnList });
   } catch (error) {
+    console.error('getAllReturns error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };

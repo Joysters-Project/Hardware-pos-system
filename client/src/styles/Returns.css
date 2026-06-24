@@ -1,0 +1,863 @@
+/* ===== Returns Module — mirrors DueCollection style ===== */
+
+.ret-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #f4f6f9;
+  color: #333;
+  padding: 24px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  box-sizing: border-box;
+}
+
+/* ---- Header ---- */
+.ret-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.ret-header h1 {
+  margin: 0;
+  font-size: 24px;
+  color: #800000;
+}
+
+.ret-header p {
+  margin: 5px 0 0;
+  color: #555;
+  font-size: 14px;
+}
+
+.ret-back-btn {
+  background: white;
+  color: #333;
+  border: 1px solid #ccc;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+.ret-back-btn:hover {
+  background: #eee;
+}
+
+/* ---- Error Banner ---- */
+.ret-error {
+  background: #fff0f0;
+  color: #800000;
+  border: 1px solid #e09090;
+  border-left: 4px solid #800000;
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+/* ---- Search card (bill lookup) ---- */
+.ret-search-card {
+  background: white;
+  border-radius: 8px;
+  padding: 32px;
+  max-width: 600px;
+  margin: 0 auto;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+
+.ret-search-card h2 {
+  margin: 0 0 20px;
+  font-size: 18px;
+  color: #333;
+}
+
+.ret-radio-row {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+
+.ret-radio-row label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #555;
+}
+
+.ret-radio-row input[type="radio"] {
+  accent-color: #800000;
+  width: 16px;
+  height: 16px;
+}
+
+.ret-search-box {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.ret-search-box input {
+  flex: 1;
+  background: white;
+  border: 1px solid #ccc;
+  color: #333;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.ret-search-box input:focus {
+  border-color: #800000;
+}
+
+.ret-search-box button {
+  background: white;
+  border: 1px solid #ccc;
+  color: #333;
+  padding: 0 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+.ret-search-box button:hover {
+  background: #800000;
+  border-color: #800000;
+  color: white;
+}
+
+/* ---- Bill result cards ---- */
+.ret-bill-results {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.ret-bill-result-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-left: 4px solid #800000;
+  border-radius: 6px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: box-shadow 0.2s, background 0.15s;
+}
+.ret-bill-result-item:hover {
+  background: #fdf2f2;
+  box-shadow: 0 2px 8px rgba(128,0,0,0.08);
+}
+
+.ret-bill-result-item .bill-no {
+  font-weight: bold;
+  color: #800000;
+  font-size: 16px;
+}
+.ret-bill-result-item .bill-date {
+  font-size: 13px;
+  color: #777;
+  margin-top: 3px;
+}
+.ret-bill-result-item .bill-total {
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
+}
+
+/* ---- Main 2-column layout ---- */
+.ret-content {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+/* ---- Left — item list ---- */
+.ret-left {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ret-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ret-section-header h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.ret-select-all-btn {
+  background: white;
+  border: 1px solid #ccc;
+  color: #800000;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+.ret-select-all-btn:hover {
+  background: #800000;
+  color: white;
+  border-color: #800000;
+}
+
+.ret-item-card {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+  transition: border-color 0.2s;
+}
+.ret-item-card.selected {
+  border-color: #800000;
+  box-shadow: 0 2px 8px rgba(128,0,0,0.10);
+}
+
+.ret-item-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+.ret-item-header:hover {
+  background: #fdf2f2;
+}
+
+.ret-item-header input[type="checkbox"] {
+  accent-color: #800000;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ret-item-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 15px;
+  color: #333;
+}
+
+.ret-item-meta {
+  font-size: 13px;
+  color: #777;
+  margin-top: 2px;
+}
+
+.ret-item-total {
+  font-weight: bold;
+  color: #333;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+/* ---- Expanded fields inside item card ---- */
+.ret-item-fields {
+  padding: 14px 16px;
+  border-top: 1px solid #f0f0f0;
+  background: #fafafa;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+.ret-item-fields label {
+  display: block;
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.ret-item-fields input,
+.ret-item-fields select {
+  width: 100%;
+  padding: 9px 10px;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  color: #333;
+  font-size: 14px;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.ret-item-fields input:focus,
+.ret-item-fields select:focus {
+  border-color: #800000;
+}
+
+.ret-item-fields .span-full {
+  grid-column: span 3;
+}
+
+/* ---- Right — summary panel ---- */
+.ret-right {
+  flex: 1;
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  position: sticky;
+  top: 24px;
+}
+
+.ret-right h3 {
+  margin: 0 0 20px;
+  font-size: 18px;
+  color: #333;
+}
+
+.ret-summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 12px;
+}
+.ret-summary-row span:last-child {
+  font-weight: 600;
+  color: #333;
+}
+
+.ret-divider {
+  border: none;
+  border-top: 1px solid #eee;
+  margin: 16px 0;
+}
+
+.ret-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 24px;
+}
+.ret-total-row .label {
+  font-size: 15px;
+  color: #555;
+}
+.ret-total-row .amount {
+  font-size: 28px;
+  font-weight: bold;
+  color: #4caf50;
+}
+
+/* Supplier ID warning box */
+.ret-supplier-box {
+  background: #fff8e1;
+  border: 1px solid #f0c040;
+  border-left: 4px solid #f0a500;
+  border-radius: 6px;
+  padding: 14px;
+  margin-bottom: 20px;
+}
+.ret-supplier-box label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #a47614;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+.ret-supplier-box input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #d1a84f;
+  border-radius: 6px;
+  box-sizing: border-box;
+  font-size: 14px;
+  outline: none;
+}
+.ret-supplier-box input:focus {
+  border-color: #800000;
+}
+
+.ret-confirm-btn {
+  background: #800000;
+  color: white;
+  border: none;
+  padding: 16px;
+  width: 100%;
+  border-radius: 6px;
+  font-size: 17px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: auto;
+  transition: background 0.2s;
+}
+.ret-confirm-btn:hover:not(:disabled) {
+  background: #a52a2a;
+}
+.ret-confirm-btn:disabled {
+  background: #e0e0e0;
+  color: #999;
+  cursor: not-allowed;
+}
+
+/* ---- Success screen ---- */
+.ret-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: #f4f6f9;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  text-align: center;
+  padding: 40px;
+}
+
+.ret-success-card {
+  background: white;
+  border-radius: 12px;
+  padding: 60px 48px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  max-width: 480px;
+  width: 100%;
+}
+
+.ret-success-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+}
+
+.ret-success-card h2 {
+  font-size: 28px;
+  color: #333;
+  margin: 0 0 10px;
+}
+
+.ret-success-card p {
+  color: #777;
+  font-size: 16px;
+  margin: 0 0 30px;
+}
+
+.ret-success-card strong {
+  color: #333;
+}
+
+.ret-new-btn {
+  background: #800000;
+  color: white;
+  border: none;
+  padding: 14px 28px;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.ret-new-btn:hover {
+  background: #a52a2a;
+}
+
+@media screen and (max-width: 1024px) {
+  .ret-container {
+    padding: 20px 18px 30px;
+  }
+
+  .ret-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .ret-search-card {
+    max-width: 100%;
+    padding: 24px;
+  }
+
+  .ret-search-box {
+    flex-direction: column;
+  }
+
+  .ret-search-box button {
+    width: 100%;
+  }
+
+  .ret-bill-result-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ret-bill-result-item .bill-total {
+    margin-top: 8px;
+  }
+
+  .ret-content {
+    flex-direction: column;
+  }
+
+  .ret-right {
+    position: static;
+    width: 100%;
+  }
+
+  .ret-item-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media screen and (max-width: 720px) {
+  .ret-radio-row {
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .ret-select-all-btn {
+    width: 100%;
+  }
+
+  .ret-header h1 {
+    font-size: 22px;
+  }
+
+  .ret-right {
+    padding: 20px;
+  }
+}
+
+/* ===== Return Logs ===== */
+.retlog-container {
+  min-height: 100vh;
+  background: #f4f6f9;
+  color: #333;
+  padding: 24px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  box-sizing: border-box;
+}
+
+.retlog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.retlog-header h2 {
+  margin: 0;
+  font-size: 22px;
+  color: #800000;
+}
+
+.retlog-header p {
+  margin: 5px 0 0;
+  color: #555;
+  font-size: 14px;
+}
+
+.retlog-new-btn {
+  background: #800000;
+  color: white;
+  border: none;
+  padding: 9px 18px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+.retlog-new-btn:hover {
+  background: #a52a2a;
+}
+
+.retlog-filters {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.retlog-filters label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #555;
+}
+
+.retlog-filters select {
+  padding: 9px 12px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background: white;
+  color: #333;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.retlog-filters select:focus {
+  border-color: #800000;
+}
+
+.retlog-badge-today {
+  background: #fdf2f2;
+  color: #800000;
+  border: 1px solid #e09090;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.retlog-empty {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  color: #999;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+}
+
+.retlog-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.retlog-card {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.retlog-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  background: #fdf2f2;
+  border-bottom: 1px solid #f0dada;
+}
+
+.retlog-card-meta {
+  display: flex;
+  gap: 28px;
+}
+
+.retlog-meta-item .meta-label {
+  font-size: 11px;
+  color: #999;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.retlog-meta-item .meta-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+}
+.retlog-meta-item .meta-value.accent {
+  color: #800000;
+}
+
+.retlog-refund {
+  text-align: right;
+}
+.retlog-refund .meta-label {
+  font-size: 11px;
+  color: #999;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.retlog-refund .meta-value {
+  font-size: 20px;
+  font-weight: bold;
+  color: #4caf50;
+}
+
+.retlog-card-body {
+  padding: 14px 18px;
+}
+
+.retlog-items-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.retlog-items-table th {
+  text-align: left;
+  padding: 8px 0;
+  font-size: 11px;
+  color: #999;
+  text-transform: uppercase;
+  border-bottom: 1px solid #eee;
+}
+
+.retlog-items-table td {
+  padding: 11px 0;
+  border-bottom: 1px solid #f5f5f5;
+  font-size: 14px;
+  color: #444;
+}
+
+.retlog-items-table tr:last-child td {
+  border-bottom: none;
+}
+
+.retlog-dest-badge {
+  background: #fdf2f2;
+  color: #800000;
+  border: 1px solid #e09090;
+  padding: 3px 9px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.retlog-loading {
+  color: #888;
+  padding: 20px;
+  font-size: 15px;
+}
+
+.retlog-error {
+  color: #800000;
+  background: #fff0f0;
+  border: 1px solid #e09090;
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+/* ── Return Logs Vertical layout CSS ── */
+.vertical-card {
+  padding: 0 !important;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+}
+.rp-ret-vertical-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  padding: 20px;
+  background: #fdf2f2;
+}
+.rp-ret-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+.rp-ret-col h4 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  color: #800000;
+  border-bottom: 2px solid #f0dada;
+  padding-bottom: 4px;
+  font-weight: 700;
+}
+.rp-ret-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: #555;
+  border-bottom: 1px dashed #e5cccc;
+  padding-bottom: 4px;
+}
+.rp-ret-row strong {
+  color: #333;
+}
+.rp-ret-items-list-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.rp-ret-item-card-vertical {
+  background: #fafafa;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rp-ret-item-title {
+  font-size: 14px;
+  color: #333;
+}
+.rp-ret-item-vertical-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: #666;
+}
+.rp-ret-item-notes {
+  font-size: 12px;
+  color: #555;
+  background: #fff9e6;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border-left: 3px solid #f0a500;
+}
+
+.rp-ret-col--wide {
+  grid-column: 1 / -1;
+  min-width: 0;
+  border-top: 1px solid #f0dada;
+  padding-top: 16px;
+}
+
+@media screen and (max-width: 992px) {
+  .rp-ret-vertical-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+/* ── Tab Navigation Bar ── */
+.rp-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.rp-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #777;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: -2px;
+}
+
+.rp-tab:hover {
+  color: #8b3a3a;
+}
+
+.rp-tab.active {
+  color: #8b3a3a;
+  border-bottom-color: #8b3a3a;
+}

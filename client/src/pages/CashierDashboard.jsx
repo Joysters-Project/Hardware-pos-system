@@ -1,9 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
+import DashboardLayout from "../components/DashboardLayout";
+import {
+  DollarSign,
+  ShoppingCart,
+  RotateCcw,
+  Clock,
+  TrendingUp
+} from "lucide-react";
 import "../styles/Dashboard.css";
+import "../styles/AnalyticalDashboard.css";
 
 function CashierDashboard() {
   const navigate = useNavigate();
@@ -19,18 +28,6 @@ function CashierDashboard() {
 
   const [shiftTime, setShiftTime] = useState("0h 0m");
 
-  const handleLogout = () => {
-    // Prevent back button navigation
-    window.history.pushState(null, null, window.location.href);
-    window.addEventListener("popstate", () => {
-      window.history.pushState(null, null, window.location.href);
-    });
-
-    logout();
-    toast.success("Logged out successfully!");
-    navigate("/", { replace: true });
-  };
-
   useEffect(() => {
     // Prevent back button after logout
     window.history.pushState(null, null, window.location.href);
@@ -43,7 +40,7 @@ function CashierDashboard() {
     // Fetch Stats
     const fetchStats = async () => {
       try {
-        const userId = localStorage.getItem('cashierId') || localStorage.getItem('userId') || '';
+        const userId = localStorage.getItem('userId') || '';
         const res = await api.get(`/dashboard/cashier?userId=${userId}`);
         setStats(res.data);
       } catch (err) {
@@ -76,92 +73,144 @@ function CashierDashboard() {
     };
   }, []);
 
+  const handleLogout = () => {
+    window.history.pushState(null, null, window.location.href);
+    window.addEventListener("popstate", () => {
+      window.history.pushState(null, null, window.location.href);
+    });
+
+    logout();
+    toast.success("Logged out successfully!");
+    navigate("/", { replace: true });
+  };
+
+  const kpiCards = [
+    {
+      id: 1,
+      title: "Sales Today",
+      icon: DollarSign,
+      renderValue: () => (
+        <div className="kpi-value-wrapper">
+          <span className="kpi-currency">Rs</span>
+          <span className="kpi-number">{stats.salesToday.toFixed(2)}</span>
+        </div>
+      ),
+      trend: "+Today",
+      label: `${stats.transactionsCount} transactions`
+    },
+    {
+      id: 2,
+      title: "Items Sold",
+      icon: ShoppingCart,
+      renderValue: () => <div className="kpi-value">{stats.itemsSold}</div>,
+      trend: "This shift",
+      label: "units dispatched"
+    },
+    {
+      id: 3,
+      title: "Returns",
+      icon: RotateCcw,
+      renderValue: () => <div className="kpi-value">{stats.returnsCount}</div>,
+      trend: "Today",
+      label: "processed returns"
+    },
+    {
+      id: 4,
+      title: "Shift Time",
+      icon: Clock,
+      renderValue: () => <div className="kpi-value">{shiftTime}</div>,
+      trend: "Active",
+      label: "time elapsed"
+    }
+  ];
+
   return (
-    <div className="dashboard">
-      <div className="sidebar">
-        <div className="sidebar-header">
-          <h2>Cashier Panel</h2>
+    <DashboardLayout active="home">
+      <div className="analytics-container">
+
+        {/* Page Header */}
+        <div className="analytics-header">
+          <div>
+            <h1>Welcome, {userName}!</h1>
+            <p>Cashier Dashboard &mdash; real-time shift overview</p>
+          </div>
+          <div className="analytics-timeframe-badge">
+            <Clock size={15} />
+            <span>Shift: {shiftTime}</span>
+          </div>
         </div>
-        <ul className="sidebar-menu">
-          <li className="active">
-            <Link to="/billing">
-              🛒 Point of Sale (Billing)
-            </Link>
-          </li>
-          <li>
-            <Link to="/due-collection">
-              💼 Due Collection
-            </Link>
-          </li>
-          <li>
-            <a href="#sales">
-              💳 Sales
-            </a>
-          </li>
-          <li>
-            <Link to="/returns">
-              ↩️ Returns
-            </Link>
-          </li>
-          <li>
-            <a href="#receipts">
-              🧾 Receipts
-            </a>
-          </li>
-        </ul>
-        <button onClick={handleLogout} className="logout-btn">
-          🚪 Logout
-        </button>
+
+        {/* KPI Cards — same design as Admin Dashboard */}
+        <div className="kpi-grid">
+          {kpiCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <div key={card.id} className="kpi-card">
+                <div className="kpi-card-header">
+                  <span className="kpi-title">{card.title}</span>
+                  <span className="kpi-icon-wrapper">
+                    <Icon size={18} />
+                  </span>
+                </div>
+                {card.renderValue()}
+                <div className="kpi-card-footer">
+                  <span className="trend-badge up">
+                    <TrendingUp size={12} />
+                    {card.trend}
+                  </span>
+                  <span className="trend-lbl">{card.label}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Recent Transactions — same ledger panel style as Admin Dashboard */}
+        <div className="ledger-panel">
+          <div className="ledger-panel-header">
+            <h3>Recent Transactions</h3>
+          </div>
+
+          <div className="ledger-list">
+            {(!stats.recentTransactions || stats.recentTransactions.length === 0) ? (
+              <div className="empty-message-wrapper">
+                <p className="empty-message">No transactions today yet.</p>
+              </div>
+            ) : (
+              stats.recentTransactions.map((txn, index) => {
+                const s = (txn.status || "").toLowerCase();
+                const statusClass = (s === "paid" || s === "completed") ? "completed" : "pending";
+                return (
+                  <div
+                    key={txn.bill_id}
+                    className="ledger-row stagger-item"
+                    style={{ animationDelay: `${index * 40}ms` }}
+                  >
+                    <div className="ledger-left">
+                      <span className="ledger-id-badge">#{txn.bill_id}</span>
+                      <span className="ledger-customer-name">{txn.customer}</span>
+                    </div>
+                    <div className="ledger-center">
+                      <span className="ledger-timestamp">{txn.time}</span>
+                    </div>
+                    <div className="ledger-right">
+                      <span className="ledger-amount">
+                        <span className="ledger-currency">Rs</span>
+                        {" "}{txn.amount.toFixed(2)}
+                      </span>
+                      <span className={`ledger-status ${statusClass}`}>
+                        {txn.status.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
       </div>
-
-      <div className="main-content">
-        <div className="header">
-          <h1>Welcome, {userName}! 👋</h1>
-          <p>Cashier Dashboard</p>
-        </div>
-
-        <div className="content-grid">
-          <div className="card">
-            <h3>💰 Sales Today</h3>
-            <p className="number"><strong>Rs.</strong>{stats.salesToday.toFixed(2)}</p>
-            <small>{stats.transactionsCount} transactions</small>
-          </div>
-          <div className="card">
-            <h3>🛒 Items Sold</h3>
-            <p className="number">{stats.itemsSold}</p>
-            <small>This shift</small>
-          </div>
-          <div className="card">
-            <h3>↩️ Returns</h3>
-            <p className="number">{stats.returnsCount}</p>
-            <small>Today</small>
-          </div>
-          <div className="card">
-            <h3>⏱️ Shift Time</h3>
-            <p className="number">{shiftTime}</p>
-            <small>Elapsed</small>
-          </div>
-        </div>
-
-        <div className="recent-section">
-          <h2>Recent Transactions</h2>
-          <div className="activity-list">
-            <div className="activity-item">
-              <span>Sale: $125.50</span>
-              <small>5 minutes ago</small>
-            </div>
-            <div className="activity-item">
-              <span>Return: $45.00</span>
-              <small>15 minutes ago</small>
-            </div>
-            <div className="activity-item">
-              <span>Sale: $89.99</span>
-              <small>30 minutes ago</small>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    </DashboardLayout>
   );
 }
 
