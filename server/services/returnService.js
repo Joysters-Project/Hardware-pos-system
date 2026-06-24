@@ -134,12 +134,10 @@ class ReturnService {
         }
 
         // Update Inventory based on destination
+        // STOCK: add back to active stock
+        // REPAIR / DAMAGED_STOCK / WRITEOFF: destination tracked via return_items.destination only
         if (destination === 'STOCK') {
           await products.increment('stock_quantity', { by: return_quantity, where: { product_id }, transaction: t });
-        } else if (destination === 'REPAIR') {
-          await products.increment('repair_quantity', { by: return_quantity, where: { product_id }, transaction: t });
-        } else if (destination === 'WRITEOFF' || destination === 'DAMAGED_STOCK') {
-          await products.increment('damaged_quantity', { by: return_quantity, where: { product_id }, transaction: t });
         } else if (destination === 'SUPPLIER') {
           await supplier_returns.create({
             return_id: newReturn.return_id,

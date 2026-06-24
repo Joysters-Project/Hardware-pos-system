@@ -17,6 +17,7 @@ const DueCollection = () => {
   const [paymentMethod, setPaymentMethod] = useState("Cash");
   const [amountInput, setAmountInput] = useState("");
   const [paymentHistory, setPaymentHistory] = useState([]);
+  const [successAmount, setSuccessAmount] = useState(0);
 
   // Animation states
   const [showSuccess, setShowSuccess] = useState(false);
@@ -110,6 +111,8 @@ const DueCollection = () => {
         payment_method: paymentMethod.toUpperCase(),
         collected_by: cashierId
       });
+
+      setSuccessAmount(collectAmount);
 
       setShowSuccess(true);
       requestAnimationFrame(() => {
@@ -314,7 +317,7 @@ const DueCollection = () => {
         animate={animSuccess} 
         onDismiss={handleSuccessDismiss} 
         message="Payment Received"
-        subMessage={`Successfully collected Rs. ${collectAmount.toFixed(2)}`}
+        subMessage={`Successfully collected Rs. ${successAmount.toFixed(2)}`}
       />
     </DashboardLayout>
   );

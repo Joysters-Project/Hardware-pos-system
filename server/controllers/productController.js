@@ -1,13 +1,13 @@
 const { products, category, brands, units } = require('../models');
 const { logActivity } = require('../services/auditService');
 
-const EXCLUDE = ['repair_quantity'];
+const EXCLUDE = [];
 const getIp   = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
 
 exports.createProduct = async (req, res) => {
   const ip = getIp(req);
   try {
-    const { repair_quantity, ...safeBody } = req.body;
+    const safeBody = req.body;
     const product = await products.create(safeBody);
     await logActivity(req.user?.user_id, req.user?.role, 'INVENTORY_ADD',
       `Product added: "${product.product_name}" (ID: ${product.product_id}), Stock: ${product.stock_quantity}, Price: ${product.selling_price}`, ip);
@@ -58,7 +58,7 @@ exports.updateProduct = async (req, res) => {
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
     const changes = [];
-    const { repair_quantity, ...safeBody } = req.body;
+    const safeBody = req.body;
     if (safeBody.stock_quantity !== undefined && String(product.stock_quantity) !== String(safeBody.stock_quantity))
       changes.push(`Stock changed from ${product.stock_quantity} to ${safeBody.stock_quantity}`);
     if (safeBody.selling_price !== undefined && String(product.selling_price) !== String(safeBody.selling_price))

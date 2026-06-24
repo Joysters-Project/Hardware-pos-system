@@ -107,7 +107,7 @@ const checkAndGenerateSuggestions = async () => {
       where: {
         status: 'active',
         stock_quantity: {
-          [Op.lt]: sequelize => sequelize.col('reorder_level')
+          [Op.lt]: products.sequelize.col('reorder_level')
         }
       }
     });
