@@ -8,12 +8,17 @@ const { logActivity } = require('../services/auditService');
 const users = db.users;
 
 // ─── Nodemailer Transporter ───────────────────────────────────────────────────
-const createTransporter = () => nodemailer.createTransport({
-  host: 'smtp.gmail.com', port: 465, secure: true,
-  auth: { user: process.env.SMTP_EMAIL, pass: process.env.SMTP_PASSWORD },
-  tls: { rejectUnauthorized: false },
-  connectionTimeout: 15000, socketTimeout: 15000, family: 4,
-});
+const createTransporter = () => {
+  if (!process.env.SMTP_EMAIL || !process.env.SMTP_PASSWORD) {
+    throw new Error('SMTP credentials are not configured. Set SMTP_EMAIL and SMTP_PASSWORD in your .env file.');
+  }
+  return nodemailer.createTransport({
+    host: 'smtp.gmail.com', port: 465, secure: true,
+    auth: { user: process.env.SMTP_EMAIL, pass: process.env.SMTP_PASSWORD },
+    tls: { rejectUnauthorized: false },
+    connectionTimeout: 15000, socketTimeout: 15000, family: 4,
+  });
+};
 
 const sendOtpEmail = async (toEmail, toName, otp) => {
   const transporter = createTransporter();

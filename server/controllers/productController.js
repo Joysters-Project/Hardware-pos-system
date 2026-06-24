@@ -1,7 +1,7 @@
 const { products, category, brands, units } = require('../models');
 const { logActivity } = require('../services/auditService');
-
-const EXCLUDE = [];
+const { syncAlertsForProduct } = require('../services/alertService');
+const EXCLUDE = ['repair_quantity'];
 const getIp   = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
 
 exports.createProduct = async (req, res) => {
@@ -9,6 +9,9 @@ exports.createProduct = async (req, res) => {
   try {
     const safeBody = req.body;
     const product = await products.create(safeBody);
+    await syncAlertsForProduct(product);
+    const io = req.app.get('io');
+    if (io) io.emit('alerts:updated');
     await logActivity(req.user?.user_id, req.user?.role, 'INVENTORY_ADD',
       `Product added: "${product.product_name}" (ID: ${product.product_id}), Stock: ${product.stock_quantity}, Price: ${product.selling_price}`, ip);
     res.status(201).json({ message: 'Product created successfully', data: product });
@@ -67,6 +70,9 @@ exports.updateProduct = async (req, res) => {
       changes.push(`Name changed from "${product.product_name}" to "${safeBody.product_name}"`);
 
     await product.update(safeBody);
+    await syncAlertsForProduct(product);
+    const io = req.app.get('io');
+    if (io) io.emit('alerts:updated');
     await logActivity(req.user?.user_id, req.user?.role, 'INVENTORY_UPDATE',
       `Product ID ${product.product_id} ("${product.product_name}") updated.${changes.length ? ' ' + changes.join('. ') : ''}`, ip);
     res.status(200).json({ message: 'Product updated successfully', data: product });

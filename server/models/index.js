@@ -81,7 +81,7 @@ const supplier_documents = require('./supplier_documents');
 
 // 3. Initialize the DB object
 const db = {
-  sequelize, // CRITICAL: This allows index.js to call .sync()
+  sequelize,
   Sequelize,
   departments:     departments(sequelize),
   employees:       employees(sequelize),

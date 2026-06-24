@@ -11,8 +11,9 @@ const getAllAssets = async (req, res) => {
 
     const list = await db.assets.findAll({
       where,
+      subQuery: false,
       include: [{ model: db.departments, attributes: ['department_name'] }],
-      order: [['created_at', 'DESC']]
+      order: [[db.sequelize.col('assets.created_at'), 'DESC']]
     });
 
     res.status(200).json(list);
@@ -51,16 +52,19 @@ const createAsset = async (req, res) => {
     const dept = await db.departments.findByPk(department_id);
     if (!dept) return res.status(400).json({ message: 'Department not found' });
 
-    // Budget check (only for non-disposed)
+    // Budget check (only for non-disposed, and only if dept has a budget set)
     const assetCost = parseFloat(cost || 0);
-    const activeCost = await db.assets.sum('cost', {
-      where: { department_id, status: { [Op.ne]: 'Disposed' } }
-    }) || 0;
+    const deptBudget = parseFloat(dept.budget || 0);
+    if (deptBudget > 0) {
+      const activeCost = await db.assets.sum('cost', {
+        where: { department_id, status: { [Op.ne]: 'Disposed' } }
+      }) || 0;
 
-    if (activeCost + assetCost > parseFloat(dept.budget)) {
-      return res.status(400).json({
-        message: `Insufficient budget. Available: ${parseFloat(dept.budget) - activeCost}, Required: ${assetCost}`
-      });
+      if (activeCost + assetCost > deptBudget) {
+        return res.status(400).json({
+          message: `Insufficient budget. Available: ${deptBudget - activeCost}, Required: ${assetCost}`
+        });
+      }
     }
 
     const asset = await db.assets.create({

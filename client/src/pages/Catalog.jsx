@@ -21,7 +21,7 @@ import { useAuth } from "../context/AuthContext";
 import DashboardLayout from "../components/DashboardLayout";
 import "../styles/Catalog.css";
 
-const API_BASE = "/api";
+const API_BASE = "http://localhost:5000/api";
 
 // Validation helper for unit names (letters and spaces only)
 const validateUnitName = (name) => /^[A-Za-z\s]+$/.test(name);

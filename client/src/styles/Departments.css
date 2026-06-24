@@ -323,6 +323,10 @@
   color: #888;
   line-height: 1.5;
   display: -webkit-box;
+   /* Standard property */
+  line-clamp: 2;
+
+  /* Webkit support */
   -webkit-line-clamp: 2;
   line-clamp: 2;
   -webkit-box-orient: vertical;
