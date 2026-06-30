@@ -59,6 +59,13 @@ exports.createPurchaseOrder = async (req, res) => {
 
     await transaction.commit();
 
+    for (const item of items) {
+      await alerts.update(
+        { status: 'Purchase Ordered', purchase_order_id: po.po_id },
+        { where: { product_id: item.product_id, status: 'Active' } }
+      ).catch(err => console.error(`[PO Controller] Alert update failed for product ${item.product_id}: ${err.message}`));
+    }
+
     // 1. Auto-create pending payment record
     await supplierPaymentService.createPaymentRecord(
       po.po_id,

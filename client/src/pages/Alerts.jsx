@@ -16,6 +16,7 @@ const ALERT_FILTERS = [
   { key: "reorder", label: "Reorder" },
   { key: "near-expiry", label: "Near Expiry" },
   { key: "expired", label: "Expired" },
+  { key: "purchase-ordered", label: "Purchase Ordered" },
 ];
 
 const ALERT_TYPE_MAP = {
@@ -24,6 +25,7 @@ const ALERT_TYPE_MAP = {
   "reorder": "Reorder",
   "near-expiry": "Near Expiry",
   "expired": "Expired",
+  "purchase-ordered": "Purchase Ordered",
 };
 
 function AlertCenterPage() {
@@ -57,9 +59,15 @@ function AlertCenterPage() {
   const fetchAlerts = async () => {
     setLoading(true);
     try {
-      const alertType = ALERT_TYPE_MAP[activeFilter] || undefined;
       const params = { unresolved: "true" };
-      if (alertType) params.alert_type = alertType;
+      if (activeFilter) {
+        if (activeFilter === "purchase-ordered") {
+          params.status = "Purchase Ordered";
+        } else {
+          const alertType = ALERT_TYPE_MAP[activeFilter] || activeFilter;
+          params.alert_type = alertType;
+        }
+      }
       if (search.trim()) params.search = search.trim();
 
       const res = await api.get("/alerts", { params });
@@ -123,6 +131,7 @@ function AlertCenterPage() {
       "reorder": summary["Reorder"] || 0,
       "near-expiry": summary["Near Expiry"] || 0,
       "expired": summary["Expired"] || 0,
+      "purchase-ordered": summary["Purchase Ordered"] || 0,
     };
   }, [summary]);
 
@@ -147,6 +156,7 @@ function AlertCenterPage() {
           else if (f.key === "reorder") chipColor = "#d97706";
           else if (f.key === "near-expiry") chipColor = "#a855f7";
           else if (f.key === "expired") chipColor = "#991b1b";
+          else if (f.key === "purchase-ordered") chipColor = "#3b82f6";
 
           return (
             <button
@@ -273,11 +283,11 @@ function AlertCenterPage() {
                     </td>
                     <td>
                       <span className="product-status" style={{
-                        background: `${color}18`,
-                        color,
-                        border: `1px solid ${color}40`,
+                        background: alert.status === 'Purchase Ordered' ? 'rgba(59,130,246,0.12)' : 'rgba(239,68,68,0.12)',
+                        color: alert.status === 'Purchase Ordered' ? '#3b82f6' : '#ef4444',
+                        border: `1px solid ${alert.status === 'Purchase Ordered' ? 'rgba(59,130,246,0.35)' : 'rgba(239,68,68,0.35)'}`,
                       }}>
-                        {product.status || "Unknown"}
+                        {alert.status || 'Active'}
                       </span>
                     </td>
                     <td>
@@ -285,7 +295,7 @@ function AlertCenterPage() {
                         {needsPO ? (
                           <button
                             className="action-btn action-btn--po"
-                            onClick={() => navigate("/procurement/orders/create")}
+                            onClick={() => navigate(`/procurement/orders/create?productId=${product.product_id}`)}
                           >
                             Create Purchase Order
                           </button>

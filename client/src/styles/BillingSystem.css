@@ -421,6 +421,7 @@ body {
   cursor: pointer;
   transition: all 0.2s ease;
   border: 1px solid rgba(139, 58, 58, 0.12);
+  position: relative;
 }
 
 .product-card-modern:hover {
@@ -432,6 +433,40 @@ body {
 .product-card-modern.disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.product-card-modern.expired {
+  opacity: 0.6;
+  cursor: not-allowed;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+}
+
+.product-card-modern.expired:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: rgba(220, 38, 38, 0.3);
+}
+
+.expired-badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: #dc2626;
+  color: white;
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  z-index: 1;
+}
+
+.expired-date-text {
+  font-size: 0.688rem;
+  color: #dc2626;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
 }
 
 .product-card-icon {
@@ -519,6 +554,35 @@ body {
 .product-list-item.disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.product-list-item.expired {
+  opacity: 0.6;
+  cursor: not-allowed;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+}
+
+.product-list-item.expired:hover {
+  border-color: rgba(220, 38, 38, 0.3);
+  transform: none;
+}
+
+.expired-badge-list {
+  background: #dc2626;
+  color: white;
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.expired-date-text-list {
+  font-size: 0.688rem;
+  color: #dc2626;
+  font-weight: 500;
 }
 
 .list-item-icon {
@@ -1506,4 +1570,91 @@ body {
 .table-remove-btn:hover {
   color: var(--danger);
   background: var(--danger-light);
+}
+
+/* Expired Product Modal */
+.expired-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.2s ease;
+}
+
+.expired-modal {
+  background: white;
+  border-radius: var(--radius-xl);
+  padding: 2rem;
+  box-shadow: var(--shadow-xl);
+  text-align: center;
+  max-width: 320px;
+  width: 90%;
+  animation: scaleIn 0.2s ease;
+}
+
+.expired-modal-icon {
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: center;
+}
+
+.expired-modal-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #2b1515;
+  margin-bottom: 0.75rem;
+}
+
+.expired-modal-body {
+  font-size: 0.875rem;
+  color: #6f5f5c;
+  margin-bottom: 0.25rem;
+  line-height: 1.5;
+}
+
+.expired-modal-date {
+  color: #dc2626;
+  font-weight: 600;
+  font-size: 1rem;
+  margin: 0.25rem 0;
+}
+
+.expired-modal-sub {
+  font-size: 0.875rem;
+  color: #6f5f5c;
+  margin-bottom: 1.5rem;
+}
+
+.expired-modal-btn {
+  background: linear-gradient(135deg, #8b3a3a, #a84545);
+  color: white;
+  border: none;
+  padding: 0.625rem 2rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.875rem;
+}
+
+.expired-modal-btn:hover {
+  background: linear-gradient(135deg, #6f2f2f, #8b3a3a);
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }

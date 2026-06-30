@@ -18,13 +18,13 @@ function getApplicableTypes(product) {
     types.push('Reorder');
   }
 
-  // Expiry alerts — independent of stock
-  if (product.expiry_date) {
+  // Expiry alerts — only when there is remaining stock to account for
+  if (product.expiry_date && stock > 0) {
     const today    = new Date(); today.setHours(0, 0, 0, 0);
     const expiry   = new Date(product.expiry_date);
     const daysLeft = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
 
-    if (daysLeft < 0) {
+    if (daysLeft <= 0) {
       types.push('Expired');
     } else if (daysLeft <= NEAR_EXPIRY_DAYS) {
       types.push('Near Expiry');

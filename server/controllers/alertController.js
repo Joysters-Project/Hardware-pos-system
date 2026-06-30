@@ -17,19 +17,17 @@ exports.generateAlerts = async (req, res) => {
   }
 };
 
-// GET /api/alerts/summary — counts for all 5 alert types (used by dashboard + bell)
+// GET /api/alerts/summary — counts for all 5 alert types + Active/Purchase Ordered statuses
 exports.getAlertSummary = async (req, res) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const in30 = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-    const [outOfStock, lowStock, reorder, nearExpiry, expired] = await Promise.all([
-      alerts.count({ where: { alert_type: 'Out of Stock',  is_resolved: false } }),
+    const [outOfStock, lowStock, reorder, nearExpiry, expired, activeCount, poOrderedCount] = await Promise.all([
+      alerts.count({ where: { alert_type: 'Out of Stock', is_resolved: false } }),
       alerts.count({ where: { alert_type: 'Low Stock',     is_resolved: false } }),
       alerts.count({ where: { alert_type: 'Reorder',       is_resolved: false } }),
       alerts.count({ where: { alert_type: 'Near Expiry',   is_resolved: false } }),
       alerts.count({ where: { alert_type: 'Expired',       is_resolved: false } }),
+      alerts.count({ where: { status: 'Active' } }),
+      alerts.count({ where: { status: 'Purchase Ordered', is_resolved: false }, distinct: true, col: 'product_id' }),
     ]);
 
     res.json({
@@ -39,6 +37,8 @@ exports.getAlertSummary = async (req, res) => {
       'Near Expiry':  nearExpiry,
       'Expired':      expired,
       total: outOfStock + lowStock + reorder + nearExpiry + expired,
+      'Active': activeCount,
+      'Purchase Ordered': poOrderedCount,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -48,10 +48,11 @@ exports.getAlertSummary = async (req, res) => {
 // GET /api/alerts
 exports.getAllAlerts = async (req, res) => {
   try {
-    const { limit, unresolved, search, alert_type } = req.query;
-    const where = {};
-    if (unresolved === 'true') where.is_resolved = false;
+    const { limit, search, alert_type, status } = req.query;
+    const where = { is_resolved: false };
+    if (status) where.status = status;
     if (alert_type) where.alert_type = alert_type;
+
     if (search) {
       where[Op.or] = [
         { alert_type: { [Op.like]: `%${search}%` } },
@@ -66,12 +67,77 @@ exports.getAllAlerts = async (req, res) => {
         attributes: ['product_id', 'product_name', 'stock_quantity', 'min_stock_quantity',
                      'reorder_level', 'batch_no', 'expiry_date', 'status'],
       }],
-      order: [['is_resolved', 'ASC'], ['alert_id', 'DESC']],
+      order: [['alert_id', 'DESC']],
       ...(search ? { subQuery: false } : {}),
       ...(limit && !isNaN(parseInt(limit)) ? { limit: parseInt(limit) } : {}),
     };
 
-    res.status(200).json(await alerts.findAll(opts));
+    const alertsList = await alerts.findAll(opts);
+
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+
+    for (const alert of alertsList) {
+      if (alert.alert_type === 'Near Expiry') {
+        const product = alert.product;
+        if (product && product.expiry_date) {
+          const expiry = new Date(product.expiry_date);
+          const daysLeft = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+          if (daysLeft <= 0) {
+            await alert.update({ alert_type: 'Expired' });
+            alert.alert_type = 'Expired';
+          }
+        }
+      }
+    }
+
+    let response = alertsList;
+    if (where.status === 'Purchase Ordered' && !alert_type) {
+      const seen = new Set();
+      response = [];
+      for (const alert of alertsList) {
+        const pid = alert.product_id;
+        if (!seen.has(pid)) {
+          seen.add(pid);
+          response.push(alert);
+        }
+      }
+    }
+
+    if (alert_type === 'Expired') {
+      const transitionedIds = [];
+      const nearExpiryAlerts = await alerts.findAll({
+        where: { alert_type: 'Near Expiry', is_resolved: false },
+        include: [{
+          model: products,
+          attributes: ['product_id', 'expiry_date'],
+        }],
+      });
+      for (const alert of nearExpiryAlerts) {
+        const product = alert.product;
+        if (product && product.expiry_date) {
+          const expiry = new Date(product.expiry_date);
+          const daysLeft = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+          if (daysLeft <= 0) {
+            await alert.update({ alert_type: 'Expired' });
+            transitionedIds.push(alert.alert_id);
+          }
+        }
+      }
+      if (transitionedIds.length > 0) {
+        const newlyTransitioned = await alerts.findAll({
+          where: { alert_id: transitionedIds },
+          include: [{
+            model: products,
+            attributes: ['product_id', 'product_name', 'stock_quantity', 'min_stock_quantity',
+                         'reorder_level', 'batch_no', 'expiry_date', 'status'],
+          }],
+          order: [['alert_id', 'DESC']],
+        });
+        response = [...newlyTransitioned, ...response];
+      }
+    }
+
+    res.status(200).json(response);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -166,7 +232,7 @@ exports.getExpiryAlerts = async (req, res) => {
         order: [['expiry_date', 'ASC']],
       }),
       products.findAll({
-        where: { expiry_date: { [Op.lt]: today }, status: 'active' },
+        where: { expiry_date: { [Op.lte]: today }, status: 'active' },
         attributes: ['product_id', 'product_name', 'expiry_date', 'stock_quantity', 'batch_no'],
         order: [['expiry_date', 'ASC']],
       }),

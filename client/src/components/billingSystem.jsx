@@ -4,7 +4,7 @@ import {
   Search, Package, X, Minus, Plus, Trash2, ShoppingCart, 
   CreditCard, Printer, Download, XCircle, CheckCircle, 
   User, Phone, MapPin, DollarSign, Receipt, Tag, 
-  AlertCircle, Grid3x3, List, ArrowRight, Sparkles,
+  AlertCircle, AlertTriangle, Grid3x3, List, ArrowRight, Sparkles,
   TrendingUp, Clock, Zap, LayoutGrid, ListOrdered
 } from 'lucide-react';
 import api from '../api/axios';
@@ -13,6 +13,7 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import SuccessAnim from './SuccessAnim';
 import DashboardLayout from './DashboardLayout';
+import toast from 'react-hot-toast';
 import '../styles/BillingSystem.css';
 
 const BillingSystem = () => {
@@ -29,6 +30,8 @@ const BillingSystem = () => {
   const [catalogProducts, setCatalogProducts] = useState([]);
   const [catalogView, setCatalogView] = useState('grid'); // 'grid' or 'list'
   const [recentItems, setRecentItems] = useState([]);
+  const [showExpiredModal, setShowExpiredModal] = useState(false);
+  const [expiredProduct, setExpiredProduct] = useState(null);
   const searchInputRef = useRef(null);
   const navigate = useNavigate();
 
@@ -350,6 +353,18 @@ const BillingSystem = () => {
     if (!isProductActive(product)) {
       return alert(`${product.product_name} is unavailable.`);
     }
+    if (isProductExpired(product)) {
+      setExpiredProduct(product);
+      setShowExpiredModal(true);
+      toast.error(
+        <div>
+          <div style={{ fontWeight: 600 }}>Product has expired</div>
+          <div style={{ fontSize: '0.875rem' }}>This product cannot be sold.</div>
+        </div>,
+        { duration: 3000 }
+      );
+      return;
+    }
     if (product.stock_quantity <= 0) {
       return alert(`${product.product_name} is out of stock.`);
     }
@@ -486,6 +501,23 @@ const BillingSystem = () => {
     if (qty <= 0) return 'Out of Stock';
     if (qty <= 10) return `Low: ${qty}`;
     return `In Stock: ${qty}`;
+  };
+
+  const isProductExpired = (product) => {
+    if (!product.expiry_date) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expiry = new Date(product.expiry_date);
+    return expiry < today;
+  };
+
+  const formatExpiryDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const dd = String(date.getDate()).padStart(2, '0');
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    return `${dd}-${mm}-${yyyy}`;
   };
 
   // Quick add from recent items
@@ -626,9 +658,12 @@ const BillingSystem = () => {
                 {catalogProducts.map((product) => (
                   <div
                     key={product.product_id}
-                    className={`product-card-modern ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
+                    className={`product-card-modern ${isProductExpired(product) ? 'expired' : ''} ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
                     onClick={() => handleAddToCart(product)}
                   >
+                    {isProductExpired(product) && (
+                      <div className="expired-badge">EXPIRED</div>
+                    )}
                     <div className="product-card-icon">
                       <Package size={20} />
                     </div>
@@ -636,6 +671,9 @@ const BillingSystem = () => {
                     <div className="product-card-sku">
                       {product.product_code || `ID: ${product.product_id}`}
                     </div>
+                    {isProductExpired(product) && (
+                      <div className="expired-date-text">Expired on {formatExpiryDate(product.expiry_date)}</div>
+                    )}
                     <div className="product-card-bottom">
                       <div className="product-card-price">Rs.{parseFloat(product.unit_price).toFixed(2)}</div>
                       <div className={`product-card-stock ${getStockClass(product.stock_quantity)}`}>
@@ -650,15 +688,21 @@ const BillingSystem = () => {
                 {catalogProducts.map((product) => (
                   <div
                     key={product.product_id}
-                    className={`product-list-item ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
+                    className={`product-list-item ${isProductExpired(product) ? 'expired' : ''} ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
                     onClick={() => handleAddToCart(product)}
                   >
+                    {isProductExpired(product) && (
+                      <div className="expired-badge-list">EXPIRED</div>
+                    )}
                     <div className="list-item-icon">
                       <Package size={18} />
                     </div>
                     <div className="list-item-info">
                       <div className="list-item-name">{product.product_name}</div>
                       <div className="list-item-code">{product.product_code || `ID: ${product.product_id}`}</div>
+                      {isProductExpired(product) && (
+                        <div className="expired-date-text-list">Expired on {formatExpiryDate(product.expiry_date)}</div>
+                      )}
                     </div>
                     <div className="list-item-right">
                       <div className="list-item-price">Rs.{parseFloat(product.unit_price).toFixed(2)}</div>
@@ -935,6 +979,26 @@ const BillingSystem = () => {
         message="Transaction Complete!"
         subMessage={lastBill ? `Bill Total: Rs. ${(lastBill.total_amount ?? 0).toFixed(2)}` : `Bill total: Rs. ${total.toFixed(2)}`}
       />
+
+      {/* Expired Product Modal */}
+      {showExpiredModal && expiredProduct && (
+        <div className="expired-modal-overlay" onClick={() => setShowExpiredModal(false)}>
+          <div className="expired-modal">
+            <div className="expired-modal-icon">
+              <AlertTriangle size={32} color="#dc2626" />
+            </div>
+            <h3 className="expired-modal-title">Product Expired</h3>
+            <div className="expired-modal-body">
+              <p>This product expired on</p>
+              <p className="expired-modal-date"><strong>{formatExpiryDate(expiredProduct.expiry_date)}</strong></p>
+              <p className="expired-modal-sub">This product cannot be sold.</p>
+            </div>
+            <button className="expired-modal-btn" onClick={() => setShowExpiredModal(false)}>
+              OK
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Receipt Modal */}
       {lastBill && (
