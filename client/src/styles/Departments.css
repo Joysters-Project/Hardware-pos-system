@@ -37,6 +37,21 @@
   animation: fadeIn 0.3s ease;
 }
 
+.cashier-page-shell {
+  animation: fadeUp 0.45s ease both;
+}
+
+.due-view-shell,
+.report-view-shell {
+  opacity: 0;
+  transform: translateY(22px);
+}
+
+.due-view-shell-active,
+.report-view-shell-active {
+  animation: fadeUp 0.45s ease both;
+}
+
 /* ── Header ── */
 .dept-header {
   display: flex;

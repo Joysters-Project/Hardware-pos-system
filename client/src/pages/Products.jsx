@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Pencil, Trash2, Eye, Plus, RefreshCw, FileDown, Wrench, Package, Truck, AlertTriangle } from "lucide-react";
+import { Pencil, Trash2, Eye, Plus, RefreshCw, FileDown, AlertTriangle } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../api/axios";
 import AdminDashboard from "./AdminDashboard";
@@ -101,10 +101,7 @@ function ProductsPage() {
   const [viewProduct, setViewProduct] = useState(null);
   const printRef = useRef(null);
 
-  // Tab & Returns state
-  const [activeTab, setActiveTab] = useState("products");
-  const [returns, setReturns] = useState([]);
-  const [selectedDestination, setSelectedDestination] = useState(null);
+
 
   const exportPDF = () => {
     const printContent = printRef.current;
@@ -170,18 +167,16 @@ function ProductsPage() {
 	const loadPageData = async () => {
 		setLoading(true);
 		try {
-			const [productsRes, categoryRes, brandsRes, unitsRes, returnsRes] = await Promise.all([
+			const [productsRes, categoryRes, brandsRes, unitsRes] = await Promise.all([
 				api.get("/products"),
 				api.get("/category"),
 				api.get("/brands"),
-				api.get("/units"),
-        api.get("/returns").catch(() => ({ data: { data: [] } }))
+				api.get("/units")
 			]);
 			setProducts(Array.isArray(productsRes.data) ? productsRes.data : []);
 			setCategories(Array.isArray(categoryRes.data) ? categoryRes.data : []);
 			setBrands(Array.isArray(brandsRes.data) ? brandsRes.data : []);
 			setUnits(Array.isArray(unitsRes.data) ? unitsRes.data : []);
-      setReturns(Array.isArray(returnsRes.data?.data) ? returnsRes.data.data : []);
 		} catch (error) {
 			toast.error("Failed to load products");
 		} finally {
@@ -207,76 +202,7 @@ function ProductsPage() {
       ));
   }, [products, search]);
 
-  const aggregatedReturns = useMemo(() => {
-    const dests = {
-      STOCK: { key: 'STOCK', label: 'Back to Stock', count: 0, qty: 0, items: [] },
-      REPAIR: { key: 'REPAIR', label: 'Send to Repair', count: 0, qty: 0, items: [] },
-      SUPPLIER: { key: 'SUPPLIER', label: 'Send to Supplier', count: 0, qty: 0, items: [] },
-      DAMAGED_STOCK: { key: 'DAMAGED_STOCK', label: 'Damaged Stock', count: 0, qty: 0, items: [] }
-    };
 
-    returns.forEach(ret => {
-      if (ret.items) {
-        ret.items.forEach(item => {
-          const dest = item.destination;
-          if (dests[dest]) {
-            const existing = dests[dest].items.find(x => x.product_id === item.product_id);
-            if (existing) {
-              existing.quantity += item.return_quantity;
-              if (item.return_reason && !existing.reasons.includes(item.return_reason)) {
-                existing.reasons.push(item.return_reason);
-              }
-            } else {
-              dests[dest].items.push({
-                product_id: item.product_id,
-                product_name: item.product?.product_name || products.find(p => p.product_id === item.product_id)?.product_name || `Product #${item.product_id}`,
-                quantity: item.return_quantity,
-                reasons: item.return_reason ? [item.return_reason] : []
-              });
-            }
-          }
-        });
-      }
-    });
-
-    Object.keys(dests).forEach(key => {
-      dests[key].count = dests[key].items.length;
-      dests[key].qty = dests[key].items.reduce((sum, item) => sum + item.quantity, 0);
-    });
-
-    return dests;
-  }, [returns, products]);
-
-  const DESTINATION_META = {
-    STOCK: {
-      gradient: "linear-gradient(135deg, #2e7d32, #43a047)",
-      light: "#e8f5e9",
-      accent: "#2e7d32",
-      description: "Returned products reintegrated into active sales stock.",
-      icon: Package
-    },
-    REPAIR: {
-      gradient: "linear-gradient(135deg, #e65100, #fb8c00)",
-      light: "#fff3e0",
-      accent: "#e65100",
-      description: "Items flagged for repair, restoration, or testing.",
-      icon: Wrench
-    },
-    SUPPLIER: {
-      gradient: "linear-gradient(135deg, #1565c0, #1e88e5)",
-      light: "#e8f4fd",
-      accent: "#1565c0",
-      description: "Defective items to be returned to suppliers for credit.",
-      icon: Truck
-    },
-    DAMAGED_STOCK: {
-      gradient: "linear-gradient(135deg, #8b3a3a, #c0504d)",
-      light: "#fff0f0",
-      accent: "#8b3a3a",
-      description: "Unsalvageable damaged goods written off from inventory.",
-      icon: AlertTriangle
-    }
-  };
 
   const openEdit = (p) => {
     setEditForm({
@@ -340,41 +266,21 @@ function ProductsPage() {
             <RefreshCw size={15} />
             {loading ? "Refreshing..." : "Refresh"}
           </button>
-          {activeTab === "products" && (
-            <button className="add-product-btn" onClick={() => navigate(isManager ? "/manager/products/add" : "/products/add")}>
-              <Plus size={16} />
-              Add Product
-            </button>
-          )}
+          <button className="add-product-btn" onClick={() => navigate(isManager ? "/manager/products/add" : "/products/add")}>
+            <Plus size={16} />
+            Add Product
+          </button>
         </div>
       </div>
 
-      {/* Navigation Tabs Bar mirroring Reports page */}
-      <div className="rp-tabs">
-        <button
-          className={`rp-tab${activeTab === "products" ? " active" : ""}`}
-          onClick={() => setActiveTab("products")}
-        >
-          📦 Product Inventory
-        </button>
-        <button
-          className={`rp-tab${activeTab === "returned" ? " active" : ""}`}
-          onClick={() => setActiveTab("returned")}
-        >
-          ↩️ Returned Inventory
-        </button>
+      <div className="search-bar-wrap">
+        <input
+          className="search"
+          placeholder="Search by ID, name, type, or batch..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
-
-      {activeTab === "products" ? (
-        <>
-          <div className="search-bar-wrap">
-            <input
-              className="search"
-              placeholder="Search by ID, name, type, or batch..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
 
           <div className="table-wrap">
             <table className="products-table">
@@ -436,138 +342,6 @@ function ProductsPage() {
               </tbody>
             </table>
           </div>
-        </>
-      ) : (
-        /* Returned Products Inventory View */
-        <div className="returned-inventory-wrap">
-          <div className="dest-cards-grid">
-            {Object.keys(DESTINATION_META).map((key) => {
-              const meta = DESTINATION_META[key];
-              const data = aggregatedReturns[key];
-              const Icon = meta.icon;
-              const isActive = selectedDestination === key;
-
-              return (
-                <div
-                  key={key}
-                  className={`dest-card${isActive ? " active" : ""}`}
-                  onClick={() => setSelectedDestination(isActive ? null : key)}
-                  style={{ "--accent": meta.accent }}
-                >
-                  <div className="dest-card-banner" style={{ background: meta.gradient }}>
-                    <div className="dest-card-icon">
-                      <Icon size={22} />
-                    </div>
-                    <span className="dest-count-badge">
-                      {data.count} Products
-                    </span>
-                  </div>
-                  <div className="dest-card-body">
-                    <h3>{data.label}</h3>
-                    <p>{meta.description}</p>
-                    <div className="dest-card-stats">
-                      <div className="dest-stat-item">
-                        <span className="stat-label">Total Return Qty</span>
-                        <span className="stat-value" style={{ color: meta.accent }}>{data.qty} units</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {selectedDestination && (
-            <div className="dest-details-section">
-              <div
-                className="dest-details-header"
-                style={{ borderBottom: `3px solid ${DESTINATION_META[selectedDestination].accent}` }}
-              >
-                <h2>Returned Items Details: {aggregatedReturns[selectedDestination].label}</h2>
-                <span className="dest-badge-total" style={{ background: DESTINATION_META[selectedDestination].gradient }}>
-                  {aggregatedReturns[selectedDestination].qty} units total
-                </span>
-              </div>
-
-              {aggregatedReturns[selectedDestination].items.length === 0 ? (
-                <div className="dest-empty-list">
-                  No products returned to this destination yet.
-                </div>
-              ) : (
-                <div className="table-wrap">
-                  <table className="products-table">
-                    <thead>
-                      <tr>
-                        <th>Product ID</th>
-                        <th>Product Name</th>
-                        <th>Category</th>
-                        <th>Brand</th>
-                        <th>Unit</th>
-                        <th>Price</th>
-                        <th>Stock Qty</th>
-                        <th>Returned Qty</th>
-                        <th>Return Reasons</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {aggregatedReturns[selectedDestination].items.map((item) => {
-                        const fullProd = products.find((p) => p.product_id === item.product_id);
-                        return (
-                          <tr key={item.product_id}>
-                            <td><span className="id-badge">#{item.product_id}</span></td>
-                            <td className="name-cell">{item.product_name}</td>
-                            <td>{fullProd ? (categoryMap.get(Number(fullProd.category_id)) || "—") : "—"}</td>
-                            <td>{fullProd ? (brandMap.get(Number(fullProd.brand_id)) || "—") : "—"}</td>
-                            <td>{fullProd ? (unitMap.get(Number(fullProd.unit_id)) || "—") : "—"}</td>
-                            <td className="price-cell">
-                              {fullProd ? `Rs. ${Number(fullProd.unit_price || 0).toFixed(2)}` : "—"}
-                            </td>
-                            <td>
-                              {fullProd ? (
-                                <span className={`stock-badge ${fullProd.stock_quantity <= fullProd.min_stock_quantity ? "low" : ""}`}>
-                                  {fullProd.stock_quantity ?? 0}
-                                </span>
-                              ) : "—"}
-                            </td>
-                            <td style={{ fontWeight: "bold" }}>{item.quantity}</td>
-                            <td>
-                              <div className="reasons-list">
-                                {item.reasons.map((r, idx) => (
-                                  <span key={idx} className="reason-tag">{r}</span>
-                                ))}
-                              </div>
-                            </td>
-                            <td>
-                              <button
-                                className="icon-btn view"
-                                title="View Product Details"
-                                onClick={() => {
-                                  if (fullProd) {
-                                    setViewProduct(fullProd);
-                                  } else {
-                                    setViewProduct({
-                                      product_id: item.product_id,
-                                      product_name: item.product_name,
-                                      status: "deleted"
-                                    });
-                                  }
-                                }}
-                              >
-                                <Eye size={15} />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
 
       {editModal && (
         <div className="modal-overlay">

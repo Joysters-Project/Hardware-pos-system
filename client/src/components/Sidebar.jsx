@@ -48,7 +48,7 @@ const getNavItems = (role) => {
       },
       {
         key: "due-collection",
-        label: "Due Collection",
+        label: "Due",
         icon: Wallet,
         path: "/due-collection",
       },
@@ -85,6 +85,12 @@ const getNavItems = (role) => {
       path: dashPath,
     },
     {
+      key: "cashier-panel",
+      label: "Cashier Panel",
+      icon: ShoppingCart,
+      path: "/cashier-panel",
+    },
+    {
       key: "departments",
       label: "Departments",
       icon: Building2,
@@ -119,12 +125,6 @@ const getNavItems = (role) => {
       label: "Reports",
       icon: TrendingUp,
       path: "/reports",
-    },
-    {
-      key: "returns",
-      label: "Returns",
-      icon: RefreshCw,
-      path: "/returns",
     },
     {
       key: "expenses",

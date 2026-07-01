@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import DashboardLayout from '../components/DashboardLayout';
-import api from '../utils/axios';
-import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
+import api from '../../utils/axios';
+import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../../utils/phoneValidation';
 import toast from 'react-hot-toast';
-import '../styles/Returns.css';
+import '../../styles/Returns.css';
 
 const DESTINATIONS = [
   { value: 'STOCK',        label: 'Back to Stock'    },
@@ -22,7 +21,7 @@ const REASONS = [
   'Other',
 ];
 
-function ReturnPage({ userRole }) {
+export default function ProcessReturn() {
   const navigate = useNavigate();
   const [searchMode,    setSearchMode]    = useState('bill_no');
   const [searchValue,   setSearchValue]   = useState('');
@@ -172,24 +171,22 @@ function ReturnPage({ userRole }) {
   /* ---- success screen ---- */
   if (successData) {
     return (
-      <DashboardLayout active="returns">
-        <div className="ret-success">
-          <div className="ret-success-card">
-            <div className="ret-success-icon">✅</div>
-            <h2>Return Processed!</h2>
-            <p>
-              Successfully returned {successData.items_count} item(s) with a total refund of{' '}
-              <strong>Rs. {successData.refund_amount}</strong>
-            </p>
-            <button
-              className="ret-new-btn"
-              onClick={() => { setSuccessData(null); setSelectedBill(null); setReturnItems({}); }}
-            >
-              Process Another Return
-            </button>
-          </div>
+      <div className="ret-success" style={{ minHeight: 'auto', padding: '20px', background: 'transparent' }}>
+        <div className="ret-success-card">
+          <div className="ret-success-icon">✅</div>
+          <h2>Return Processed!</h2>
+          <p>
+            Successfully returned {successData.items_count} item(s) with a total refund of{' '}
+            <strong>Rs. {successData.refund_amount}</strong>
+          </p>
+          <button
+            className="ret-new-btn"
+            onClick={() => { setSuccessData(null); setSelectedBill(null); setReturnItems({}); }}
+          >
+            Process Another Return
+          </button>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
@@ -215,23 +212,7 @@ function ReturnPage({ userRole }) {
   }
 
   return (
-    <DashboardLayout active="returns">
-      <div className="ret-container">
-        {/* Header */}
-        <div className="ret-header">
-        <div>
-          <h1>Return Management</h1>
-          <p>Process customer returns and update inventory</p>
-        </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          {selectedBill && (
-            <button className="ret-back-btn" onClick={() => setSelectedBill(null)}>
-              ← Back to Search
-            </button>
-          )}
-        </div>
-      </div>
-
+    <>
       {error && <div className="ret-error">{error}</div>}
 
       {/* ===== BILL SEARCH ===== */}
@@ -254,7 +235,6 @@ function ReturnPage({ userRole }) {
               value={searchValue}
               onChange={e => {
                 if (searchMode === 'phone') {
-                  // Only allow valid Sri Lankan mobile patterns (070-078)
                   setSearchValue(filterSriLankanPhoneInput(e.target.value));
                 } else {
                   setSearchValue(e.target.value);
@@ -286,165 +266,171 @@ function ReturnPage({ userRole }) {
         </div>
       ) : (
         /* ===== ITEM SELECTION ===== */
-        <div className="ret-content">
-          {/* Left — item list */}
-          <div className="ret-left">
-            <div className="ret-section-header">
-              <h2>Select Items to Return</h2>
-              <button className="ret-select-all-btn" onClick={selectAll}>Select All</button>
-            </div>
-
-            {selectedBill.bill_items?.map(item => {
-              const isSelected = !!returnItems[item.product_id];
-              const ri = returnItems[item.product_id];
-
-              return (
-                <div key={item.product_id} className={`ret-item-card${isSelected ? ' selected' : ''}`}>
-                  {/* Row */}
-                  <div className="ret-item-header" onClick={() => toggleItem(item)}>
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleItem(item)}
-                      onClick={e => e.stopPropagation()}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <div className="ret-item-name">{item.product?.product_name}</div>
-                      <div className="ret-item-meta">
-                        Qty sold: {item.quantity} &nbsp;·&nbsp; Unit price: Rs. {parseFloat(item.price_per_unit).toFixed(2)}
-                        {item.discount > 0 && ` · Discount: Rs. ${item.discount}`}
-                      </div>
-                    </div>
-                    <div className="ret-item-total">Rs. {parseFloat(item.total_price).toFixed(2)}</div>
-                  </div>
-
-                  {/* Expanded fields */}
-                  {isSelected && (
-                    <div className="ret-item-fields">
-                      <div>
-                        <label>Return Qty (max {item.quantity})</label>
-                        <input
-                          type="number"
-                          min={1}
-                          max={item.quantity}
-                          value={ri.return_quantity}
-                          onChange={e =>
-                            updateField(item.product_id, 'return_quantity',
-                              Math.min(Math.max(1, Number(e.target.value)), item.quantity))
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label>Reason</label>
-                        <select
-                          value={ri.return_reason}
-                          onChange={e => updateField(item.product_id, 'return_reason', e.target.value)}
-                        >
-                          {REASONS.map(r => <option key={r} value={r}>{r}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label>Destination</label>
-                        <select
-                          value={ri.destination}
-                          onChange={e => updateField(item.product_id, 'destination', e.target.value)}
-                        >
-                          {DESTINATIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
-                        </select>
-                      </div>
-                      <div className="span-full">
-                        <label>Notes (optional)</label>
-                        <input
-                          type="text"
-                          placeholder="Any additional notes…"
-                          value={ri.destination_note}
-                          onChange={e => updateField(item.product_id, 'destination_note', e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+        <div>
+          {/* Back to Search button above the search/item selection card */}
+          <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '16px' }}>
+            <button className="ret-back-btn" onClick={() => setSelectedBill(null)}>
+              ← Back to Search
+            </button>
           </div>
 
-          {/* Right — summary */}
-          <div className="ret-right">
-            <h3>Return Summary</h3>
+          <div className="ret-content">
+            {/* Left — item list */}
+            <div className="ret-left">
+              <div className="ret-section-header">
+                <h2>Select Items to Return</h2>
+                <button className="ret-select-all-btn" onClick={selectAll}>Select All</button>
+              </div>
 
-            <div className="ret-summary-row">
-              <span>Bill Number</span>
-              <span>{selectedBill.bill_no}</span>
+              {selectedBill.bill_items?.map(item => {
+                const isSelected = !!returnItems[item.product_id];
+                const ri = returnItems[item.product_id];
+
+                return (
+                  <div key={item.product_id} className={`ret-item-card${isSelected ? ' selected' : ''}`}>
+                    {/* Row */}
+                    <div className="ret-item-header" onClick={() => toggleItem(item)}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleItem(item)}
+                        onClick={e => e.stopPropagation()}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div className="ret-item-name">{item.product?.product_name}</div>
+                        <div className="ret-item-meta">
+                          Qty sold: {item.quantity} &nbsp;·&nbsp; Unit price: Rs. {parseFloat(item.price_per_unit).toFixed(2)}
+                          {item.discount > 0 && ` · Discount: Rs. ${item.discount}`}
+                        </div>
+                      </div>
+                      <div className="ret-item-total">Rs. {parseFloat(item.total_price).toFixed(2)}</div>
+                    </div>
+
+                    {/* Expanded fields */}
+                    {isSelected && (
+                      <div className="ret-item-fields">
+                        <div>
+                          <label>Return Qty (max {item.quantity})</label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={item.quantity}
+                            value={ri.return_quantity}
+                            onChange={e =>
+                              updateField(item.product_id, 'return_quantity',
+                                Math.min(Math.max(1, Number(e.target.value)), item.quantity))
+                            }
+                          />
+                        </div>
+                        <div>
+                          <label>Reason</label>
+                          <select
+                            value={ri.return_reason}
+                            onChange={e => updateField(item.product_id, 'return_reason', e.target.value)}
+                          >
+                            {REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label>Destination</label>
+                          <select
+                            value={ri.destination}
+                            onChange={e => updateField(item.product_id, 'destination', e.target.value)}
+                          >
+                            {DESTINATIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+                          </select>
+                        </div>
+                        <div className="span-full">
+                          <label>Notes (optional)</label>
+                          <input
+                            type="text"
+                            placeholder="Any additional notes…"
+                            value={ri.destination_note}
+                            onChange={e => updateField(item.product_id, 'destination_note', e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-            <div className="ret-summary-row">
-              <span>Customer</span>
-              <span>{selectedBill.customer?.customer_name || 'Walk-in'}</span>
-            </div>
-            {selectedBill.customer?.phone_no && (
+
+            {/* Right — summary */}
+            <div className="ret-right">
+              <h3>Return Summary</h3>
+
               <div className="ret-summary-row">
-                <span>Phone</span>
-                <span>{selectedBill.customer.phone_no}</span>
+                <span>Bill Number</span>
+                <span>{selectedBill.bill_no}</span>
               </div>
-            )}
-            <div className="ret-summary-row">
-              <span>Items Selected</span>
-              <span>{Object.keys(returnItems).length}</span>
-            </div>
-
-            <hr className="ret-divider" />
-
-            <div className="ret-summary-row">
-              <span>Total Bill</span>
-              <span>Rs. {totalBill.toFixed(2)}</span>
-            </div>
-            <div className="ret-summary-row">
-              <span>How Much Paid</span>
-              <span>Rs. {howMuchPaid.toFixed(2)}</span>
-            </div>
-            <div className="ret-summary-row">
-              <span>Returned Products Value</span>
-              <span>Rs. {totalReturnedValue.toFixed(2)}</span>
-            </div>
-            <div className="ret-summary-row">
-              <span>How much should be Pay</span>
-              <span style={{ color: remainingBalancePayable > 0 ? '#b30000' : '#333', fontWeight: 'bold' }}>
-                Rs. {remainingBalancePayable.toFixed(2)}
-              </span>
-            </div>
-
-            <hr className="ret-divider" />
-
-            {/* Supplier ID if needed */}
-            {Object.values(returnItems).some(i => i.destination === 'SUPPLIER') && (
-              <div className="ret-supplier-box">
-                <label>Supplier ID (required)</label>
-                <input
-                  type="number"
-                  value={supplierId}
-                  onChange={e => setSupplierId(e.target.value)}
-                  placeholder="Enter supplier ID"
-                />
+              <div className="ret-summary-row">
+                <span>Customer</span>
+                <span>{selectedBill.customer?.customer_name || 'Walk-in'}</span>
               </div>
-            )}
+              {selectedBill.customer?.phone_no && (
+                <div className="ret-summary-row">
+                  <span>Phone</span>
+                  <span>{selectedBill.customer.phone_no}</span>
+                </div>
+              )}
+              <div className="ret-summary-row">
+                <span>Items Selected</span>
+                <span>{Object.keys(returnItems).length}</span>
+              </div>
 
-            <div className="ret-total-row">
-              <span className="label" style={{ fontWeight: '600' }}>Should Return to Customer</span>
-              <span className="amount">Rs. {actualRefundToCustomer.toFixed(2)}</span>
+              <hr className="ret-divider" />
+
+              <div className="ret-summary-row">
+                <span>Total Bill</span>
+                <span>Rs. {totalBill.toFixed(2)}</span>
+              </div>
+              <div className="ret-summary-row">
+                <span>How Much Paid</span>
+                <span>Rs. {howMuchPaid.toFixed(2)}</span>
+              </div>
+              <div className="ret-summary-row">
+                <span>Returned Products Value</span>
+                <span>Rs. {totalReturnedValue.toFixed(2)}</span>
+              </div>
+              <div className="ret-summary-row">
+                <span>How much should be Pay</span>
+                <span style={{ color: remainingBalancePayable > 0 ? '#b30000' : '#333', fontWeight: 'bold' }}>
+                  Rs. {remainingBalancePayable.toFixed(2)}
+                </span>
+              </div>
+
+              <hr className="ret-divider" />
+
+              {/* Supplier ID if needed */}
+              {Object.values(returnItems).some(i => i.destination === 'SUPPLIER') && (
+                <div className="ret-supplier-box">
+                  <label>Supplier ID (required)</label>
+                  <input
+                    type="number"
+                    value={supplierId}
+                    onChange={e => setSupplierId(e.target.value)}
+                    placeholder="Enter supplier ID"
+                  />
+                </div>
+              )}
+
+              <div className="ret-total-row">
+                <span className="label" style={{ fontWeight: '600' }}>Should Return to Customer</span>
+                <span className="amount">Rs. {actualRefundToCustomer.toFixed(2)}</span>
+              </div>
+
+              <button
+                className="ret-confirm-btn"
+                disabled={loading || Object.keys(returnItems).length === 0}
+                onClick={submitReturn}
+              >
+                {loading ? 'Processing…' : 'Confirm Return'}
+              </button>
             </div>
-
-            <button
-              className="ret-confirm-btn"
-              disabled={loading || Object.keys(returnItems).length === 0}
-              onClick={submitReturn}
-            >
-              {loading ? 'Processing…' : 'Confirm Return'}
-            </button>
           </div>
         </div>
       )}
-      </div>
-    </DashboardLayout>
+    </>
   );
 }
-
-export default ReturnPage;

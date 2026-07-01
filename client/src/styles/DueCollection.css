@@ -42,6 +42,30 @@
   color: #000;
 }
 
+.due-nav-tabs {
+  display: flex;
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+.due-nav-tab {
+  border: 1px solid #ddd;
+  background: white;
+  color: #444;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.due-nav-tab.active {
+  background: #800000;
+  border-color: #800000;
+  color: white;
+  box-shadow: 0 6px 16px rgba(128, 0, 0, 0.16);
+}
+
 .due-content {
   display: flex;
   gap: 20px;
@@ -80,10 +104,15 @@
   font-weight: bold;
 }
 
-.due-search-box button:hover {
+.due-search-box button:hover:not(:disabled) {
   background: #800000;
   border-color: #a52a2a;
   color: white;
+}
+
+.due-search-box button:disabled {
+  cursor: progress;
+  opacity: 0.75;
 }
 
 .customer-summary {
@@ -94,7 +123,7 @@
   justify-content: space-between;
   align-items: center;
   border-left: 4px solid #800000;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Added shadow for light mode */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .customer-summary .avatar-info {
@@ -127,6 +156,34 @@
   color: #333;
 }
 
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.summary-card {
+  background: white;
+  border-radius: 8px;
+  padding: 14px 16px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.summary-label {
+  color: #777;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.summary-value {
+  color: #333;
+  font-size: 16px;
+}
+
 .bills-table-container {
   background: white;
   border-radius: 8px;
@@ -145,7 +202,7 @@
   padding: 12px;
   text-align: left;
   border-bottom: 1px solid #eee;
-  color: #333; 
+  color: #333;
 }
 
 .bills-table th {
@@ -173,7 +230,64 @@
   border: 1px solid #d1a84f;
 }
 
-/* History Box */
+.due-status-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.due-details-toggle {
+  border: none;
+  background: transparent;
+  color: #800000;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px 4px;
+}
+
+.due-details-row td {
+  padding: 0 16px 12px;
+}
+
+.due-product-details {
+  background: #fff8f8;
+  border: 1px solid #f1d5d5;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.due-product-details-header {
+  font-size: 13px;
+  font-weight: 700;
+  color: #800000;
+  margin-bottom: 8px;
+}
+
+.due-product-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.due-product-table th,
+.due-product-table td {
+  text-align: left;
+  padding: 8px 6px;
+  border-bottom: 1px solid #f1d5d5;
+  color: #444;
+}
+
+.due-product-table th {
+  color: #800000;
+  font-weight: 700;
+}
+
+.due-empty-state {
+  margin: 0;
+  color: #777;
+  font-size: 13px;
+}
+
 .history-box {
   background: white;
   padding: 15px;
@@ -193,7 +307,6 @@
   justify-content: space-between;
 }
 
-/* Right Panel */
 .due-right {
   flex: 1;
   background: white;
@@ -217,7 +330,7 @@
 }
 
 .collection-summary .row span:last-child {
-  color: #333; 
+  color: #333;
   font-weight: 500;
 }
 
@@ -322,7 +435,6 @@
   cursor: not-allowed;
 }
 
-/* Radio button styles */
 .custom-radio {
   display: flex;
   align-items: center;

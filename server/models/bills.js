@@ -60,9 +60,7 @@ module.exports = (sequelize) => {
     }
   }, { 
     tableName: 'bills', 
-    timestamps: true,
-    createdAt: 'created_at',
-    updatedAt: 'updated_at'
+    timestamps: false
   });
   return Bills;
 };
