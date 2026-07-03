@@ -307,7 +307,7 @@ const DueCollection = () => {
             <span className="amount-symbol"><strong>Rs.</strong></span>
             <input
               type="number"
-              style={{ paddingLeft: "30px" }}
+              style={{ paddingLeft: "50px" }}
               value={amountInput}
               onChange={(event) => setAmountInput(event.target.value)}
               disabled={!selectedBill}

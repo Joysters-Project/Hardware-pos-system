@@ -60,11 +60,20 @@ export default function ProcessReturn() {
     try {
       const params = searchMode === 'bill_no' ? { bill_no: trimmed } : { phone: trimmed };
       const res = await api.get('/returns/lookup-bill', { params });
-      const data = res.data?.data ?? res.data;
-      setSearchResults(Array.isArray(data) ? data : [data]);
-    } catch {
+      const responseData = res.data?.data ?? res.data;
+      const results = Array.isArray(responseData)
+        ? responseData
+        : responseData
+          ? [responseData]
+          : [];
+      setSearchResults(results);
+      if (!results.length) {
+        toast.error('No bills found');
+      }
+    } catch (err) {
       setSearchResults([]);
-      toast.error('No bills found');
+      const message = err.response?.data?.error || err.response?.data?.message || 'No bills found';
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -141,6 +150,11 @@ export default function ProcessReturn() {
     if (itemsArr.length === 0) { setError('Please select at least one item to return.'); return; }
     if (itemsArr.some(i => i.destination === 'SUPPLIER') && !supplierId) {
       setError('Supplier ID is required for items going back to Supplier.'); return;
+    }
+    const missingNotes = itemsArr.find(i => i.return_reason === 'Other' && !(i.destination_note || '').trim());
+    if (missingNotes) {
+      setError('Please enter notes for items with reason "Other".');
+      return;
     }
     setLoading(true);
     setError('');
@@ -341,7 +355,7 @@ export default function ProcessReturn() {
                           </select>
                         </div>
                         <div className="span-full">
-                          <label>Notes (optional)</label>
+                          <label>{ri.return_reason === 'Other' ? 'Notes (required)' : 'Notes (optional)'}</label>
                           <input
                             type="text"
                             placeholder="Any additional notes…"

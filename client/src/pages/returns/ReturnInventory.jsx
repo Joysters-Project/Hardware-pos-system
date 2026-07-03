@@ -29,7 +29,8 @@ export default function ReturnInventory() {
       setCategories(Array.isArray(categoryRes.data) ? categoryRes.data : []);
       setBrands(Array.isArray(brandsRes.data) ? brandsRes.data : []);
       setUnits(Array.isArray(unitsRes.data) ? unitsRes.data : []);
-      setReturns(Array.isArray(returnsRes.data?.data) ? returnsRes.data.data : []);
+      const returnData = returnsRes.data?.data ?? returnsRes.data;
+      setReturns(Array.isArray(returnData) ? returnData : []);
     } catch (error) {
       toast.error("Failed to load inventory data");
     } finally {
