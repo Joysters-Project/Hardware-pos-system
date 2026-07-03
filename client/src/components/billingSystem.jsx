@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Search, Package, X, Minus, Plus, Trash2, ShoppingCart, 
   CreditCard, Printer, Download, XCircle, CheckCircle, 
   User, Phone, MapPin, DollarSign, Receipt, Tag, 
   AlertCircle, Grid3x3, List, ArrowRight, Sparkles,
-  TrendingUp, Clock, Zap, LayoutGrid, ListOrdered
+  TrendingUp, Clock, Zap
 } from 'lucide-react';
 import api from '../api/axios';
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
@@ -26,8 +26,6 @@ const BillingSystem = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
-  const [catalogProducts, setCatalogProducts] = useState([]);
-  const [catalogView, setCatalogView] = useState('grid'); // 'grid' or 'list'
   const [recentItems, setRecentItems] = useState([]);
   const searchInputRef = useRef(null);
   const navigate = useNavigate();
@@ -52,25 +50,13 @@ const BillingSystem = () => {
     return isNaN(date) ? value : date.toLocaleString();
   };
 
-  // Load catalog products on mount and load recent items from localStorage
+  // Load recent items from localStorage
   useEffect(() => {
-    const loadCatalog = async () => {
-      try {
-        const res = await api.get('/products');
-        const products = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-        setCatalogProducts(products.filter(p => isProductActive(p)));
-      } catch (err) {
-        console.error('Failed to load catalog:', err);
-      }
-    };
-    loadCatalog();
-    
-    // Load recent items from localStorage
     const savedRecent = localStorage.getItem('recentCartItems');
     if (savedRecent) {
       try {
         setRecentItems(JSON.parse(savedRecent).slice(0, 5));
-      } catch(e) {}
+      } catch (e) {}
     }
   }, []);
 
@@ -466,13 +452,6 @@ const BillingSystem = () => {
       setCustomerExists(false);
       setCustomerLookupMessage('');
       setPhoneError('');
-
-      // Reload catalog to reflect updated stock
-      try {
-        const catRes = await api.get('/products');
-        const products = Array.isArray(catRes.data) ? catRes.data : (catRes.data?.data || []);
-        setCatalogProducts(products.filter(p => isProductActive(p)));
-      } catch (e) { /* silent */ }
     } catch (err) { alert(err.response?.data?.error || "Error"); }
   };
 
@@ -590,115 +569,20 @@ const BillingSystem = () => {
             )}
           </div>
 
-          {/* Catalog Header with View Toggle */}
-          <div className="pos-catalog-header-modern">
+          <div className="pos-selected-products-header-modern">
             <div className="catalog-title">
               <Package size={18} />
-              <span>Product Catalog</span>
-              <span className="catalog-count">{catalogProducts.length}</span>
-            </div>
-            <div className="catalog-view-toggle">
-              <button 
-                className={`view-btn ${catalogView === 'grid' ? 'active' : ''}`}
-                onClick={() => setCatalogView('grid')}
-              >
-                <LayoutGrid size={16} />
-              </button>
-              <button 
-                className={`view-btn ${catalogView === 'list' ? 'active' : ''}`}
-                onClick={() => setCatalogView('list')}
-              >
-                <ListOrdered size={16} />
-              </button>
+              <span>Selected Products</span>
+              <span className="catalog-count">{cartItemCount}</span>
             </div>
           </div>
 
-          {/* Product Catalog Grid/List */}
-          <div className="pos-catalog-modern">
-            {catalogProducts.length === 0 ? (
-              <div className="catalog-empty">
-                <div className="empty-icon">📦</div>
-                <div className="empty-text">No products available</div>
-                <div className="empty-sub">Add products from the Products page</div>
-              </div>
-            ) : catalogView === 'grid' ? (
-              <div className="catalog-grid-modern">
-                {catalogProducts.map((product) => (
-                  <div
-                    key={product.product_id}
-                    className={`product-card-modern ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
-                    onClick={() => handleAddToCart(product)}
-                  >
-                    <div className="product-card-icon">
-                      <Package size={20} />
-                    </div>
-                    <div className="product-card-name">{product.product_name}</div>
-                    <div className="product-card-sku">
-                      {product.product_code || `ID: ${product.product_id}`}
-                    </div>
-                    <div className="product-card-bottom">
-                      <div className="product-card-price">Rs.{parseFloat(product.unit_price).toFixed(2)}</div>
-                      <div className={`product-card-stock ${getStockClass(product.stock_quantity)}`}>
-                        {getStockLabel(product.stock_quantity)}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="catalog-list-modern">
-                {catalogProducts.map((product) => (
-                  <div
-                    key={product.product_id}
-                    className={`product-list-item ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
-                    onClick={() => handleAddToCart(product)}
-                  >
-                    <div className="list-item-icon">
-                      <Package size={18} />
-                    </div>
-                    <div className="list-item-info">
-                      <div className="list-item-name">{product.product_name}</div>
-                      <div className="list-item-code">{product.product_code || `ID: ${product.product_id}`}</div>
-                    </div>
-                    <div className="list-item-right">
-                      <div className="list-item-price">Rs.{parseFloat(product.unit_price).toFixed(2)}</div>
-                      <div className={`list-item-stock ${getStockClass(product.stock_quantity)}`}>
-                        {getStockLabel(product.stock_quantity)}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* RIGHT PANEL: Cart + Payment */}
-        <div className="pos-right-modern">
-          <div className="cart-container-modern">
-            {/* Cart Header */}
-            <div className="cart-header-modern">
-              <div className="cart-title">
-                <ShoppingCart size={18} />
-                <span>Cart</span>
-                {cart.length > 0 && (
-                  <span className="cart-badge-modern">{cartItemCount}</span>
-                )}
-              </div>
-              {cart.length > 0 && (
-                <button className="cart-clear-modern" onClick={() => setCart([])}>
-                  <Trash2 size={14} />
-                  Clear All
-                </button>
-              )}
-            </div>
-
-            {/* Cart Items as Table */}
+          <div className="pos-selected-products-modern">
             {cart.length === 0 ? (
               <div className="cart-empty-modern">
                 <div className="empty-cart-icon">🛒</div>
-                <div className="empty-cart-text">No items added</div>
-                <div className="empty-cart-sub">Search or click a product to add</div>
+                <div className="empty-cart-text">No products selected</div>
+                <div className="empty-cart-sub">Search and select products to begin billing</div>
               </div>
             ) : (
               <div className="cart-items-modern">
@@ -740,6 +624,36 @@ const BillingSystem = () => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT PANEL: Cart + Payment */}
+        <div className="pos-right-modern">
+          <div className="cart-container-modern">
+            {/* Cart Header */}
+            <div className="cart-header-modern">
+              <div className="cart-title">
+                <ShoppingCart size={18} />
+                <span>Cart</span>
+                {cart.length > 0 && (
+                  <span className="cart-badge-modern">{cartItemCount}</span>
+                )}
+              </div>
+              {cart.length > 0 && (
+                <button className="cart-clear-modern" onClick={() => setCart([])}>
+                  <Trash2 size={14} />
+                  Clear All
+                </button>
+              )}
+            </div>
+
+            {cart.length === 0 && (
+              <div className="cart-empty-modern">
+                <div className="empty-cart-icon">🛒</div>
+                <div className="empty-cart-text">No items selected</div>
+                <div className="empty-cart-sub">Search and add products from the left panel.</div>
               </div>
             )}
 
