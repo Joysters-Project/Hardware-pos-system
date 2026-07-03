@@ -85,6 +85,35 @@
   gap: 20px;
 }
 
+.rp-timeframe-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rp-timeframe-btn {
+  border: 1px solid #d0b3b3;
+  background: #fff;
+  color: #7a2f2f;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rp-timeframe-btn:hover {
+  border-color: #800000;
+  color: #800000;
+}
+
+.rp-timeframe-btn.active {
+  background: #800000;
+  color: #fff;
+  border-color: #800000;
+}
+
 /* ── Summary stat cards ── */
 .rp-stats-row {
   display: grid;

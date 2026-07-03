@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import api from '../api/axios';
 import { jsPDF } from 'jspdf';
 import { useAuth } from '../context/AuthContext';
 import '../styles/ReportsPage.css';
 import '../styles/Returns.css';
+import ProcurementReports from './procurement/ProcurementReports';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from 'recharts';
 
 /* ─── helpers ─── */
 const fmt = (v) => `Rs. ${Number(v ?? 0).toFixed(2)}`;
@@ -86,11 +88,136 @@ const dateKey = (v) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
+const TIMEFRAME_OPTIONS = [
+  { value: 'today', label: 'Today' },
+  { value: 'this_week', label: 'This Week' },
+  { value: 'this_month', label: 'This Month' },
+  { value: 'this_year', label: 'This Year' },
+];
+
+const getTimeframeRange = (value) => {
+  if (!value || value === 'all') return null;
+  const now = new Date();
+  const start = new Date(now);
+  const end = new Date(now);
+
+  if (value === 'today') {
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+  }
+
+  if (value === 'this_week') {
+    const day = (start.getDay() + 6) % 7;
+    start.setDate(start.getDate() - day);
+    start.setHours(0, 0, 0, 0);
+    end.setTime(start.getTime());
+    end.setDate(end.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+  }
+
+  if (value === 'this_month') {
+    start.setDate(1);
+    start.setHours(0, 0, 0, 0);
+    end.setMonth(end.getMonth() + 1, 0);
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+  }
+
+  if (value === 'this_year') {
+    start.setMonth(0, 1);
+    start.setHours(0, 0, 0, 0);
+    end.setMonth(11, 31);
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+  }
+
+  return null;
+};
+
+const matchesTimeframe = (value, timeframe) => {
+  const range = getTimeframeRange(timeframe);
+  if (!range) return true;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  return date >= range.start && date <= range.end;
+};
+
+const buildTimeSeriesData = (records, timeframe, dateAccessor, amountAccessor) => {
+  const range = getTimeframeRange(timeframe);
+  if (!range) return [];
+
+  const buckets = [];
+  if (timeframe === 'today') {
+    for (let hour = 0; hour < 24; hour += 1) {
+      buckets.push({ key: `${String(hour).padStart(2, '0')}:00`, label: `${String(hour).padStart(2, '0')}:00`, total: 0 });
+    }
+  } else if (timeframe === 'this_week') {
+    for (let i = 0; i < 7; i += 1) {
+      const d = new Date(range.start);
+      d.setDate(range.start.getDate() + i);
+      buckets.push({ key: d.toISOString().slice(0, 10), label: d.toLocaleDateString('en-GB', { weekday: 'short' }), total: 0 });
+    }
+  } else if (timeframe === 'this_month') {
+    const daysInMonth = range.end.getDate();
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      buckets.push({ key: `${String(day).padStart(2, '0')}`, label: `${String(day).padStart(2, '0')}`, total: 0 });
+    }
+  } else if (timeframe === 'this_year') {
+    for (let month = 0; month < 12; month += 1) {
+      const labelDate = new Date(range.start.getFullYear(), month, 1);
+      buckets.push({ key: `${labelDate.getFullYear()}-${String(month + 1).padStart(2, '0')}`, label: labelDate.toLocaleDateString('en-GB', { month: 'short' }), total: 0 });
+    }
+  }
+
+  records.forEach((record) => {
+    const valueDate = new Date(dateAccessor(record));
+    if (Number.isNaN(valueDate.getTime()) || valueDate < range.start || valueDate > range.end) return;
+
+    let key = '';
+    if (timeframe === 'today') {
+      key = `${String(valueDate.getHours()).padStart(2, '0')}:00`;
+    } else if (timeframe === 'this_week') {
+      key = valueDate.toISOString().slice(0, 10);
+    } else if (timeframe === 'this_month') {
+      key = `${String(valueDate.getDate()).padStart(2, '0')}`;
+    } else {
+      key = `${valueDate.getFullYear()}-${String(valueDate.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    const bucket = buckets.find((item) => item.key === key);
+    if (bucket) bucket.total += Number(amountAccessor(record) || 0);
+  });
+
+  return buckets.map((bucket) => ({ label: bucket.label, total: Number(bucket.total.toFixed(2)) }));
+};
+
+function TimeframeSelector({ value, onChange }) {
+  return (
+    <div className="rp-timeframe-row">
+      {TIMEFRAME_OPTIONS.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          className={`rp-timeframe-btn${value === option.value ? ' active' : ''}`}
+          onClick={() => onChange(option.value)}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════════
    SALES REPORT TAB
 ═══════════════════════════════════════════════════════════ */
 function SalesReport() {
-  const { isAuthenticated } = useAuth();
+  const { role, isAuthenticated } = useAuth();
+  const location = useLocation();
+  const isCashier = role?.toLowerCase() === 'cashier';
+  const initialTimeframe = location.state?.initialTimeframe || (isCashier ? 'today' : 'this_month');
   const [bills, setBills] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -99,9 +226,20 @@ function SalesReport() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [timeframe, setTimeframe] = useState(initialTimeframe);
   const [page, setPage] = useState(1);
   const [expandedBill, setExpandedBill] = useState(null);
   const PAGE = 10;
+
+  useEffect(() => {
+    if (isCashier) {
+      setTimeframe('today');
+      return;
+    }
+    if (location.state?.initialTimeframe) {
+      setTimeframe(location.state.initialTimeframe);
+    }
+  }, [isCashier, location.state?.initialTimeframe]);
 
   useEffect(() => {
     const load = async () => {
@@ -145,9 +283,14 @@ function SalesReport() {
         const matchFrom = !dateFrom || dateKey(b.bill_date) >= dateFrom;
         const matchTo = !dateTo || dateKey(b.bill_date) <= dateTo;
         const statusMatch = !statusFilter || (b.status || '').toUpperCase() === statusFilter;
-        return matchSearch && matchFrom && matchTo && statusMatch;
+        const matchTimeframe = matchesTimeframe(b.bill_date, timeframe);
+        return matchSearch && matchFrom && matchTo && statusMatch && matchTimeframe;
       });
-  }, [bills, customers, search, dateFrom, dateTo, statusFilter]);
+  }, [bills, customers, search, dateFrom, dateTo, statusFilter, timeframe]);
+
+  const salesChartData = useMemo(() => {
+    return buildTimeSeriesData(filtered, timeframe, (b) => b.bill_date, (b) => b.total_amount);
+  }, [filtered, timeframe]);
 
   const totalRevenue = filtered.reduce((s, b) => s + Number(b.total_amount || 0), 0);
   const totalPaid = filtered.reduce((s, b) => s + (Number(b.total_amount || 0) - Number(b.balance_due || 0)), 0);
@@ -164,7 +307,7 @@ function SalesReport() {
     return isNaN(d) ? v : d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
-  const reset = () => { setSearch(''); setDateFrom(''); setDateTo(''); setStatusFilter(''); setPage(1); };
+  const reset = () => { setSearch(''); setDateFrom(''); setDateTo(''); setStatusFilter(''); setTimeframe(initialTimeframe); setPage(1); };
 
   const handleDownloadSalesCsv = () => {
     const csvHeaders = [
@@ -224,6 +367,28 @@ function SalesReport() {
 
   return (
     <div className="rp-section">
+      <div style={{ marginBottom: '12px' }}>
+        {isCashier ? (
+          <div style={{ padding: '9px 14px', background: '#fdf2f2', borderRadius: '6px', border: '1px solid #e09090', color: '#800000', fontSize: '13px', fontWeight: '600' }}>
+            Viewing Today&apos;s Sales Only
+          </div>
+        ) : (
+          <TimeframeSelector value={timeframe} onChange={setTimeframe} />
+        )}
+      </div>
+      {/* Sales Revenue Chart */}
+      <div className="chart-container" style={{ height: '300px', marginBottom: '20px' }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={salesChartData} margin={{ top: 8, right: 20, left: 0, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#2c2c2c', fontSize: 11, fontWeight: 600 }} />
+            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#2c2c2c', fontSize: 11, fontWeight: 600 }} />
+            <Tooltip contentStyle={{ backgroundColor: '#2c2c2c', border: '1px solid #8b3a3a', borderRadius: '8px', color: '#fff', fontSize: '12px' }} />
+            <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '8px' }} />
+            <Line type="monotone" dataKey="total" stroke="#8b3a3a" strokeWidth={3.5} dot={{ r: 4, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 6, strokeWidth: 2, fill: '#fff' }} name="Revenue (Rs)" />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
       {/* Summary cards */}
       <div className="rp-stats-row">
         <div className="rp-stat-card">
@@ -251,14 +416,18 @@ function SalesReport() {
       {/* Filters */}
       <div className="rp-filters">
         <input placeholder="Search Bill No / Customer / Phone" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
-        <div className="rp-date-group">
-          <label>From</label>
-          <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} />
-        </div>
-        <div className="rp-date-group">
-          <label>To</label>
-          <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} />
-        </div>
+        {!isCashier && (
+          <>
+            <div className="rp-date-group">
+              <label>From</label>
+              <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} />
+            </div>
+            <div className="rp-date-group">
+              <label>To</label>
+              <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} />
+            </div>
+          </>
+        )}
         <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
           <option value="">All Status</option>
           <option value="PAID">Paid</option>
@@ -421,10 +590,14 @@ function SalesReport() {
 ═══════════════════════════════════════════════════════════ */
 function ReturnsReport() {
   const { role, isAuthenticated } = useAuth();
+  const location = useLocation();
+  const isCashier = role?.toLowerCase() === 'cashier';
+  const initialTimeframe = location.state?.initialTimeframe || (isCashier ? 'today' : 'this_month');
   const [returnsData, setReturnsData] = useState([]);
   const [filter, setFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [timeframe, setTimeframe] = useState(initialTimeframe);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
@@ -432,12 +605,22 @@ function ReturnsReport() {
   const PAGE = 10;
 
   const isManagerOrAdmin = ['manager', 'admin'].includes(role?.toLowerCase());
-  const isCashier = role?.toLowerCase() === 'cashier';
-  const isAuthorized = isManagerOrAdmin || isCashier;
+  const isCashierRole = role?.toLowerCase() === 'cashier';
+  const isAuthorized = isManagerOrAdmin || isCashierRole;
 
   useEffect(() => {
-    if (isCashier && dateFilter !== 'today') setDateFilter('today');
-  }, [isCashier, dateFilter]);
+    if (isCashierRole) {
+      setTimeframe('today');
+      return;
+    }
+    if (location.state?.initialTimeframe) {
+      setTimeframe(location.state.initialTimeframe);
+    }
+  }, [isCashierRole, location.state?.initialTimeframe]);
+
+  useEffect(() => {
+    if (isCashierRole && dateFilter !== 'today') setDateFilter('today');
+  }, [isCashierRole, dateFilter]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -479,7 +662,7 @@ function ReturnsReport() {
     }
   };
 
-  const reset = () => { setFilter(''); setSearch(''); if (!isCashier) setDateFilter('all'); setPage(1); };
+  const reset = () => { setFilter(''); setSearch(''); if (!isCashier) setDateFilter('all'); setTimeframe(initialTimeframe); setPage(1); };
 
   if (!isAuthorized) {
     return (
@@ -492,14 +675,25 @@ function ReturnsReport() {
     );
   }
 
-  const filteredReturns = returnsData.filter(r => {
-    const q = search.toLowerCase();
-    return !q ||
+  // Filter returns based on search query
+const filteredReturns = useMemo(() => {
+  const q = search.toLowerCase().trim();
+  return returnsData.filter((r) => {
+    const matchSearch = !q ||
       String(r.return_id || '').includes(q) ||
       (r.bill?.bill_no || r.bills?.bill_no || r.bill_number || '').toLowerCase().includes(q) ||
       (r.bill?.customer?.customer_name || '').toLowerCase().includes(q) ||
       (r.bill?.customer?.phone_no || '').includes(q);
+    const destinationValue = (r.destination || '').toUpperCase();
+    const hasDestinationMatch = !filter || destinationValue === filter || (r.items || []).some((item) => (item.destination || '').toUpperCase() === filter);
+    const matchTimeframe = matchesTimeframe(r.return_date, timeframe);
+    return matchSearch && hasDestinationMatch && matchTimeframe;
   });
+}, [returnsData, search, filter, timeframe]);
+
+  const returnsChartData = useMemo(() => {
+    return buildTimeSeriesData(filteredReturns, timeframe, (r) => r.return_date, (r) => r.total_refund_amount);
+  }, [filteredReturns, timeframe]);
 
   const totalRefunded = filteredReturns.reduce((s, r) => s + Number(r.total_refund_amount || 0), 0);
   const totalItems = filteredReturns.reduce((s, r) => s + (r.items?.length || 0), 0);
@@ -609,6 +803,15 @@ function ReturnsReport() {
 
   return (
     <div className="rp-section">
+      <div style={{ marginBottom: '12px' }}>
+        {isCashierRole ? (
+          <div style={{ padding: '9px 14px', background: '#fdf2f2', borderRadius: '6px', border: '1px solid #e09090', color: '#800000', fontSize: '13px', fontWeight: '600' }}>
+            Viewing Today&apos;s Returns Only
+          </div>
+        ) : (
+          <TimeframeSelector value={timeframe} onChange={setTimeframe} />
+        )}
+      </div>
       {/* Summary cards */}
       <div className="rp-stats-row">
         <div className="rp-stat-card">
@@ -623,6 +826,19 @@ function ReturnsReport() {
           <div className="rp-stat-label">Items Returned</div>
           <div className="rp-stat-value">{totalItems}</div>
         </div>
+      </div>
+      {/* Returns Refund Chart */}
+      <div className="chart-container" style={{ height: '300px', marginBottom: '20px' }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={returnsChartData} margin={{ top: 8, right: 30, left: 20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#2c2c2c', fontSize: 11, fontWeight: 600 }} />
+            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#2c2c2c', fontSize: 11, fontWeight: 600 }} />
+            <Tooltip contentStyle={{ backgroundColor: '#2c2c2c', border: '1px solid #1d7e42', borderRadius: '8px', color: '#fff', fontSize: '12px' }} />
+            <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '8px' }} />
+            <Bar dataKey="total" fill="#1d7e42" name="Refunded (Rs.)" radius={[6, 6, 0, 0]} maxBarSize={34} stroke="#166534" strokeWidth={1.2} />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
 
       {/* Filters */}
@@ -810,14 +1026,19 @@ function ReturnsReport() {
    BORROW REPORT TAB  (Partially Paid Bills)
 ═══════════════════════════════════════════════════════════ */
 function BorrowReport() {
-  const { isAuthenticated } = useAuth();
+  const { role, isAuthenticated } = useAuth();
+  const location = useLocation();
+  const isCashier = role?.toLowerCase() === 'cashier';
+  const initialTimeframe = location.state?.initialTimeframe || (isCashier ? 'today' : 'this_month');
   const [bills, setBills] = useState([]);
+  const [allBillsForChart, setAllBillsForChart] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [timeframe, setTimeframe] = useState(initialTimeframe);
   const [expandedBill, setExpandedBill] = useState(null);
   const [page, setPage] = useState(1);
   const PAGE = 10;
@@ -840,7 +1061,9 @@ function BorrowReport() {
         const allBills = Array.isArray(bRes.data) ? bRes.data : (bRes.data?.data || []);
         const allCustomers = Array.isArray(cRes.data) ? cRes.data : (cRes.data?.data || []);
 
-        // Filter for partial bills and ensure they have customer and bill_items details
+        // Keep all bills for the sales-vs-borrow chart
+        setAllBillsForChart(allBills);
+        // Filter for partial bills for the table
         const partialBills = allBills.filter(b => (b.status || '').toUpperCase() === 'PARTIAL');
         setBills(partialBills);
         setCustomers(allCustomers);
@@ -862,19 +1085,52 @@ function BorrowReport() {
   const getCustomerPhone = (b) => b.customer?.phone_no || custMap[b.customer_id]?.phone_no || '–';
   const getCustomerAddress = (b) => b.customer?.address || custMap[b.customer_id]?.address || '–';
 
-  const filtered = useMemo(() => {
-    return bills
+  const filteredChartBills = useMemo(() => {
+    return [...allBillsForChart]
       .sort((a, b) => new Date(b.bill_date) - new Date(a.bill_date))
       .filter(b => {
-        const q = search.toLowerCase();
+        const q = search.toLowerCase().trim();
         const matchSearch = !q || String(b.bill_no || '').includes(q) ||
           getCustomerName(b).toLowerCase().includes(q) ||
           getCustomerPhone(b).includes(q);
         const matchFrom = !dateFrom || dateKey(b.bill_date) >= dateFrom;
         const matchTo = !dateTo || dateKey(b.bill_date) <= dateTo;
-        return matchSearch && matchFrom && matchTo;
+        const matchTimeframe = matchesTimeframe(b.bill_date, timeframe);
+        return matchSearch && matchFrom && matchTo && matchTimeframe;
       });
-  }, [bills, customers, search, dateFrom, dateTo]);
+  }, [allBillsForChart, customers, custMap, search, dateFrom, dateTo, timeframe]);
+
+  const filtered = useMemo(() => {
+    return [...bills]
+      .sort((a, b) => new Date(b.bill_date) - new Date(a.bill_date))
+      .filter(b => {
+        const q = search.toLowerCase().trim();
+        const matchSearch = !q || String(b.bill_no || '').includes(q) ||
+          getCustomerName(b).toLowerCase().includes(q) ||
+          getCustomerPhone(b).includes(q);
+        const matchFrom = !dateFrom || dateKey(b.bill_date) >= dateFrom;
+        const matchTo = !dateTo || dateKey(b.bill_date) <= dateTo;
+        const matchTimeframe = matchesTimeframe(b.bill_date, timeframe);
+        return matchSearch && matchFrom && matchTo && matchTimeframe;
+      });
+  }, [bills, customers, custMap, search, dateFrom, dateTo, timeframe]);
+
+  const salesVsBorrowChartData = useMemo(() => {
+    const salesSeries = buildTimeSeriesData(filteredChartBills, timeframe, (b) => b.bill_date, (b) => b.total_amount);
+    const borrowSeries = buildTimeSeriesData(filtered, timeframe, (b) => b.bill_date, (b) => b.balance_due);
+    const combined = [];
+    const maxLength = Math.max(salesSeries.length, borrowSeries.length);
+    for (let index = 0; index < maxLength; index += 1) {
+      const salesPoint = salesSeries[index] || { label: '', total: 0 };
+      const borrowPoint = borrowSeries[index] || { label: '', total: 0 };
+      combined.push({
+        label: salesPoint.label || borrowPoint.label,
+        sales: Number(salesPoint.total || 0),
+        borrow: Number(borrowPoint.total || 0),
+      });
+    }
+    return combined;
+  }, [allBillsForChart, bills, timeframe]);
 
   const totalBilled = filtered.reduce((s, b) => s + Number(b.total_amount || 0), 0);
   const totalPaid = filtered.reduce((s, b) => s + (Number(b.total_amount || 0) - Number(b.balance_due || 0)), 0);
@@ -908,6 +1164,35 @@ function BorrowReport() {
 
   return (
     <div className="rp-section">
+      <div style={{ marginBottom: '12px' }}>
+        {isCashier ? (
+          <div style={{ padding: '9px 14px', background: '#fdf2f2', borderRadius: '6px', border: '1px solid #e09090', color: '#800000', fontSize: '13px', fontWeight: '600' }}>
+            Viewing Today&apos;s Borrow Only
+          </div>
+        ) : (
+          <TimeframeSelector value={timeframe} onChange={setTimeframe} />
+        )}
+      </div>
+      {/* Sales vs Borrow Chart */}
+      <div className="chart-container" style={{ height: '320px', marginBottom: '24px' }}>
+        <h3 style={{ textAlign: 'center', marginBottom: '8px', fontSize: '14px', color: '#800000', fontWeight: '700', letterSpacing: '0.4px' }}>
+          📊 Monthly Sales Revenue vs Borrow Outstanding (Rs.)
+        </h3>
+        <ResponsiveContainer width="100%" height="90%">
+          <BarChart data={salesVsBorrowChartData} margin={{ top: 8, right: 30, left: 20, bottom: 5 }} barCategoryGap="28%" barGap={4}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f5e6e6" />
+            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#666', fontWeight: 600 }} />
+            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#666' }} tickFormatter={(v) => `Rs.${(v / 1000).toFixed(0)}k`} />
+            <Tooltip
+              formatter={(value, name) => [`Rs. ${Number(value).toFixed(2)}`, name]}
+              contentStyle={{ borderRadius: '8px', border: '1px solid #e0c0c0', fontSize: '12px', backgroundColor: '#fff' }}
+            />
+            <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '8px' }} />
+            <Bar dataKey="sales" fill="#4f83cc" name="Total Sales (Rs.)" radius={[6, 6, 0, 0]} maxBarSize={34} stroke="#2563eb" strokeWidth={1.2} />
+            <Bar dataKey="borrow" fill="#ff8042" name="Borrow Outstanding (Rs.)" radius={[6, 6, 0, 0]} maxBarSize={34} stroke="#ea580c" strokeWidth={1.2} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
       <div className="rp-stats-row">
         <div className="rp-stat-card">
           <div className="rp-stat-label">Total Partial Bills</div>
@@ -929,15 +1214,19 @@ function BorrowReport() {
 
       <div className="rp-filters">
         <input placeholder="Search Bill No / Customer / Phone" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
-        <div className="rp-date-group">
-          <label>From</label>
-          <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} />
-        </div>
-        <div className="rp-date-group">
-          <label>To</label>
-          <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} />
-        </div>
-        <button className="rp-reset-btn" onClick={() => { setSearch(''); setDateFrom(''); setDateTo(''); setPage(1); }}>Reset</button>
+        {!isCashier && (
+          <>
+            <div className="rp-date-group">
+              <label>From</label>
+              <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} />
+            </div>
+            <div className="rp-date-group">
+              <label>To</label>
+              <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} />
+            </div>
+          </>
+        )}
+        <button className="rp-reset-btn" onClick={() => { setSearch(''); setDateFrom(''); setDateTo(''); setTimeframe(initialTimeframe); setPage(1); }}>Reset</button>
       </div>
 
       <div className="rp-export-row">
@@ -1087,16 +1376,33 @@ const TABS = [
   { key: 'sales', label: '💳 Sales Report' },
   { key: 'returns', label: '↩️ Return Logs' },
   { key: 'borrow', label: '📦 Borrow Report' },
+  { key: 'procurement', label: '🛒 Procurement Report' },
 ];
 
 function ReportsPage() {
   const navigate = useNavigate();
+  const { role } = useAuth();
+  const isCashier = role?.toLowerCase() === 'cashier';
   const [activeTab, setActiveTab] = useState('sales');
+  const [tabEnter, setTabEnter] = useState(false);
 
+  useEffect(() => {
+    if (isCashier && activeTab === 'procurement') {
+      setActiveTab('sales');
+    }
+  }, [isCashier, activeTab]);
+
+  useEffect(() => {
+    setTabEnter(false);
+    const timer = window.setTimeout(() => setTabEnter(true), 16);
+    return () => window.clearTimeout(timer);
+  }, [activeTab]);
+
+  const tabs = isCashier ? TABS.filter((tab) => tab.key !== 'procurement') : TABS;
 
   return (
     <DashboardLayout active="reports">
-      <div className="rp-container">
+      <div className="rp-container cashier-page-shell">
         {/* Header */}
         <div className="rp-header">
           <div>
@@ -1108,7 +1414,7 @@ function ReportsPage() {
 
         {/* Tab nav */}
         <div className="rp-tabs">
-          {TABS.map(t => (
+          {tabs.map(t => (
             <button
               key={t.key}
               className={`rp-tab${activeTab === t.key ? ' active' : ''}`}
@@ -1120,10 +1426,11 @@ function ReportsPage() {
         </div>
 
         {/* Tab content */}
-        <div className="rp-body">
+        <div className={`rp-body report-view-shell ${tabEnter ? "report-view-shell-active" : ""}`}>
           {activeTab === 'sales' && <SalesReport />}
           {activeTab === 'returns' && <ReturnsReport />}
           {activeTab === 'borrow' && <BorrowReport />}
+          {!isCashier && activeTab === 'procurement' && <ProcurementReports />}
         </div>
       </div>
     </DashboardLayout>
