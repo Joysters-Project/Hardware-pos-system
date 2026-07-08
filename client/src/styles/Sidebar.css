@@ -297,6 +297,15 @@
   color: #fff;
   font-weight: 700;
   font-size: 13px;
+  overflow: hidden;
+}
+
+.sidebar-float__avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
 }
 
 .sidebar-float__user-info {

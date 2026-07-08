@@ -19,8 +19,9 @@ const getInitials = (v) =>
 
 export default function MyProfile() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
-  const fileRef = useRef();
+  const { logout, updateProfilePhoto } = useAuth();
+  const fileRef         = useRef(); // used in edit form
+  const overviewFileRef = useRef(); // used in overview circle
 
   const [profile,      setProfile]      = useState(null);
   const [loading,      setLoading]      = useState(true);
@@ -71,6 +72,34 @@ export default function MyProfile() {
     setPhotoPreview(URL.createObjectURL(file));
   };
 
+  // Called from overview circle — upload immediately without opening edit panel
+  const handleOverviewPhotoChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const preview = URL.createObjectURL(file);
+    setPhotoPreview(preview);
+    try {
+      const fd = new FormData();
+      fd.append("first_name", profile.first_name || "");
+      fd.append("last_name",  profile.last_name  || "");
+      fd.append("email",      profile.email      || "");
+      fd.append("phone_no",   profile.phone_no   || "");
+      fd.append("address",    profile.address    || "");
+      fd.append("profile_photo", file);
+      const res = await api.put("/profile", fd);
+      setProfile(res.data);
+      syncForm(res.data);
+      updateProfilePhoto(res.data.profile_photo ? `${BASE_URL}/${res.data.profile_photo}` : null);
+      toast.success("Profile photo updated");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to update photo");
+      // revert preview on error
+      setPhotoPreview(profile.profile_photo ? `${BASE_URL}/${profile.profile_photo}` : null);
+    }
+    // reset input so same file can be re-selected
+    e.target.value = "";
+  };
+
   const handleDeletePhoto = async () => {
     if (!window.confirm("Remove your profile photo?")) return;
     try {
@@ -78,6 +107,7 @@ export default function MyProfile() {
       setPhotoPreview(null);
       setForm((f) => ({ ...f, profile_photo: null }));
       setProfile((p) => ({ ...p, profile_photo: null }));
+      updateProfilePhoto(null);
       toast.success("Photo removed");
     } catch {
       toast.error("Failed to remove photo");
@@ -123,6 +153,7 @@ export default function MyProfile() {
       const res = await api.put("/profile", fd);
       setProfile(res.data);
       syncForm(res.data);
+      updateProfilePhoto(res.data.profile_photo ? `${BASE_URL}/${res.data.profile_photo}` : null);
       setActivePanel("none");
       toast.success("Profile updated successfully");
     } catch (err) {
@@ -192,22 +223,21 @@ export default function MyProfile() {
                 ? <img src={photoPreview} alt="Profile" className="pf-photo-img" />
                 : <div className="pf-photo-initials">{getInitials(fullName)}</div>
               }
-              {/* camera overlay — click triggers file input */}
-              {/* <button
+              <button
                 type="button"
                 className="pf-photo-overlay"
-                onClick={() => fileRef.current?.click()}
+                onClick={() => overviewFileRef.current?.click()}
                 title="Change photo"
-              > */}
-                {/* <Camera size={18} /> */}
-                {/* <span>Change</span> */}
-              {/* </button> */}
+              >
+                <Camera size={18} />
+                <span>Change</span>
+              </button>
               <input
-                ref={fileRef}
+                ref={overviewFileRef}
                 type="file"
                 accept="image/*"
                 style={{ display: "none" }}
-                onChange={handlePhotoChange}
+                onChange={handleOverviewPhotoChange}
               />
             </div>
             {/* delete photo button — only when photo exists */}
@@ -286,6 +316,11 @@ export default function MyProfile() {
 
             <form onSubmit={handleSave} className="pf-form">
               <div className="pf-form-grid">
+                <div className="pf-field pf-field--full">
+                  <label>Profile Photo</label>
+                  <input type="file" accept="image/*" onChange={handlePhotoChange} />
+                  <span className="pf-hint">JPEG / PNG / WEBP · max 5 MB</span>
+                </div>
                 <div className="pf-field">
                   <label>First Name</label>
                   <input name="first_name" value={form.first_name}
@@ -313,11 +348,6 @@ export default function MyProfile() {
                   <label>Address</label>
                   <textarea name="address" rows={3} value={form.address}
                     onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />
-                </div>
-                <div className="pf-field pf-field--full">
-                  <label>Profile Photo</label>
-                  <input type="file" accept="image/*" onChange={handlePhotoChange} />
-                  <span className="pf-hint">JPEG / PNG / WEBP · max 5 MB</span>
                 </div>
               </div>
 

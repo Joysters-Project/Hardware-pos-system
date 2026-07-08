@@ -153,7 +153,7 @@ const getNavItems = (role) => {
 };
 
 export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed }) {
-  const { user, role } = useAuth();
+  const { user, role, profilePhoto } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -276,7 +276,12 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
             }`}
             title={isCollapsed ? `${userName} (${displayRole})` : undefined}
           >
-            <div className="sidebar-float__avatar">{initials}</div>
+            <div className="sidebar-float__avatar">
+              {profilePhoto
+                ? <img src={profilePhoto} alt={userName} className="sidebar-float__avatar-img" />
+                : initials
+              }
+            </div>
             <div className="sidebar-float__user-info">
               <div className="sidebar-float__user-name">{userName}</div>
               <div className="sidebar-float__user-role">{displayRole}</div>
