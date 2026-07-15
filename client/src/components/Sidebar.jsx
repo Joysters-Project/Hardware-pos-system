@@ -25,6 +25,7 @@ import {
   Bell,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import NavbarNotificationBell from "./NavbarNotificationBell";
 import "../styles/Sidebar.css";
 
 /* ─── Nav configuration ─── */
@@ -47,7 +48,7 @@ const getNavItems = (role) => {
       },
       {
         key: "due-collection",
-        label: "Due Collection",
+        label: "Due",
         icon: Wallet,
         path: "/due-collection",
       },
@@ -84,6 +85,12 @@ const getNavItems = (role) => {
       path: dashPath,
     },
     {
+      key: "cashier-panel",
+      label: "Cashier Panel",
+      icon: ShoppingCart,
+      path: "/cashier-panel",
+    },
+    {
       key: "departments",
       label: "Departments",
       icon: Building2,
@@ -118,12 +125,6 @@ const getNavItems = (role) => {
       label: "Reports",
       icon: TrendingUp,
       path: "/reports",
-    },
-    {
-      key: "returns",
-      label: "Returns",
-      icon: RefreshCw,
-      path: "/returns",
     },
     {
       key: "expenses",
@@ -230,14 +231,17 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
               <div className="sidebar-float__brand-sub">Hardware POS</div>
             </div>
           </div>
-          <button
-            type="button"
-            className="sidebar-collapse-toggle"
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <NavbarNotificationBell />
+            <button
+              type="button"
+              className="sidebar-collapse-toggle"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+            </button>
+          </div>
         </div>
 
         {/* Navigation */}

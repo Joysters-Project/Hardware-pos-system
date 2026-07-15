@@ -32,11 +32,12 @@ const getAllPayments = async (req, res) => {
 
     const list = await db.salary_payments.findAll({
       where,
+      subQuery: false,
       include: [{
         ...empInclude,
         where: Object.keys(empWhere).length ? empWhere : undefined
       }],
-      order: [['payment_year', 'DESC'], ['payment_month', 'DESC'], ['created_at', 'DESC']]
+      order: [['payment_year', 'DESC'], ['payment_month', 'DESC'], [db.sequelize.col('salary_payments.created_at'), 'DESC']]
     });
     res.status(200).json(list);
   } catch (error) {

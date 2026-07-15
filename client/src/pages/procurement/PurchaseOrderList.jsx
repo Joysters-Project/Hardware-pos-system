@@ -2,8 +2,8 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, RefreshCw, Eye, Trash2 } from 'lucide-react';
-import { usePurchaseOrders, useDeletePurchaseOrder } from '@/services/procurementApi';
-import '@/styles/Procurement.css';
+import { usePurchaseOrders, useDeletePurchaseOrder } from '../../services/procurementApi';
+import '../../styles/Procurement.css';
 
 export default function PurchaseOrderList() {
   const navigate = useNavigate();

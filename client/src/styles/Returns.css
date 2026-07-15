@@ -754,7 +754,7 @@
 }
 .rp-ret-vertical-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 24px;
   padding: 20px;
   background: #fdf2f2;
@@ -818,9 +818,46 @@
   border-left: 3px solid #f0a500;
 }
 
+.rp-ret-col--wide {
+  grid-column: 1 / -1;
+  min-width: 0;
+  border-top: 1px solid #f0dada;
+  padding-top: 16px;
+}
+
 @media screen and (max-width: 992px) {
   .rp-ret-vertical-grid {
     grid-template-columns: 1fr;
     gap: 16px;
   }
+}
+
+/* ── Tab Navigation Bar ── */
+.rp-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.rp-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #777;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: -2px;
+}
+
+.rp-tab:hover {
+  color: #8b3a3a;
+}
+
+.rp-tab.active {
+  color: #8b3a3a;
+  border-bottom-color: #8b3a3a;
 }

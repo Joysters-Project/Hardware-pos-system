@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Save } from 'lucide-react';
 import { useSupplier, useCreateSupplier, useUpdateSupplier } from '../../services/procurementApi';
+import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../../utils/phoneValidation';
 import '../../styles/Procurement.css';
 
 const EMPTY = {
@@ -22,6 +23,7 @@ export default function SupplierForm() {
   const isEdit   = Boolean(id);
   const [form, setForm]   = useState(EMPTY);
   const [error, setError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
 
   const { data: supplier, isLoading: fetching } = useSupplier(isEdit ? id : null);
   const createMutation = useCreateSupplier();
@@ -50,7 +52,15 @@ export default function SupplierForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setPhoneError('');
     if (!form.supplier_name.trim()) { setError('Supplier name is required'); return; }
+    if (form.phone) {
+      const phoneValidation = validateSriLankanPhone(form.phone);
+      if (!phoneValidation.isValid) {
+        setPhoneError(phoneValidation.message);
+        return;
+      }
+    }
     const payload = { ...form, credit_limit: form.credit_limit ? parseFloat(form.credit_limit) : null };
     try {
       if (isEdit) await updateMutation.mutateAsync({ id, data: payload });
@@ -131,6 +141,24 @@ export default function SupplierForm() {
                 ) : f.type === 'textarea' ? (
                   <textarea name={f.name} value={form[f.name]} onChange={set}
                     placeholder={f.placeholder} rows={3} className="proc-input proc-textarea" />
+                ) : f.name === 'phone' ? (
+                  <div>
+                    <input
+                      name={f.name}
+                      type="tel"
+                      value={form[f.name]}
+                      onChange={(e) => {
+                        setForm(p => ({ ...p, [f.name]: filterSriLankanPhoneInput(e.target.value) }));
+                        if (phoneError) setPhoneError('');
+                      }}
+                      placeholder={f.placeholder}
+                      className={`proc-input ${phoneError ? 'phone-error' : ''}`}
+                    />
+                    {form.phone && form.phone.length < 10 && (
+                      <small style={{ color: '#777' }}>{form.phone.length}/10 digits</small>
+                    )}
+                    {phoneError && <small style={{ color: '#ef4444' }}>{phoneError}</small>}
+                  </div>
                 ) : (
                   <input name={f.name} type={f.type || 'text'} value={form[f.name]} onChange={set}
                     placeholder={f.placeholder} required={f.required} className="proc-input"

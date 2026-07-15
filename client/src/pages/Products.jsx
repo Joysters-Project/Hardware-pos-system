@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Pencil, Trash2, Eye, Plus, RefreshCw, FileDown } from "lucide-react";
+import { Pencil, Trash2, Eye, Plus, RefreshCw, FileDown, AlertTriangle } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../api/axios";
 import AdminDashboard from "./AdminDashboard";
@@ -101,9 +101,11 @@ function ProductsPage() {
   const [viewProduct, setViewProduct] = useState(null);
   const printRef = useRef(null);
 
+
+
   const exportPDF = () => {
     const printContent = printRef.current;
-    if (!printContent) return;
+    if (!printContent || !viewProduct) return;
     const win = window.open("", "_blank", "width=800,height=700");
     win.document.write(`
 			<!DOCTYPE html><html><head><title>Product Details — #${viewProduct.product_id}</title>
@@ -169,11 +171,8 @@ function ProductsPage() {
 				api.get("/products"),
 				api.get("/category"),
 				api.get("/brands"),
-				api.get("/units"),
+				api.get("/units")
 			]);
-			// console.log("CATEGORY DATA:", categoryRes.data);
-			// console.log("BRANDS DATA:", brandsRes.data);
-			// console.log("UNITS DATA:", unitsRes.data);
 			setProducts(Array.isArray(productsRes.data) ? productsRes.data : []);
 			setCategories(Array.isArray(categoryRes.data) ? categoryRes.data : []);
 			setBrands(Array.isArray(brandsRes.data) ? brandsRes.data : []);
@@ -202,6 +201,7 @@ function ProductsPage() {
         String(p.batch_no || "").toLowerCase().includes(q)
       ));
   }, [products, search]);
+
 
 
   const openEdit = (p) => {
@@ -273,7 +273,6 @@ function ProductsPage() {
         </div>
       </div>
 
-
       <div className="search-bar-wrap">
         <input
           className="search"
@@ -283,66 +282,66 @@ function ProductsPage() {
         />
       </div>
 
-      <div className="table-wrap">
-        <table className="products-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th>Category</th>
-              <th>Brand</th>
-              <th>Unit</th>
-              <th>Price</th>
-              <th>Stock Qty</th>
-              <th>Expiry Date</th>
-              <th>Min Stock</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan="11" className="empty-row">Loading...</td></tr>
-            ) : filteredProducts.length === 0 ? (
-              <tr><td colSpan="11" className="empty-row">No products found.</td></tr>
-            ) : filteredProducts.map((p) => (
-              <tr key={p.product_id}>
-                <td><span className="id-badge">#{p.product_id}</span></td>
-                <td className="name-cell">{p.product_name}</td>
-                <td>{categoryMap.get(Number(p.category_id)) || "—"}</td>
-                <td>{brandMap.get(Number(p.brand_id)) || "—"}</td>
-                <td>{unitMap.get(Number(p.unit_id)) || "—"}</td>
-                <td className="price-cell">Rs. {Number(p.unit_price || 0).toFixed(2)}</td>
-                <td>
-                  <span className={`stock-badge ${p.stock_quantity <= p.min_stock_quantity ? "low" : ""}`}>
-                    {p.stock_quantity ?? 0}
-                  </span>
-                </td>
-                <td>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString() : "—"}</td>
-                <td>{p.min_stock_quantity ?? 0}</td>
-                <td>
-                  <span className={`status-pill ${String(p.status).toLowerCase() === "active" ? "active" : "inactive"}`}>
-                    {p.status || "active"}
-                  </span>
-                </td>
-                <td>
-                  <div className="action-btns">
-                    <button className="icon-btn view" title="View" onClick={() => setViewProduct(p)}>
-                      <Eye size={15} />
-                    </button>
-                    <button className="icon-btn edit" title="Edit" onClick={() => openEdit(p)}>
-                      <Pencil size={15} />
-                    </button>
-                    <button className="icon-btn delete" title="Delete" onClick={() => deleteProduct(p.product_id)}>
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          <div className="table-wrap">
+            <table className="products-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Category</th>
+                  <th>Brand</th>
+                  <th>Unit</th>
+                  <th>Price</th>
+                  <th>Stock Qty</th>
+                  <th>Expiry Date</th>
+                  <th>Min Stock</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan="11" className="empty-row">Loading...</td></tr>
+                ) : filteredProducts.length === 0 ? (
+                  <tr><td colSpan="11" className="empty-row">No products found.</td></tr>
+                ) : filteredProducts.map((p) => (
+                  <tr key={p.product_id}>
+                    <td><span className="id-badge">#{p.product_id}</span></td>
+                    <td className="name-cell">{p.product_name}</td>
+                    <td>{categoryMap.get(Number(p.category_id)) || "—"}</td>
+                    <td>{brandMap.get(Number(p.brand_id)) || "—"}</td>
+                    <td>{unitMap.get(Number(p.unit_id)) || "—"}</td>
+                    <td className="price-cell">Rs. {Number(p.unit_price || 0).toFixed(2)}</td>
+                    <td>
+                      <span className={`stock-badge ${p.stock_quantity <= p.min_stock_quantity ? "low" : ""}`}>
+                        {p.stock_quantity ?? 0}
+                      </span>
+                    </td>
+                    <td>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString() : "—"}</td>
+                    <td>{p.min_stock_quantity ?? 0}</td>
+                    <td>
+                      <span className={`status-pill ${String(p.status).toLowerCase() === "active" ? "active" : "inactive"}`}>
+                        {p.status || "active"}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="action-btns">
+                        <button className="icon-btn view" title="View" onClick={() => setViewProduct(p)}>
+                          <Eye size={15} />
+                        </button>
+                        <button className="icon-btn edit" title="Edit" onClick={() => openEdit(p)}>
+                          <Pencil size={15} />
+                        </button>
+                        <button className="icon-btn delete" title="Delete" onClick={() => deleteProduct(p.product_id)}>
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
       {editModal && (
         <div className="modal-overlay">
@@ -419,8 +418,118 @@ function ProductsPage() {
           </div>
         </div>
       )}
-		</div>
-	);
+
+      {viewProduct && (
+        <div className="modal-overlay" onClick={() => setViewProduct(null)}>
+          <div className="modal-box view-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Product Details</h2>
+              <div className="view-header-actions">
+                {viewProduct.status !== "deleted" && (
+                  <button className="export-pdf-btn" onClick={exportPDF}>
+                    <FileDown size={14} /> Export PDF
+                  </button>
+                )}
+                <button className="modal-close" onClick={() => setViewProduct(null)}>×</button>
+              </div>
+            </div>
+
+            {viewProduct.status === "deleted" ? (
+              <div style={{ padding: "2rem", textAlign: "center", color: "#888" }}>
+                <AlertTriangle size={48} style={{ color: "#8b3a3a", marginBottom: "1rem" }} />
+                <h3>Product Discontinued</h3>
+                <p style={{ fontSize: "0.9rem", marginTop: "0.5rem" }}>
+                  This product has been deleted or is no longer active in the products database.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="view-section">
+                  <h3 className="view-section-title">Basic Information</h3>
+                  <div className="view-grid">
+                    <div className="view-row">
+                      <span className="view-label">Product ID</span>
+                      <span className="view-value">#{viewProduct.product_id}</span>
+                    </div>
+                    <div className="view-row">
+                      <span className="view-label">Product Name</span>
+                      <span className="view-value">{viewProduct.product_name || "—"}</span>
+                    </div>
+                    <div className="view-row">
+                      <span className="view-label">Type</span>
+                      <span className="view-value">{viewProduct.type || "—"}</span>
+                    </div>
+                    <div className="view-row">
+                      <span className="view-label">Batch No</span>
+                      <span className="view-value">{viewProduct.batch_no || "—"}</span>
+                    </div>
+                    <div className="view-row">
+                      <span className="view-label">Status</span>
+                      <span className="view-value">
+                        <span className={`status-pill ${String(viewProduct.status).toLowerCase()}`}>
+                          {viewProduct.status || "active"}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="view-section">
+                  <h3 className="view-section-title">Classification</h3>
+                  <div className="view-grid">
+                    <div className="view-row">
+                      <span className="view-label">Category</span>
+                      <span className="view-value">{categoryMap.get(Number(viewProduct.category_id)) || "—"}</span>
+                    </div>
+                    <div className="view-row">
+                      <span className="view-label">Brand</span>
+                      <span className="view-value">{brandMap.get(Number(viewProduct.brand_id)) || "—"}</span>
+                    </div>
+                    <div className="view-row">
+                      <span className="view-label">Unit</span>
+                      <span className="view-value">{unitMap.get(Number(viewProduct.unit_id)) || "—"}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="view-section">
+                  <h3 className="view-section-title">Pricing</h3>
+                  <div className="view-grid">
+                    <div className="view-row">
+                      <span className="view-label">Unit Price</span>
+                      <span className="view-value">Rs. {Number(viewProduct.unit_price || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="view-row">
+                      <span className="view-label">Cost Price</span>
+                      <span className="view-value">Rs. {Number(viewProduct.cost_price || 0).toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="view-section">
+                  <h3 className="view-section-title">Stock Details</h3>
+                  <div className="view-grid">
+                    <div className="view-row">
+                      <span className="view-label">Stock Quantity</span>
+                      <span className="view-value">{viewProduct.stock_quantity ?? 0}</span>
+                    </div>
+                    <div className="view-row">
+                      <span className="view-label">Min Stock</span>
+                      <span className="view-value">{viewProduct.min_stock_quantity ?? 0}</span>
+                    </div>
+                    <div className="view-row">
+                      <span className="view-label">Reorder Level</span>
+                      <span className="view-value">{viewProduct.reorder_level ?? 0}</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function Products() {
