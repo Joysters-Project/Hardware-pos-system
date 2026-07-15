@@ -318,7 +318,26 @@ export default function MyProfile() {
               <div className="pf-form-grid">
                 <div className="pf-field pf-field--full">
                   <label>Profile Photo</label>
-                  <input type="file" accept="image/*" onChange={handlePhotoChange} />
+                  <div className="pf-photo-upload-wrap">
+                    <label className="pf-photo-upload" htmlFor="profile-photo-input">
+                      {photoPreview ? (
+                        <img src={photoPreview} alt="Profile preview" className="pf-photo-upload-img" />
+                      ) : (
+                        <div className="pf-photo-upload-placeholder">
+                          <Camera size={24} />
+                          <span>Choose</span>
+                        </div>
+                      )}
+                    </label>
+                    <input
+                      id="profile-photo-input"
+                      ref={fileRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoChange}
+                      className="pf-photo-upload-input"
+                    />
+                  </div>
                   <span className="pf-hint">JPEG / PNG / WEBP · max 5 MB</span>
                 </div>
                 <div className="pf-field">
