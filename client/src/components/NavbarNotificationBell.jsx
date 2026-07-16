@@ -1,30 +1,47 @@
-import { useEffect, useState, useRef } from "react";
-import { Bell, X } from "lucide-react";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { Bell, X, ChevronRight, Package, AlertTriangle, RefreshCw, Clock, ShoppingCart } from "lucide-react";
 import api from "../api/axios";
 import { useNavigate } from "react-router-dom";
+import { useUnreadNotificationsCount } from "../services/procurementApi";
+import "../styles/NavbarNotificationBell.css";
 
 const THEME = "#8b3a3a";
 
+/* Relative time helper — no external dependency */
+function relativeTime(dateStr) {
+  if (!dateStr) return null;
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1)  return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)  return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+/* Per-type config — icon, color, nav key */
+const INVENTORY_ITEMS = [
+  { key: "out-of-stock",  label: "Out of Stock",      summaryKey: "Out of Stock",  Icon: Package,       color: "#ef4444" },
+  { key: "low-stock",     label: "Low Stock",          summaryKey: "Low Stock",     Icon: AlertTriangle, color: "#f97316" },
+  { key: "reorder",       label: "Need Reorder",       summaryKey: "Reorder",       Icon: RefreshCw,     color: "#d97706" },
+  { key: "near-expiry",   label: "Near Expiry",        summaryKey: "Near Expiry",   Icon: Clock,         color: "#a855f7" },
+  { key: "expired",       label: "Expired",            summaryKey: "Expired",       Icon: ShoppingCart,  color: "#991b1b" },
+];
+
 export default function NavbarNotificationBell() {
-  const [open, setOpen] = useState(false);
+  const isCashier = (localStorage.getItem("role") || "").toLowerCase() === "cashier";
+  const [open, setOpen]       = useState(false);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const ref = useRef(null);
+  const ref      = useRef(null);
 
-  useEffect(() => {
-    fetchSummary();
-  }, []);
+  /* Existing procurement unread count — reuses the hook already in procurementApi */
+  const { data: procData } = useUnreadNotificationsCount();
+  const procUnread = procData?.count || 0;
 
-  useEffect(() => {
-    const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const fetchSummary = async () => {
+  /* ── Existing fetch (unchanged) ── */
+  const fetchSummary = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.get("/alerts/summary");
@@ -34,156 +51,157 @@ export default function NavbarNotificationBell() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const total = summary?.total || 0;
-  const items = [
-    { key: "out-of-stock", label: "Products Out Of Stock", emoji: "🔴", count: summary?.["Out of Stock"] || 0, color: "#ef4444" },
-    { key: "low-stock", label: "Products Low Stock", emoji: "🟠", count: summary?.["Low Stock"] || 0, color: "#f97316" },
-    { key: "reorder", label: "Products Need Reorder", emoji: "🟡", count: summary?.["Reorder"] || 0, color: "#d97706" },
-    { key: "near-expiry", label: "Products Expiring Soon", emoji: "🟣", count: summary?.["Near Expiry"] || 0, color: "#a855f7" },
-    { key: "expired", label: "Product Expired", emoji: "🚫", count: summary?.["Expired"] || 0, color: "#991b1b" },
-  ];
+  useEffect(() => { fetchSummary(); }, [fetchSummary]);
+
+  /* ── Outside-click close (unchanged) ── */
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const inventoryTotal = summary?.total || 0;
+  const badgeCount     = inventoryTotal + (isCashier ? 0 : procUnread);
+  const timestamp      = relativeTime(summary?.updated_at);
+
+  const close = () => setOpen(false);
 
   return (
-    <div ref={ref} style={{ position: "relative" }}>
+    <div ref={ref} className="nbell-root">
+      {/* ── Bell button — visually unchanged ── */}
       <button
+        className="nbell-btn"
         onClick={() => setOpen((o) => !o)}
-        style={{
-          position: "relative",
-          background: "transparent",
-          border: "none",
-          cursor: "pointer",
-          padding: 8,
-          borderRadius: 10,
-          color: "#ffff",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          transition: "background 0.2s",
-        }}
-        onMouseEnter={(e) => e.currentTarget.style.background = "#a84545"}
-        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+        aria-label="Notifications"
       >
-        <Bell size={30} />
-        {total > 0 && (
-          <span style={{
-            position: "absolute",
-            top: 2, right: 2,
-            width: 18, height: 18,
-            borderRadius: "50%",
-            background: "#ef4444",
-            color: "#fff",
-            fontSize: "0.7rem",
-            fontWeight: 800,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            border: "2px solid #fff",
-          }}>
-            {total > 9 ? "9+" : total}
+        <Bell className="nbell-icon" />
+        {badgeCount > 0 && (
+          <span className="nbell-badge">
+            {badgeCount > 99 ? "99+" : badgeCount}
           </span>
         )}
       </button>
 
+      {/* ── Dropdown ── */}
       {open && (
-        <div style={{
-          position: "absolute",
-          top: "calc(100% + 8px)",
-          right: -15,
-          width: 250,
-          background: "#fff",
-          borderRadius: 14,
-          boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
-          border: "1px solid #e5e7eb",
-          zIndex: 999,
-          overflow: "hidden",
-        }}>
-          <div style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            padding: "14px 16px",
-            borderBottom: "1px solid #f3f4f6",
-          }}>
-            <span style={{ fontWeight: 800, fontSize: "0.95rem", color: "#2c2c2c" }}>
-              Notifications
-            </span>
-            <button
-              onClick={() => setOpen(false)}
-              style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b7280" }}
-            >
-              <X size={16} />
+        <div className="nbell-dropdown">
+
+          {/* Header */}
+          <div className="nbell-dropdown__header">
+            <span className="nbell-dropdown__title">Notifications</span>
+            <button className="nbell-dropdown__close" onClick={close} aria-label="Close">
+              <X size={15} />
             </button>
           </div>
 
           {loading ? (
-            <div style={{ padding: 20, textAlign: "center", color: "#9ca3af", fontSize: "0.85rem" }}>
-              Loading…
-            </div>
+            <div className="nbell-dropdown__loading">Loading…</div>
           ) : (
-            <div style={{ padding: "8px 0", maxHeight: 320, overflowY: "auto" }}>
-              {items.map((item) => (
-                <div
-                  key={item.key}
-                  onClick={() => {
-                    setOpen(false);
-                    navigate(`/alerts?type=${item.key}`);
-                  }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 10,
-                    padding: "10px 16px",
-                    cursor: "pointer",
-                    transition: "background 0.2s",
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = "#f9fafb"}
-                  onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: "1.1rem" }}>{item.emoji}</span>
-                    <span style={{
-                      fontSize: "0.82rem",
-                      fontWeight: 600,
-                      color: item.count > 0 ? "#2c2c2c" : "#9ca3af",
-                    }}>
-                      {item.label}
-                    </span>
-                  </div>
-                  <span style={{
-                    fontSize: "0.8rem",
-                    fontWeight: 800,
-                    color: item.count > 0 ? item.color : "#9ca3af",
-                    background: item.count > 0 ? `${item.color}14` : "#f3f4f6",
-                    padding: "2px 10px",
-                    borderRadius: 999,
-                  }}>
-                    {item.count}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+            <>
+              {/* ── Section 1: Inventory Alerts ── */}
+              <div className="nbell-section-label">
+                <Package size={12} />
+                Inventory Alerts
+                {inventoryTotal > 0 && (
+                  <span className="nbell-section-count">{inventoryTotal}</span>
+                )}
+              </div>
 
-          <div
-            onClick={() => { setOpen(false); navigate("/alerts"); }}
-            style={{
-              padding: "12px 16px",
-              borderTop: "1px solid #f3f4f6",
-              textAlign: "center",
-              fontSize: "0.8rem",
-              fontWeight: 700,
-              color: THEME,
-              cursor: "pointer",
-              background: "#fff",
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.background = "#faf5f5"}
-            onMouseLeave={(e) => e.currentTarget.style.background = "#fff"}
-          >
-            View All Alerts
-          </div>
+              <div className="nbell-inv-list">
+                {INVENTORY_ITEMS.map(({ key, label, summaryKey, Icon, color }) => {
+                  const count = summary?.[summaryKey] || 0;
+                  return (
+                    <div
+                      key={key}
+                      className={`nbell-inv-row ${count === 0 ? "nbell-inv-row--zero" : ""}`}
+                      onClick={() => { close(); navigate(`/alerts?type=${key}`); }}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === "Enter" && (close(), navigate(`/alerts?type=${key}`))}
+                    >
+                      <span
+                        className="nbell-inv-icon"
+                        style={{ background: `${color}18`, color }}
+                      >
+                        <Icon size={13} />
+                      </span>
+                      <span className="nbell-inv-label">{label}</span>
+                      <span
+                        className="nbell-inv-badge"
+                        style={
+                          count > 0
+                            ? { background: `${color}18`, color }
+                            : {}
+                        }
+                      >
+                        {count}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {timestamp && (
+                <div className="nbell-inv-timestamp">Updated {timestamp}</div>
+              )}
+
+              {/* ── Divider ── */}
+              {!isCashier && <div className="nbell-divider" />}
+
+              {/* ── Section 2: Procurement Summary ── */}
+              {!isCashier && (
+              <>
+              <div className="nbell-section-label">
+                <ShoppingCart size={12} />
+                Procurement
+                {procUnread > 0 && (
+                  <span className="nbell-section-count nbell-section-count--proc">{procUnread}</span>
+                )}
+              </div>
+
+              <div className="nbell-proc-card">
+                {procUnread > 0 ? (
+                  <>
+                    <p className="nbell-proc-card__headline">
+                      {procUnread} Purchase Order{procUnread !== 1 ? "s" : ""} Pending Approval
+                    </p>
+                    <p className="nbell-proc-card__sub">Requires your attention</p>
+                  </>
+                ) : (
+                  <p className="nbell-proc-card__sub nbell-proc-card__sub--ok">
+                    No pending procurement alerts
+                  </p>
+                )}
+                <button
+                  className="nbell-proc-card__link"
+                  onClick={() => { close(); navigate("/procurement/notifications"); }}
+                >
+                  View Procurement <ChevronRight size={13} />
+                </button>
+              </div>
+
+              {/* ── Divider ── */}
+              <div className="nbell-divider" />
+              </>
+              )}
+
+              {/* ── Footer ── */}
+              <div
+                className="nbell-footer"
+                onClick={() => { close(); navigate("/alerts"); }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === "Enter" && (close(), navigate("/alerts"))}
+              >
+                View All Inventory Alerts
+                <ChevronRight size={13} />
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

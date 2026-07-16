@@ -6,6 +6,8 @@ const emailService = require('../services/emailService');
 const procurementNotificationService = require('../services/procurementNotificationService');
 const forecastService = require('../services/forecastService');
 const supplierPerformanceService = require('../services/supplierPerformanceService');
+const { syncAlertsForProduct } = require('../services/alertService');
+const { createBatchFromPOItem } = require('../services/batchService');
 
 const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0] || req.socket?.remoteAddress || null;
 
@@ -193,16 +195,31 @@ exports.updateStatus = async (req, res) => {
     const updateData = { status };
     if (notes || cancel_reason) updateData.notes = cancel_reason || notes;
 
-    // On Received: update stock, record delivery date, resolve alerts, close suggestions
+    // On Cancelled: restore alert status to Active so Create PO becomes available again
+    if (status === 'Cancelled') {
+      for (const item of po.po_items) {
+        await alerts.update(
+          { status: 'Active', purchase_order_id: null },
+          { where: { product_id: item.product_id, status: 'Purchase Ordered', purchase_order_id: po.po_id, is_resolved: false } }
+        ).catch(() => {});
+      }
+    }
+
+    // On Received: create batches, record delivery date, resolve alerts, close suggestions
     if (status === 'Received') {
       updateData.actual_delivery_date = new Date().toISOString().split('T')[0];
 
       for (const item of po.po_items) {
-        await products.increment('stock_quantity', {
-          by: item.quantity,
-          where: { product_id: item.product_id },
-          transaction,
-        });
+        // Create a batch for each PO line item
+        await createBatchFromPOItem({
+          productId:       item.product_id,
+          purchaseOrderId: po.po_id,
+          supplierId:      po.supplier_id,
+          purchasePrice:   item.unit_price,
+          quantity:        item.quantity,
+          expiryDate:      item.expiry_date || null,
+          receivedDate:    new Date().toISOString().split('T')[0],
+        }).catch(err => console.error(`[PO Received] Batch creation failed for product ${item.product_id}: ${err.message}`));
 
         // Record inventory movement
         await logActivity(
@@ -217,6 +234,12 @@ exports.updateStatus = async (req, res) => {
           { is_resolved: true, resolved_date: new Date() },
           { where: { product_id: item.product_id, is_resolved: false }, transaction }
         ).catch(() => {});
+
+        // Sync alerts based on actual post-receipt stock level
+        const updatedProduct = await products.findByPk(item.product_id, { transaction });
+        if (updatedProduct) {
+          await syncAlertsForProduct(updatedProduct).catch(() => {});
+        }
 
         // Close related auto-reorder suggestions for this product
         await auto_reorder_suggestions.update(
@@ -304,11 +327,21 @@ exports.cancelPurchaseOrder = async (req, res) => {
 // DELETE /api/procurement/purchase-orders/:id (only Pending)
 exports.deletePurchaseOrder = async (req, res) => {
   try {
-    const po = await purchase_orders.findByPk(req.params.id);
+    const po = await purchase_orders.findByPk(req.params.id, {
+      include: [{ model: po_items }],
+    });
     if (!po) return res.status(404).json({ message: 'Purchase Order not found' });
 
     if (po.status !== 'Pending') {
       return res.status(400).json({ error: 'Only Pending orders can be deleted' });
+    }
+
+    // Restore alert status to Active before deleting
+    for (const item of po.po_items || []) {
+      await alerts.update(
+        { status: 'Active', purchase_order_id: null },
+        { where: { product_id: item.product_id, status: 'Purchase Ordered', purchase_order_id: po.po_id, is_resolved: false } }
+      ).catch(() => {});
     }
 
     await po.destroy();

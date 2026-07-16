@@ -23,9 +23,9 @@ import {
   ClipboardList,
   UserCircle,
   Bell,
+  Archive,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import NavbarNotificationBell from "./NavbarNotificationBell";
 import "../styles/Sidebar.css";
 
 /* ─── Nav configuration ─── */
@@ -138,6 +138,10 @@ const getNavItems = (role) => {
       icon: Bell,
       path: `${prefix}/alerts`,
     },
+    // Batch Inventory — Admin and Manager
+    ...(normalizedRole !== "cashier"
+      ? [{ key: "batch-inventory", label: "Batch Inventory", icon: Archive, path: `${prefix}/inventory/batches` }]
+      : []),
     // Salary is Admin-only — hidden for manager role
     ...(role !== "manager"
       ? [{ key: "salary", label: "Salary", icon: Wallet, path: "/salary" }]
@@ -231,17 +235,14 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
               <div className="sidebar-float__brand-sub">Hardware POS</div>
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <NavbarNotificationBell />
-            <button
-              type="button"
-              className="sidebar-collapse-toggle"
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-            </button>
-          </div>
+          <button
+            type="button"
+            className="sidebar-collapse-toggle"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+          </button>
         </div>
 
         {/* Navigation */}

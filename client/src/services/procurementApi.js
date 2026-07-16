@@ -279,6 +279,22 @@ export function useProducts() {
   });
 }
 
+// ── Receive Order Item Hook ───────────────────────────────────────────────────
+
+export function useReceiveOrderItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data) => api.post('/batch-inventory/receive', data),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: ['purchaseOrder', String(variables.po_id)] });
+      qc.invalidateQueries({ queryKey: ['purchaseOrders'] });
+      qc.invalidateQueries({ queryKey: ['products'] });
+      toast.success('Order received and batch created successfully!');
+    },
+    onError: (e) => toast.error(e.response?.data?.error || 'Failed to receive order'),
+  });
+}
+
 // ── New API definitions ──────────────────────────────────────────────────────
 
 const paymentApi = {

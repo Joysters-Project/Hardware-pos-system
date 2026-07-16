@@ -1,8 +1,8 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-const ProtectedRoute = ({ children, requiredRole = null }) => {
-  const { isAuthenticated, loading, hasRole } = useAuth();
+const ProtectedRoute = ({ children, requiredRole = null, blockedRoles = [] }) => {
+  const { isAuthenticated, loading, hasRole, role } = useAuth();
 
   // Show loading state or redirect
   if (loading) {
@@ -17,6 +17,11 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
   // ❌ Wrong role → go to home
   if (requiredRole && !hasRole(requiredRole)) {
     return <Navigate to="/" replace />;
+  }
+
+  // ❌ Blocked role → redirect to their dashboard
+  if (blockedRoles.length > 0 && role && blockedRoles.includes(role.toLowerCase())) {
+    return <Navigate to={`/dashboard/${role.toLowerCase()}`} replace />;
   }
 
   return children;

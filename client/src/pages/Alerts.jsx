@@ -6,6 +6,9 @@ import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
 import { useLocation } from "react-router-dom";
 import "../styles/Alerts.css";
+import DetailModal from "../components/DetailModal";
+import ProductDetailContent from "../components/ProductDetailContent";
+import PODetailContent from "../components/PODetailContent";
 
 const THEME = "#8b3a3a";
 
@@ -19,6 +22,10 @@ const ALERT_FILTERS = [
   { key: "purchase-ordered", label: "Purchase Ordered" },
 ];
 
+const CASHIER_ALLOWED_FILTERS = ["", "out-of-stock", "low-stock", "reorder", "near-expiry", "expired"];
+
+const CASHIER_INVENTORY_TYPES = ["Out of Stock", "Low Stock", "Reorder", "Near Expiry", "Expired"];
+
 const ALERT_TYPE_MAP = {
   "out-of-stock": "Out of Stock",
   "low-stock": "Low Stock",
@@ -28,23 +35,104 @@ const ALERT_TYPE_MAP = {
   "purchase-ordered": "Purchase Ordered",
 };
 
+function DisposeModal({ target, onClose, onConfirm, disposing }) {
+  const available = target?.product?.stock_quantity ?? 0;
+  const [qty, setQty] = useState(available);
+
+  // Reset qty whenever the target changes
+  useEffect(() => { setQty(available); }, [available]);
+
+  if (!target) return null;
+
+  const { product } = target;
+  const invalid = qty < 1 || qty > available;
+
+  return (
+    <div className="dispose-overlay" onClick={onClose}>
+      <div className="dispose-modal" onClick={e => e.stopPropagation()}>
+        <div className="dispose-modal-header">
+          <span>🗑 Dispose Expired Stock</span>
+          <button className="dispose-close" onClick={onClose} disabled={disposing}>✕</button>
+        </div>
+        <div className="dispose-modal-body">
+          <div className="dispose-row">
+            <span className="dispose-label">Product</span>
+            <span className="dispose-value">{product.product_name || "—"}</span>
+          </div>
+          {product.batch_no && (
+            <div className="dispose-row">
+              <span className="dispose-label">Batch No.</span>
+              <span className="dispose-value">{product.batch_no}</span>
+            </div>
+          )}
+          <div className="dispose-row">
+            <span className="dispose-label">Available Qty</span>
+            <span className="dispose-value" style={{ color: "#991b1b", fontWeight: 800 }}>{available}</span>
+          </div>
+          <div className="dispose-row dispose-row--input">
+            <label className="dispose-label" htmlFor="dispose-qty">Dispose Qty</label>
+            <input
+              id="dispose-qty"
+              type="number"
+              min={1}
+              max={available}
+              value={qty}
+              onChange={e => setQty(Math.min(available, Math.max(1, parseInt(e.target.value) || 1)))}
+              className="dispose-qty-input"
+              disabled={disposing}
+            />
+          </div>
+          {invalid && (
+            <p className="dispose-error">Quantity must be between 1 and {available}.</p>
+          )}
+        </div>
+        <div className="dispose-modal-footer">
+          <button className="dispose-btn-cancel" onClick={onClose} disabled={disposing}>Cancel</button>
+          <button
+            className="dispose-btn-confirm"
+            onClick={() => onConfirm(qty)}
+            disabled={invalid || disposing}
+          >
+            {disposing ? "Disposing…" : "Confirm Dispose"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AlertCenterPage() {
+  const isCashier = (localStorage.getItem("role") || "").toLowerCase() === "cashier";
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [alerts, setAlerts] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [resolvingId, setResolvingId] = useState(null);
   const [search, setSearch] = useState("");
+  const [disposeTarget, setDisposeTarget] = useState(null);
+  const [disposing, setDisposing] = useState(false);
+  const [viewProductId, setViewProductId] = useState(null);
+  const [viewPoId, setViewPoId] = useState(null);
 
   const activeFilter = searchParams.get("type") || "";
 
   useEffect(() => {
     fetchSummary();
+    if (searchParams.get("poCreated") === "1") {
+      toast.success("Purchase Order created successfully.");
+      searchParams.delete("poCreated");
+      setSearchParams(searchParams, { replace: true });
+    }
   }, []);
 
   useEffect(() => {
     fetchAlerts();
+  }, [activeFilter, search]);
+
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === "visible") { fetchAlerts(); fetchSummary(); } };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [activeFilter, search]);
 
   const fetchSummary = async () => {
@@ -71,7 +159,9 @@ function AlertCenterPage() {
       if (search.trim()) params.search = search.trim();
 
       const res = await api.get("/alerts", { params });
-      setAlerts(Array.isArray(res.data) ? res.data : res.data?.alerts || []);
+      let data = Array.isArray(res.data) ? res.data : res.data?.alerts || [];
+      if (isCashier) data = data.filter(a => a.status !== "Purchase Ordered");
+      setAlerts(data);
     } catch (err) {
       toast.error("Unable to load alerts.");
     } finally {
@@ -88,27 +178,31 @@ function AlertCenterPage() {
     setSearchParams(searchParams);
   };
 
-  const resolveAlert = async (alertId) => {
-    setResolvingId(alertId);
+  const handleDispose = async (qty) => {
+    if (!disposeTarget) return;
+    const { product } = disposeTarget;
+    const newStock = (product.stock_quantity ?? 0) - qty;
+    setDisposing(true);
     try {
-      await api.put(`/alerts/${alertId}/resolve`);
-      toast.success("Alert resolved successfully.");
-      fetchAlerts();
-      fetchSummary();
+      await api.put(`/products/${product.product_id}`, { stock_quantity: newStock });
+      toast.success(`Disposed ${qty} unit${qty !== 1 ? "s" : ""} of ${product.product_name}.`);
+      setDisposeTarget(null);
+      await Promise.all([fetchAlerts(), fetchSummary()]);
     } catch (err) {
-      toast.error(err.response?.data?.message || "Unable to resolve alert.");
+      toast.error(err.response?.data?.error || "Failed to dispose stock.");
     } finally {
-      setResolvingId(null);
+      setDisposing(false);
     }
   };
 
   const daysRemaining = (expiryDate) => {
     if (!expiryDate) return "—";
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const expiry = new Date(expiryDate);
-    const diff = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
-    if (diff < 0) return `${Math.abs(diff)}d overdue`;
-    return `${diff}d`;
+    const expiry = new Date(expiryDate); expiry.setHours(0, 0, 0, 0);
+    const diff = Math.round((expiry - today) / (1000 * 60 * 60 * 24));
+    if (diff > 0)  return `${diff}d`;
+    if (diff === 0) return "Today";
+    return `${Math.abs(diff)}d overdue`;
   };
 
   const statusColor = (type) => {
@@ -124,8 +218,11 @@ function AlertCenterPage() {
 
   const counts = useMemo(() => {
     if (!summary) return {};
+    const inventoryTotal = isCashier
+      ? CASHIER_INVENTORY_TYPES.reduce((sum, t) => sum + (summary[t] || 0), 0)
+      : (summary.total || 0);
     return {
-      "": summary.total || 0,
+      "": inventoryTotal,
       "out-of-stock": summary["Out of Stock"] || 0,
       "low-stock": summary["Low Stock"] || 0,
       "reorder": summary["Reorder"] || 0,
@@ -133,10 +230,26 @@ function AlertCenterPage() {
       "expired": summary["Expired"] || 0,
       "purchase-ordered": summary["Purchase Ordered"] || 0,
     };
-  }, [summary]);
+  }, [summary, isCashier]);
 
   return (
     <div className="alerts-container">
+      <DisposeModal
+        target={disposeTarget}
+        onClose={() => !disposing && setDisposeTarget(null)}
+        onConfirm={handleDispose}
+        disposing={disposing}
+      />
+      {viewProductId && (
+        <DetailModal title="Product Details" onClose={() => setViewProductId(null)}>
+          <ProductDetailContent productId={viewProductId} />
+        </DetailModal>
+      )}
+      {viewPoId && (
+        <DetailModal title="Purchase Order Details" onClose={() => setViewPoId(null)}>
+          <PODetailContent poId={viewPoId} />
+        </DetailModal>
+      )}
       <div className="alerts-header">
         <div>
           <h1>Stock Alert Center</h1>
@@ -147,7 +260,7 @@ function AlertCenterPage() {
       </div>
 
       <div className="alert-chips">
-        {ALERT_FILTERS.map((f) => {
+        {(isCashier ? ALERT_FILTERS.filter(f => CASHIER_ALLOWED_FILTERS.includes(f.key)) : ALERT_FILTERS).map((f) => {
           const isActive = activeFilter === f.key;
           const count = counts[f.key] || 0;
           let chipColor = THEME;
@@ -218,31 +331,29 @@ function AlertCenterPage() {
               <th>Expiry Date</th>
               <th>Days Remaining</th>
               <th>Status</th>
-              <th>Actions</th>
+              {!isCashier && <th>Actions</th>}
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr className="loading-row">
-                <td colSpan="11">Loading alerts...</td>
+                <td colSpan={isCashier ? 10 : 11}>Loading alerts...</td>
               </tr>
             ) : alerts.length === 0 ? (
               <tr className="empty-row">
-                <td colSpan="11">No alerts found.</td>
+                <td colSpan={isCashier ? 10 : 11}>No alerts found.</td>
               </tr>
             ) : (
               alerts.map((alert) => {
                 const product = alert.product || {};
                 const type = alert.alert_type;
                 const color = statusColor(type);
-                const needsPO = ["Out of Stock", "Low Stock", "Reorder"].includes(type);
-
                 return (
                   <tr key={alert.alert_id}>
                     <td>{alert.alert_id}</td>
                     <td>
                       <button
-                        onClick={() => navigate(`/products/edit/${product.product_id}`)}
+                        onClick={() => setViewProductId(product.product_id)}
                         style={{
                           background: "transparent",
                           border: "none",
@@ -264,16 +375,18 @@ function AlertCenterPage() {
                     <td>{product.stock_quantity ?? "-"}</td>
                     <td>{product.min_stock_quantity ?? "-"}</td>
                     <td>{product.reorder_level ?? "-"}</td>
-                    <td>{product.batch_no || "-"}</td>
+                    <td>{alert.batch_number || "-"}</td>
                     <td>{product.expiry_date ? new Date(product.expiry_date).toLocaleDateString() : "-"}</td>
                     <td>
                       <span style={{
                         fontWeight: 700,
                         color: (() => {
                           if (!product.expiry_date) return "#6b7280";
-                          const today = new Date(); today.setHours(0,0,0,0);
-                          const diff = Math.ceil((new Date(product.expiry_date) - today) / 86400000);
-                          if (diff < 0) return "#991b1b";
+                          const today = new Date(); today.setHours(0, 0, 0, 0);
+                          const expiry = new Date(product.expiry_date); expiry.setHours(0, 0, 0, 0);
+                          const diff = Math.round((expiry - today) / 86400000);
+                          if (diff < 0)  return "#991b1b";
+                          if (diff === 0) return "#991b1b";
                           if (diff <= 30) return "#a855f7";
                           return "#374151";
                         })(),
@@ -290,32 +403,63 @@ function AlertCenterPage() {
                         {alert.status || 'Active'}
                       </span>
                     </td>
+                    {!isCashier && (
                     <td>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        {needsPO ? (
-                          <button
-                            className="action-btn action-btn--po"
-                            onClick={() => navigate(`/procurement/orders/create?productId=${product.product_id}`)}
-                          >
-                            Create Purchase Order
-                          </button>
-                        ) : (
-                          <button
-                            className="action-btn action-btn--view"
-                            onClick={() => navigate(`/products/edit/${product.product_id}`)}
-                          >
-                            View
-                          </button>
-                        )}
-                        <button
-                          className="action-btn action-btn--resolve"
-                          disabled={resolvingId === alert.alert_id || alert.is_resolved}
-                          onClick={() => resolveAlert(alert.alert_id)}
-                        >
-                          {alert.is_resolved ? "Resolved" : resolvingId === alert.alert_id ? "Resolving…" : "Resolve"}
-                        </button>
-                      </div>
+                      {(() => {
+                        const status   = alert.status || "Active";
+                        const poId     = alert.purchase_order_id;
+                        const returnTo = encodeURIComponent(`/alerts${activeFilter ? `?type=${activeFilter}&` : "?"}poCreated=1`);
+                        const viewProduct = () => setViewProductId(product.product_id);
+                        const viewBatch   = () => setViewProductId(product.product_id);
+                        const viewPO      = () => setViewPoId(poId);
+                        const createPO    = () => navigate(`/procurement/orders/create?productId=${product.product_id}&returnTo=${returnTo}`);
+
+                        if (status === "Purchase Ordered") {
+                          return (
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              <button className="action-btn action-btn--view" onClick={viewPO}>
+                                👁 View Purchase Order
+                              </button>
+                            </div>
+                          );
+                        }
+
+                        if (type === "Expired") {
+                          return (
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              <button className="action-btn action-btn--dispose" onClick={() => setDisposeTarget(alert)}>
+                                🗑 Dispose Stock
+                              </button>
+                              <button className="action-btn action-btn--review" onClick={viewBatch}>
+                                📦 View Batch
+                              </button>
+                            </div>
+                          );
+                        }
+
+                        if (type === "Near Expiry") {
+                          return (
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              <button className="action-btn action-btn--review" onClick={viewBatch}>
+                                📦 View Batch
+                              </button>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                            <button className="action-btn action-btn--po" onClick={createPO}>
+                              🛒 Create Purchase Order
+                            </button>
+                            <button className="action-btn action-btn--view" onClick={viewProduct}>
+                              👁 View Product
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </td>
+                    )}
                   </tr>
                 );
               })

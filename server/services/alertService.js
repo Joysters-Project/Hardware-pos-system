@@ -1,9 +1,10 @@
-const { alerts, products } = require('../models');
+const { alerts, products, batch_inventory } = require('../models');
+const { Op } = require('sequelize');
 
 const NEAR_EXPIRY_DAYS = 30;
 const ALL_TYPES = ['Out of Stock', 'Low Stock', 'Reorder', 'Near Expiry', 'Expired'];
 
-function getApplicableTypes(product) {
+function getApplicableTypes(product, nearestBatchExpiry) {
   const types   = [];
   const stock   = parseInt(product.stock_quantity)     || 0;
   const minQty  = parseInt(product.min_stock_quantity) || 0;
@@ -12,16 +13,17 @@ function getApplicableTypes(product) {
   // Mutually exclusive stock alerts — priority order
   if (stock === 0) {
     types.push('Out of Stock');
-  } else if (stock > 0 && stock < minQty) {
+  } else if (stock > 0 && stock <= minQty) {
     types.push('Low Stock');
   } else if (stock === reorder) {
     types.push('Reorder');
   }
 
-  // Expiry alerts — only when there is remaining stock to account for
-  if (product.expiry_date && stock > 0) {
+  // Expiry alerts — use nearest batch expiry, fallback to product.expiry_date
+  const expiryDate = nearestBatchExpiry || product.expiry_date;
+  if (expiryDate) {
     const today    = new Date(); today.setHours(0, 0, 0, 0);
-    const expiry   = new Date(product.expiry_date);
+    const expiry   = new Date(expiryDate);
     const daysLeft = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
 
     if (daysLeft <= 0) {
@@ -34,9 +36,25 @@ function getApplicableTypes(product) {
   return types;
 }
 
+// Get the nearest expiry date from batches with remaining stock (any non-Disposed status)
+async function getNearestBatchExpiry(productId) {
+  if (!batch_inventory) return null;
+  const batch = await batch_inventory.findOne({
+    where: {
+      product_id: productId,
+      remaining_quantity: { [Op.gt]: 0 },
+      expiry_date: { [Op.ne]: null },
+      status: { [Op.notIn]: ['Disposed'] },
+    },
+    order: [['expiry_date', 'ASC']],
+  }).catch(() => null);
+  return batch?.expiry_date || null;
+}
+
 async function syncAlertsForProduct(product) {
   try {
-    const applicable = getApplicableTypes(product);
+    const nearestBatchExpiry = await getNearestBatchExpiry(product.product_id);
+    const applicable = getApplicableTypes(product, nearestBatchExpiry);
 
     for (const alert_type of applicable) {
       const exists = await alerts.findOne({
@@ -68,7 +86,8 @@ async function generateAllAlerts() {
   let autoResolved = 0;
 
   for (const product of allProducts) {
-    const applicable = getApplicableTypes(product);
+    const nearestBatchExpiry = await getNearestBatchExpiry(product.product_id);
+    const applicable = getApplicableTypes(product, nearestBatchExpiry);
 
     for (const alert_type of applicable) {
       const exists = await alerts.findOne({

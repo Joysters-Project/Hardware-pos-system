@@ -1,4 +1,5 @@
-const { products, category, brands, units } = require('../models');
+const { products, category, brands, units, batch_inventory } = require('../models');
+const { Op } = require('sequelize');
 const { logActivity } = require('../services/auditService');
 const { syncAlertsForProduct } = require('../services/alertService');
 const EXCLUDE = ['repair_quantity'];
@@ -48,7 +49,20 @@ exports.getProductById = async (req, res) => {
       ],
     });
     if (!product) return res.status(404).json({ message: 'Product not found' });
-    res.status(200).json(product);
+
+    const plain = product.toJSON();
+    if (batch_inventory) {
+      const batch = await batch_inventory.findOne({
+        where: { product_id: plain.product_id, remaining_quantity: { [Op.gt]: 0 }, status: 'Active' },
+        attributes: ['batch_number'],
+        order: [['expiry_date', 'ASC']],
+      });
+      plain.batch_number = batch?.batch_number || plain.batch_no || null;
+    } else {
+      plain.batch_number = plain.batch_no || null;
+    }
+
+    res.status(200).json(plain);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -70,6 +84,7 @@ exports.updateProduct = async (req, res) => {
       changes.push(`Name changed from "${product.product_name}" to "${safeBody.product_name}"`);
 
     await product.update(safeBody);
+    await product.reload();
     await syncAlertsForProduct(product);
     const io = req.app.get('io');
     if (io) io.emit('alerts:updated');

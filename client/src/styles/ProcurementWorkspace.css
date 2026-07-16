@@ -83,52 +83,6 @@
   font-weight: 700;
 }
 
-/* ── Bell button ── */
-.procurement-bell-btn {
-  position: relative;
-  background: transparent;
-  border: 1.5px solid #e0e0e0;
-  color: #666;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  margin-bottom: 2px;
-  flex-shrink: 0;
-}
-.procurement-bell-btn:hover {
-  border-color: #8b3a3a;
-  color: #8b3a3a;
-  background: #fdf6f6;
-}
-
-.procurement-bell-badge {
-  position: absolute;
-  top: -3px;
-  right: -3px;
-  background: #c62828;
-  color: #fff;
-  font-size: 9px;
-  font-weight: 700;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 3px;
-  border-radius: 8px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  border: 2px solid #fff;
-}
-
-@keyframes pulse-badge {
-  0%, 100% { transform: scale(1); }
-  50%       { transform: scale(1.15); }
-}
-
 /* ── Content area ── */
 .procurement-workspace-content {
   flex: 1;

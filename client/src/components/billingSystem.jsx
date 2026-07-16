@@ -61,7 +61,7 @@ const BillingSystem = () => {
       try {
         const res = await api.get('/products');
         const products = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-        setCatalogProducts(products.filter(p => isProductActive(p)));
+        setCatalogProducts(products);
       } catch (err) {
         console.error('Failed to load catalog:', err);
       }
@@ -285,9 +285,8 @@ const BillingSystem = () => {
         params: { q: trimmedQuery }
       });
       const products = Array.isArray(res.data) ? res.data : [];
-      const activeResults = products.filter(product => isProductActive(product));
-      setSearchResults(activeResults);
-      setShowResults(activeResults.length > 0);
+      setSearchResults(products);
+      setShowResults(products.length > 0);
     } catch (err) {
       console.error('Search error:', err);
       setSearchResults([]);
@@ -295,9 +294,14 @@ const BillingSystem = () => {
     }
   };
 
-  const isProductActive = (product) => {
-    const activeStatuses = ['active', 'Active', 'ACTIVE'];
-    return activeStatuses.includes(product.status);
+  const getSellabilityError = (product) => {
+    const isInactive = String(product.status).toLowerCase() === 'inactive';
+    if (isInactive) return `"${product.product_name}" is inactive and cannot be sold.`;
+    // Use cart-adjusted available stock: catalog stock minus quantity already in cart
+    const inCart = cart.find(i => i.product_id === product.product_id)?.quantity || 0;
+    const available = (product.stock_quantity ?? 0) - inCart;
+    if (available <= 0) return 'This product is out of stock and cannot be sold.';
+    return null;
   };
 
   const lookupCustomerByPhone = async (phone) => {
@@ -349,24 +353,54 @@ const BillingSystem = () => {
   };
 
   // Add product to cart
-  const handleAddToCart = (product) => {
-    if (!isProductActive(product)) {
-      return alert(`${product.product_name} is unavailable.`);
-    }
-    if (isProductExpired(product)) {
-      setExpiredProduct(product);
-      setShowExpiredModal(true);
-      toast.error(
-        <div>
-          <div style={{ fontWeight: 600 }}>Product has expired</div>
-          <div style={{ fontSize: '0.875rem' }}>This product cannot be sold.</div>
-        </div>,
-        { duration: 3000 }
-      );
+  const handleAddToCart = async (product) => {
+    // 1. Block only explicitly inactive products
+    const isInactive = String(product.status).toLowerCase() === 'inactive';
+    if (isInactive) {
+      alert(`"${product.product_name}" is inactive and cannot be sold.`);
       return;
     }
-    if (product.stock_quantity <= 0) {
-      return alert(`${product.product_name} is out of stock.`);
+
+    // 2. Check cart-adjusted available stock
+    const inCart = cart.find(i => i.product_id === product.product_id)?.quantity || 0;
+    const available = (product.stock_quantity ?? 0) - inCart;
+    if (available <= 0) {
+      alert('This product is out of stock and cannot be sold.');
+      return;
+    }
+
+    // 3. Batch check: if batch records exist, require at least one valid non-expired batch
+    try {
+      const batchRes = await api.get(`/batch-inventory/product/${product.product_id}`);
+      const batches = Array.isArray(batchRes.data) ? batchRes.data : [];
+      if (batches.length > 0) {
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const allExpired = batches.every(
+          b => b.expiry_date && new Date(b.expiry_date) < today
+        );
+        const hasValidBatch = batches.some(
+          b => b.remaining_quantity > 0 &&
+               (!b.expiry_date || new Date(b.expiry_date) >= today)
+        );
+        if (allExpired) {
+          setExpiredProduct(product);
+          setShowExpiredModal(true);
+          toast.error(
+            <div>
+              <div style={{ fontWeight: 600 }}>Product has expired</div>
+              <div style={{ fontSize: '0.875rem' }}>This product cannot be sold.</div>
+            </div>,
+            { duration: 3000 }
+          );
+          return;
+        }
+        if (!hasValidBatch) {
+          alert('No valid batch is available for this product.');
+          return;
+        }
+      }
+    } catch {
+      // Batch API unavailable — fall through and allow the sale; server will validate
     }
 
     const existingItem = cart.find(item => item.product_id === product.product_id);
@@ -486,7 +520,7 @@ const BillingSystem = () => {
       try {
         const catRes = await api.get('/products');
         const products = Array.isArray(catRes.data) ? catRes.data : (catRes.data?.data || []);
-        setCatalogProducts(products.filter(p => isProductActive(p)));
+        setCatalogProducts(products);
       } catch (e) { /* silent */ }
     } catch (err) { alert(err.response?.data?.error || "Error"); }
   };
@@ -599,7 +633,7 @@ const BillingSystem = () => {
                       <div className="result-name">{product.product_name}</div>
                       <div className="result-meta">
                         {product.product_code && `Code: ${product.product_code}`}
-                        {product.barcode && ` · Barcode: ${product.barcode}`}
+                        {product.barcode && ` Â· Barcode: ${product.barcode}`}
                       </div>
                     </div>
                     <div className="result-right">
@@ -615,7 +649,7 @@ const BillingSystem = () => {
 
             {searchQuery.trim() && !showResults && searchResults.length === 0 && (
               <div className="pos-search-dropdown-modern no-results">
-                <div className="no-results-icon">🔍</div>
+                <div className="no-results-icon">ðŸ”</div>
                 <div>No products found for "{searchQuery.trim()}"</div>
                 <div className="no-results-hint">Try searching by name, barcode or SKU</div>
               </div>
@@ -649,7 +683,7 @@ const BillingSystem = () => {
           <div className="pos-catalog-modern">
             {catalogProducts.length === 0 ? (
               <div className="catalog-empty">
-                <div className="empty-icon">📦</div>
+                <div className="empty-icon">ðŸ“¦</div>
                 <div className="empty-text">No products available</div>
                 <div className="empty-sub">Add products from the Products page</div>
               </div>
@@ -740,7 +774,7 @@ const BillingSystem = () => {
             {/* Cart Items as Table */}
             {cart.length === 0 ? (
               <div className="cart-empty-modern">
-                <div className="empty-cart-icon">🛒</div>
+                <div className="empty-cart-icon">ðŸ›’</div>
                 <div className="empty-cart-text">No items added</div>
                 <div className="empty-cart-sub">Search or click a product to add</div>
               </div>
@@ -1032,7 +1066,7 @@ const BillingSystem = () => {
                   <div key={idx} className="receipt-item-row">
                     <div>
                       <div className="receipt-item-name">{item.product_name}</div>
-                      <div className="receipt-item-detail">Rs.{item.unit_price.toFixed(2)} × {item.quantity}</div>
+                      <div className="receipt-item-detail">Rs.{item.unit_price.toFixed(2)} Ã— {item.quantity}</div>
                     </div>
                     <div style={{ textAlign: 'center' }}>{item.quantity}</div>
                     <div style={{ textAlign: 'right', fontWeight: 600 }}>Rs.{itemTotal.toFixed(2)}</div>

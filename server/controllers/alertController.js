@@ -1,4 +1,4 @@
-const { alerts, products } = require('../models');
+const { alerts, products, batch_inventory } = require('../models');
 const { Op } = require('sequelize');
 const { syncAlertsForProduct, generateAllAlerts } = require('../services/alertService');
 
@@ -20,15 +20,27 @@ exports.generateAlerts = async (req, res) => {
 // GET /api/alerts/summary — counts for all 5 alert types + Active/Purchase Ordered statuses
 exports.getAlertSummary = async (req, res) => {
   try {
-    const [outOfStock, lowStock, reorder, nearExpiry, expired, activeCount, poOrderedCount] = await Promise.all([
-      alerts.count({ where: { alert_type: 'Out of Stock', is_resolved: false } }),
-      alerts.count({ where: { alert_type: 'Low Stock',     is_resolved: false } }),
-      alerts.count({ where: { alert_type: 'Reorder',       is_resolved: false } }),
-      alerts.count({ where: { alert_type: 'Near Expiry',   is_resolved: false } }),
-      alerts.count({ where: { alert_type: 'Expired',       is_resolved: false } }),
+    const baseInclude = [{ model: products, attributes: ['stock_quantity', 'min_stock_quantity', 'reorder_level'] }];
+
+    const [outOfStockRows, lowStockRows, reorder, nearExpiry, expired, activeCount, poOrderedCount] = await Promise.all([
+      alerts.findAll({ where: { alert_type: 'Out of Stock', is_resolved: false }, include: baseInclude }),
+      alerts.findAll({ where: { alert_type: 'Low Stock',    is_resolved: false }, include: baseInclude }),
+      alerts.count({ where: { alert_type: 'Reorder',      is_resolved: false } }),
+      alerts.count({ where: { alert_type: 'Near Expiry',  is_resolved: false } }),
+      alerts.count({ where: { alert_type: 'Expired',      is_resolved: false } }),
       alerts.count({ where: { status: 'Active' } }),
       alerts.count({ where: { status: 'Purchase Ordered', is_resolved: false }, distinct: true, col: 'product_id' }),
     ]);
+
+    // Only count Out of Stock alerts where product stock is actually 0
+    const outOfStock = outOfStockRows.filter(a => a.product && parseInt(a.product.stock_quantity) === 0).length;
+    // Only count Low Stock alerts where product stock > 0 AND stock <= min_stock_quantity
+    const lowStock = lowStockRows.filter(a => {
+      if (!a.product) return false;
+      const stock = parseInt(a.product.stock_quantity);
+      const min   = parseInt(a.product.min_stock_quantity);
+      return stock > 0 && stock <= min;
+    }).length;
 
     res.json({
       'Out of Stock': outOfStock,
@@ -74,23 +86,17 @@ exports.getAllAlerts = async (req, res) => {
 
     const alertsList = await alerts.findAll(opts);
 
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    // Filter out stale stock alerts that no longer match actual product stock
+    let response = alertsList.filter(alert => {
+      const product = alert.product;
+      if (!product) return true;
+      const stock = parseInt(product.stock_quantity);
+      const min   = parseInt(product.min_stock_quantity);
+      if (alert.alert_type === 'Out of Stock') return stock === 0;
+      if (alert.alert_type === 'Low Stock')    return stock > 0 && stock <= min;
+      return true;
+    });
 
-    for (const alert of alertsList) {
-      if (alert.alert_type === 'Near Expiry') {
-        const product = alert.product;
-        if (product && product.expiry_date) {
-          const expiry = new Date(product.expiry_date);
-          const daysLeft = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
-          if (daysLeft <= 0) {
-            await alert.update({ alert_type: 'Expired' });
-            alert.alert_type = 'Expired';
-          }
-        }
-      }
-    }
-
-    let response = alertsList;
     if (where.status === 'Purchase Ordered' && !alert_type) {
       const seen = new Set();
       response = [];
@@ -104,40 +110,31 @@ exports.getAllAlerts = async (req, res) => {
     }
 
     if (alert_type === 'Expired') {
-      const transitionedIds = [];
-      const nearExpiryAlerts = await alerts.findAll({
-        where: { alert_type: 'Near Expiry', is_resolved: false },
-        include: [{
-          model: products,
-          attributes: ['product_id', 'expiry_date'],
-        }],
+      // Expired alert transitions are handled by generateAllAlerts / syncAlertsForProduct
+    }
+
+    // Build FIFO batch map: batch_inventory (Active, remaining_qty > 0) takes priority,
+    // fallback to product.batch_no if no inventory record exists.
+    const productIds = [...new Set(response.map(a => a.product_id).filter(Boolean))];
+    const batchMap = {};
+    if (batch_inventory && productIds.length) {
+      const batches = await batch_inventory.findAll({
+        where: { product_id: productIds, remaining_quantity: { [Op.gt]: 0 }, status: 'Active' },
+        attributes: ['product_id', 'batch_number', 'expiry_date'],
+        order: [['expiry_date', 'ASC']],
       });
-      for (const alert of nearExpiryAlerts) {
-        const product = alert.product;
-        if (product && product.expiry_date) {
-          const expiry = new Date(product.expiry_date);
-          const daysLeft = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
-          if (daysLeft <= 0) {
-            await alert.update({ alert_type: 'Expired' });
-            transitionedIds.push(alert.alert_id);
-          }
-        }
-      }
-      if (transitionedIds.length > 0) {
-        const newlyTransitioned = await alerts.findAll({
-          where: { alert_id: transitionedIds },
-          include: [{
-            model: products,
-            attributes: ['product_id', 'product_name', 'stock_quantity', 'min_stock_quantity',
-                         'reorder_level', 'batch_no', 'expiry_date', 'status'],
-          }],
-          order: [['alert_id', 'DESC']],
-        });
-        response = [...newlyTransitioned, ...response];
+      for (const b of batches) {
+        if (!batchMap[b.product_id]) batchMap[b.product_id] = b.batch_number;
       }
     }
 
-    res.status(200).json(response);
+    const mapped = response.map(alert => {
+      const plain = alert.toJSON();
+      plain.batch_number = batchMap[plain.product_id] || plain.product?.batch_no || null;
+      return plain;
+    });
+
+    res.status(200).json(mapped);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

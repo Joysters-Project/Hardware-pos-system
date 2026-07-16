@@ -3,20 +3,20 @@ const { products, alerts } = require('../models');
 const ALERT_CHECKS = [
   {
     alert_type: 'Out of Stock',
-    shouldCreate: (product) => product.stock_quantity === 0 && product.status === 'Active',
+    shouldCreate: (product) => product.stock_quantity === 0 && product.status?.toLowerCase() === 'active',
     shouldResolve: (product) => product.stock_quantity > 0,
   },
   {
     alert_type: 'Reorder',
     shouldCreate: (product) =>
-      product.stock_quantity <= product.reorder_level && product.status === 'Active',
+      product.stock_quantity <= product.reorder_level && product.status?.toLowerCase() === 'active',
     shouldResolve: (product) => product.stock_quantity > product.reorder_level,
   },
   {
     alert_type: 'Low Stock',
     shouldCreate: (product) =>
-      product.stock_quantity < product.min_stock_quantity && product.status === 'Active',
-    shouldResolve: (product) => product.stock_quantity >= product.min_stock_quantity,
+      product.stock_quantity > 0 && product.stock_quantity <= product.min_stock_quantity && product.status?.toLowerCase() === 'active',
+    shouldResolve: (product) => product.stock_quantity === 0 || product.stock_quantity > product.min_stock_quantity,
   },
 ];
 

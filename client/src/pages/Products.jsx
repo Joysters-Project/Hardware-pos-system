@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Pencil, Trash2, Eye, Plus, RefreshCw, FileDown } from "lucide-react";
+import { Pencil, Trash2, Eye, Plus, RefreshCw, FileDown, Layers } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../api/axios";
 import AdminDashboard from "./AdminDashboard";
@@ -99,7 +99,23 @@ function ProductsPage() {
 
   // View modal state
   const [viewProduct, setViewProduct] = useState(null);
+  const [productBatches, setProductBatches] = useState([]);
+  const [batchesLoading, setBatchesLoading] = useState(false);
   const printRef = useRef(null);
+
+  const openView = useCallback(async (p) => {
+    setViewProduct(p);
+    setProductBatches([]);
+    setBatchesLoading(true);
+    try {
+      const res = await api.get(`/batch-inventory/product/${p.product_id}`);
+      setProductBatches(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setProductBatches([]);
+    } finally {
+      setBatchesLoading(false);
+    }
+  }, []);
 
   const exportPDF = () => {
     const printContent = printRef.current;
@@ -135,7 +151,7 @@ function ProductsPage() {
 				<tr><td>Product Name</td><td>${viewProduct.product_name || "—"}</td></tr>
 				<tr><td>Type</td><td>${viewProduct.type || "—"}</td></tr>
 				<tr><td>Batch No</td><td>${viewProduct.batch_no || "—"}</td></tr>
-				<tr><td>Status</td><td><span class="badge ${String(viewProduct.status).toLowerCase()}">${viewProduct.status || "active"}</span></td></tr>
+				<tr><td>Status</td><td><span class="badge ${String(viewProduct.status).toLowerCase() === 'inactive' ? 'inactive' : 'active'}">${String(viewProduct.status).toLowerCase() === 'inactive' ? 'Inactive' : 'Active'}</span></td></tr>
 			</table>
 			<div class="section-title">Classification</div>
 			<table>
@@ -321,13 +337,13 @@ function ProductsPage() {
                 <td>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString() : "—"}</td>
                 <td>{p.min_stock_quantity ?? 0}</td>
                 <td>
-                  <span className={`status-pill ${String(p.status).toLowerCase() === "active" ? "active" : "inactive"}`}>
-                    {p.status || "active"}
+                  <span className={`status-pill ${String(p.status).toLowerCase() === "inactive" ? "inactive" : "active"}`}>
+                    {String(p.status).toLowerCase() === "inactive" ? "Inactive" : "Active"}
                   </span>
                 </td>
                 <td>
                   <div className="action-btns">
-                    <button className="icon-btn view" title="View" onClick={() => setViewProduct(p)}>
+                    <button className="icon-btn view" title="View" onClick={() => openView(p)}>
                       <Eye size={15} />
                     </button>
                     <button className="icon-btn edit" title="Edit" onClick={() => openEdit(p)}>
@@ -422,7 +438,7 @@ function ProductsPage() {
       {/* View Modal */}
       {viewProduct && (
         <div className="modal-overlay" onClick={() => setViewProduct(null)}>
-          <div className="modal-box view-modal" onClick={(e) => e.stopPropagation()} ref={printRef}>
+          <div className="modal-box view-modal" style={{ maxWidth: 620 }} onClick={(e) => e.stopPropagation()} ref={printRef}>
             <div className="modal-header">
               <h2>Product Details</h2>
               <div className="view-header-actions">
@@ -442,7 +458,7 @@ function ProductsPage() {
                   ["Product Name", viewProduct.product_name],
                   ["Type", viewProduct.type || "—"],
                   ["Batch No", viewProduct.batch_no || "—"],
-                  ["Status", <span key="s" className={`status-pill ${String(viewProduct.status).toLowerCase() === "active" ? "active" : "inactive"}`}>{viewProduct.status || "active"}</span>],
+                  ["Status", <span key="s" className={`status-pill ${String(viewProduct.status).toLowerCase() === "inactive" ? "inactive" : "active"}`}>{String(viewProduct.status).toLowerCase() === "inactive" ? "Inactive" : "Active"}</span>],
                 ].map(([label, value]) => (
                   <div className="view-row" key={label}>
                     <span className="view-label">{label}</span>
@@ -497,6 +513,45 @@ function ProductsPage() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            <div className="view-section">
+              <p className="view-section-title">Batch History</p>
+              {batchesLoading ? (
+                <p style={{ fontSize: "0.85rem", color: "#888", padding: "0.5rem 0" }}>Loading batches...</p>
+              ) : productBatches.length === 0 ? (
+                <p style={{ fontSize: "0.85rem", color: "#aaa", padding: "0.5rem 0" }}>No batches found for this product.</p>
+              ) : (
+                <div style={{ overflowX: "auto", borderRadius: 8, border: "1px solid #f0e0e0" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                    <thead>
+                      <tr style={{ background: "linear-gradient(135deg,#8b3a3a,#a84545)", color: "#fff" }}>
+                        {["Batch", "Supplier", "PO", "Buy Price", "Rcvd", "Rem", "Rcvd Date", "Expiry", "Status"].map(h => (
+                          <th key={h} style={{ padding: "6px 8px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {productBatches.map((b, i) => {
+                        const BSTYLE = { Active: { background: "#e5f7eb", color: "#1d7e42" }, "Low Stock": { background: "#fff3e0", color: "#e65100" }, Expired: { background: "#fdecea", color: "#c62828" }, Disposed: { background: "#f0f0f0", color: "#888" } };
+                        return (
+                          <tr key={b.batch_id} style={{ background: i % 2 === 0 ? "#fff" : "#fdf8f8", borderTop: "1px solid #f5f0f0" }}>
+                            <td style={{ padding: "5px 8px", fontWeight: 600 }}>{b.batch_number}</td>
+                            <td style={{ padding: "5px 8px" }}>{b.supplier?.supplier_name || "—"}</td>
+                            <td style={{ padding: "5px 8px" }}>{b.purchase_order?.po_number || "—"}</td>
+                            <td style={{ padding: "5px 8px" }}>Rs.{Number(b.purchase_price || 0).toFixed(2)}</td>
+                            <td style={{ padding: "5px 8px" }}>{b.received_quantity}</td>
+                            <td style={{ padding: "5px 8px", fontWeight: 700 }}>{b.remaining_quantity}</td>
+                            <td style={{ padding: "5px 8px" }}>{b.received_date ? new Date(b.received_date).toLocaleDateString("en-GB") : "—"}</td>
+                            <td style={{ padding: "5px 8px" }}>{b.expiry_date ? new Date(b.expiry_date).toLocaleDateString("en-GB") : "—"}</td>
+                            <td style={{ padding: "5px 8px" }}><span className="status-pill" style={BSTYLE[b.status] || {}}>{b.status}</span></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         </div>

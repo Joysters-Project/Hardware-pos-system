@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Building2, 
@@ -9,14 +9,9 @@ import {
   Bell,
   FileBarChart2
 } from 'lucide-react';
-import { useUnreadNotificationsCount } from '../../services/procurementApi';
 import '../../styles/ProcurementWorkspace.css';
 
 export default function ProcurementTopNav() {
-  const navigate = useNavigate();
-  const { data: countData } = useUnreadNotificationsCount();
-  const unreadCount = countData?.count || 0;
-
   const navItems = [
     { label: 'Overview',        path: '/procurement',              icon: LayoutDashboard, end: true },
     { label: 'Suppliers',       path: '/procurement/suppliers',    icon: Building2 },
@@ -52,17 +47,6 @@ export default function ProcurementTopNav() {
             );
           })}
         </nav>
-
-        <button 
-          className="procurement-bell-btn"
-          onClick={() => navigate('/procurement/notifications')}
-          title="Procurement Notifications"
-        >
-          <Bell size={18} />
-          {unreadCount > 0 && (
-            <span className="procurement-bell-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
-          )}
-        </button>
       </div>
     </header>
   );

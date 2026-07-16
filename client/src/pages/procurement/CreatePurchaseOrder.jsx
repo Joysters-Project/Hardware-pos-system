@@ -24,6 +24,7 @@ export default function CreatePurchaseOrder() {
   const isBusy = createMutation.isPending;
 
   const prefilledProductId = searchParams.get('productId');
+  const returnTo = searchParams.get('returnTo');
 
   useEffect(() => {
     if (prefilledProductId && products.length > 0) {
@@ -73,7 +74,7 @@ export default function CreatePurchaseOrder() {
         expected_delivery: expectedDelivery || null, status, notes: notes || null,
         items: items.map(i => ({ product_id: i.product_id, quantity: i.quantity, unit_price: i.cost_price, total_price: i.total_price })),
       });
-      navigate('/procurement/orders');
+      navigate(returnTo ? decodeURIComponent(returnTo) : '/procurement/orders');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create purchase order');
     }
