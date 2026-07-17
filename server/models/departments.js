@@ -10,8 +10,6 @@ module.exports = (sequelize) => {
     status: { type: DataTypes.ENUM('Active', 'Inactive'), allowNull: false, defaultValue: 'Active' }
   }, {
     tableName: 'departments',
-    timestamps: true,
-    createdAt: 'created_at',
-    updatedAt: 'updated_at'
+    timestamps: false
   });
 };

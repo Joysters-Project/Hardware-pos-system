@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Plus, Trash2, Save, Send } from 'lucide-react';
+import { ProductSearchSelect } from '@/components/procurement/ProductSearchSelect';
 import { useActiveSuppliers, useProducts, useCreatePurchaseOrder } from '@/services/procurementApi';
 import '@/styles/Procurement.css';
 
@@ -30,11 +31,15 @@ export default function CreatePurchaseOrder() {
   const updateItem = (index, updates) =>
     setItems(prev => prev.map((item, i) => i === index ? { ...item, ...updates } : item));
 
-  const handleProductChange = (index, productId) => {
-    const product = products.find(p => p.product_id === parseInt(productId));
-    if (product) {
+  const handleProductChange = (index, productId, product) => {
+    const selectedProduct = product || products.find(p => p.product_id === parseInt(productId));
+    if (selectedProduct) {
       const qty = items[index].quantity || 1;
-      updateItem(index, { product_id: product.product_id, cost_price: Number(product.cost_price), total_price: qty * Number(product.cost_price) });
+      updateItem(index, {
+        product_id: selectedProduct.product_id,
+        cost_price: Number(selectedProduct.cost_price),
+        total_price: qty * Number(selectedProduct.cost_price),
+      });
     } else {
       updateItem(index, { product_id: '', cost_price: 0, total_price: 0 });
     }
@@ -144,7 +149,12 @@ export default function CreatePurchaseOrder() {
           <motion.div className="proc-card"
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
             <div className="proc-card-header">
-              <h2>Line Items</h2>
+              <div>
+                <h2>Line Items</h2>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>
+                  Only products with zero stock are shown here for reordering.
+                </p>
+              </div>
               <motion.span className="proc-badge-count" key={items.length}
                 initial={{ scale: 1.3 }} animate={{ scale: 1 }}>
                 {items.length} item{items.length !== 1 ? 's' : ''}
@@ -168,15 +178,14 @@ export default function CreatePurchaseOrder() {
                         transition={{ duration: 0.22 }}>
                         <td><span className="proc-row-num">{index + 1}</span></td>
                         <td>
-                          <select className="proc-input proc-input-sm" value={item.product_id}
-                            onChange={e => handleProductChange(index, e.target.value)}>
-                            <option value="">-- Select Product --</option>
-                            {products.map(p => (
-                              <option key={p.product_id} value={p.product_id}>
-                                {p.product_name} (Stock: {p.stock_quantity})
-                              </option>
-                            ))}
-                          </select>
+                          <ProductSearchSelect
+                            products={products}
+                            value={item.product_id}
+                            onSelect={(productId, product) => handleProductChange(index, productId, product)}
+                            placeholder="Search zero-stock products..."
+                            emptyMessage="No zero-stock products are available right now."
+                            showOnlyZeroStock
+                          />
                         </td>
                         <td>
                           <input type="number" min="1" className="proc-input proc-input-qty"

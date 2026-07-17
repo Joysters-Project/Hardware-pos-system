@@ -17,7 +17,7 @@ exports.getAllAlerts = async (req, res) => {
       where: {},
       include: [{
         model: products,
-        attributes: ['product_id', 'product_name', 'stock_quantity', 'min_stock_quantity', 'reorder_level', 'batch_no', 'expiry_date', 'status'],
+        attributes: ['product_id', 'product_name', 'stock_quantity', 'min_stock_quantity', 'reorder_level', 'batch_no', 'expiry_date'],
       }],
       order: [['is_resolved', 'ASC'], ['alert_id', 'DESC']],
     };
@@ -48,7 +48,7 @@ exports.getAlertById = async (req, res) => {
     const alert = await alerts.findByPk(req.params.id, {
       include: [{
         model: products,
-        attributes: ['product_id', 'product_name', 'stock_quantity', 'min_stock_quantity', 'reorder_level', 'batch_no', 'expiry_date', 'status'],
+        attributes: ['product_id', 'product_name', 'stock_quantity', 'min_stock_quantity', 'reorder_level', 'batch_no', 'expiry_date'],
       }],
     });
     if (!alert) return res.status(404).json({ message: 'Alert not found' });

@@ -18,8 +18,6 @@ module.exports = (sequelize) => {
     department_id: { type: DataTypes.INTEGER, allowNull: false }
   }, {
     tableName: 'employees',
-    timestamps: true,
-    createdAt: 'created_at',
-    updatedAt: 'updated_at'
+    timestamps: false
   });
 };
