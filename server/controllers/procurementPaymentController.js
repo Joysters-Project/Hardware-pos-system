@@ -9,8 +9,20 @@ const { Op, fn, col } = require('sequelize');
  */
 exports.recordPayment = async (req, res) => {
   try {
-    const { payment_id, paid_amount, payment_method, paid_date, notes } = req.body;
-    
+    const {
+      payment_id,
+      paid_amount,
+      payment_method,
+      paid_date,
+      notes,
+      cheque_number,
+      bank_name,
+      cheque_date,
+      pending_cheque_date,
+      cheque_status,
+      pending_days
+    } = req.body;
+
     if (!payment_id || !paid_amount) {
       return res.status(400).json({ error: 'payment_id and paid_amount are required' });
     }
@@ -20,7 +32,15 @@ exports.recordPayment = async (req, res) => {
       paid_amount,
       payment_method,
       paid_date,
-      notes
+      notes,
+      {
+        cheque_number,
+        bank_name,
+        cheque_date,
+        pending_cheque_date,
+        cheque_status,
+        pending_days
+      }
     );
 
     res.json({ message: 'Payment recorded successfully', payment: updated });

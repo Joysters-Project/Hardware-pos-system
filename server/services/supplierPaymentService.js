@@ -2,6 +2,7 @@ const { supplier_payments, suppliers, purchase_orders } = require('../models');
 const { Op } = require('sequelize');
 const emailService = require('./emailService');
 const notificationService = require('./procurementNotificationService');
+const { normalizeChequeDetails, calculatePendingChequeDate } = require('../utils/chequeLogic');
 
 /**
  * createPaymentRecord
@@ -32,7 +33,7 @@ const createPaymentRecord = async (poId, supplierId, invoiceNumber, invoiceAmoun
  * processPayment
  * Record a payment against an invoice (paying down outstanding balance).
  */
-const processPayment = async (paymentId, amountPaid, paymentMethod, paidDate, notes = '') => {
+const processPayment = async (paymentId, amountPaid, paymentMethod, paidDate, notes = '', chequeDetails = {}) => {
   try {
     const payment = await supplier_payments.findByPk(paymentId, {
       include: [
@@ -45,6 +46,7 @@ const processPayment = async (paymentId, amountPaid, paymentMethod, paidDate, no
       throw new Error(`Payment record with ID ${paymentId} not found`);
     }
 
+    const normalizedCheque = normalizeChequeDetails(chequeDetails, paymentMethod);
     const newPaidAmount = parseFloat(payment.paid_amount) + parseFloat(amountPaid);
     const newBalance = parseFloat(payment.invoice_amount) - newPaidAmount;
 
@@ -57,26 +59,60 @@ const processPayment = async (paymentId, amountPaid, paymentMethod, paidDate, no
       status = 'Paid';
     }
 
-    await payment.update({
+    const isChequePayment = (paymentMethod || payment.payment_method || '').toString().toLowerCase() === 'cheque';
+    const updateData = {
       paid_amount: newPaidAmount,
       balance_amount: Math.max(0, newBalance),
       payment_status: status,
-      payment_method: paymentMethod,
+      payment_method: paymentMethod || payment.payment_method,
       paid_date: paidDate || new Date().toISOString().split('T')[0],
       notes: notes || payment.notes
-    });
+    };
 
-    // Create Notification
+    if (isChequePayment) {
+      const pendingDate = normalizedCheque.pending_cheque_date ||
+        calculatePendingChequeDate(normalizedCheque.cheque_date, normalizedCheque.pending_days) ||
+        payment.pending_cheque_date;
+
+      Object.assign(updateData, {
+        cheque_number: normalizedCheque.cheque_number ?? payment.cheque_number ?? null,
+        bank_name: normalizedCheque.bank_name ?? payment.bank_name ?? null,
+        cheque_date: normalizedCheque.cheque_date ?? payment.cheque_date ?? null,
+        pending_cheque_date: pendingDate,
+        cheque_status: normalizedCheque.cheque_status || payment.cheque_status || 'Pending'
+      });
+    } else {
+      Object.assign(updateData, {
+        cheque_number: null,
+        bank_name: null,
+        cheque_date: null,
+        pending_cheque_date: null,
+        cheque_status: null
+      });
+    }
+
+    await payment.update(updateData);
+
+    if (isChequePayment) {
+      await notificationService.createNotification(
+        'CHEQUE_PAYMENT_RECORDED',
+        'Cheque payment recorded',
+        `Cheque ${updateData.cheque_number || payment.payment_id} was recorded for ${payment.supplier?.supplier_name || 'supplier'}.`,
+        'payment',
+        payment.payment_id,
+        'info'
+      );
+    }
+
     await notificationService.createNotification(
       'PAYMENT_RECORDED',
-      `Payment Processed for Invoice ${payment.invoice_number}`,
+      'Payment Processed',
       `Successfully processed payment of LKR ${parseFloat(amountPaid).toLocaleString()} for ${payment.supplier?.supplier_name || 'supplier'}. Remaining balance: LKR ${Math.max(0, newBalance).toLocaleString()}.`,
       'payment',
       payment.payment_id,
       'info'
     );
 
-    // Send Receipt Email (async)
     if (payment.supplier?.email) {
       emailService.sendPaymentReceiptEmail(payment).catch(err => {
         console.error(`[SupplierPaymentService] Failed to send receipt email: ${err.message}`);
@@ -132,6 +168,41 @@ const getPaymentsDueThisWeek = async () => {
   }
 };
 
+const checkAndAlertPendingCheques = async () => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const pendingCheques = await supplier_payments.findAll({
+      where: {
+        payment_method: 'Cheque',
+        cheque_status: { [Op.in]: ['Pending', 'Pending Review'] }
+      },
+      include: [suppliers]
+    });
+
+    for (const payment of pendingCheques) {
+      if (!payment.pending_cheque_date) continue;
+
+      if (payment.pending_cheque_date < today) {
+        await payment.update({ cheque_status: 'Pending Review' });
+
+        await notificationService.createNotification(
+          'CHEQUE_OVERDUE',
+          'Cheque pending beyond expected date',
+          `Cheque ${payment.cheque_number || payment.payment_id} for ${payment.supplier?.supplier_name || 'supplier'} is still pending after ${payment.pending_cheque_date}.`,
+          'payment',
+          payment.payment_id,
+          'warning'
+        );
+      }
+    }
+
+    return pendingCheques.length;
+  } catch (err) {
+    console.error(`[SupplierPaymentService] Error checking pending cheques: ${err.message}`);
+    throw err;
+  }
+};
+
 /**
  * checkAndMarkOverdue
  * Daily cron job to scan outstanding invoices past due date and mark as Overdue.
@@ -180,5 +251,6 @@ module.exports = {
   processPayment,
   getOutstandingPayables,
   getPaymentsDueThisWeek,
-  checkAndMarkOverdue
+  checkAndMarkOverdue,
+  checkAndAlertPendingCheques
 };

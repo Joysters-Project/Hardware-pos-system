@@ -143,6 +143,17 @@ cron.schedule('0 8 * * *', async () => {
   }
 });
 
+// Daily 09:00 — Check pending cheques and raise alerts
+cron.schedule('0 9 * * *', async () => {
+  try {
+    const paymentService = require('./services/supplierPaymentService');
+    const count = await paymentService.checkAndAlertPendingCheques();
+    console.log(`[Cron] Pending cheque check processed ${count} cheque payment(s).`);
+  } catch (e) {
+    console.error('[Cron] Pending cheque check error:', e.message);
+  }
+});
+
 // Daily 06:00 — Recalculate supplier performance scores
 cron.schedule('0 6 * * *', async () => {
   try {
