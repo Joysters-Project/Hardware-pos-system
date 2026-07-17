@@ -14,10 +14,18 @@ import "../styles/Salary.css";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const METHODS = ["Cash", "Bank Transfer", "Cheque"];
+const FREQUENCIES = [
+  { value: "monthly", label: "Monthly" },
+  { value: "weekly", label: "Weekly" },
+  { value: "daily", label: "Daily" },
+  { value: "work_based", label: "Work Based" }
+];
 
 const EMPTY_FORM = {
   employee_id: "", basic_salary: "", bonus_amount: "0",
   deduction_amount: "0", payment_month: "", payment_year: "",
+  payment_frequency: "monthly", pay_period_reference_date: "",
+  pay_period_start_date: "", pay_period_end_date: "", due_date: "",
   payment_method: "Bank Transfer", remarks: ""
 };
 
@@ -271,6 +279,8 @@ function SalaryPage() {
               <th>Bonus</th>
               <th>Deduction</th>
               <th>Final (LKR)</th>
+              <th>Frequency</th>
+              <th>Due Date</th>
               <th>Method</th>
               <th>Status</th>
               <th>Actions</th>
@@ -295,6 +305,8 @@ function SalaryPage() {
                 <td className="sal-bonus">+{Number(p.bonus_amount || 0).toLocaleString("en-LK")}</td>
                 <td className="sal-deduct">-{Number(p.deduction_amount || 0).toLocaleString("en-LK")}</td>
                 <td className="sal-final"><strong>LKR {Number(p.final_salary).toLocaleString("en-LK")}</strong></td>
+                <td>{p.payment_frequency || "monthly"}</td>
+                <td>{p.due_date ? new Date(p.due_date).toLocaleDateString("en-GB") : "—"}</td>
                 <td>{p.payment_method || "—"}</td>
                 <td>
                   <span className={`sal-status-pill ${p.payment_status?.toLowerCase() === "paid" ? "paid" : "pending"}`}>
@@ -399,6 +411,32 @@ function SalaryPage() {
                   <label>Deductions (LKR)</label>
                   <input type="number" min="0" step="0.01" value={form.deduction_amount}
                     onChange={e => setForm({ ...form, deduction_amount: e.target.value })} />
+                </div>
+                <div className="sal-field">
+                  <label>Payment Frequency</label>
+                  <select value={form.payment_frequency} onChange={e => setForm({ ...form, payment_frequency: e.target.value })}>
+                    {FREQUENCIES.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                  </select>
+                </div>
+                <div className="sal-field">
+                  <label>Reference Date</label>
+                  <input type="date" value={form.pay_period_reference_date}
+                    onChange={e => setForm({ ...form, pay_period_reference_date: e.target.value })} />
+                </div>
+                <div className="sal-field">
+                  <label>Pay Period Start</label>
+                  <input type="date" value={form.pay_period_start_date}
+                    onChange={e => setForm({ ...form, pay_period_start_date: e.target.value })} />
+                </div>
+                <div className="sal-field">
+                  <label>Pay Period End</label>
+                  <input type="date" value={form.pay_period_end_date}
+                    onChange={e => setForm({ ...form, pay_period_end_date: e.target.value })} />
+                </div>
+                <div className="sal-field">
+                  <label>Due Date</label>
+                  <input type="date" value={form.due_date}
+                    onChange={e => setForm({ ...form, due_date: e.target.value })} />
                 </div>
                 <div className="sal-field">
                   <label>Payment Method</label>

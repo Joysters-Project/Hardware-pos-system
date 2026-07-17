@@ -40,6 +40,12 @@ export default function PaymentDashboard() {
   const [payAmount, setPayAmount]   = useState('');
   const [payMethod, setPayMethod]   = useState('Bank Transfer');
   const [payNote, setPayNote]       = useState('');
+  const [chequeNumber, setChequeNumber] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [chequeDate, setChequeDate] = useState('');
+  const [pendingChequeDate, setPendingChequeDate] = useState('');
+  const [chequeStatus, setChequeStatus] = useState('Pending');
+  const [pendingDays, setPendingDays] = useState(3);
 
   const { data: dash, isLoading: dl, refetch: rd } = usePaymentDashboard();
   const { data: payments = [], isLoading: pl, refetch: rp } = usePayments({ status: filterStatus || undefined });
@@ -60,20 +66,40 @@ export default function PaymentDashboard() {
   const openModal = (pay) => {
     setSelected(pay);
     setPayAmount(Number(pay.balance_amount || 0).toFixed(2));
-    setPayMethod('Bank Transfer');
-    setPayNote('');
+    setPayMethod(pay.payment_method || 'Bank Transfer');
+    setPayNote(pay.notes || '');
+    setChequeNumber(pay.cheque_number || '');
+    setBankName(pay.bank_name || '');
+    setChequeDate(pay.cheque_date ? pay.cheque_date.split('T')[0] : '');
+    setPendingChequeDate(pay.pending_cheque_date ? pay.pending_cheque_date.split('T')[0] : '');
+    setChequeStatus(pay.cheque_status || 'Pending');
+    setPendingDays(pay.pending_days || 3);
     setShowModal(true);
   };
 
   const handleRecord = async () => {
     if (!selectedPay || !payAmount) return;
-    await recordMutation.mutateAsync({
+
+    const payload = {
       payment_id: selectedPay.payment_id,
       paid_amount: parseFloat(payAmount),
       payment_method: payMethod,
       paid_date: new Date().toISOString().split('T')[0],
       notes: payNote,
-    });
+    };
+
+    if (payMethod === 'Cheque') {
+      Object.assign(payload, {
+        cheque_number: chequeNumber,
+        bank_name: bankName,
+        cheque_date: chequeDate,
+        pending_cheque_date: pendingChequeDate,
+        cheque_status: chequeStatus,
+        pending_days: pendingDays,
+      });
+    }
+
+    await recordMutation.mutateAsync(payload);
     setShowModal(false);
     rp();
   };
@@ -268,6 +294,59 @@ export default function PaymentDashboard() {
                     ))}
                   </select>
                 </div>
+                {payMethod === 'Cheque' && (
+                  <>
+                    <div className="proc-field" style={{ marginTop: '0.75rem' }}>
+                      <label>Cheque Number</label>
+                      <input className="proc-input" value={chequeNumber} onChange={e => setChequeNumber(e.target.value)} placeholder="e.g. CHQ-1001" />
+                    </div>
+                    <div className="proc-field" style={{ marginTop: '0.75rem' }}>
+                      <label>Bank Name</label>
+                      <input className="proc-input" value={bankName} onChange={e => setBankName(e.target.value)} placeholder="e.g. Sampath Bank" />
+                    </div>
+                    <div className="proc-field" style={{ marginTop: '0.75rem' }}>
+                      <label>Cheque Date</label>
+                      <input type="date" className="proc-input" value={chequeDate} onChange={e => setChequeDate(e.target.value)} />
+                    </div>
+                    <div className="proc-field" style={{ marginTop: '0.75rem' }}>
+                      <label>Pending Cheque Date</label>
+                      <input type="date" className="proc-input" value={pendingChequeDate} onChange={e => setPendingChequeDate(e.target.value)} />
+                    </div>
+                    <div className="proc-field" style={{ marginTop: '0.75rem' }}>
+                      <label>Cheque Status</label>
+                      <select className="proc-input" value={chequeStatus} onChange={e => setChequeStatus(e.target.value)}>
+                        {['Pending', 'Cleared', 'Bounced', 'Cancelled'].map(status => (
+                          <option key={status} value={status}>{status}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="proc-field" style={{ marginTop: '0.75rem' }}>
+                      <label>Pending Days</label>
+                      <input type="number" className="proc-input" min="1" value={pendingDays} onChange={e => setPendingDays(Number(e.target.value) || 3)} />
+                    </div>
+                  </>
+                )}
+
+                {(selectedPay.cheque_number || selectedPay.bank_name || selectedPay.cheque_date || selectedPay.pending_cheque_date || selectedPay.cheque_status) && (
+                  <div className="proc-field" style={{ marginTop: '0.75rem' }}>
+                    <label>Saved Cheque Details</label>
+                    <div style={{
+                      background: '#fff8f2',
+                      border: '1px solid #f3d9c7',
+                      borderRadius: '10px',
+                      padding: '0.8rem 0.9rem',
+                      lineHeight: 1.6,
+                      color: '#6b3f1d'
+                    }}>
+                      {selectedPay.cheque_number ? <div><strong>Cheque No:</strong> {selectedPay.cheque_number}</div> : null}
+                      {selectedPay.bank_name ? <div><strong>Bank:</strong> {selectedPay.bank_name}</div> : null}
+                      {selectedPay.cheque_date ? <div><strong>Cheque Date:</strong> {fmtD(selectedPay.cheque_date)}</div> : null}
+                      {selectedPay.pending_cheque_date ? <div><strong>Pending Date:</strong> {fmtD(selectedPay.pending_cheque_date)}</div> : null}
+                      {selectedPay.cheque_status ? <div><strong>Status:</strong> {selectedPay.cheque_status}</div> : null}
+                    </div>
+                  </div>
+                )}
+
                 <div className="proc-field" style={{ marginTop: '0.75rem' }}>
                   <label>Notes</label>
                   <textarea className="proc-input proc-textarea" rows={2} value={payNote}

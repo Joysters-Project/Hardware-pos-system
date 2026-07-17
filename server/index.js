@@ -67,6 +67,7 @@ const autoReorderRoutes          = require('./routes/autoReorderRoutes');
 const forecastRoutes             = require('./routes/forecastRoutes');
 const procurementNotificationRoutes = require('./routes/procurementNotificationRoutes');
 const supplierPerformanceRoutes  = require('./routes/supplierPerformanceRoutes');
+const salaryAlertService = require('./services/salaryAlertService');
 const cron         = require('node-cron');
 
 // 4. Register API Routes
@@ -113,10 +114,14 @@ cron.schedule('0 8 * * *', async () => {
     const year    = now.getFullYear();
     const dueDay  = 30;
     const daysLeft = dueDay - now.getDate();
+    const db      = require('./models');
+    const pending = await db.salary_payments.count({ where: { payment_status: 'Pending' } });
+    const alertCount = await salaryAlertService.checkAndCreatePendingAlerts();
     if (daysLeft >= 0 && daysLeft <= 5) {
-      const db      = require('./models');
-      const pending = await db.salary_payments.count({ where: { payment_status: 'Pending' } });
       console.log(`🔔 Salary Reminder: ${pending} pending salary payment(s). Due in ${daysLeft} day(s) (${dueDay}th).`);
+    }
+    if (alertCount > 0) {
+      console.log(`🔔 Salary Alerts: created ${alertCount} salary alert notification(s).`);
     }
   } catch (e) { console.error('Cron error:', e.message); }
 });

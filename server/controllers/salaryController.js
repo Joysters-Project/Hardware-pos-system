@@ -4,6 +4,8 @@ const db   = require('../models');
 const { Op } = require('sequelize');
 const { generatePayslipPDF, sendPayslipEmail } = require('../services/salaryService');
 const { logActivity } = require('../services/auditService');
+const { buildSalaryPeriod } = require('../utils/salaryLogic');
+const { syncSalaryAlertState } = require('../services/salaryAlertService');
 const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
 
 const empInclude = {
@@ -113,28 +115,50 @@ const getEmployeeSalarySummary = async (req, res) => {
 const createPayment = async (req, res) => {
   try {
     const { employee_id, basic_salary, bonus_amount = 0, deduction_amount = 0,
-            payment_month, payment_year, payment_method, remarks } = req.body;
+            payment_month, payment_year, payment_frequency = 'monthly',
+            pay_period_reference_date, pay_period_start_date, pay_period_end_date, due_date,
+            payment_method, remarks } = req.body;
 
     if (!employee_id || !basic_salary || !payment_month || !payment_year) {
       return res.status(400).json({ message: 'employee_id, basic_salary, payment_month, payment_year are required' });
     }
 
-    const exists = await db.salary_payments.findOne({ where: { employee_id, payment_month, payment_year } });
-    if (exists) return res.status(400).json({ message: 'Salary record for this month already exists' });
+    const referenceDate = pay_period_reference_date || `${payment_year}-${String(payment_month).padStart(2, '0')}-01`;
+    const periodData = buildSalaryPeriod(payment_frequency, referenceDate);
+    const computedStart = pay_period_start_date || periodData.pay_period_start_date;
+    const computedEnd = pay_period_end_date || periodData.pay_period_end_date;
+    const computedDueDate = due_date || periodData.due_date;
+
+    const exists = await db.salary_payments.findOne({
+      where: {
+        employee_id,
+        payment_frequency,
+        pay_period_start_date: computedStart,
+        pay_period_end_date: computedEnd
+      }
+    });
+    if (exists) return res.status(400).json({ message: 'Salary record for this pay period already exists' });
 
     const final_salary = parseFloat(basic_salary) + parseFloat(bonus_amount) - parseFloat(deduction_amount);
 
     const record = await db.salary_payments.create({
       employee_id, basic_salary, bonus_amount, deduction_amount,
       final_salary, payment_month, payment_year,
+      payment_frequency,
+      pay_period_start_date: computedStart,
+      pay_period_end_date: computedEnd,
+      due_date: computedDueDate,
       payment_status: 'Pending', payment_method: payment_method || null,
+      alert_status: 'none', alert_message: null,
       remarks: remarks || null
     });
 
-    await logActivity(req.user?.user_id, req.user?.role, 'SALARY_SLIP_CREATED',
-      `Salary slip created for Employee ID ${employee_id}. Period: ${payment_month}/${payment_year}, Basic: ${basic_salary}`, getIp(req));
+    const alertRecord = await syncSalaryAlertState(record);
 
-    res.status(201).json({ message: 'Salary record created', data: record });
+    await logActivity(req.user?.user_id, req.user?.role, 'SALARY_SLIP_CREATED',
+      `Salary slip created for Employee ID ${employee_id}. Period: ${payment_month}/${payment_year}, Frequency: ${payment_frequency}, Basic: ${basic_salary}`, getIp(req));
+
+    res.status(201).json({ message: 'Salary record created', data: alertRecord });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -156,6 +180,7 @@ const paySalary = async (req, res) => {
     await record.update({
       payment_status: 'Paid', payment_date: today, final_salary,
       payment_method: payment_method || record.payment_method,
+      alert_status: 'none', alert_message: null,
       remarks:        remarks        || record.remarks
     });
 
@@ -194,22 +219,35 @@ const updatePayment = async (req, res) => {
     if (!record) return res.status(404).json({ message: 'Salary record not found' });
     if (record.payment_status === 'Paid') return res.status(400).json({ message: 'Cannot edit a paid record' });
 
-    const { basic_salary, bonus_amount, deduction_amount, payment_month, payment_year, payment_method, remarks } = req.body;
+    const { basic_salary, bonus_amount, deduction_amount, payment_month, payment_year,
+            payment_frequency, pay_period_reference_date, pay_period_start_date, pay_period_end_date, due_date,
+            payment_method, remarks } = req.body;
     const bs = parseFloat(basic_salary ?? record.basic_salary);
     const bn = parseFloat(bonus_amount ?? record.bonus_amount);
     const dd = parseFloat(deduction_amount ?? record.deduction_amount);
+
+    const referenceDate = pay_period_reference_date || `${payment_year ?? record.payment_year}-${String(payment_month ?? record.payment_month).padStart(2, '0')}-01`;
+    const periodData = buildSalaryPeriod(payment_frequency ?? record.payment_frequency, referenceDate);
+    const nextStart = pay_period_start_date ?? record.pay_period_start_date ?? periodData.pay_period_start_date;
+    const nextEnd = pay_period_end_date ?? record.pay_period_end_date ?? periodData.pay_period_end_date;
+    const nextDueDate = due_date ?? record.due_date ?? periodData.due_date;
 
     await record.update({
       basic_salary: bs, bonus_amount: bn, deduction_amount: dd,
       final_salary: bs + bn - dd,
       payment_month: payment_month ?? record.payment_month,
       payment_year:  payment_year  ?? record.payment_year,
+      payment_frequency: payment_frequency ?? record.payment_frequency,
+      pay_period_start_date: nextStart,
+      pay_period_end_date: nextEnd,
+      due_date: nextDueDate,
       payment_method: payment_method ?? record.payment_method,
       remarks: remarks ?? record.remarks
     });
+    const alertRecord = await syncSalaryAlertState(await db.salary_payments.findByPk(record.salary_payment_id));
     await logActivity(req.user?.user_id, req.user?.role, 'SALARY_SLIP_UPDATED',
       `Salary slip ID ${record.salary_payment_id} updated. Basic salary changed from ${record.basic_salary} to ${bs}`, getIp(req));
-    res.status(200).json({ message: 'Salary record updated', data: record });
+    res.status(200).json({ message: 'Salary record updated', data: alertRecord });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -245,10 +283,16 @@ const getDashboardStats = async (req, res) => {
     const month  = now.getMonth() + 1;
     const year   = now.getFullYear();
 
-    const [pending, paid, upcoming] = await Promise.all([
+    const [pending, paid, upcoming, alertCount] = await Promise.all([
       db.salary_payments.count({ where: { payment_status: 'Pending' } }),
       db.salary_payments.count({ where: { payment_status: 'Paid', payment_month: month, payment_year: year } }),
-      db.salary_payments.count({ where: { payment_status: 'Pending', payment_month: month, payment_year: year } })
+      db.salary_payments.count({ where: { payment_status: 'Pending', payment_month: month, payment_year: year } }),
+      db.salary_payments.count({
+        where: {
+          payment_status: 'Pending',
+          due_date: { [Op.lte]: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 5).toISOString().split('T')[0] }
+        }
+      })
     ]);
 
     // Employees without salary record this month
@@ -256,12 +300,9 @@ const getDashboardStats = async (req, res) => {
     const recordedThisMonth = await db.salary_payments.count({ where: { payment_month: month, payment_year: year } });
     const notRecorded = Math.max(0, totalActive - recordedThisMonth);
 
-    // Due alert: salary due on 30th, warn 5 days before
-    const dueDay = 30;
-    const alertDate = new Date(year, month - 1, dueDay - 5);
-    const showAlert = now >= alertDate && now.getDate() <= dueDay;
+    const showAlert = alertCount > 0;
 
-    res.status(200).json({ pending, paid, upcoming: upcoming + notRecorded, showAlert, dueDay, currentMonth: month, currentYear: year });
+    res.status(200).json({ pending, paid, upcoming: upcoming + notRecorded, showAlert, dueDay: 30, currentMonth: month, currentYear: year });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -281,12 +322,20 @@ const resendPayslipEmail = async (req, res) => {
       await record.update({ payslip_pdf_path: pdfPath });
     }
 
-    await sendPayslipEmail(
+    const emailResult = await sendPayslipEmail(
       record.employee.email,
       `${record.employee.first_name} ${record.employee.last_name}`,
       record.toJSON(),
       pdfPath
     );
+
+    if (!emailResult.success) {
+      return res.status(200).json({
+        message: emailResult.skipped
+          ? `Payslip generated, but email delivery was skipped because credentials are not configured.`
+          : `Payslip generated, but email delivery failed: ${emailResult.reason}`
+      });
+    }
 
     res.status(200).json({ message: `Payslip resent to ${record.employee.email}` });
   } catch (error) {

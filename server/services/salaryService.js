@@ -133,22 +133,23 @@ const sendPayslipEmail = async (employeeEmail, employeeName, paymentData, pdfPat
   const emailPass = process.env.SMTP_PASSWORD || process.env.EMAIL_PASS;
   if (!emailUser || !emailPass) {
     console.warn('Email credentials not configured — skipping payslip email.');
-    return;
+    return { success: false, skipped: true, reason: 'missing-credentials' };
   }
 
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: 465,
-    secure: true,
-    auth: { user: emailUser, pass: emailPass },
-    family: 4,
-  });
+  try {
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: 465,
+      secure: true,
+      auth: { user: emailUser, pass: emailPass },
+      family: 4,
+    });
 
-  const monthLabel = `${MONTHS[paymentData.payment_month - 1]} ${paymentData.payment_year}`;
-  const absPath    = path.join(__dirname, '..', pdfPath);
-  const empId      = String(paymentData.employee?.employee_id || paymentData.employee_id || '').padStart(4, '0');
+    const monthLabel = `${MONTHS[(paymentData.payment_month || 1) - 1] || 'Salary'} ${paymentData.payment_year || new Date().getFullYear()}`;
+    const absPath    = pdfPath ? path.join(__dirname, '..', pdfPath) : null;
+    const empId      = String(paymentData.employee?.employee_id || paymentData.employee_id || '').padStart(4, '0');
 
-  const htmlBody = `
+    const htmlBody = `
     <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e0e0e0">
       <div style="background:linear-gradient(135deg,#8b3a3a,#a84545);padding:28px 32px;">
         <h1 style="margin:0;color:#fff;font-size:22px;">${COMPANY.name}</h1>
@@ -193,15 +194,21 @@ const sendPayslipEmail = async (employeeEmail, employeeName, paymentData, pdfPat
     </div>
   `;
 
-  await transporter.sendMail({
-    from:    `"${process.env.EMAIL_FROM_NAME || COMPANY.name}" <${process.env.EMAIL_FROM_EMAIL || emailUser}>`,
-    to:      employeeEmail,
-    subject: `Salary Payment Confirmation — ${monthLabel}`,
-    html:    htmlBody,
-    attachments: fs.existsSync(absPath)
-      ? [{ filename: `Payslip_${monthLabel.replace(' ', '_')}_${employeeName.replace(' ', '_')}.pdf`, path: absPath }]
-      : []
-  });
+    await transporter.sendMail({
+      from:    `"${process.env.EMAIL_FROM_NAME || COMPANY.name}" <${process.env.EMAIL_FROM_EMAIL || emailUser}>`,
+      to:      employeeEmail,
+      subject: `Salary Payment Confirmation — ${monthLabel}`,
+      html:    htmlBody,
+      attachments: absPath && fs.existsSync(absPath)
+        ? [{ filename: `Payslip_${monthLabel.replace(' ', '_')}_${employeeName.replace(' ', '_')}.pdf`, path: absPath }]
+        : []
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Payslip email delivery failed:', error.message);
+    return { success: false, skipped: false, reason: error.message };
+  }
 };
 
 module.exports = { generatePayslipPDF, sendPayslipEmail };
