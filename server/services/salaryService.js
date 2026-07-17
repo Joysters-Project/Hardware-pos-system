@@ -143,6 +143,9 @@ const sendPayslipEmail = async (employeeEmail, employeeName, paymentData, pdfPat
       secure: true,
       auth: { user: emailUser, pass: emailPass },
       family: 4,
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
     });
 
     const monthLabel = `${MONTHS[(paymentData.payment_month || 1) - 1] || 'Salary'} ${paymentData.payment_year || new Date().getFullYear()}`;

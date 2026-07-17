@@ -3,8 +3,8 @@ import { useLocation, Link } from "react-router-dom";
 import {
   RefreshCw, Plus, FileDown, History,
   CheckCircle, Clock, AlertCircle,
-  Pencil, Download, CreditCard, X,
-  ChevronLeft, ChevronRight, Search
+  Download, CreditCard, X,
+  ChevronLeft, ChevronRight, Search, Mail
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
@@ -81,8 +81,25 @@ function SalaryPage() {
     return (bs + bn - dd).toFixed(2);
   };
 
+  const isBeforeMay2026 = (year, month) => {
+    const y = parseInt(year); const m = parseInt(month);
+    return y < 2026 || (y === 2026 && m < 5);
+  };
+
   const handleCreate = async (evt) => {
     evt.preventDefault();
+    if (parseFloat(finalSalary()) < 0) {
+      toast.error('Final salary cannot be negative. Check your deductions.');
+      return;
+    }
+    if (parseFloat(finalSalary()) < 500) {
+      toast.error('Final salary must be at least LKR 500.00.');
+      return;
+    }
+    if (isBeforeMay2026(form.payment_year, form.payment_month)) {
+      toast.error('Salary records can only be created from May 2026 onwards.');
+      return;
+    }
     setLoading(true);
     try {
       await api.post("/salary", { ...form });
@@ -94,8 +111,30 @@ function SalaryPage() {
     finally { setLoading(false); }
   };
 
+  const handlePayClick = async (p) => {
+    const now = new Date();
+    // Block payments before May 2026
+    if (now < new Date('2026-05-01')) {
+      toast.error('Salary payments are only allowed from May 2026 onwards.');
+      return;
+    }
+    // Check if a paid record already exists for this employee/month/year
+    const duplicate = payments.some(
+      x => x.employee_id === p.employee_id &&
+           x.payment_month === p.payment_month &&
+           x.payment_year === p.payment_year &&
+           x.payment_status === 'Paid' &&
+           x.salary_payment_id !== p.salary_payment_id
+    );
+    setPayModal({ ...p, payment_method: p.payment_method || 'Bank Transfer', remarks: '', isDuplicate: duplicate });
+  };
+
   const handlePay = async () => {
     if (!payModal) return;
+    if (payModal.isDuplicate && !payModal.remarks?.trim()) {
+      toast.error('A reason is required for a second payment in the same month.');
+      return;
+    }
     setLoading(true);
     try {
       await api.put(`/salary/${payModal.salary_payment_id}/pay`, {
@@ -317,7 +356,7 @@ function SalaryPage() {
                   <div className="sal-action-btns">
                     {p.payment_status === "Pending" && (
                       <button className="sal-icon-btn btn-pay" title="Mark as Paid"
-                        onClick={() => setPayModal({ ...p, payment_method: p.payment_method || "Bank Transfer" })}>
+                        onClick={() => handlePayClick(p)}>
                         <CreditCard size={14} />
                       </button>
                     )}
@@ -334,7 +373,7 @@ function SalaryPage() {
                       >
                         {sendingEmail === p.salary_payment_id
                           ? <RefreshCw size={14} className="spin" />
-                          : <Pencil size={14} />
+                          : <Mail size={14} />
                         }
                       </button>
                     </>)}
@@ -387,14 +426,20 @@ function SalaryPage() {
                   <label>Month *</label>
                   <select value={form.payment_month} onChange={e => setForm({ ...form, payment_month: e.target.value })} required>
                     <option value="">Select Month</option>
-                    {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                    {MONTHS.map((m, i) => {
+                      const disabled = isBeforeMay2026(form.payment_year || 2026, i + 1);
+                      return <option key={i} value={i + 1} disabled={disabled} style={disabled ? { color: '#bbb' } : {}}>{m}</option>;
+                    })}
                   </select>
                 </div>
                 <div className="sal-field">
                   <label>Year *</label>
                   <select value={form.payment_year} onChange={e => setForm({ ...form, payment_year: e.target.value })} required>
                     <option value="">Select Year</option>
-                    {years.map(y => <option key={y} value={y}>{y}</option>)}
+                    {years.map(y => {
+                      const disabled = y < 2026;
+                      return <option key={y} value={y} disabled={disabled} style={disabled ? { color: '#bbb' } : {}}>{y}</option>;
+                    })}
                   </select>
                 </div>
                 <div className="sal-field">
@@ -412,6 +457,15 @@ function SalaryPage() {
                   <input type="number" min="0" step="0.01" value={form.deduction_amount}
                     onChange={e => setForm({ ...form, deduction_amount: e.target.value })} />
                 </div>
+                {parseFloat(finalSalary()) < 500 && form.basic_salary !== "" && (
+                  <div className="sal-field full">
+                    <div className="sal-negative-warning">
+                      {parseFloat(finalSalary()) < 0
+                        ? '⚠️ Final salary is negative. Reduce deductions or increase basic salary.'
+                        : '⚠️ Final salary must be at least LKR 500.00.'}
+                    </div>
+                  </div>
+                )}
                 <div className="sal-field">
                   <label>Payment Frequency</label>
                   <select value={form.payment_frequency} onChange={e => setForm({ ...form, payment_frequency: e.target.value })}>
@@ -493,10 +547,18 @@ function SalaryPage() {
                   {METHODS.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
               </div>
+              {payModal.isDuplicate && (
+                <div className="sal-duplicate-warning">
+                  ⚠️ This employee already has a <strong>Paid</strong> salary record for <strong>{MONTHS[(payModal.payment_month || 1) - 1]} {payModal.payment_year}</strong>.
+                  A reason is <strong>required</strong> to proceed with a second payment.
+                </div>
+              )}
               <div className="sal-field">
-                <label>Remarks</label>
+                <label>{payModal.isDuplicate ? "Reason for 2nd Payment *" : "Remarks"}</label>
                 <textarea rows={2} value={payModal.remarks || ""}
-                  onChange={e => setPayModal({ ...payModal, remarks: e.target.value })} placeholder="Optional..." />
+                  onChange={e => setPayModal({ ...payModal, remarks: e.target.value })}
+                  placeholder={payModal.isDuplicate ? "Required: explain why a second payment is being made..." : "Optional..."}
+                  required={payModal.isDuplicate} />
               </div>
               <div className="sal-email-note">
                 <Pencil size={14} />

@@ -123,6 +123,13 @@ const createPayment = async (req, res) => {
       return res.status(400).json({ message: 'employee_id, basic_salary, payment_month, payment_year are required' });
     }
 
+    // Block records before May 2026
+    const yr = parseInt(payment_year);
+    const mo = parseInt(payment_month);
+    if (yr < 2026 || (yr === 2026 && mo < 5)) {
+      return res.status(400).json({ message: 'Salary records can only be created from May 2026 onwards.' });
+    }
+
     const referenceDate = pay_period_reference_date || `${payment_year}-${String(payment_month).padStart(2, '0')}-01`;
     const periodData = buildSalaryPeriod(payment_frequency, referenceDate);
     const computedStart = pay_period_start_date || periodData.pay_period_start_date;
@@ -140,6 +147,10 @@ const createPayment = async (req, res) => {
     if (exists) return res.status(400).json({ message: 'Salary record for this pay period already exists' });
 
     const final_salary = parseFloat(basic_salary) + parseFloat(bonus_amount) - parseFloat(deduction_amount);
+
+    if (final_salary < 500) {
+      return res.status(400).json({ message: 'Final salary must be at least LKR 500.00.' });
+    }
 
     const record = await db.salary_payments.create({
       employee_id, basic_salary, bonus_amount, deduction_amount,
@@ -172,6 +183,20 @@ const paySalary = async (req, res) => {
     if (record.payment_status === 'Paid') return res.status(400).json({ message: 'Already paid' });
 
     const { payment_method, remarks } = req.body;
+
+    // Check if a paid record already exists for this employee/month/year
+    const existingPaid = await db.salary_payments.findOne({
+      where: {
+        employee_id: record.employee_id,
+        payment_month: record.payment_month,
+        payment_year: record.payment_year,
+        payment_status: 'Paid',
+        salary_payment_id: { [Op.ne]: record.salary_payment_id }
+      }
+    });
+    if (existingPaid && !remarks?.trim()) {
+      return res.status(400).json({ message: 'A reason is required to make a second payment for the same month.' });
+    }
     const today = new Date().toISOString().split('T')[0];
 
     // Recalculate final salary in case values were updated
@@ -217,7 +242,6 @@ const updatePayment = async (req, res) => {
   try {
     const record = await db.salary_payments.findByPk(req.params.id);
     if (!record) return res.status(404).json({ message: 'Salary record not found' });
-    if (record.payment_status === 'Paid') return res.status(400).json({ message: 'Cannot edit a paid record' });
 
     const { basic_salary, bonus_amount, deduction_amount, payment_month, payment_year,
             payment_frequency, pay_period_reference_date, pay_period_start_date, pay_period_end_date, due_date,
