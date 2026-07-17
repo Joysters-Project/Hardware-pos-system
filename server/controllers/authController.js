@@ -138,7 +138,7 @@ const sendOtpForReset = async (req, res) => {
     if (!email) return res.status(400).json({ message: 'Email is required' });
     const normalizedEmail = email.trim().toLowerCase();
 
-    const employee = await models.employees.findOne({ where: { email: normalizedEmail } });
+    const employee = await db.employees.findOne({ where: { email: normalizedEmail } });
     if (!employee) return res.status(404).json({ message: 'No account found with this email' });
 
     const user = await users.findOne({ where: { employee_id: employee.employee_id } });
@@ -178,7 +178,7 @@ const verifyOtpForReset = async (req, res) => {
     if (!email || !otp) return res.status(400).json({ message: 'Email and OTP are required' });
     const normalizedEmail = email.trim().toLowerCase();
 
-    const employee = await models.employees.findOne({ where: { email: normalizedEmail } });
+    const employee = await db.employees.findOne({ where: { email: normalizedEmail } });
     if (!employee) return res.status(404).json({ message: 'No account found with this email' });
     const user = await users.findOne({ where: { employee_id: employee.employee_id } });
     if (!user) return res.status(404).json({ message: 'No user account linked to this email' });
@@ -241,7 +241,7 @@ const simpleRegister = async (req, res) => {
     if (!username || !password || !firstName || !lastName || !email || !role || !employee_id)
       return res.status(400).json({ message: 'All fields are required' });
 
-    const employee = await models.employees.findByPk(employee_id);
+    const employee = await db.employees.findByPk(employee_id);
     if (!employee) return res.status(400).json({ message: 'Employee ID not found' });
     if (employee.email !== email) return res.status(400).json({ message: 'Email does not match the employee record' });
     if (employee.first_name !== firstName || employee.last_name !== lastName)
