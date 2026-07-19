@@ -12,6 +12,7 @@ const DueCollection = () => {
   const [customer, setCustomer] = useState(null);
   const [bills, setBills] = useState([]);
   const [selectedBill, setSelectedBill] = useState(null);
+  const [selectedBills, setSelectedBills] = useState([]);
   const [paymentMethod, setPaymentMethod] = useState("Cash");
   const [amountInput, setAmountInput] = useState("");
   const [paymentHistory, setPaymentHistory] = useState([]);
@@ -63,6 +64,7 @@ const DueCollection = () => {
       const billList = Array.isArray(billRes.data) ? billRes.data : billRes.data?.data || [];
       setBills(billList);
       setSelectedBill(null);
+      setSelectedBills([]);
       setAmountInput("");
     } catch (error) {
       console.error(error);
@@ -75,14 +77,37 @@ const DueCollection = () => {
   };
 
   const handleSelectBill = async (bill) => {
-    setSelectedBill(bill);
-    setAmountInput(bill.balance_due);
-    try {
-      const histRes = await api.get(`/payments?bill_id=${bill.bill_id}`);
-      setPaymentHistory(histRes.data || []);
-    } catch (err) {
-      console.error("Failed to fetch payment history");
-    }
+    setSelectedBills((prev) => {
+      const selected = prev.find((b) => b.bill_id === bill.bill_id);
+      let next;
+      if (selected) {
+        next = prev.filter((b) => b.bill_id !== bill.bill_id);
+      } else {
+        next = [...prev, bill];
+      }
+
+      if (next.length === 1) {
+        const single = next[0];
+        setSelectedBill(single);
+        setAmountInput(single.balance_due);
+        api.get(`/payments?bill_id=${single.bill_id}`).then((histRes) => {
+          setPaymentHistory(histRes.data || []);
+        }).catch(() => {
+          console.error("Failed to fetch payment history");
+          setPaymentHistory([]);
+        });
+      } else {
+        setSelectedBill(null);
+        setPaymentHistory([]);
+        if (next.length > 1) {
+          const total = next.reduce((acc, item) => acc + parseFloat(item.balance_due || 0), 0);
+          setAmountInput(total.toFixed(2));
+        } else {
+          setAmountInput("");
+        }
+      }
+      return next;
+    });
   };
 
   const handleDueCheckSearch = async () => {
@@ -133,8 +158,11 @@ const DueCollection = () => {
   const billTotal = selectedBill ? parseFloat(selectedBill.total_amount) : 0;
   const balanceDue = selectedBill ? parseFloat(selectedBill.balance_due) : 0;
   const paidSoFar = billTotal - balanceDue;
+  const selectedTotalBalance = selectedBills.reduce((acc, bill) => acc + parseFloat(bill.balance_due || 0), 0);
+  const selectedCount = selectedBills.length;
+  const effectiveBalance = selectedCount > 1 ? selectedTotalBalance : balanceDue;
   const collectAmount = parseFloat(amountInput) || 0;
-  const afterCollection = Math.max(0, balanceDue - collectAmount);
+  const afterCollection = Math.max(0, effectiveBalance - collectAmount);
   const totalOutstanding = bills.reduce((acc, bill) => acc + parseFloat(bill.balance_due || 0), 0);
   const dueCheckOutstanding = dueCheckBills.reduce((acc, bill) => acc + parseFloat(bill.balance_due || 0), 0);
   const paidAmount = (bill) => parseFloat(bill.total_amount || 0) - parseFloat(bill.balance_due || 0);
@@ -151,6 +179,39 @@ const DueCollection = () => {
   };
 
   const submitPayment = async () => {
+    if (selectedCount > 1) {
+      if (selectedTotalBalance <= 0) return toast.error("Enter a valid amount");
+      try {
+        const cashierId = localStorage.getItem("cashierId") || localStorage.getItem("userId");
+        await Promise.all(
+          selectedBills.map((bill) =>
+            api.post("/payments", {
+              bill_id: bill.bill_id,
+              amount_paid: parseFloat(bill.balance_due || 0),
+              payment_method: paymentMethod.toUpperCase(),
+              collected_by: cashierId,
+            })
+          )
+        );
+
+        setSuccessAmount(selectedTotalBalance);
+        setShowSuccess(true);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => setAnimSuccess(true));
+        });
+
+        setSelectedBills([]);
+        setSelectedBill(null);
+        setPaymentHistory([]);
+        setAmountInput("");
+        handleSearch();
+      } catch (err) {
+        console.error(err);
+        toast.error(err.response?.data?.error || "Payment collection failed.");
+      }
+      return;
+    }
+
     if (!selectedBill) return;
     if (collectAmount <= 0) return toast.error("Enter a valid amount");
     if (collectAmount > balanceDue) return toast.error(`Payment cannot exceed ${balanceDue}`);
@@ -224,6 +285,26 @@ const DueCollection = () => {
             <table className="bills-table">
               <thead>
                 <tr>
+                  <th style={{ width: 40 }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedBills.length === bills.length && bills.length > 0}
+                      onChange={(event) => {
+                        if (event.target.checked) {
+                          setSelectedBills(bills);
+                          setSelectedBill(null);
+                          setPaymentHistory([]);
+                          const total = bills.reduce((acc, bill) => acc + parseFloat(bill.balance_due || 0), 0);
+                          setAmountInput(total.toFixed(2));
+                        } else {
+                          setSelectedBills([]);
+                          setSelectedBill(null);
+                          setPaymentHistory([]);
+                          setAmountInput("");
+                        }
+                      }}
+                    />
+                  </th>
                   <th>Bill No.</th>
                   <th>Date</th>
                   <th>Total</th>
@@ -232,31 +313,29 @@ const DueCollection = () => {
                 </tr>
               </thead>
               <tbody>
-                {bills.map((bill) => (
-                  <tr
-                    key={bill.bill_id}
-                    className={selectedBill?.bill_id === bill.bill_id ? "selected" : ""}
-                    onClick={() => handleSelectBill(bill)}
-                  >
-                    <td>
-                      <div className="custom-radio">
-                        <input
-                          type="radio"
-                          name="bill_select"
-                          checked={selectedBill?.bill_id === bill.bill_id}
-                          readOnly
-                        />
+                {bills.map((bill) => {
+                  const isSelected = !!selectedBills.find((selected) => selected.bill_id === bill.bill_id);
+                  return (
+                    <tr
+                      key={bill.bill_id}
+                      className={isSelected ? "selected" : ""}
+                      onClick={() => handleSelectBill(bill)}
+                    >
+                      <td>
+                        <input type="checkbox" checked={isSelected} readOnly />
+                      </td>
+                      <td>
                         <span style={{ fontWeight: "bold", color: "#333" }}>{bill.bill_no}</span>
-                      </div>
-                    </td>
-                    <td>{formatDate(bill.bill_date)}</td>
-                    <td><strong>Rs.</strong> {parseFloat(bill.total_amount).toFixed(2)}</td>
-                    <td className="val-red" style={{ fontWeight: "bold" }}><strong>Rs.</strong> {parseFloat(bill.balance_due).toFixed(2)}</td>
-                    <td>
-                      <span className="badge-partial">Partial</span>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td>{formatDate(bill.bill_date)}</td>
+                      <td><strong>Rs.</strong> {parseFloat(bill.total_amount).toFixed(2)}</td>
+                      <td className="val-red" style={{ fontWeight: "bold" }}><strong>Rs.</strong> {parseFloat(bill.balance_due).toFixed(2)}</td>
+                      <td>
+                        <span className="badge-partial">Partial</span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -285,20 +364,29 @@ const DueCollection = () => {
         <div className="collection-summary">
           <div className="row">
             <span>Bill</span>
-            <span>{selectedBill ? selectedBill.bill_no : "--"}</span>
+            <span>{selectedCount === 1 ? selectedBill?.bill_no : selectedCount > 1 ? `${selectedCount} bills selected` : "--"}</span>
           </div>
-          <div className="row">
-            <span>Bill total</span>
-            <span><strong>Rs.</strong> {billTotal.toFixed(2)}</span>
-          </div>
-          <div className="row">
-            <span>Paid so far</span>
-            <span><strong>Rs.</strong> {paidSoFar.toFixed(2)}</span>
-          </div>
-          <div className="row bold">
-            <span>Balance due</span>
-            <span className="val-red"><strong>Rs.</strong> {balanceDue.toFixed(2)}</span>
-          </div>
+          {selectedCount === 1 ? (
+            <>
+              <div className="row">
+                <span>Bill total</span>
+                <span><strong>Rs.</strong> {billTotal.toFixed(2)}</span>
+              </div>
+              <div className="row">
+                <span>Paid so far</span>
+                <span><strong>Rs.</strong> {paidSoFar.toFixed(2)}</span>
+              </div>
+              <div className="row bold">
+                <span>Balance due</span>
+                <span className="val-red"><strong>Rs.</strong> {balanceDue.toFixed(2)}</span>
+              </div>
+            </>
+          ) : selectedCount > 1 ? (
+            <div className="row bold">
+              <span>Total selected due</span>
+              <span className="val-red"><strong>Rs.</strong> {selectedTotalBalance.toFixed(2)}</span>
+            </div>
+          ) : null}
         </div>
 
         <div className="amount-input-group">
@@ -310,7 +398,7 @@ const DueCollection = () => {
               style={{ paddingLeft: "50px" }}
               value={amountInput}
               onChange={(event) => setAmountInput(event.target.value)}
-              disabled={!selectedBill}
+              disabled={selectedCount > 1 || !selectedBill}
               min="1"
               max={balanceDue}
               step="0.01"
@@ -318,22 +406,9 @@ const DueCollection = () => {
           </div>
         </div>
 
-        <label style={{ color: "#aaa", marginBottom: "10px", display: "block" }}>Payment method</label>
-        <div className="method-pills">
-          {["Cash", "Card", "Transfer"].map((method) => (
-            <div
-              key={method}
-              className={paymentMethod === method ? "active" : ""}
-              onClick={() => setPaymentMethod(method)}
-            >
-              {method}
-            </div>
-          ))}
-        </div>
-
         <div className="after-collection">
           <div style={{ marginBottom: "5px" }}>After collection</div>
-          {selectedBill ? (
+          {(selectedBill || selectedCount > 1) ? (
             afterCollection <= 0 ? (
               <span className="green">Balance: <strong>Rs.</strong> 0 — Fully paid</span>
             ) : (
@@ -346,10 +421,14 @@ const DueCollection = () => {
 
         <button
           className="collect-btn"
-          disabled={!selectedBill || collectAmount <= 0 || collectAmount > balanceDue}
+          disabled={selectedCount > 1 ? selectedTotalBalance <= 0 : !selectedBill || collectAmount <= 0 || collectAmount > balanceDue}
           onClick={submitPayment}
         >
-          Collect <strong>Rs.</strong> {collectAmount ? collectAmount.toFixed(2) : "0.00"}
+          {selectedCount > 1 ? (
+            <>Collect All <strong>Rs.</strong> {selectedTotalBalance.toFixed(2)}</>
+          ) : (
+            <>Collect <strong>Rs.</strong> {collectAmount ? collectAmount.toFixed(2) : "0.00"}</>
+          )}
         </button>
       </div>
     </div>

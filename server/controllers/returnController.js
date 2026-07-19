@@ -182,7 +182,7 @@ exports.getAllReturns = async (req, res) => {
       {
         model: return_items,
         as: 'items',
-        required: false,
+        required: Object.keys(itemWhere).length > 0,
         where: Object.keys(itemWhere).length ? itemWhere : undefined,
         include: [{ model: products, attributes: ['product_name', 'product_id'] }]
       }

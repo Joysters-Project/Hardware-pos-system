@@ -671,9 +671,39 @@
   font-weight: 600;
 }
 
+/* ---- Supplier tags: Return Inventory SUPPLIER destination column ---- */
+.supplier-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.supplier-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #eef4ff;
+  border: 1px solid #bdd4f8;
+  border-radius: 5px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.supplier-tag-id {
+  font-size: 11px;
+  font-weight: 700;
+  color: #a47614;
+}
+
+.supplier-tag-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a3a6e;
+}
+
 @media (max-width: 768px) {
-	.products-container { padding: 1rem; }
-	.products-header h1 { font-size: 1.4rem; }
-	.modal-form { grid-template-columns: 1fr; }
+  .products-container { padding: 1rem; }
+  .products-header h1 { font-size: 1.4rem; }
+  .modal-form { grid-template-columns: 1fr; }
   .dest-cards-grid { grid-template-columns: 1fr; }
 }

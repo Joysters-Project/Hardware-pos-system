@@ -1507,3 +1507,52 @@ body {
   color: var(--danger);
   background: var(--danger-light);
 }
+
+/* ── Unit column in cart table ─────────────────────────────── */
+.unit-select-table {
+  width: 100%;
+  height: 32px;
+  padding: 4px 24px 4px 10px;
+  font-size: 0.813rem;
+  font-weight: 600;
+  border: 1.5px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  background-color: #fff;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b3a3a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 12px;
+}
+
+/* Multi-unit: interactive dropdown */
+.unit-select-table.multi {
+  cursor: pointer;
+  border-color: var(--primary-main);
+  background-color: rgba(139, 58, 58, 0.04);
+  color: var(--primary-dark);
+}
+
+.unit-select-table.multi:hover {
+  border-color: var(--primary-dark);
+  background-color: rgba(139, 58, 58, 0.08);
+}
+
+.unit-select-table.multi:focus {
+  border-color: var(--primary-dark);
+  box-shadow: 0 0 0 3px rgba(139, 58, 58, 0.15);
+}
+
+/* Single-unit: read-only display */
+.unit-select-table.single {
+  cursor: default;
+  border-color: rgba(139, 58, 58, 0.08);
+  background-color: rgba(139, 58, 58, 0.01);
+  color: var(--text-muted);
+  pointer-events: none;
+  background-image: none;
+  padding-right: 10px;
+}
