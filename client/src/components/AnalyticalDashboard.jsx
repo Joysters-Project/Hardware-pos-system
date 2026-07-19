@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import axios from "axios";
+import api from "../api/axios";
 import {
   TrendingUp,
   TrendingDown,
@@ -31,7 +31,6 @@ import {
 import toast from "react-hot-toast";
 import "../styles/AnalyticalDashboard.css";
 
-const API_BASE = "/api";
 
 export default function AnalyticalDashboard() {
   const [timeframe, setTimeframe] = useState("daily"); // daily, weekly, monthly
@@ -60,7 +59,7 @@ export default function AnalyticalDashboard() {
   const fetchMetrics = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API_BASE}/dashboard/analytical`);
+      const res = await api.get(`/dashboard/analytical`);
       if (res.data) {
         setKpis(res.data.kpis || {});
         setTransactions(res.data.recentTransactions || []);
@@ -94,7 +93,7 @@ export default function AnalyticalDashboard() {
   }, [transactions, searchQuery]);
 
   const handleExportPDF = () => {
-    window.open(`${API_BASE}/dashboard/analytical/export-pdf`, "_blank");
+    window.open(`/api/dashboard/analytical/export-pdf`, "_blank");
     toast.success("Downloading analytical report PDF...");
   };
 
@@ -172,6 +171,7 @@ export default function AnalyticalDashboard() {
             </div>
           );
         })}
+        {/* <AlertStatCard /> */}
       </div>
 
       {/* Multi-Chart Grid Panel (3 related graphs) */}
@@ -406,10 +406,12 @@ export default function AnalyticalDashboard() {
                   </span>
                 </div>
               </div>
+              
             ))
           )}
         </div>
       </div>
+      
     </div>
   );
 }

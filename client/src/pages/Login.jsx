@@ -16,17 +16,9 @@ function Login() {
   const [loading, setLoading] = useState(false);
 
   const roleParam = role || "User";  // fallback if undefined
-  /*
-    const handleBack = () => {
-    if (window.history.length > 1) {
-      navigate(-1); // go back
-    } else {
-      navigate("/"); // fallback to role selection
-    }
-    };
-    */
-  const handleBack = () => {
-    navigate("/");
+
+ const handleBack = () => {
+  navigate("/");
   };
 
   const handleSubmit = async (e) => {
@@ -57,8 +49,15 @@ function Login() {
       if (response.ok) {
         toast.success("Login successful!");
 
-        if (data.token) {
-          login(data.user_name || userName, data.token, roleParam.toLowerCase());
+        if (data.token && data.user) {
+          // Store all user information
+          localStorage.setItem('userId', data.user.user_id);
+          localStorage.setItem('userName', data.user.user_name);
+          localStorage.setItem('userFirstName', data.user.first_name);
+          localStorage.setItem('userLastName', data.user.last_name);
+          localStorage.setItem('userFullName', `${data.user.first_name} ${data.user.last_name}`);
+          
+          login(data.user.user_name, data.token, roleParam.toLowerCase());
         }
 
         setTimeout(() => navigate("/dashboard/" + roleParam.toLowerCase()), 1500);

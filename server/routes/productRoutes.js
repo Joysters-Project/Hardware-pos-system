@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const productController = require('../controllers/productController');
-const db = require('../models'); // Ensure db is imported for the search logic
+const db = require('../models');
 
 // --- SEARCH LOGIC (From your local HEAD) ---
 router.get('/search', async (req, res) => {
@@ -37,6 +37,16 @@ router.get('/search', async (req, res) => {
       where: {
         [db.Sequelize.Op.or]: searchClauses
       },
+      include: [
+        { model: db.units, attributes: ['unit_id', 'unit_name'] },
+        {
+          model: db.product_units,
+          as: 'alternative_units',
+          include: [
+            { model: db.units, as: 'unit_details', attributes: ['unit_id', 'unit_name'] }
+          ]
+        }
+      ],
       limit: 50,
       order: [['product_name', 'ASC']]
     });

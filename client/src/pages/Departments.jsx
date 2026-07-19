@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { Building2, Users, Package, Plus, Search, Pencil, Trash2, Eye, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Building2, Users, Package, Plus, Search, Pencil, Trash2, Eye, X, ChevronLeft, ChevronRight, DollarSign } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
 import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
 import "../styles/Departments.css";
 
-const EMPTY_FORM = { department_name: "", description: "", status: "Active" };
+const EMPTY_FORM = { department_name: "", budget: "", description: "", status: "Active" };
 
 const DEPT_COLORS = [
   { bg: "linear-gradient(135deg,#8b3a3a,#c0504d)", light: "#fff0f0", accent: "#8b3a3a" },
@@ -50,7 +50,12 @@ function DepartmentsPage() {
 
   const openAdd = () => { setForm(EMPTY_FORM); setEditId(null); setShowModal(true); };
   const openEdit = (d) => {
-    setForm({ department_name: d.department_name, description: d.description || "", status: d.status || "Active" });
+    setForm({
+      department_name: d.department_name,
+      budget: d.budget ?? "",
+      description: d.description || "",
+      status: d.status || "Active"
+    });
     setEditId(d.department_id);
     setShowModal(true);
   };
@@ -59,13 +64,16 @@ function DepartmentsPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.department_name.trim()) { toast.error("Department name is required"); return; }
+    const budgetValue = form.budget === "" ? 0 : Number(form.budget);
+    if (Number.isNaN(budgetValue) || budgetValue < 0) { toast.error("Budget must be a valid number"); return; }
     setLoading(true);
     try {
+      const payload = { ...form, budget: budgetValue };
       if (editId) {
-        await api.put(`/departments/${editId}`, form);
+        await api.put(`/departments/${editId}`, payload);
         toast.success("Department updated!");
       } else {
-        await api.post("/departments", form);
+        await api.post("/departments", payload);
         toast.success("Department created!");
       }
       closeModal();
@@ -132,7 +140,7 @@ function DepartmentsPage() {
       <tr style="background:${i % 2 === 0 ? "#fff" : "#fdf8f8"}">
         <td>#${a.asset_id}</td>
         <td><strong>${a.asset_name}</strong></td>
-        <td>LKR ${Number(a.cost).toLocaleString("en-LK")}</td>
+        <td>LKR ${Number(a.cost).toLocaleString("en-US")}</td>
         <td><span style="padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;
           background:${(ASSET_COLORS[a.status] || "#333") + "18"};color:${ASSET_COLORS[a.status] || "#333"}">${a.status}</span></td>
         <td>${a.purchase_date ? new Date(a.purchase_date).toLocaleDateString() : "—"}</td>
@@ -150,7 +158,7 @@ function DepartmentsPage() {
       <div class="hdr"><div><h1>Assets — ${dept.department_name}</h1>
       <p style="font-size:11px;color:#888;margin-top:3px">${dept.assets.length} asset(s)</p></div>
       <div class="meta">Generated: ${new Date().toLocaleString()}</div></div>
-      <div class="summary">Total Active Asset Value: <strong>LKR ${totalCost.toLocaleString("en-LK")}</strong></div>
+      <div class="summary">Total Active Asset Value: <strong>LKR ${totalCost.toLocaleString("en-US")}</strong></div>
       <table><thead><tr><th>#</th><th>Asset Name</th><th>Cost</th><th>Status</th><th>Purchased</th></tr></thead>
       <tbody>${rows}</tbody></table>
       <div class="footer">Mathumithan Hardware POS System • ${dept.department_name} Department</div>
@@ -270,6 +278,10 @@ function DepartmentsPage() {
                   <p className="dept-card-desc">{d.description || "No description provided."}</p>
 
                   <div className="dept-card-meta">
+                    <div className="dept-meta-item" style={{ "--meta-color": "#8b3a3a" }}>
+                      <DollarSign size={14} />
+                      <span>LKR {Number(d.budget || 0).toLocaleString("en-LK")}</span>
+                    </div>
                     <div className="dept-meta-item" style={{ "--meta-color": "#1565c0" }}>
                       <Users size={14} />
                       <span>{d.employee_count || 0} Employees</span>
@@ -342,6 +354,17 @@ function DepartmentsPage() {
                 />
               </div>
               <div className="dept-field">
+                <label>Budget <span className="req">*</span></label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.budget}
+                  onChange={e => setForm({ ...form, budget: e.target.value })}
+                  placeholder="e.g. 500000"
+                />
+              </div>
+              <div className="dept-field">
                 <label>Description</label>
                 <textarea
                   rows={3}
@@ -388,6 +411,14 @@ function DepartmentsPage() {
             </div>
 
             <div className="dept-view-stats">
+              <div className="dept-view-stat">
+                <DollarSign size={16} />
+                <span>Budget: LKR {Number(viewDept.budget || 0).toLocaleString("en-LK")}</span>
+              </div>
+              <div className="dept-view-stat">
+                <DollarSign size={16} />
+                <span>Remaining: LKR {Number(viewDept.remaining_budget || 0).toLocaleString("en-LK")}</span>
+              </div>
               <div className="dept-view-stat">
                 <Users size={16} />
                 <span>{(viewDept.employees || []).length} Employees</span>
@@ -438,7 +469,7 @@ function DepartmentsPage() {
                       <tr key={a.asset_id}>
                         <td>#{a.asset_id}</td>
                         <td><strong>{a.asset_name}</strong></td>
-                        <td>LKR {Number(a.cost).toLocaleString("en-LK")}</td>
+                        <td>LKR {Number(a.cost).toLocaleString("en-US")}</td>
                         <td><span className={`dept-status-badge asset-${a.status?.toLowerCase()}`}>{a.status}</span></td>
                         <td>{a.purchase_date ? new Date(a.purchase_date).toLocaleDateString() : "N/A"}</td>
                       </tr>

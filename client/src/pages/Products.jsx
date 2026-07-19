@@ -1,11 +1,40 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Pencil, Trash2, Eye, Plus, RefreshCw, FileDown } from "lucide-react";
+import { Pencil, Trash2, Eye, Plus, RefreshCw, FileDown, AlertTriangle } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../api/axios";
 import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
 import "../styles/Products.css";
+
+const INITIAL_FORM = {
+	product_name: "",
+	unit_price: "",
+	cost_price: "",
+	stock_quantity: "",
+	min_stock_quantity: "",
+	reorder_level: "",
+	expiry_date: "",
+	type: "",
+	batch_no: "",
+	status: "active",
+	category_id: "",
+	brand_id: "",
+	unit_id: "",
+};
+
+const REQUIRED_FIELDS = [
+	"product_name",
+	"unit_price",
+	"cost_price",
+	"stock_quantity",
+	"min_stock_quantity",
+	"reorder_level",
+	"expiry_date",
+	"type",
+	"category_id",
+	"unit_id",
+];
 
 const toNumberOrNull = (value, parser = Number) => {
   if (value === "" || value === null || value === undefined) return null;
@@ -27,6 +56,16 @@ const buildPayload = (form) => ({
   brand_id: toNumberOrNull(form.brand_id, parseInt),
   unit_id: toNumberOrNull(form.unit_id, parseInt),
 });
+
+const validateForm = (form) => {
+	for (const f of REQUIRED_FIELDS) {
+		if (f === "expiry_date" && !form[f]) continue;
+		if (!String(form[f] ?? "").trim()) {
+			return `Please fill in the required field: ${f.replace(/_/g, " ")}`;
+		}
+	}
+	return null;
+};
 
 const EDIT_FIELDS = [
   { name: "product_name", placeholder: "Product Name *", type: "text" },
@@ -62,9 +101,11 @@ function ProductsPage() {
   const [viewProduct, setViewProduct] = useState(null);
   const printRef = useRef(null);
 
+
+
   const exportPDF = () => {
     const printContent = printRef.current;
-    if (!printContent) return;
+    if (!printContent || !viewProduct) return;
     const win = window.open("", "_blank", "width=800,height=700");
     win.document.write(`
 			<!DOCTYPE html><html><head><title>Product Details — #${viewProduct.product_id}</title>
@@ -123,30 +164,25 @@ function ProductsPage() {
     setTimeout(() => { win.print(); win.close(); }, 400);
   };
 
-  const loadPageData = async () => {
-    setLoading(true);
-    try {
-      const [productsRes, categoryRes, brandsRes, unitsRes] = await Promise.all([
-        api.get("/products"),
-        api.get("/category"),
-        api.get("/brands"),
-        api.get("/units"),
-      ]);
-      const normalize = (res) => {
-        if (Array.isArray(res.data)) return res.data;
-        if (Array.isArray(res.data?.data)) return res.data.data;
-        return [];
-      };
-      setProducts(normalize(productsRes));
-      setCategories(normalize(categoryRes));
-      setBrands(normalize(brandsRes));
-      setUnits(normalize(unitsRes));
-    } catch (error) {
-      toast.error(error?.response?.data?.error || "Failed to load products");
-    } finally {
-      setLoading(false);
-    }
-  };
+	const loadPageData = async () => {
+		setLoading(true);
+		try {
+			const [productsRes, categoryRes, brandsRes, unitsRes] = await Promise.all([
+				api.get("/products"),
+				api.get("/category"),
+				api.get("/brands"),
+				api.get("/units")
+			]);
+			setProducts(Array.isArray(productsRes.data) ? productsRes.data : []);
+			setCategories(Array.isArray(categoryRes.data) ? categoryRes.data : []);
+			setBrands(Array.isArray(brandsRes.data) ? brandsRes.data : []);
+			setUnits(Array.isArray(unitsRes.data) ? unitsRes.data : []);
+		} catch (error) {
+			toast.error("Failed to load products");
+		} finally {
+			setLoading(false);
+		}
+	};
 
   useEffect(() => { loadPageData(); }, []);
 
@@ -165,6 +201,8 @@ function ProductsPage() {
         String(p.batch_no || "").toLowerCase().includes(q)
       ));
   }, [products, search]);
+
+
 
   const openEdit = (p) => {
     setEditForm({
@@ -244,206 +282,249 @@ function ProductsPage() {
         />
       </div>
 
-      <div className="table-wrap">
-        <table className="products-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th>Category</th>
-              <th>Brand</th>
-              <th>Unit</th>
-              <th>Price</th>
-              <th>Stock Qty</th>
-              <th>Expiry Date</th>
-              <th>Min Stock</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan="11" className="empty-row">Loading...</td></tr>
-            ) : filteredProducts.length === 0 ? (
-              <tr><td colSpan="11" className="empty-row">No products found.</td></tr>
-            ) : filteredProducts.map((p) => (
-              <tr key={p.product_id}>
-                <td><span className="id-badge">#{p.product_id}</span></td>
-                <td className="name-cell">{p.product_name}</td>
-                <td>{categoryMap.get(Number(p.category_id)) || "—"}</td>
-                <td>{brandMap.get(Number(p.brand_id)) || "—"}</td>
-                <td>{unitMap.get(Number(p.unit_id)) || "—"}</td>
-                <td className="price-cell">Rs. {Number(p.unit_price || 0).toFixed(2)}</td>
-                <td>
-                  <span className={`stock-badge ${p.stock_quantity <= p.min_stock_quantity ? "low" : ""}`}>
-                    {p.stock_quantity ?? 0}
-                  </span>
-                </td>
-                <td>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString() : "—"}</td>
-                <td>{p.min_stock_quantity ?? 0}</td>
-                <td>
-                  <span className={`status-pill ${String(p.status).toLowerCase() === "active" ? "active" : "inactive"}`}>
-                    {p.status || "active"}
-                  </span>
-                </td>
-                <td>
-                  <div className="action-btns">
-                    <button className="icon-btn view" title="View" onClick={() => setViewProduct(p)}>
-                      <Eye size={15} />
-                    </button>
-                    <button className="icon-btn edit" title="Edit" onClick={() => openEdit(p)}>
-                      <Pencil size={15} />
-                    </button>
-                    <button className="icon-btn delete" title="Delete" onClick={() => deleteProduct(p.product_id)}>
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          <div className="table-wrap">
+            <table className="products-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Category</th>
+                  <th>Brand</th>
+                  <th>Unit</th>
+                  <th>Price</th>
+                  <th>Stock Qty</th>
+                  <th>Expiry Date</th>
+                  <th>Min Stock</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan="11" className="empty-row">Loading...</td></tr>
+                ) : filteredProducts.length === 0 ? (
+                  <tr><td colSpan="11" className="empty-row">No products found.</td></tr>
+                ) : filteredProducts.map((p) => (
+                  <tr key={p.product_id}>
+                    <td><span className="id-badge">#{p.product_id}</span></td>
+                    <td className="name-cell">{p.product_name}</td>
+                    <td>{categoryMap.get(Number(p.category_id)) || "—"}</td>
+                    <td>{brandMap.get(Number(p.brand_id)) || "—"}</td>
+                    <td>{unitMap.get(Number(p.unit_id)) || "—"}</td>
+                    <td className="price-cell">Rs. {Number(p.unit_price || 0).toFixed(2)}</td>
+                    <td>
+                      <span className={`stock-badge ${p.stock_quantity <= p.min_stock_quantity ? "low" : ""}`}>
+                        {p.stock_quantity ?? 0}
+                      </span>
+                    </td>
+                    <td>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString() : "—"}</td>
+                    <td>{p.min_stock_quantity ?? 0}</td>
+                    <td>
+                      <span className={`status-pill ${String(p.status).toLowerCase() === "active" ? "active" : "inactive"}`}>
+                        {p.status || "active"}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="action-btns">
+                        <button className="icon-btn view" title="View" onClick={() => setViewProduct(p)}>
+                          <Eye size={15} />
+                        </button>
+                        <button className="icon-btn edit" title="Edit" onClick={() => openEdit(p)}>
+                          <Pencil size={15} />
+                        </button>
+                        <button className="icon-btn delete" title="Delete" onClick={() => deleteProduct(p.product_id)}>
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-      {/* Edit Modal */}
       {editModal && (
-        <div className="modal-overlay" onClick={() => setEditModal(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <div className="modal-box">
             <div className="modal-header">
-              <h2>Edit Product</h2>
-              <button className="modal-close" onClick={() => setEditModal(false)}>✕</button>
+              <h2>Edit Product: #{editId}</h2>
+              <button className="modal-close" onClick={() => setEditModal(false)}>×</button>
             </div>
             <form className="modal-form" onSubmit={saveEdit}>
               {EDIT_FIELDS.map((f) => (
-                <div className="modal-field" key={f.name}>
+                <div key={f.name} className="modal-field">
                   <label>{f.placeholder}</label>
                   <input
                     name={f.name}
                     type={f.type}
                     step={f.step}
-                    min={f.type === "number" ? "0" : undefined}
-                    placeholder={f.placeholder}
-                    value={editForm[f.name]}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))}
+                    value={editForm[f.name] ?? ""}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, [e.target.name]: e.target.value }))}
                   />
                 </div>
               ))}
+              
               <div className="modal-field">
                 <label>Category *</label>
-                <select name="category_id" value={editForm.category_id} onChange={(e) => setEditForm((p) => ({ ...p, category_id: e.target.value }))}>
+                <select name="category_id" value={editForm.category_id ?? ""} onChange={(e) => setEditForm(prev => ({ ...prev, [e.target.name]: e.target.value }))}>
                   <option value="">Select Category</option>
-                  {categories.map((c) => <option key={c.category_id} value={c.category_id}>{c.category_name}</option>)}
+                  {categories.map((c) => (
+                    <option key={c.category_id} value={c.category_id}>
+                      {c.category_name}
+                    </option>
+                  ))}
                 </select>
               </div>
+
               <div className="modal-field">
                 <label>Brand</label>
-                <select name="brand_id" value={editForm.brand_id} onChange={(e) => setEditForm((p) => ({ ...p, brand_id: e.target.value }))}>
-                  <option value="">Select Brand</option>
-                  {brands.map((b) => <option key={b.brand_id} value={b.brand_id}>{b.brand_name}</option>)}
+                <select name="brand_id" value={editForm.brand_id ?? ""} onChange={(e) => setEditForm(prev => ({ ...prev, [e.target.name]: e.target.value }))}>
+                  <option value="">Select Brand (optional)</option>
+                  {brands.map((b) => (
+                    <option key={b.brand_id} value={b.brand_id}>
+                      {b.brand_name}
+                    </option>
+                  ))}
                 </select>
               </div>
+
               <div className="modal-field">
                 <label>Unit *</label>
-                <select name="unit_id" value={editForm.unit_id} onChange={(e) => setEditForm((p) => ({ ...p, unit_id: e.target.value }))}>
+                <select name="unit_id" value={editForm.unit_id ?? ""} onChange={(e) => setEditForm(prev => ({ ...prev, [e.target.name]: e.target.value }))}>
                   <option value="">Select Unit</option>
-                  {units.map((u) => <option key={u.unit_id} value={u.unit_id}>{u.unit_name}</option>)}
+                  {units.map((u) => (
+                    <option key={u.unit_id} value={u.unit_id}>
+                      {u.unit_name}
+                    </option>
+                  ))}
                 </select>
               </div>
+
               <div className="modal-field">
                 <label>Status</label>
-                <select name="status" value={editForm.status} onChange={(e) => setEditForm((p) => ({ ...p, status: e.target.value }))}>
+                <select name="status" value={editForm.status ?? "active"} onChange={(e) => setEditForm(prev => ({ ...prev, [e.target.name]: e.target.value }))}>
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </select>
               </div>
+
               <div className="modal-footer">
                 <button type="button" className="modal-cancel" onClick={() => setEditModal(false)}>Cancel</button>
-                <button type="submit" className="modal-save" disabled={submitting}>{submitting ? "Saving..." : "Save Changes"}</button>
+                <button type="submit" className="modal-save" disabled={submitting}>
+                  {submitting ? "Saving..." : "Save Changes"}
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* View Modal */}
       {viewProduct && (
         <div className="modal-overlay" onClick={() => setViewProduct(null)}>
-          <div className="modal-box view-modal" onClick={(e) => e.stopPropagation()} ref={printRef}>
+          <div className="modal-box view-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Product Details</h2>
               <div className="view-header-actions">
-                <button className="export-pdf-btn" onClick={exportPDF} title="Export as PDF">
-                  <FileDown size={15} />
-                  Export PDF
-                </button>
-                <button className="modal-close" onClick={() => setViewProduct(null)}>✕</button>
+                {viewProduct.status !== "deleted" && (
+                  <button className="export-pdf-btn" onClick={exportPDF}>
+                    <FileDown size={14} /> Export PDF
+                  </button>
+                )}
+                <button className="modal-close" onClick={() => setViewProduct(null)}>×</button>
               </div>
             </div>
 
-            <div className="view-section">
-              <p className="view-section-title">Basic Information</p>
-              <div className="view-grid">
-                {[
-                  ["Product ID", `#${viewProduct.product_id}`],
-                  ["Product Name", viewProduct.product_name],
-                  ["Type", viewProduct.type || "—"],
-                  ["Batch No", viewProduct.batch_no || "—"],
-                  ["Status", <span key="s" className={`status-pill ${String(viewProduct.status).toLowerCase() === "active" ? "active" : "inactive"}`}>{viewProduct.status || "active"}</span>],
-                ].map(([label, value]) => (
-                  <div className="view-row" key={label}>
-                    <span className="view-label">{label}</span>
-                    <span className="view-value">{value}</span>
-                  </div>
-                ))}
+            {viewProduct.status === "deleted" ? (
+              <div style={{ padding: "2rem", textAlign: "center", color: "#888" }}>
+                <AlertTriangle size={48} style={{ color: "#8b3a3a", marginBottom: "1rem" }} />
+                <h3>Product Discontinued</h3>
+                <p style={{ fontSize: "0.9rem", marginTop: "0.5rem" }}>
+                  This product has been deleted or is no longer active in the products database.
+                </p>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="view-section">
+                  <h3 className="view-section-title">Basic Information</h3>
+                  <div className="view-grid">
+                    <div className="view-row">
+                      <span className="view-label">Product ID</span>
+                      <span className="view-value">#{viewProduct.product_id}</span>
+                    </div>
+                    <div className="view-row">
+                      <span className="view-label">Product Name</span>
+                      <span className="view-value">{viewProduct.product_name || "—"}</span>
+                    </div>
+                    <div className="view-row">
+                      <span className="view-label">Type</span>
+                      <span className="view-value">{viewProduct.type || "—"}</span>
+                    </div>
+                    <div className="view-row">
+                      <span className="view-label">Batch No</span>
+                      <span className="view-value">{viewProduct.batch_no || "—"}</span>
+                    </div>
+                    <div className="view-row">
+                      <span className="view-label">Status</span>
+                      <span className="view-value">
+                        <span className={`status-pill ${String(viewProduct.status).toLowerCase()}`}>
+                          {viewProduct.status || "active"}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
 
-            <div className="view-section">
-              <p className="view-section-title">Classification</p>
-              <div className="view-grid">
-                {[
-                  ["Category", categoryMap.get(Number(viewProduct.category_id)) || "—"],
-                  ["Brand", brandMap.get(Number(viewProduct.brand_id)) || "—"],
-                  ["Unit", unitMap.get(Number(viewProduct.unit_id)) || "—"],
-                ].map(([label, value]) => (
-                  <div className="view-row" key={label}>
-                    <span className="view-label">{label}</span>
-                    <span className="view-value">{value}</span>
+                <div className="view-section">
+                  <h3 className="view-section-title">Classification</h3>
+                  <div className="view-grid">
+                    <div className="view-row">
+                      <span className="view-label">Category</span>
+                      <span className="view-value">{categoryMap.get(Number(viewProduct.category_id)) || "—"}</span>
+                    </div>
+                    <div className="view-row">
+                      <span className="view-label">Brand</span>
+                      <span className="view-value">{brandMap.get(Number(viewProduct.brand_id)) || "—"}</span>
+                    </div>
+                    <div className="view-row">
+                      <span className="view-label">Unit</span>
+                      <span className="view-value">{unitMap.get(Number(viewProduct.unit_id)) || "—"}</span>
+                    </div>
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
 
-            <div className="view-section">
-              <p className="view-section-title">Pricing</p>
-              <div className="view-grid">
-                {[
-                  ["Unit Price", `Rs. ${Number(viewProduct.unit_price || 0).toFixed(2)}`],
-                  ["Cost Price", `Rs. ${Number(viewProduct.cost_price || 0).toFixed(2)}`],
-                ].map(([label, value]) => (
-                  <div className="view-row" key={label}>
-                    <span className="view-label">{label}</span>
-                    <span className="view-value">{value}</span>
+                <div className="view-section">
+                  <h3 className="view-section-title">Pricing</h3>
+                  <div className="view-grid">
+                    <div className="view-row">
+                      <span className="view-label">Unit Price</span>
+                      <span className="view-value">Rs. {Number(viewProduct.unit_price || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="view-row">
+                      <span className="view-label">Cost Price</span>
+                      <span className="view-value">Rs. {Number(viewProduct.cost_price || 0).toFixed(2)}</span>
+                    </div>
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
 
-            <div className="view-section">
-              <p className="view-section-title">Stock Details</p>
-              <div className="view-grid">
-                {[
-                  ["Stock Quantity", viewProduct.stock_quantity ?? 0],
-                  ["Min Stock", viewProduct.min_stock_quantity ?? 0],
-                  ["Reorder Level", viewProduct.reorder_level ?? 0],
-                ].map(([label, value]) => (
-                  <div className="view-row" key={label}>
-                    <span className="view-label">{label}</span>
-                    <span className="view-value">{value}</span>
+                <div className="view-section">
+                  <h3 className="view-section-title">Stock Details</h3>
+                  <div className="view-grid">
+                    <div className="view-row">
+                      <span className="view-label">Stock Quantity</span>
+                      <span className="view-value">{viewProduct.stock_quantity ?? 0}</span>
+                    </div>
+                    <div className="view-row">
+                      <span className="view-label">Min Stock</span>
+                      <span className="view-value">{viewProduct.min_stock_quantity ?? 0}</span>
+                    </div>
+                    <div className="view-row">
+                      <span className="view-label">Reorder Level</span>
+                      <span className="view-value">{viewProduct.reorder_level ?? 0}</span>
+                    </div>
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -55,11 +55,32 @@ exports.getCashierStats = async (req, res) => {
       });
     }
 
+    // Fetch recent transactions (latest 10 bills today with customer info)
+    const recentBills = await db.bills.findAll({
+      where: whereClause,
+      order: [['bill_date', 'DESC']],
+      limit: 10,
+      include: [{ model: db.customers, attributes: ['customer_name'] }]
+    });
+
+    const recentTransactions = recentBills.map(bill => {
+      const date = new Date(bill.bill_date);
+      const timeStr = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      return {
+        bill_id: bill.bill_id,
+        customer: bill.customer ? bill.customer.customer_name : 'Walk-in',
+        amount: parseFloat(bill.total_amount) || 0,
+        status: bill.status || 'completed',
+        time: timeStr
+      };
+    });
+
     res.json({
       salesToday: todaySales,
       itemsSold: itemsSold,
       returnsCount: returnsCount,
-      transactionsCount: todayBills.length
+      transactionsCount: todayBills.length,
+      recentTransactions
     });
 
   } catch (error) {
@@ -82,6 +103,7 @@ exports.getAnalyticalStats = async (req, res) => {
 
     // 2. Fetch Recent Ledger (real bills + customer associations)
     const recentBills = await db.bills.findAll({
+      attributes: ['bill_id', 'bill_date', 'total_amount', 'customer_id'],
       order: [['bill_date', 'DESC']],
       limit: 10,
       include: [{
@@ -114,6 +136,7 @@ exports.getAnalyticalStats = async (req, res) => {
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
     const todayBillsList = await db.bills.findAll({
+      attributes: ['bill_id', 'bill_date', 'total_amount'],
       where: {
         bill_date: { [Op.gte]: startOfToday }
       },
@@ -153,6 +176,7 @@ exports.getAnalyticalStats = async (req, res) => {
     startOf7Days.setHours(0,0,0,0);
 
     const weeklyBills = await db.bills.findAll({
+      attributes: ['bill_id', 'bill_date', 'total_amount'],
       where: {
         bill_date: { [Op.gte]: startOf7Days }
       }
@@ -188,6 +212,7 @@ exports.getAnalyticalStats = async (req, res) => {
     startOf6Months.setHours(0,0,0,0);
 
     const monthlyBills = await db.bills.findAll({
+      attributes: ['bill_id', 'bill_date', 'total_amount'],
       where: {
         bill_date: { [Op.gte]: startOf6Months }
       }
@@ -224,28 +249,17 @@ exports.getAnalyticalStats = async (req, res) => {
     };
 
     // Category Sales share from database
-    const categorySales = await db.bill_items.findAll({
-      attributes: [
-        [db.sequelize.fn('SUM', db.sequelize.col('quantity')), 'totalSales']
-      ],
-      include: [{
-        model: db.products,
-        attributes: ['product_id'],
-        include: [{
-          model: db.category,
-          attributes: ['category_name']
-        }]
-      }],
-      group: ['product.category.category_id']
-    });
+    const categorySales = await db.sequelize.query(`
+      SELECT c.category_name, SUM(bi.quantity) as totalSales
+      FROM bill_items bi
+      JOIN products p ON bi.product_id = p.product_id
+      JOIN category c ON p.category_id = c.category_id
+      GROUP BY c.category_id, c.category_name
+    `, { type: db.Sequelize.QueryTypes.SELECT });
 
     const categoriesMap = {};
     categorySales.forEach(item => {
-      if (item.product && item.product.category) {
-        const name = item.product.category.category_name;
-        const count = parseInt(item.getDataValue('totalSales')) || 0;
-        categoriesMap[name] = (categoriesMap[name] || 0) + count;
-      }
+      categoriesMap[item.category_name] = parseInt(item.totalSales) || 0;
     });
 
     let formattedCategories = Object.keys(categoriesMap).map(name => ({

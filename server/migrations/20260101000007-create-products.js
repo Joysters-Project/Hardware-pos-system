@@ -11,6 +11,7 @@ module.exports = {
       min_stock_quantity:{ type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
       reorder_level:     { type: Sequelize.INTEGER, allowNull: false },
       type:              { type: Sequelize.STRING(50), allowNull: false },
+      expiry_date:       { type: Sequelize.DATE, allowNull: true },
       batch_no:          { type: Sequelize.STRING(100), allowNull: true },
       category_id: {
         type: Sequelize.INTEGER, allowNull: false,

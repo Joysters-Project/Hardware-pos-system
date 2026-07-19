@@ -16,27 +16,37 @@ exports.getAllAuditLogs = async (req, res) => {
     }
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
+    const parsedLimit = parseInt(limit);
 
-    const { count, rows } = await audit_log.findAndCountAll({
+    const includeOpts = [{
+      model: users,
+      attributes: ['user_id', 'user_name', 'first_name', 'last_name'],
+      ...(search ? {
+        where: {
+          [Op.or]: [
+            { user_name:  { [Op.like]: `%${search}%` } },
+            { first_name: { [Op.like]: `%${search}%` } },
+            { last_name:  { [Op.like]: `%${search}%` } },
+          ]
+        },
+        required: true,
+      } : { required: false }),
+    }];
+
+    const count = await audit_log.count({
       where,
-      include: [{
-        model: users,
-        attributes: ['user_id', 'user_name', 'first_name', 'last_name'],
-        // search filter across joined user name
-        ...(search ? {
-          where: {
-            [Op.or]: [
-              { user_name:  { [Op.like]: `%${search}%` } },
-              { first_name: { [Op.like]: `%${search}%` } },
-              { last_name:  { [Op.like]: `%${search}%` } },
-            ]
-          },
-          required: true,
-        } : { required: false }),
-      }],
+      include: search ? includeOpts : [],
+      distinct: true,
+      col: 'log_id',
+    });
+
+    const rows = await audit_log.findAll({
+      where,
+      include: includeOpts,
       order: [['time', 'DESC']],
-      limit:  parseInt(limit),
+      limit:  parsedLimit,
       offset,
+      subQuery: false,
     });
 
     res.status(200).json({

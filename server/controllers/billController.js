@@ -1,11 +1,11 @@
 const BillingService = require('../services/billingService');
-const { bills, bill_items, products, customers } = require('../models');
+const { bills, bill_items, products, customers, payments, units } = require('../models');
 const { Op } = require('sequelize');
 
 // CREATE Bill (runs entire invoice workflow inside a transaction)
 exports.createBill = async (req, res) => {
   try {
-    let userId = req.user?.id;
+    let userId = req.user?.user_id;
 
     if (!userId && req.body.user_id) {
       const requestedUser = await BillingService.findUserById(req.body.user_id);
@@ -38,7 +38,13 @@ exports.searchBills = async (req, res) => {
     }
 
     let whereClause = {};
-    let include = [{ model: bill_items, include: [products] }];
+    let include = [{ 
+      model: bill_items, 
+      include: [
+        products,
+        { model: units, as: 'billed_unit', attributes: ['unit_id', 'unit_name'] }
+      ] 
+    }];
 
     if (searchType === 'bill_no') {
       whereClause.bill_no = { [Op.like]: `%${query}%` };
@@ -78,7 +84,26 @@ exports.getAllBills = async (req, res) => {
     if (customer_id) whereClause.customer_id = customer_id;
     if (status) whereClause.status = status;
 
-    const billList = await bills.findAll({ where: whereClause });
+    const billList = await bills.findAll({
+      where: whereClause,
+      include: [
+        {
+          model: customers,
+          attributes: ['customer_id', 'customer_name', 'phone_no', 'address']
+        },
+        {
+          model: bill_items,
+          include: [
+            { model: products, attributes: ['product_name'] },
+            { model: units, as: 'billed_unit', attributes: ['unit_name'] }
+          ]
+        },
+        {
+          model: payments,
+          attributes: ['payment_id', 'payment_date', 'amount_paid', 'payment_method', 'collected_by']
+        }
+      ]
+    });
 
     res.status(200).json(billList);
   } catch (error) {
@@ -93,7 +118,10 @@ exports.getBillById = async (req, res) => {
       include: [
         {
           model: bill_items,
-          include: [products]
+          include: [
+            products,
+            { model: units, as: 'billed_unit', attributes: ['unit_id', 'unit_name'] }
+          ]
         }
       ]
     });

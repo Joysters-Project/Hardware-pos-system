@@ -22,8 +22,10 @@ import {
   Truck,
   ClipboardList,
   UserCircle,
+  Bell,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import NavbarNotificationBell from "./NavbarNotificationBell";
 import "../styles/Sidebar.css";
 
 /* ─── Nav configuration ─── */
@@ -46,7 +48,7 @@ const getNavItems = (role) => {
       },
       {
         key: "due-collection",
-        label: "Due Collection",
+        label: "Due",
         icon: Wallet,
         path: "/due-collection",
       },
@@ -81,6 +83,12 @@ const getNavItems = (role) => {
       label: "Dashboard",
       icon: LayoutDashboard,
       path: dashPath,
+    },
+    {
+      key: "cashier-panel",
+      label: "Cashier Panel",
+      icon: ShoppingCart,
+      path: "/cashier-panel",
     },
     {
       key: "departments",
@@ -123,6 +131,12 @@ const getNavItems = (role) => {
       label: "Expenses",
       icon: Receipt,
       path: `${prefix}/expenses`,
+    },
+    {
+      key: "alerts",
+      label: "Alerts",
+      icon: Bell,
+      path: `${prefix}/alerts`,
     },
     // Salary is Admin-only — hidden for manager role
     ...(role !== "manager"
@@ -217,14 +231,17 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
               <div className="sidebar-float__brand-sub">Hardware POS</div>
             </div>
           </div>
-          <button
-            type="button"
-            className="sidebar-collapse-toggle"
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <NavbarNotificationBell />
+            <button
+              type="button"
+              className="sidebar-collapse-toggle"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+            </button>
+          </div>
         </div>
 
         {/* Navigation */}

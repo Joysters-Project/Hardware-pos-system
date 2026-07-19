@@ -9,8 +9,10 @@ import DashboardLayout from "./components/DashboardLayout";
 import Login from "./pages/Login";
 import RoleSelect from "./pages/RoleSelect";
 import Signup from "./pages/Signup";
-import ReturnPage from "./pages/ReturnPage";
-import ReturnLogsPage from "./pages/ReturnLogs";
+import ReturnsLayout from "./pages/returns/ReturnsLayout";
+import ProcessReturn from "./pages/returns/ProcessReturn";
+import ReturnInventory from "./pages/returns/ReturnInventory";
+
 import ForgotPassword from "./pages/ForgotPassword";
 import AdminDashboard from "./pages/AdminDashboard";
 import CashierDashboard from "./pages/CashierDashboard";
@@ -19,6 +21,7 @@ import Departments from "./pages/Departments";
 import Products from "./pages/Products";
 import AddProduct from "./pages/AddProduct";
 import ProductForm from "./pages/products/ProductForm";
+import Alerts from "./pages/Alerts";
 import Employees from "./pages/Employees";
 import Catalog from "./pages/Catalog";
 import Assets from "./pages/Assets";
@@ -32,6 +35,7 @@ import DueCollection from "./components/DueCollection";
 import ReturnSystem from "./components/ReturnSystem";
 import Receipts from "./pages/Receipts";
 import ReportsPage from "./pages/ReportsPage";
+import CashierPanelPage from "./pages/CashierPanelPage";
 
 import ProcurementWorkspace from "./components/procurement/ProcurementWorkspace";
 import SupplierList from "./pages/suppliers/SupplierList";
@@ -91,10 +95,15 @@ function AppRoutes() {
       <Route path="/catalog"        element={<ProtectedRoute><Catalog /></ProtectedRoute>} />
       <Route path="/billing"        element={<ProtectedRoute><BillingSystem /></ProtectedRoute>} />
       <Route path="/due-collection" element={<ProtectedRoute><DueCollection /></ProtectedRoute>} />
-      <Route path="/returns"        element={<ProtectedRoute><ReturnPage userRole={role} /></ProtectedRoute>} />
-      <Route path="/return-logs"    element={<ProtectedRoute><ReturnLogsPage /></ProtectedRoute>} />
+      <Route path="/returns" element={<ProtectedRoute><ReturnsLayout /></ProtectedRoute>}>
+        <Route index element={<Navigate to="process" replace />} />
+        <Route path="process" element={<ProcessReturn />} />
+        <Route path="inventory" element={<ReturnInventory />} />
+      </Route>
+      {/* <Route path="/return-logs"    element={<ProtectedRoute><ReturnLogsPage /></ProtectedRoute>} /> */}
       <Route path="/reports"        element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
       <Route path="/receipts"       element={<ProtectedRoute><Receipts /></ProtectedRoute>} />
+      <Route path="/cashier-panel"  element={<ProtectedRoute><CashierPanelPage /></ProtectedRoute>} />
       <Route path="/assets"         element={<ProtectedRoute><Assets /></ProtectedRoute>} />
       <Route path="/expenses"       element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
       <Route path="/salary"         element={<ProtectedRoute><SalaryManagement /></ProtectedRoute>} />
@@ -113,11 +122,108 @@ function AppRoutes() {
 
       {/* Admin-only */}
       <Route path="/audit-logs" element={<ProtectedRoute requiredRole="admin"><AuditLogs /></ProtectedRoute>} />
+      {/* Shared protected routes */}
+      <Route 
+        path="/departments" 
+        element={<ProtectedRoute><Departments /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/products" 
+        element={<ProtectedRoute><Products /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/products/add" 
+        element={<ProtectedRoute><AddProduct /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/alerts" 
+        element={<ProtectedRoute><Alerts /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/employees" 
+        element={<ProtectedRoute><Employees /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/catalog" 
+        element={<ProtectedRoute><Catalog /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/billing" 
+        element={<ProtectedRoute><BillingSystem /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/due-collection" 
+        element={<ProtectedRoute><DueCollection /></ProtectedRoute>} 
+      />
+      <Route path="/returns" element={<ProtectedRoute><ReturnsLayout /></ProtectedRoute>}>
+        <Route index element={<Navigate to="process" replace />} />
+        <Route path="process" element={<ProcessReturn />} />
+        <Route path="inventory" element={<ReturnInventory />} />
+      </Route>
+      <Route 
+        path="/reports" 
+        element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/receipts" 
+        element={<ProtectedRoute><Receipts /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/manager/departments" 
+        element={<ProtectedRoute requiredRole="manager"><Departments /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/manager/products" 
+        element={<ProtectedRoute requiredRole="manager"><Products /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/manager/products/add" 
+        element={<ProtectedRoute requiredRole="manager"><AddProduct /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/manager/employees" 
+        element={<ProtectedRoute requiredRole="manager"><Employees /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/assets" 
+        element={<ProtectedRoute><Assets /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/expenses" 
+        element={<ProtectedRoute><Expenses /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/salary" 
+        element={<ProtectedRoute><SalaryManagement /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/salary/history" 
+        element={<ProtectedRoute><SalaryHistory /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/manager/salary" 
+        element={<ProtectedRoute requiredRole="manager"><SalaryManagement /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/manager/salary/history" 
+        element={<ProtectedRoute requiredRole="manager"><SalaryHistory /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/manager/assets" 
+        element={<ProtectedRoute requiredRole="manager"><Assets /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/manager/expenses" 
+        element={<ProtectedRoute requiredRole="manager"><Expenses /></ProtectedRoute>} 
+      />
+      <Route
+        path="/manager/alerts"
+        element={<ProtectedRoute requiredRole="manager"><Alerts /></ProtectedRoute>}
+      />
 
       {/* Profile — all authenticated roles */}
       <Route path="/profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
 
-      {/* ── Procurement Module ── */}
       <Route
         path="/procurement"
         element={

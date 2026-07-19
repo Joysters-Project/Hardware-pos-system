@@ -1,16 +1,32 @@
-const { products, category, brands, units } = require('../models');
+const { products, category, brands, units, product_units } = require('../models');
 const { logActivity } = require('../services/auditService');
-
+const { syncAlertsForProduct } = require('../services/alertService');
 const EXCLUDE = ['repair_quantity'];
 const getIp   = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
 
 exports.createProduct = async (req, res) => {
   const ip = getIp(req);
   try {
-    const { repair_quantity, ...safeBody } = req.body;
+    const safeBody = req.body;
     const product = await products.create(safeBody);
+    
+    if (safeBody.alternative_units && Array.isArray(safeBody.alternative_units)) {
+      const altUnits = safeBody.alternative_units.map(item => ({
+        product_id: product.product_id,
+        unit_id: parseInt(item.unit_id),
+        conversion_factor: parseFloat(item.conversion_factor),
+        unit_price: item.unit_price ? parseFloat(item.unit_price) : null,
+        cost_price: item.cost_price ? parseFloat(item.cost_price) : null,
+        barcode: item.barcode || null
+      }));
+      await product_units.bulkCreate(altUnits);
+    }
+
+    await syncAlertsForProduct(product);
+    const io = req.app.get('io');
+    if (io) io.emit('alerts:updated');
     await logActivity(req.user?.user_id, req.user?.role, 'INVENTORY_ADD',
-      `Product added: "${product.product_name}" (ID: ${product.product_id}), Stock: ${product.stock_quantity}, Price: ${product.selling_price}`, ip);
+      `Product added: "${product.product_name}" (ID: ${product.product_id}), Stock: ${product.stock_quantity}, Price: ${product.unit_price}`, ip);
     res.status(201).json({ message: 'Product created successfully', data: product });
   } catch (error) {
     console.error('createProduct error:', error.message);
@@ -26,6 +42,13 @@ exports.getAllProducts = async (req, res) => {
         { model: category, attributes: ['category_id', 'category_name'] },
         { model: brands,   attributes: ['brand_id',   'brand_name']   },
         { model: units,    attributes: ['unit_id',    'unit_name']    },
+        {
+          model: product_units,
+          as: 'alternative_units',
+          include: [
+            { model: units, as: 'unit_details', attributes: ['unit_id', 'unit_name'] }
+          ]
+        }
       ],
     });
     res.status(200).json(productList);
@@ -42,6 +65,13 @@ exports.getProductById = async (req, res) => {
         { model: category, attributes: ['category_id', 'category_name'] },
         { model: brands,   attributes: ['brand_id',   'brand_name']   },
         { model: units,    attributes: ['unit_id',    'unit_name']    },
+        {
+          model: product_units,
+          as: 'alternative_units',
+          include: [
+            { model: units, as: 'unit_details', attributes: ['unit_id', 'unit_name'] }
+          ]
+        }
       ],
     });
     if (!product) return res.status(404).json({ message: 'Product not found' });
@@ -58,15 +88,32 @@ exports.updateProduct = async (req, res) => {
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
     const changes = [];
-    const { repair_quantity, ...safeBody } = req.body;
+    const safeBody = req.body;
     if (safeBody.stock_quantity !== undefined && String(product.stock_quantity) !== String(safeBody.stock_quantity))
       changes.push(`Stock changed from ${product.stock_quantity} to ${safeBody.stock_quantity}`);
-    if (safeBody.selling_price !== undefined && String(product.selling_price) !== String(safeBody.selling_price))
-      changes.push(`Price changed from ${product.selling_price} to ${safeBody.selling_price}`);
+    if (safeBody.unit_price !== undefined && String(product.unit_price) !== String(safeBody.unit_price))
+      changes.push(`Price changed from ${product.unit_price} to ${safeBody.unit_price}`);
     if (safeBody.product_name && product.product_name !== safeBody.product_name)
       changes.push(`Name changed from "${product.product_name}" to "${safeBody.product_name}"`);
 
     await product.update(safeBody);
+
+    if (safeBody.alternative_units !== undefined && Array.isArray(safeBody.alternative_units)) {
+      await product_units.destroy({ where: { product_id: product.product_id } });
+      const altUnits = safeBody.alternative_units.map(item => ({
+        product_id: product.product_id,
+        unit_id: parseInt(item.unit_id),
+        conversion_factor: parseFloat(item.conversion_factor),
+        unit_price: item.unit_price ? parseFloat(item.unit_price) : null,
+        cost_price: item.cost_price ? parseFloat(item.cost_price) : null,
+        barcode: item.barcode || null
+      }));
+      await product_units.bulkCreate(altUnits);
+    }
+
+    await syncAlertsForProduct(product);
+    const io = req.app.get('io');
+    if (io) io.emit('alerts:updated');
     await logActivity(req.user?.user_id, req.user?.role, 'INVENTORY_UPDATE',
       `Product ID ${product.product_id} ("${product.product_name}") updated.${changes.length ? ' ' + changes.join('. ') : ''}`, ip);
     res.status(200).json({ message: 'Product updated successfully', data: product });

@@ -103,3 +103,40 @@ export const normalizeSriLankanPhone = (phoneNumber) => {
 export const isValidSriLankanPhone = (phoneNumber) => {
   return validateSriLankanPhone(phoneNumber).isValid;
 };
+
+/**
+ * Filters phone input in real-time to only allow valid Sri Lankan mobile patterns
+ * Restricts input as user types to prevent invalid prefixes
+ * @param {string} input - The current input value
+ * @returns {string} - Filtered input that matches valid patterns
+ */
+export const filterSriLankanPhoneInput = (input) => {
+  if (!input) return '';
+  
+  // Remove all non-digit characters
+  let cleaned = input.replace(/[^0-9]/g, '');
+  
+  // Limit to 10 digits
+  cleaned = cleaned.slice(0, 10);
+  
+  // If empty, allow it
+  if (cleaned.length === 0) return '';
+  
+  // First digit must be 0
+  if (cleaned[0] !== '0') return '';
+  
+  // If has second digit, must be 7
+  if (cleaned.length >= 2 && cleaned[1] !== '7') {
+    return cleaned[0]; // Keep only '0'
+  }
+  
+  // If has third digit, must be 0-8
+  if (cleaned.length >= 3) {
+    const thirdDigit = cleaned[2];
+    if (thirdDigit < '0' || thirdDigit > '8') {
+      return cleaned.slice(0, 2); // Keep only '07'
+    }
+  }
+  
+  return cleaned;
+};

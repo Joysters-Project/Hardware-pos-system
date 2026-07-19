@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Search, Package, X, Minus, Plus, Trash2, ShoppingCart, 
   CreditCard, Printer, Download, XCircle, CheckCircle, 
   User, Phone, MapPin, DollarSign, Receipt, Tag, 
   AlertCircle, Grid3x3, List, ArrowRight, Sparkles,
-  TrendingUp, Clock, Zap, LayoutGrid, ListOrdered
+  TrendingUp, Clock, Zap
 } from 'lucide-react';
 import api from '../api/axios';
+import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import SuccessAnim from './SuccessAnim';
@@ -18,13 +19,13 @@ const BillingSystem = () => {
   const [cart, setCart] = useState([]);
   const [payData, setPayData] = useState({ amountPaid: '', customerName: '', customerPhone: '', customerAddress: '' });
   const [customerExists, setCustomerExists] = useState(false);
+  const [saveCustomer, setSaveCustomer] = useState(false);
   const [customerLookupMessage, setCustomerLookupMessage] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [lastBill, setLastBill] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
-  const [catalogProducts, setCatalogProducts] = useState([]);
-  const [catalogView, setCatalogView] = useState('grid'); // 'grid' or 'list'
   const [recentItems, setRecentItems] = useState([]);
   const searchInputRef = useRef(null);
   const navigate = useNavigate();
@@ -40,8 +41,8 @@ const BillingSystem = () => {
     }, 300);
   };
 
-  const cashierName = localStorage.getItem('cashierName') || localStorage.getItem('username') || 'System User';
-  const cashierId = localStorage.getItem('cashierId') || localStorage.getItem('userId') || 'SYS';
+  const cashierName = localStorage.getItem('userFullName') || localStorage.getItem('userName') || 'System User';
+  const cashierId = localStorage.getItem('userId') || 'SYS';
 
   const formatDateTime = (value) => {
     if (!value) return '';
@@ -49,25 +50,13 @@ const BillingSystem = () => {
     return isNaN(date) ? value : date.toLocaleString();
   };
 
-  // Load catalog products on mount and load recent items from localStorage
+  // Load recent items from localStorage
   useEffect(() => {
-    const loadCatalog = async () => {
-      try {
-        const res = await api.get('/products');
-        const products = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-        setCatalogProducts(products.filter(p => isProductActive(p)));
-      } catch (err) {
-        console.error('Failed to load catalog:', err);
-      }
-    };
-    loadCatalog();
-    
-    // Load recent items from localStorage
     const savedRecent = localStorage.getItem('recentCartItems');
     if (savedRecent) {
       try {
         setRecentItems(JSON.parse(savedRecent).slice(0, 5));
-      } catch(e) {}
+      } catch (e) {}
     }
   }, []);
 
@@ -77,7 +66,17 @@ const BillingSystem = () => {
       const recentProducts = cart.slice(0, 5).map(item => ({
         product_id: item.product_id,
         product_name: item.product_name,
-        unit_price: item.unit_price
+        unit_price: item.unit_price,
+        unit_id: item.selected_unit_id,
+        unit_name: item.selected_unit_name,
+        alternative_units: item.available_units ? item.available_units.slice(1).map(au => ({
+          unit_id: au.unit_id,
+          unit_details: { unit_name: au.unit_name },
+          conversion_factor: au.conversion_factor,
+          unit_price: au.unit_price
+        })) : [],
+        status: item.status || 'active',
+        stock_quantity: item.stock_quantity || 999
       }));
       setRecentItems(recentProducts);
       localStorage.setItem('recentCartItems', JSON.stringify(recentProducts));
@@ -111,14 +110,27 @@ const BillingSystem = () => {
 
     const rows = lastBill.items?.map((item) => {
       const itemDiscount = parseFloat(item.discount || 0);
-      const itemTotal = (item.unit_price * item.quantity) - itemDiscount;
+      const qty = parseFloat(item.billed_quantity !== undefined ? item.billed_quantity : item.quantity);
+      
+      let unitName = 'Unit';
+      if (item.selected_unit_name) {
+        unitName = item.selected_unit_name;
+      } else if (item.billed_unit?.unit_name) {
+        unitName = item.billed_unit.unit_name;
+      } else if (item.product?.unit?.unit_name) {
+        unitName = item.product.unit.unit_name;
+      }
+      
+      const priceVal = parseFloat(item.price_per_unit || item.unit_price);
+      const itemTotal = (priceVal * qty) - itemDiscount;
+      const displayProductName = item.product_name || item.product?.product_name || 'Product';
       return `
           <tr>
             <td style="padding:12px 0;border-bottom:1px solid #f0f0f0;">
-              <div style="font-weight:600;">${item.product_name}</div>
-              <div style="font-size:13px;color:#666;">${item.unit_price.toFixed(2)} x ${item.quantity}${itemDiscount ? ` - ${itemDiscount.toFixed(2)} disc` : ''}</div>
+              <div style="font-weight:600;">${displayProductName}</div>
+              <div style="font-size:13px;color:#666;">${priceVal.toFixed(2)} x ${qty} ${unitName}${itemDiscount ? ` - ${itemDiscount.toFixed(2)} disc` : ''}</div>
             </td>
-            <td style="text-align:center;padding:12px 0;border-bottom:1px solid #f0f0f0;">${item.quantity}</td>
+            <td style="text-align:center;padding:12px 0;border-bottom:1px solid #f0f0f0;">${qty} ${unitName}</td>
             <td style="text-align:right;padding:12px 0;border-bottom:1px solid #f0f0f0;"><strong>Rs. ${itemTotal.toFixed(2)}</strong></td>
           </tr>`;
     }).join('');
@@ -298,19 +310,33 @@ const BillingSystem = () => {
     if (!phone.trim()) {
       setCustomerExists(false);
       setCustomerLookupMessage('');
+      setPhoneError('');
       return;
     }
 
+    // Validate the phone number first
+    const phoneValidation = validateSriLankanPhone(phone);
+    if (!phoneValidation.isValid) {
+      setPhoneError(phoneValidation.message);
+      setCustomerExists(false);
+      setCustomerLookupMessage('');
+      return;
+    }
+    setPhoneError('');
+
+    const formattedPhone = phoneValidation.formatted;
+
     try {
-      const res = await api.get(`/customers?phone=${encodeURIComponent(phone)}`);
+      const res = await api.get(`/customers?phone=${encodeURIComponent(formattedPhone)}`);
       const customer = res.data.data;
       if (customer) {
         setPayData((prev) => ({ ...prev,
           customerName: customer.customer_name,
-          customerPhone: phone,
+          customerPhone: formattedPhone,
           customerAddress: customer.address || ''
         }));
         setCustomerExists(true);
+        setSaveCustomer(true);
         setCustomerLookupMessage('Existing customer found');
       } else {
         setCustomerExists(false);
@@ -337,11 +363,31 @@ const BillingSystem = () => {
       return alert(`${product.product_name} is out of stock.`);
     }
 
-    const existingItem = cart.find(item => item.product_id === product.product_id);
+    // Resolve base unit name robustly
+    const baseUnitName = product.unit?.unit_name || product.unit_name || 'Unit';
+
+    const baseUnit = {
+      unit_id: parseInt(product.unit_id),
+      unit_name: baseUnitName,
+      conversion_factor: 1.0,
+      unit_price: parseFloat(product.unit_price)
+    };
+
+    const altUnits = (product.alternative_units || []).map(au => ({
+      unit_id: parseInt(au.unit_id),
+      unit_name: au.unit_details?.unit_name || au.unit?.unit_name || au.unit_name || 'Alt Unit',
+      conversion_factor: parseFloat(au.conversion_factor),
+      unit_price: parseFloat(au.unit_price || (product.unit_price * au.conversion_factor))
+    }));
+
+    const availableUnits = [baseUnit, ...altUnits];
+
+    // Check if item exists in the cart with the same unit_id
+    const existingItem = cart.find(item => item.product_id === product.product_id && item.selected_unit_id === parseInt(product.unit_id));
     
     if (existingItem) {
       setCart(cart.map(item =>
-        item.product_id === product.product_id
+        item.product_id === product.product_id && item.selected_unit_id === parseInt(product.unit_id)
           ? { ...item, quantity: item.quantity + 1 }
           : item
       ));
@@ -351,12 +397,32 @@ const BillingSystem = () => {
         product_name: product.product_name,
         unit_price: parseFloat(product.unit_price),
         price: parseFloat(product.unit_price),
-        quantity: 1
+        quantity: 1,
+        selected_unit_id: parseInt(product.unit_id),
+        selected_unit_name: baseUnitName,
+        conversion_factor: 1.0,
+        available_units: availableUnits,
+        discount: 0
       }]);
     }
 
     setSearchQuery('');
     setShowResults(false);
+  };
+
+  const handleUnitChange = (index, targetUnitId) => {
+    setCart(cart.map((item, i) => {
+      if (i !== index) return item;
+      const matchedUnit = item.available_units.find(u => u.unit_id === parseInt(targetUnitId));
+      if (!matchedUnit) return item;
+      return {
+        ...item,
+        selected_unit_id: matchedUnit.unit_id,
+        selected_unit_name: matchedUnit.unit_name,
+        unit_price: matchedUnit.unit_price,
+        conversion_factor: matchedUnit.conversion_factor
+      };
+    }));
   };
 
   // Remove product from cart
@@ -366,12 +432,13 @@ const BillingSystem = () => {
 
   // Update quantity
   const handleUpdateQty = (index, newQty) => {
-    if (!Number.isFinite(newQty) || newQty <= 0) {
+    const qty = parseFloat(newQty);
+    if (!Number.isFinite(qty) || qty <= 0) {
       handleRemoveFromCart(index);
       return;
     }
     setCart(cart.map((item, i) =>
-      i === index ? { ...item, quantity: newQty } : item
+      i === index ? { ...item, quantity: qty } : item
     ));
   };
 
@@ -386,15 +453,27 @@ const BillingSystem = () => {
   const cartItemCount = cart.reduce((acc, i) => acc + i.quantity, 0);
   // allow checkout once cart has items and an amount is entered; specific customer validation happens on submit
   const canCheckout = cart.length > 0 && amountPaidValue > 0;
+  const showCustomerDetails = isPartial || saveCustomer || customerExists;
 
   const handleCheckout = async () => {
     if (cart.length === 0) return alert("Cart is empty!");
     if (amountPaidValue <= 0) return alert("Enter the amount received before completing transaction!");
-    // For partial payments require customer phone/name/address for new customers
-    if (isPartial) {
-      if (!payData.customerPhone.trim()) return alert("Phone required for Partial Payment!");
-      if (!customerExists && !payData.customerName.trim()) return alert("Customer name required for new customer partial payment!");
-      if (!customerExists && !payData.customerAddress.trim()) return alert("Customer address required for new customer partial payment!");
+    // Validate phone number if provided
+    if (payData.customerPhone.trim()) {
+      const phoneValidation = validateSriLankanPhone(payData.customerPhone);
+      if (!phoneValidation.isValid) {
+        setPhoneError(phoneValidation.message);
+        return alert(`Invalid phone number: ${phoneValidation.message}`);
+      }
+      setPhoneError('');
+      // Use formatted phone number
+      setPayData((prev) => ({ ...prev, customerPhone: phoneValidation.formatted }));
+    }
+
+    if (saveCustomer || customerExists || isPartial) {
+      if (!payData.customerPhone.trim()) return alert('Phone required to save customer!');
+      if (!customerExists && !payData.customerName.trim()) return alert('Customer name required to save customer!');
+      if (isPartial && !customerExists && !payData.customerAddress.trim()) return alert('Customer address required for new customer partial payment!');
     }
 
     try {
@@ -403,14 +482,16 @@ const BillingSystem = () => {
           product_id: item.product_id,
           quantity: item.quantity,
           price: item.unit_price,
-          discount: item.discount || 0
+          discount: item.discount || 0,
+          selected_unit_id: item.selected_unit_id,
+          conversion_factor: item.conversion_factor || 1.0
         })),
         subtotal,
         total_amount: total,
         discount: 0,
         amount_paid: amountPaidValue,
         balance_due: isPartial ? Math.abs(balance) : 0,
-        customer: payData.customerPhone ? { name: payData.customerName, phone: payData.customerPhone, address: payData.customerAddress } : null,
+        customer: (saveCustomer || customerExists || isPartial) && payData.customerPhone ? { name: payData.customerName, phone: payData.customerPhone, address: payData.customerAddress } : null,
       };
 
       const res = await api.post('/bills', payload);
@@ -422,7 +503,11 @@ const BillingSystem = () => {
 
       setLastBill({
         ...res.data.data,
-        items: cart,
+        items: cart.map(item => ({
+          ...item,
+          billed_quantity: item.quantity,
+          selected_unit_name: item.selected_unit_name
+        })),
         amount_paid: amountPaidValue,
         change_returned: balance >= 0 ? balance : 0,
         due_amount: isPartial ? Math.abs(balance) : 0,
@@ -432,13 +517,10 @@ const BillingSystem = () => {
       });
       setCart([]);
       setPayData({ amountPaid: '', customerName: '', customerPhone: '', customerAddress: '' });
-
-      // Reload catalog to reflect updated stock
-      try {
-        const catRes = await api.get('/products');
-        const products = Array.isArray(catRes.data) ? catRes.data : (catRes.data?.data || []);
-        setCatalogProducts(products.filter(p => isProductActive(p)));
-      } catch (e) { /* silent */ }
+      setSaveCustomer(false);
+      setCustomerExists(false);
+      setCustomerLookupMessage('');
+      setPhoneError('');
     } catch (err) { alert(err.response?.data?.error || "Error"); }
   };
 
@@ -556,84 +638,79 @@ const BillingSystem = () => {
             )}
           </div>
 
-          {/* Catalog Header with View Toggle */}
-          <div className="pos-catalog-header-modern">
+          <div className="pos-selected-products-header-modern">
             <div className="catalog-title">
               <Package size={18} />
-              <span>Product Catalog</span>
-              <span className="catalog-count">{catalogProducts.length}</span>
-            </div>
-            <div className="catalog-view-toggle">
-              <button 
-                className={`view-btn ${catalogView === 'grid' ? 'active' : ''}`}
-                onClick={() => setCatalogView('grid')}
-              >
-                <LayoutGrid size={16} />
-              </button>
-              <button 
-                className={`view-btn ${catalogView === 'list' ? 'active' : ''}`}
-                onClick={() => setCatalogView('list')}
-              >
-                <ListOrdered size={16} />
-              </button>
+              <span>Selected Products</span>
+              <span className="catalog-count">{cartItemCount}</span>
             </div>
           </div>
 
-          {/* Product Catalog Grid/List */}
-          <div className="pos-catalog-modern">
-            {catalogProducts.length === 0 ? (
-              <div className="catalog-empty">
-                <div className="empty-icon">📦</div>
-                <div className="empty-text">No products available</div>
-                <div className="empty-sub">Add products from the Products page</div>
-              </div>
-            ) : catalogView === 'grid' ? (
-              <div className="catalog-grid-modern">
-                {catalogProducts.map((product) => (
-                  <div
-                    key={product.product_id}
-                    className={`product-card-modern ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
-                    onClick={() => handleAddToCart(product)}
-                  >
-                    <div className="product-card-icon">
-                      <Package size={20} />
-                    </div>
-                    <div className="product-card-name">{product.product_name}</div>
-                    <div className="product-card-sku">
-                      {product.product_code || `ID: ${product.product_id}`}
-                    </div>
-                    <div className="product-card-bottom">
-                      <div className="product-card-price">Rs.{parseFloat(product.unit_price).toFixed(2)}</div>
-                      <div className={`product-card-stock ${getStockClass(product.stock_quantity)}`}>
-                        {getStockLabel(product.stock_quantity)}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+          <div className="pos-selected-products-modern">
+            {cart.length === 0 ? (
+              <div className="cart-empty-modern">
+                <div className="empty-cart-icon">🛒</div>
+                <div className="empty-cart-text">No products selected</div>
+                <div className="empty-cart-sub">Search and select products to begin billing</div>
               </div>
             ) : (
-              <div className="catalog-list-modern">
-                {catalogProducts.map((product) => (
-                  <div
-                    key={product.product_id}
-                    className={`product-list-item ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
-                    onClick={() => handleAddToCart(product)}
-                  >
-                    <div className="list-item-icon">
-                      <Package size={18} />
-                    </div>
-                    <div className="list-item-info">
-                      <div className="list-item-name">{product.product_name}</div>
-                      <div className="list-item-code">{product.product_code || `ID: ${product.product_id}`}</div>
-                    </div>
-                    <div className="list-item-right">
-                      <div className="list-item-price">Rs.{parseFloat(product.unit_price).toFixed(2)}</div>
-                      <div className={`list-item-stock ${getStockClass(product.stock_quantity)}`}>
-                        {getStockLabel(product.stock_quantity)}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div className="cart-items-modern">
+                <table className="cart-table-modern">
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th style={{ width: '160px', textAlign: 'center' }}>Unit</th>
+                      <th style={{ width: '110px', textAlign: 'center' }}>Qty</th>
+                      <th style={{ width: '110px', textAlign: 'right' }}>Subtotal</th>
+                      <th style={{ width: '36px' }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cart.map((item, idx) => (
+                      <tr key={idx}>
+                        <td>
+                          <div className="table-item-name">{item.product_name}</div>
+                          <div className="table-item-price">Rs.{item.unit_price.toFixed(2)} per {item.selected_unit_name || 'unit'}</div>
+                        </td>
+
+                        {/* Unit column — always a select; shows options if multi-unit, single option if not */}
+                        <td style={{ textAlign: 'center' }}>
+                          <select
+                            className={`unit-select-table${item.available_units && item.available_units.length > 1 ? ' multi' : ' single'}`}
+                            value={item.selected_unit_id}
+                            onChange={(e) => handleUnitChange(idx, e.target.value)}
+                            disabled={!item.available_units || item.available_units.length <= 1}
+                          >
+                            {(item.available_units || []).map(au => (
+                              <option key={au.unit_id} value={au.unit_id}>
+                                {au.unit_name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+
+                        <td style={{ textAlign: 'center' }}>
+                          <input
+                            type="number"
+                            className="qty-input-table"
+                            value={item.quantity}
+                            onChange={(e) => handleUpdateQty(idx, parseFloat(e.target.value) || 0)}
+                            min="0.01"
+                            step="0.01"
+                          />
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <strong>Rs.{(item.unit_price * item.quantity).toFixed(2)}</strong>
+                        </td>
+                        <td>
+                          <button className="table-remove-btn" onClick={() => handleRemoveFromCart(idx)}>
+                            <X size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
@@ -659,38 +736,11 @@ const BillingSystem = () => {
               )}
             </div>
 
-            {/* Cart Items */}
-            {cart.length === 0 ? (
+            {cart.length === 0 && (
               <div className="cart-empty-modern">
                 <div className="empty-cart-icon">🛒</div>
-                <div className="empty-cart-text">Cart is empty</div>
-                <div className="empty-cart-sub">Search or click a product to add</div>
-              </div>
-            ) : (
-              <div className="cart-items-modern">
-                {cart.map((item, idx) => (
-                  <div key={idx} className="cart-item-modern">
-                    <div className="item-info">
-                      <div className="item-name">{item.product_name}</div>
-                      <div className="item-price-each">Rs.{item.unit_price.toFixed(2)} each</div>
-                    </div>
-                    <div className="item-controls">
-                      <button className="qty-btn" onClick={() => handleUpdateQty(idx, item.quantity - 1)}>
-                        <Minus size={12} />
-                      </button>
-                      <span className="qty-display">{item.quantity}</span>
-                      <button className="qty-btn" onClick={() => handleUpdateQty(idx, item.quantity + 1)}>
-                        <Plus size={12} />
-                      </button>
-                    </div>
-                    <div className="item-total">
-                      Rs.{(item.unit_price * item.quantity).toFixed(2)}
-                    </div>
-                    <button className="item-remove" onClick={() => handleRemoveFromCart(idx)}>
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
+                <div className="empty-cart-text">No items selected</div>
+                <div className="empty-cart-sub">Search and add products from the left panel.</div>
               </div>
             )}
 
@@ -705,6 +755,22 @@ const BillingSystem = () => {
                 <span className="summary-total-label">Total</span>
                 <span className="summary-total-value">Rs.{total.toFixed(2)}</span>
               </div>
+
+              {amountPaidValue > 0 && !isPartial && (
+                <div className="customer-save-toggle-row">
+                  <div>
+                    <div className="customer-save-title">Save customer on this full payment</div>
+                    <div className="customer-save-subtitle">Only full payments ask whether to save the customer or not.</div>
+                  </div>
+                  <button
+                    type="button"
+                    className={`customer-save-toggle ${saveCustomer || customerExists ? 'on' : ''}`}
+                    onClick={() => setSaveCustomer(prev => !prev)}
+                  >
+                    {(saveCustomer || customerExists) ? 'On' : 'Off'}
+                  </button>
+                </div>
+              )}
 
               {/* Amount Received */}
               <div className="amount-input-group">
@@ -728,111 +794,135 @@ const BillingSystem = () => {
                 </div>
               </div>
 
-              {/* Change or Due */}
-              {amountPaidValue > 0 && (
-                balance >= 0 ? (
-                  <div className="change-card positive">
-                    <CheckCircle size={18} />
-                    <div>
-                      <div className="change-label">Change to Return</div>
-                      <div className="change-value">Rs.{balance.toFixed(2)}</div>
+              <div className="payment-summary-scroll">
+                {/* Change or Due */}
+                {amountPaidValue > 0 && (
+                  balance >= 0 ? (
+                    <div className="change-card positive">
+                      <CheckCircle size={18} />
+                      <div>
+                        <div className="change-label">Change to Return</div>
+                        <div className="change-value">Rs.{balance.toFixed(2)}</div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="change-card negative">
+                      <AlertCircle size={18} />
+                      <div>
+                        <div className="change-label">Balance Due</div>
+                        <div className="change-value">Rs.{Math.abs(balance).toFixed(2)}</div>
+                      </div>
+                    </div>
+                  )
+                )}
+
+                {/* Customer Info for Partial Payment */}
+                {showCustomerDetails && (
+                  <div className="partial-info-modern">
+                    <div className="partial-header">
+                      <User size={14} />
+                      <span>{isPartial ? 'Customer Information' : 'Customer Information'}</span>
+                    </div>
+                    {isPartial && (
+                      <p className="partial-message found" style={{ marginTop: 0 }}>
+                        Partial payment will save this customer automatically.
+                      </p>
+                    )}
+                    {customerExists && (
+                      <p className="partial-message found" style={{ marginTop: 0 }}>
+                        Existing customer loaded
+                      </p>
+                    )}
+                    <div className="partial-input-group">
+                      <User size={14} className="input-icon" />
+                      <input
+                        placeholder="Customer Name (Required)"
+                        value={payData.customerName || ''}
+                        onChange={(e) => setPayData({...payData, customerName: e.target.value})}
+                        readOnly={customerExists}
+                      />
+                    </div>
+                    <div className="partial-input-group">
+                      <Phone size={14} className="input-icon" />
+                      <input
+                        placeholder="Phone Number (Required)"
+                        value={payData.customerPhone || ''}
+                        type="tel"
+                        maxLength={10}
+                        onChange={(e) => {
+                          const filtered = filterSriLankanPhoneInput(e.target.value);
+                          setPayData((prev) => ({ ...prev, customerPhone: filtered }));
+                          setCustomerExists(false);
+                          setCustomerLookupMessage('');
+                          if (phoneError) setPhoneError('');
+                        }}
+                        onBlur={(e) => lookupCustomerByPhone(e.target.value)}
+                        style={phoneError ? { borderColor: '#ef4444', borderWidth: '2px' } : {}}
+                      />
+                      {payData.customerPhone && (
+                        <span style={{ fontSize: '11px', color: '#888', marginTop: '2px', display: 'block' }}>
+                          {payData.customerPhone.length}/10 digits
+                        </span>
+                      )}
+                      {phoneError && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', color: '#ef4444', fontSize: '12px' }}>
+                          <AlertCircle size={13} />
+                          {phoneError}
+                        </div>
+                      )}
+                    </div>
+                    <div className="partial-input-group">
+                      <MapPin size={14} className="input-icon" />
+                      <input
+                        placeholder="Address"
+                        value={payData.customerAddress || ''}
+                        onChange={(e) => setPayData({...payData, customerAddress: e.target.value})}
+                        readOnly={customerExists}
+                      />
+                    </div>
+                    {customerLookupMessage && (
+                      <p className={`partial-message ${customerExists ? 'found' : 'new'}`}>
+                        {customerLookupMessage}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Recent Items Quick Add */}
+                {recentItems.length > 0 && cart.length === 0 && (
+                  <div className="recent-items-modern">
+                    <div className="recent-header">
+                      <Sparkles size={12} />
+                      <span>Recent Items</span>
+                    </div>
+                    <div className="recent-list">
+                      {recentItems.map((item, idx) => (
+                        <button 
+                          key={idx} 
+                          className="recent-item"
+                          onClick={() => handleAddRecent(item)}
+                        >
+                          {item.product_name}
+                          <span className="recent-price">Rs.{item.unit_price.toFixed(2)}</span>
+                        </button>
+                      ))}
                     </div>
                   </div>
-                ) : (
-                  <div className="change-card negative">
-                    <AlertCircle size={18} />
-                    <div>
-                      <div className="change-label">Balance Due</div>
-                      <div className="change-value">Rs.{Math.abs(balance).toFixed(2)}</div>
-                    </div>
-                  </div>
-                )
-              )}
-
-              {/* Customer Info for Partial or Full Payment */}
-              {amountPaidValue > 0 && (
-                <div className="partial-info-modern">
-                  <div className="partial-header">
-                    <User size={14} />
-                    <span>Customer Information</span>
-                  </div>
-                  <div className="partial-input-group">
-                    <User size={14} className="input-icon" />
-                    <input
-                      placeholder="Customer Name (Required)"
-                      value={payData.customerName || ''}
-                      onChange={(e) => setPayData({...payData, customerName: e.target.value})}
-                      readOnly={customerExists}
-                    />
-                  </div>
-                  <div className="partial-input-group">
-                    <Phone size={14} className="input-icon" />
-                    <input
-                      placeholder="Phone Number (Required)"
-                      value={payData.customerPhone || ''}
-                      onChange={(e) => {
-                        const phone = e.target.value;
-                        setPayData((prev) => ({ ...prev, customerPhone: phone }));
-                        setCustomerExists(false);
-                        setCustomerLookupMessage('');
-                      }}
-                      onBlur={(e) => lookupCustomerByPhone(e.target.value)}
-                    />
-                  </div>
-                  <div className="partial-input-group">
-                    <MapPin size={14} className="input-icon" />
-                    <input
-                      placeholder="Address"
-                      value={payData.customerAddress || ''}
-                      onChange={(e) => setPayData({...payData, customerAddress: e.target.value})}
-                      readOnly={customerExists}
-                    />
-                  </div>
-                  {customerLookupMessage && (
-                    <p className={`partial-message ${customerExists ? 'found' : 'new'}`}>
-                      {customerLookupMessage}
-                    </p>
-                  )}
-                  {isFullPaid && (
-                    <p className="partial-message full-payment">
-                      Full payment recorded. Phone number and customer name are required to complete this transaction.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Recent Items Quick Add */}
-              {recentItems.length > 0 && cart.length === 0 && (
-                <div className="recent-items-modern">
-                  <div className="recent-header">
-                    <Sparkles size={12} />
-                    <span>Recent Items</span>
-                  </div>
-                  <div className="recent-list">
-                    {recentItems.map((item, idx) => (
-                      <button 
-                        key={idx} 
-                        className="recent-item"
-                        onClick={() => handleAddRecent(item)}
-                      >
-                        {item.product_name}
-                        <span className="recent-price">Rs.{item.unit_price.toFixed(2)}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Checkout Button */}
-              <button
-                onClick={handleCheckout}
-                disabled={cart.length === 0 || amountPaidValue <= 0}
-                className={`checkout-btn-modern ${canCheckout ? 'active' : 'disabled'}`}
-              >
-                <span className="checkout-kbd">F9</span>
-                Complete Transaction
-                <ArrowRight size={16} />
-              </button>
+              <div className="checkout-footer-modern">
+                <button
+                  onClick={handleCheckout}
+                  disabled={cart.length === 0 || amountPaidValue <= 0}
+                  className={`checkout-btn-modern ${canCheckout ? 'active' : 'disabled'}`}
+                >
+                  <span className="checkout-kbd">F9</span>
+                  Complete Transaction
+                  <ArrowRight size={16} />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -844,7 +934,7 @@ const BillingSystem = () => {
         animate={animSuccess}
         onDismiss={handleSuccessDismiss}
         message="Transaction Complete!"
-        subMessage={`Bill total: Rs. ${total.toFixed(2)}`}
+        subMessage={lastBill ? `Bill Total: Rs. ${(lastBill.total_amount ?? 0).toFixed(2)}` : `Bill total: Rs. ${total.toFixed(2)}`}
       />
 
       {/* Receipt Modal */}

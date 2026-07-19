@@ -1,14 +1,22 @@
-import { useAuth } from "../context/AuthContext";
+import React from "react";
 import DashboardLayout from "../components/DashboardLayout";
 import AnalyticalDashboard from "../components/AnalyticalDashboard";
-import "../styles/Dashboard.css";
+import AlertStatCard from "../components/AlertStatCard";
 
 function AdminDashboard({ children, active }) {
   return (
     <DashboardLayout active={active || "home"}>
-      {children ? children : <AnalyticalDashboard />}
+      {children ? (
+        children
+      ) : (
+        <>
+          <AlertStatCard />
+          <AnalyticalDashboard />
+        </>
+      )}
     </DashboardLayout>
   );
 }
+
 
 export default AdminDashboard;
