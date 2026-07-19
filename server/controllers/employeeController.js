@@ -52,7 +52,12 @@ const createEmployee = async (req, res) => {
     if (!first_name || !last_name) return res.status(400).json({ message: 'First name and last name are required' });
     if (email) { const ex = await db.employees.findOne({ where: { email } }); if (ex) return res.status(400).json({ message: 'Email already in use' }); }
     if (nic)   { const ex = await db.employees.findOne({ where: { nic   } }); if (ex) return res.status(400).json({ message: 'NIC already in use' }); }
-    
+
+    const trimmedFirst = first_name.trim();
+    const trimmedLast = last_name.trim();
+    const normalizedEmail = email?.trim().toLowerCase() || null;
+    const normalizedNic = nic?.trim() || null;
+
     // Validate phone number if provided
     let validatedPhone = phone_no || null;
     if (phone_no) {
@@ -63,17 +68,35 @@ const createEmployee = async (req, res) => {
       validatedPhone = phoneValidation.formatted;
     }
 
+    const nameDuplicate = await db.employees.findOne({
+      where: {
+        first_name: trimmedFirst,
+        last_name: trimmedLast,
+      },
+    });
+    if (nameDuplicate) return res.status(400).json({ message: 'Employee with same name already exists' });
+
+    const duplicate = await db.employees.findOne({
+      where: {
+        first_name: trimmedFirst,
+        last_name: trimmedLast,
+        email: normalizedEmail,
+        phone_no: validatedPhone,
+        nic: normalizedNic,
+      },
+    });
+    if (duplicate) return res.status(400).json({ message: 'Employee with same details already exists' });
+
     const profile_photo = req.file ? `uploads/employee_photos/${req.file.filename}` : null;
     const emp = await db.employees.create({
-      first_name, last_name, nic: nic || null, phone_no: validatedPhone,
-      email: email || null, address: address || null, position: position || null,
+      first_name: trimmedFirst, last_name: trimmedLast, nic: normalizedNic, phone_no: validatedPhone,
+      email: normalizedEmail, address: address || null, position: position || null,
       salary: salary || null, join_date: join_date || null, hire_date: join_date || null,
       status: status || 'Active', profile_photo, department_id: department_id || null,
     });
-
     const userId = req.user?.user_id;
     const role   = req.user?.role;
-    await logActivity(userId, role, 'CREATE_EMPLOYEE', `Employee created: ${first_name} ${last_name} (ID: ${emp.employee_id}), Position: ${position || '—'}`, ip);
+    await logActivity(userId, role, 'CREATE_EMPLOYEE', `Employee created: ${trimmedFirst} ${trimmedLast} (ID: ${emp.employee_id}), Position: ${position || '—'}`, ip);
 
     res.status(201).json({ message: 'Employee created successfully', data: emp });
   } catch (error) {
@@ -91,6 +114,11 @@ const updateEmployee = async (req, res) => {
     const { first_name, last_name, nic, phone_no, email, address, position, salary, join_date, status, department_id } = req.body;
     if (!first_name || !last_name) return res.status(400).json({ message: 'First name and last name are required' });
 
+    const trimmedFirst = first_name.trim();
+    const trimmedLast = last_name.trim();
+    const normalizedEmail = email?.trim().toLowerCase() || null;
+    const normalizedNic = nic?.trim() || null;
+
     // Validate phone number if provided
     let validatedPhone = phone_no || null;
     if (phone_no) {
@@ -100,6 +128,27 @@ const updateEmployee = async (req, res) => {
       }
       validatedPhone = phoneValidation.formatted;
     }
+
+    const nameDuplicate = await db.employees.findOne({
+      where: {
+        first_name: trimmedFirst,
+        last_name: trimmedLast,
+        employee_id: { [Op.ne]: emp.employee_id },
+      },
+    });
+    if (nameDuplicate) return res.status(400).json({ message: 'Another employee with same name already exists' });
+
+    const duplicate = await db.employees.findOne({
+      where: {
+        first_name: trimmedFirst,
+        last_name: trimmedLast,
+        email: normalizedEmail,
+        phone_no: validatedPhone,
+        nic: normalizedNic,
+        employee_id: { [Op.ne]: emp.employee_id },
+      },
+    });
+    if (duplicate) return res.status(400).json({ message: 'Another employee with same details already exists' });
 
     // Build change log
     const changes = [];

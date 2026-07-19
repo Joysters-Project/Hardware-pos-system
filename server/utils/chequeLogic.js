@@ -1,3 +1,6 @@
+// Configurable clearing days — change this value to adjust globally
+const CHEQUE_CLEARING_DAYS = 3;
+
 const formatDate = (value) => {
   if (!value) return null;
   const d = new Date(value);
@@ -5,7 +8,7 @@ const formatDate = (value) => {
   return d.toISOString().split('T')[0];
 };
 
-const calculatePendingChequeDate = (chequeDate, daysToAdd = 3) => {
+const calculatePendingChequeDate = (chequeDate, daysToAdd = CHEQUE_CLEARING_DAYS) => {
   if (!chequeDate) return null;
   const d = new Date(chequeDate);
   if (Number.isNaN(d.getTime())) return null;
@@ -22,14 +25,15 @@ const normalizeChequeDetails = (input = {}, paymentMethod) => {
     bank_name: isCheque ? (input.bank_name || null) : null,
     cheque_date: isCheque ? (input.cheque_date || null) : null,
     pending_cheque_date: isCheque
-      ? (input.pending_cheque_date || calculatePendingChequeDate(input.cheque_date, input.pending_days || 3) || null)
+      ? (input.pending_cheque_date || calculatePendingChequeDate(input.cheque_date, input.pending_days || CHEQUE_CLEARING_DAYS) || null)
       : null,
     cheque_status: isCheque ? (input.cheque_status || 'Pending') : null,
-    pending_days: input.pending_days || 3
+    pending_days: input.pending_days || CHEQUE_CLEARING_DAYS
   };
 };
 
 module.exports = {
+  CHEQUE_CLEARING_DAYS,
   calculatePendingChequeDate,
   normalizeChequeDetails
 };

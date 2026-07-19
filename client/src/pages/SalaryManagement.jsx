@@ -3,7 +3,7 @@ import { useLocation, Link } from "react-router-dom";
 import {
   RefreshCw, Plus, FileDown, History,
   CheckCircle, Clock, AlertCircle,
-  Download, CreditCard, X,
+  Download, CreditCard, X, Pencil,
   ChevronLeft, ChevronRight, Search, Mail
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -121,9 +121,9 @@ function SalaryPage() {
     // Check if a paid record already exists for this employee/month/year
     const duplicate = payments.some(
       x => x.employee_id === p.employee_id &&
-           x.payment_month === p.payment_month &&
-           x.payment_year === p.payment_year &&
-           x.payment_status === 'Paid' &&
+           String(x.payment_month) === String(p.payment_month) &&
+           String(x.payment_year) === String(p.payment_year) &&
+           String(x.payment_status).toLowerCase() === 'paid' &&
            x.salary_payment_id !== p.salary_payment_id
     );
     setPayModal({ ...p, payment_method: p.payment_method || 'Bank Transfer', remarks: '', isDuplicate: duplicate });
@@ -354,13 +354,13 @@ function SalaryPage() {
                 </td>
                 <td>
                   <div className="sal-action-btns">
-                    {p.payment_status === "Pending" && (
-                      <button className="sal-icon-btn btn-pay" title="Mark as Paid"
+                    {String(p.payment_status).toLowerCase() === "pending" && (
+                      <button type="button" className="sal-icon-btn btn-pay" title="Mark as Paid"
                         onClick={() => handlePayClick(p)}>
                         <CreditCard size={14} />
                       </button>
                     )}
-                    {p.payment_status === "Paid" && (<>
+                    {String(p.payment_status).toLowerCase() === "paid" && (<>
                       <button className="sal-icon-btn btn-download" title="Download Payslip"
                         onClick={() => handleDownload(p.salary_payment_id)}>
                         <Download size={14} />

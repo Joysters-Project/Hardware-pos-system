@@ -20,7 +20,7 @@ const createPaymentRecord = async (poId, supplierId, invoiceNumber, invoiceAmoun
       invoice_amount: invoiceAmount,
       paid_amount: 0.00,
       balance_amount: invoiceAmount,
-      due_date: dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // default 30 days
+      due_date: dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       payment_status: 'Pending'
     });
   } catch (err) {
@@ -54,12 +54,16 @@ const processPayment = async (paymentId, amountPaid, paymentMethod, paidDate, no
       throw new Error(`Payment amount LKR ${amountPaid} exceeds outstanding balance of LKR ${payment.balance_amount}`);
     }
 
-    let status = 'Partially Paid';
-    if (newBalance <= 0) {
-      status = 'Paid';
+    const isChequePayment = (paymentMethod || payment.payment_method || '').toString().toLowerCase() === 'cheque';
+
+    // Cheque payments stay Pending/Partial until the cheque is Cleared
+    let status;
+    if (isChequePayment) {
+      status = newPaidAmount > 0 ? 'Partial' : 'Pending';
+    } else {
+      status = newBalance <= 0 ? 'Paid' : 'Partial';
     }
 
-    const isChequePayment = (paymentMethod || payment.payment_method || '').toString().toLowerCase() === 'cheque';
     const updateData = {
       paid_amount: newPaidAmount,
       balance_amount: Math.max(0, newBalance),
@@ -74,12 +78,18 @@ const processPayment = async (paymentId, amountPaid, paymentMethod, paidDate, no
         calculatePendingChequeDate(normalizedCheque.cheque_date, normalizedCheque.pending_days) ||
         payment.pending_cheque_date;
 
+      // For a replacement payment after Bounced/Cancelled, always start fresh as Pending
+      const prevFailed = ['Bounced', 'Cancelled'].includes(payment.cheque_status);
+      const resolvedChequeStatus = prevFailed
+        ? 'Pending'
+        : (normalizedCheque.cheque_status || payment.cheque_status || 'Pending');
+
       Object.assign(updateData, {
-        cheque_number: normalizedCheque.cheque_number ?? payment.cheque_number ?? null,
-        bank_name: normalizedCheque.bank_name ?? payment.bank_name ?? null,
-        cheque_date: normalizedCheque.cheque_date ?? payment.cheque_date ?? null,
-        pending_cheque_date: pendingDate,
-        cheque_status: normalizedCheque.cheque_status || payment.cheque_status || 'Pending'
+        cheque_number:       normalizedCheque.cheque_number       ?? (prevFailed ? null : payment.cheque_number)       ?? null,
+        bank_name:           normalizedCheque.bank_name           ?? (prevFailed ? null : payment.bank_name)           ?? null,
+        cheque_date:         normalizedCheque.cheque_date         ?? (prevFailed ? null : payment.cheque_date)         ?? null,
+        pending_cheque_date: pendingDate                          ?? (prevFailed ? null : payment.pending_cheque_date) ?? null,
+        cheque_status:       resolvedChequeStatus,
       });
     } else {
       Object.assign(updateData, {
@@ -170,29 +180,43 @@ const getPaymentsDueThisWeek = async () => {
 
 const checkAndAlertPendingCheques = async () => {
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const today      = new Date().toISOString().split('T')[0];
+    const nearDueDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
     const pendingCheques = await supplier_payments.findAll({
-      where: {
-        payment_method: 'Cheque',
-        cheque_status: { [Op.in]: ['Pending', 'Pending Review'] }
-      },
+      where: { payment_method: 'Cheque', cheque_status: 'Pending' },
       include: [suppliers]
     });
 
     for (const payment of pendingCheques) {
       if (!payment.pending_cheque_date) continue;
+      const chequeRef   = payment.cheque_number || `PAY-${payment.payment_id}`;
+      const supplierName = payment.supplier?.supplier_name || 'supplier';
 
       if (payment.pending_cheque_date < today) {
-        await payment.update({ cheque_status: 'Pending Review' });
-
-        await notificationService.createNotification(
-          'CHEQUE_OVERDUE',
-          'Cheque pending beyond expected date',
-          `Cheque ${payment.cheque_number || payment.payment_id} for ${payment.supplier?.supplier_name || 'supplier'} is still pending after ${payment.pending_cheque_date}.`,
-          'payment',
-          payment.payment_id,
-          'warning'
-        );
+        const existingOverdue = await require('../models').procurement_notifications.findOne({
+          where: { type: 'CHEQUE_OVERDUE', reference_id: payment.payment_id, status: 'unread' }
+        });
+        if (!existingOverdue) {
+          await notificationService.createNotification(
+            'CHEQUE_OVERDUE',
+            'Cheque Overdue',
+            `Cheque ${chequeRef} for ${supplierName} is still pending beyond the expected clearance date (${payment.pending_cheque_date}).`,
+            'payment', payment.payment_id, 'warning'
+          );
+        }
+      } else if (payment.pending_cheque_date <= nearDueDate) {
+        const existingDueSoon = await require('../models').procurement_notifications.findOne({
+          where: { type: 'CHEQUE_DUE_SOON', reference_id: payment.payment_id, status: 'unread' }
+        });
+        if (!existingDueSoon) {
+          await notificationService.createNotification(
+            'CHEQUE_DUE_SOON',
+            'Cheque Due Soon',
+            `Cheque ${chequeRef} for ${supplierName} is due for clearance on ${payment.pending_cheque_date}.`,
+            'payment', payment.payment_id, 'info'
+          );
+        }
       }
     }
 
@@ -221,7 +245,6 @@ const checkAndMarkOverdue = async () => {
     for (const payment of overdueInvoices) {
       await payment.update({ payment_status: 'Overdue' });
 
-      // Create Notification
       await notificationService.createNotification(
         'PAYMENT_OVERDUE',
         `Invoice ${payment.invoice_number} is Overdue`,
@@ -231,7 +254,6 @@ const checkAndMarkOverdue = async () => {
         'critical'
       );
 
-      // Send Reminder Email (async)
       if (payment.supplier?.email) {
         emailService.sendPaymentOverdueEmail(payment).catch(err => {
           console.error(`[SupplierPaymentService] Failed to send overdue reminder: ${err.message}`);

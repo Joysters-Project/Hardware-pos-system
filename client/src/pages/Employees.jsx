@@ -68,17 +68,47 @@ function EmployeesPage() {
     evt.preventDefault();
     if (!form.first_name || !form.last_name) { toast.error("First and last name required"); return; }
     if (!form.email) {
-    toast.error("Email is required");
-    return;
-  }
+      toast.error("Email is required");
+      return;
+    }
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  if (!emailRegex.test(form.email.trim())) {
-    toast.error("Please enter a valid email address");
-    return;
-  }
-    
+    if (!emailRegex.test(form.email.trim())) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    const normalizedFirst = form.first_name.trim().toLowerCase();
+    const normalizedLast = form.last_name.trim().toLowerCase();
+    const normalizedEmail = form.email.trim().toLowerCase();
+    const normalizedNic = form.nic?.trim().toLowerCase() || '';
+    const normalizedPhone = (form.phone_no || '').trim();
+
+    const sameName = employees.find(emp => {
+      if (editId && emp.employee_id === editId) return false;
+      return emp.first_name?.trim().toLowerCase() === normalizedFirst
+        && emp.last_name?.trim().toLowerCase() === normalizedLast;
+    });
+    if (sameName) {
+      toast.error("Employee with same name already exists");
+      return;
+    }
+
+    const duplicate = employees.find(emp => {
+      if (editId && emp.employee_id === editId) return false;
+      return emp.first_name?.trim().toLowerCase() === normalizedFirst
+        && emp.last_name?.trim().toLowerCase() === normalizedLast
+        && (emp.email?.trim().toLowerCase() || '') === normalizedEmail
+        && (emp.nic?.trim().toLowerCase() || '') === normalizedNic
+        && (emp.phone_no?.trim() || '') === normalizedPhone;
+    });
+
+    if (duplicate) {
+      toast.error("Employee with same details already exists");
+      return;
+    }
+
     // Validate phone number if provided
     if (form.phone_no) {
       const phoneValidation = validateSriLankanPhone(form.phone_no);
