@@ -393,7 +393,6 @@ export default function PaymentDashboard() {
                     <th>Bank</th>
                     <th>Cheque Date</th>
                     <th>Clearing Date</th>
-                    <th>Clearing Days</th>
                     <th style={{ textAlign: 'right' }}>Amount</th>
                     <th>Status</th>
                     <th>Update</th>
@@ -414,10 +413,9 @@ export default function PaymentDashboard() {
                         <td>{p.bank_name || '—'}</td>
                         <td>{fmtD(p.cheque_date)}</td>
                         <td style={{ color: ov ? '#c62828' : '#333' }}>
-                          {fmtD(p.pending_cheque_date)}
+                          {cs === 'Cleared' ? fmtD(p.cleared_date || p.pending_cheque_date) : fmtD(p.pending_cheque_date)}
                           {ov && <AlertCircle size={12} color="#c62828" style={{ marginLeft: 4, verticalAlign: 'middle' }} />}
                         </td>
-                        <td style={{ textAlign: 'center' }}>{p.pending_days ?? '—'}</td>
                         <td style={{ textAlign: 'right' }}>
                           <span className="proc-amount" style={{ color: c.color }}>{fmt(p.paid_amount)}</span>
                         </td>
