@@ -73,6 +73,8 @@ const po_items        = require('./po_items');
 const assets           = require('./assets');
 const expenses         = require('./expenses');
 const salary_payments  = require('./salary_payments');
+const projects         = require('./projects');
+const project_items    = require('./project_items');
 const supplier_payments = require('./supplier_payments');
 const procurement_notifications = require('./procurement_notifications');
 const auto_reorder_suggestions = require('./auto_reorder_suggestions');
@@ -106,6 +108,8 @@ const db = {
   assets:           assets(sequelize),
   expenses:         expenses(sequelize),
   salary_payments:  salary_payments(sequelize),
+  projects:         projects(sequelize),
+  project_items:    project_items(sequelize),
   supplier_payments: supplier_payments(sequelize),
   procurement_notifications: procurement_notifications(sequelize),
   auto_reorder_suggestions: auto_reorder_suggestions(sequelize),
@@ -188,6 +192,16 @@ db.purchase_orders.hasMany(db.po_items, { foreignKey: 'po_id' });
 db.po_items.belongsTo(db.purchase_orders, { foreignKey: 'po_id' });
 db.products.hasMany(db.po_items, { foreignKey: 'product_id' });
 db.po_items.belongsTo(db.products, { foreignKey: 'product_id' });
+
+// Project Module
+db.users.hasMany(db.projects, { foreignKey: 'created_by', as: 'createdProjects' });
+db.projects.belongsTo(db.users, { foreignKey: 'created_by', as: 'creator' });
+db.projects.hasMany(db.project_items, { foreignKey: 'project_id', as: 'items' });
+db.project_items.belongsTo(db.projects, { foreignKey: 'project_id' });
+db.project_items.belongsTo(db.products, { foreignKey: 'product_id', as: 'product' });
+db.products.hasMany(db.project_items, { foreignKey: 'product_id' });
+db.users.hasMany(db.project_items, { foreignKey: 'taken_by', as: 'takenItems' });
+db.project_items.belongsTo(db.users, { foreignKey: 'taken_by', as: 'takenByUser' });
 
 // Enhanced Procurement relations
 db.suppliers.hasMany(db.supplier_payments, { foreignKey: 'supplier_id' });

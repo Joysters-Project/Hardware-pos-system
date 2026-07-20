@@ -5,7 +5,7 @@ import {
   CreditCard, Printer, Download, XCircle, CheckCircle, 
   User, Phone, MapPin, DollarSign, Receipt, Tag, 
   AlertCircle, Grid3x3, List, ArrowRight, Sparkles,
-  TrendingUp, Clock, Zap
+  TrendingUp, Clock, Zap, FolderOpen
 } from 'lucide-react';
 import api from '../api/axios';
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
@@ -13,9 +13,11 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import SuccessAnim from './SuccessAnim';
 import DashboardLayout from './DashboardLayout';
+import ProjectsTab from './ProjectsTab';
 import '../styles/BillingSystem.css';
 
 const BillingSystem = () => {
+  const [posTab, setPosTab] = useState('billing');
   const [cart, setCart] = useState([]);
   const [payData, setPayData] = useState({ amountPaid: '', customerName: '', customerPhone: '', customerAddress: '' });
   const [customerExists, setCustomerExists] = useState(false);
@@ -26,6 +28,8 @@ const BillingSystem = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
+  const [catalogProducts, setCatalogProducts] = useState([]);
+  const [catalogView, setCatalogView] = useState('grid');
   const [recentItems, setRecentItems] = useState([]);
   const searchInputRef = useRef(null);
   const navigate = useNavigate();
@@ -50,8 +54,20 @@ const BillingSystem = () => {
     return isNaN(date) ? value : date.toLocaleString();
   };
 
-  // Load recent items from localStorage
+  const refreshCatalog = async () => {
+    try {
+      const res = await api.get('/products');
+      const products = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setCatalogProducts(products.filter((product) => isProductActive(product)));
+    } catch (err) {
+      console.error('Failed to load catalog:', err);
+    }
+  };
+
+  // Load catalog products and recent items from localStorage
   useEffect(() => {
+    refreshCatalog();
+
     const savedRecent = localStorage.getItem('recentCartItems');
     if (savedRecent) {
       try {
@@ -521,6 +537,7 @@ const BillingSystem = () => {
       setCustomerExists(false);
       setCustomerLookupMessage('');
       setPhoneError('');
+      await refreshCatalog();
     } catch (err) { alert(err.response?.data?.error || "Error"); }
   };
 
@@ -568,7 +585,26 @@ const BillingSystem = () => {
         </div>
       </div>
 
-      {/* POS Terminal Layout */}
+      <div className="pos-tab-switcher">
+        <button
+          className={`pos-tab-btn ${posTab === 'billing' ? 'active' : ''}`}
+          onClick={() => setPosTab('billing')}
+        >
+          <ShoppingCart size={16} />
+          Billing Counter
+        </button>
+        <button
+          className={`pos-tab-btn ${posTab === 'projects' ? 'active' : ''}`}
+          onClick={() => setPosTab('projects')}
+        >
+          <FolderOpen size={16} />
+          Projects
+        </button>
+      </div>
+
+      {posTab === 'projects' && <ProjectsTab />}
+
+      {posTab === 'billing' && (
       <div className="pos-terminal-modern">
         {/* LEFT PANEL: Search + Product Catalog */}
         <div className="pos-left-modern">
@@ -634,6 +670,84 @@ const BillingSystem = () => {
                 <div className="no-results-icon">🔍</div>
                 <div>No products found for "{searchQuery.trim()}"</div>
                 <div className="no-results-hint">Try searching by name, barcode or SKU</div>
+              </div>
+            )}
+          </div>
+
+          <div className="pos-catalog-header-modern">
+            <div className="catalog-title">
+              <Package size={18} />
+              <span>Product Catalog</span>
+              <span className="catalog-count">{catalogProducts.length}</span>
+            </div>
+            <div className="catalog-view-toggle">
+              <button
+                className={`view-btn ${catalogView === 'grid' ? 'active' : ''}`}
+                onClick={() => setCatalogView('grid')}
+              >
+                <Grid3x3 size={16} />
+              </button>
+              <button
+                className={`view-btn ${catalogView === 'list' ? 'active' : ''}`}
+                onClick={() => setCatalogView('list')}
+              >
+                <List size={16} />
+              </button>
+            </div>
+          </div>
+
+          <div className="pos-catalog-modern">
+            {catalogProducts.length === 0 ? (
+              <div className="cart-empty-modern">
+                <div className="empty-cart-icon">📦</div>
+                <div className="empty-cart-text">No products available</div>
+                <div className="empty-cart-sub">Products will appear here once they are added.</div>
+              </div>
+            ) : catalogView === 'grid' ? (
+              <div className="catalog-grid-modern">
+                {catalogProducts.map((product) => (
+                  <div
+                    key={product.product_id}
+                    className={`product-card-modern ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
+                    onClick={() => handleAddToCart(product)}
+                  >
+                    <div className="product-card-icon">
+                      <Package size={20} />
+                    </div>
+                    <div className="product-card-name">{product.product_name}</div>
+                    <div className="product-card-sku">{product.product_code || `ID: ${product.product_id}`}</div>
+                    <div className="product-card-bottom">
+                      <div className="product-card-price">Rs.{parseFloat(product.unit_price).toFixed(2)}</div>
+                      <div className={`product-card-stock ${getStockClass(product.stock_quantity)}`}>
+                        {getStockLabel(product.stock_quantity)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="catalog-list-modern">
+                {catalogProducts.map((product) => (
+                  <div
+                    key={product.product_id}
+                    className={`product-list-item ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
+                    onClick={() => handleAddToCart(product)}
+                  >
+                    <div className="list-item-icon">
+                      <Package size={18} />
+                    </div>
+                    <div className="list-item-info">
+                      <div className="list-item-name">{product.product_name}</div>
+                      <div className="list-item-code">{product.product_code || `ID: ${product.product_id}`}</div>
+                    </div>
+                    <div className="list-item-right">
+                      <div className="list-item-price">Rs.{parseFloat(product.unit_price).toFixed(2)}</div>
+                      <div className={`list-item-stock ${getStockClass(product.stock_quantity)}`}>
+                        {getStockLabel(product.stock_quantity)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -927,6 +1041,7 @@ const BillingSystem = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Success Animation */}
       <SuccessAnim
