@@ -5,7 +5,7 @@ import {
   CreditCard, Printer, Download, XCircle, CheckCircle, 
   User, Phone, MapPin, DollarSign, Receipt, Tag, 
   AlertCircle, Grid3x3, List, ArrowRight, Sparkles,
-  TrendingUp, Clock, Zap
+  TrendingUp, Clock, Zap, FolderOpen
 } from 'lucide-react';
 import api from '../api/axios';
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
@@ -17,7 +17,7 @@ import ProjectsTab from './ProjectsTab';
 import '../styles/BillingSystem.css';
 
 const BillingSystem = () => {
-  const [posTab, setPosTab] = useState('billing'); // 'billing' | 'projects'
+  const [posTab, setPosTab] = useState('billing');
   const [cart, setCart] = useState([]);
   const [payData, setPayData] = useState({ amountPaid: '', customerName: '', customerPhone: '', customerAddress: '' });
   const [customerExists, setCustomerExists] = useState(false);
@@ -28,6 +28,8 @@ const BillingSystem = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
+  const [catalogProducts, setCatalogProducts] = useState([]);
+  const [catalogView, setCatalogView] = useState('grid');
   const [recentItems, setRecentItems] = useState([]);
   const searchInputRef = useRef(null);
   const navigate = useNavigate();
@@ -52,8 +54,20 @@ const BillingSystem = () => {
     return isNaN(date) ? value : date.toLocaleString();
   };
 
-  // Load recent items from localStorage
+  const refreshCatalog = async () => {
+    try {
+      const res = await api.get('/products');
+      const products = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setCatalogProducts(products.filter((product) => isProductActive(product)));
+    } catch (err) {
+      console.error('Failed to load catalog:', err);
+    }
+  };
+
+  // Load catalog products and recent items from localStorage
   useEffect(() => {
+    refreshCatalog();
+
     const savedRecent = localStorage.getItem('recentCartItems');
     if (savedRecent) {
       try {
@@ -523,6 +537,7 @@ const BillingSystem = () => {
       setCustomerExists(false);
       setCustomerLookupMessage('');
       setPhoneError('');
+      await refreshCatalog();
     } catch (err) { alert(err.response?.data?.error || "Error"); }
   };
 
@@ -552,9 +567,9 @@ const BillingSystem = () => {
             <CreditCard size={24} className="header-icon" />
           </div>
           <div>
-            <h1 className="admin-page-title-modern">Point of Sale</h1>
+            <h1 className="admin-page-title-modern">Billing Counter</h1>
             <p className="admin-page-subtitle-modern">
-              Billing counter &amp; project item tracking
+              Process sales, manage cart & complete transactions
             </p>
           </div>
         </div>
@@ -570,7 +585,6 @@ const BillingSystem = () => {
         </div>
       </div>
 
-      {/* ── POS Tab Switcher ── */}
       <div className="pos-tab-switcher">
         <button
           className={`pos-tab-btn ${posTab === 'billing' ? 'active' : ''}`}
@@ -588,10 +602,8 @@ const BillingSystem = () => {
         </button>
       </div>
 
-      {/* ── Projects Tab ── */}
       {posTab === 'projects' && <ProjectsTab />}
 
-      {/* ── Billing Tab ── */}
       {posTab === 'billing' && (
       <div className="pos-terminal-modern">
         {/* LEFT PANEL: Search + Product Catalog */}
@@ -658,6 +670,84 @@ const BillingSystem = () => {
                 <div className="no-results-icon">🔍</div>
                 <div>No products found for "{searchQuery.trim()}"</div>
                 <div className="no-results-hint">Try searching by name, barcode or SKU</div>
+              </div>
+            )}
+          </div>
+
+          <div className="pos-catalog-header-modern">
+            <div className="catalog-title">
+              <Package size={18} />
+              <span>Product Catalog</span>
+              <span className="catalog-count">{catalogProducts.length}</span>
+            </div>
+            <div className="catalog-view-toggle">
+              <button
+                className={`view-btn ${catalogView === 'grid' ? 'active' : ''}`}
+                onClick={() => setCatalogView('grid')}
+              >
+                <Grid3x3 size={16} />
+              </button>
+              <button
+                className={`view-btn ${catalogView === 'list' ? 'active' : ''}`}
+                onClick={() => setCatalogView('list')}
+              >
+                <List size={16} />
+              </button>
+            </div>
+          </div>
+
+          <div className="pos-catalog-modern">
+            {catalogProducts.length === 0 ? (
+              <div className="cart-empty-modern">
+                <div className="empty-cart-icon">📦</div>
+                <div className="empty-cart-text">No products available</div>
+                <div className="empty-cart-sub">Products will appear here once they are added.</div>
+              </div>
+            ) : catalogView === 'grid' ? (
+              <div className="catalog-grid-modern">
+                {catalogProducts.map((product) => (
+                  <div
+                    key={product.product_id}
+                    className={`product-card-modern ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
+                    onClick={() => handleAddToCart(product)}
+                  >
+                    <div className="product-card-icon">
+                      <Package size={20} />
+                    </div>
+                    <div className="product-card-name">{product.product_name}</div>
+                    <div className="product-card-sku">{product.product_code || `ID: ${product.product_id}`}</div>
+                    <div className="product-card-bottom">
+                      <div className="product-card-price">Rs.{parseFloat(product.unit_price).toFixed(2)}</div>
+                      <div className={`product-card-stock ${getStockClass(product.stock_quantity)}`}>
+                        {getStockLabel(product.stock_quantity)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="catalog-list-modern">
+                {catalogProducts.map((product) => (
+                  <div
+                    key={product.product_id}
+                    className={`product-list-item ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
+                    onClick={() => handleAddToCart(product)}
+                  >
+                    <div className="list-item-icon">
+                      <Package size={18} />
+                    </div>
+                    <div className="list-item-info">
+                      <div className="list-item-name">{product.product_name}</div>
+                      <div className="list-item-code">{product.product_code || `ID: ${product.product_id}`}</div>
+                    </div>
+                    <div className="list-item-right">
+                      <div className="list-item-price">Rs.{parseFloat(product.unit_price).toFixed(2)}</div>
+                      <div className={`list-item-stock ${getStockClass(product.stock_quantity)}`}>
+                        {getStockLabel(product.stock_quantity)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -951,7 +1041,7 @@ const BillingSystem = () => {
           </div>
         </div>
       </div>
-      )} {/* end billing tab */}
+      )}
 
       {/* Success Animation */}
       <SuccessAnim
