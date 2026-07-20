@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Search, Package, X, Minus, Plus, Trash2, ShoppingCart, 
   CreditCard, Printer, Download, XCircle, CheckCircle, 
   User, Phone, MapPin, DollarSign, Receipt, Tag, 
   AlertCircle, Grid3x3, List, ArrowRight, Sparkles,
-  TrendingUp, Clock, Zap, LayoutGrid, ListOrdered, FolderOpen
+  TrendingUp, Clock, Zap
 } from 'lucide-react';
 import api from '../api/axios';
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
@@ -28,8 +28,6 @@ const BillingSystem = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
-  const [catalogProducts, setCatalogProducts] = useState([]);
-  const [catalogView, setCatalogView] = useState('grid'); // 'grid' or 'list'
   const [recentItems, setRecentItems] = useState([]);
   const searchInputRef = useRef(null);
   const navigate = useNavigate();
@@ -54,25 +52,13 @@ const BillingSystem = () => {
     return isNaN(date) ? value : date.toLocaleString();
   };
 
-  // Load catalog products on mount and load recent items from localStorage
+  // Load recent items from localStorage
   useEffect(() => {
-    const loadCatalog = async () => {
-      try {
-        const res = await api.get('/products');
-        const products = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-        setCatalogProducts(products.filter(p => isProductActive(p)));
-      } catch (err) {
-        console.error('Failed to load catalog:', err);
-      }
-    };
-    loadCatalog();
-    
-    // Load recent items from localStorage
     const savedRecent = localStorage.getItem('recentCartItems');
     if (savedRecent) {
       try {
         setRecentItems(JSON.parse(savedRecent).slice(0, 5));
-      } catch(e) {}
+      } catch (e) {}
     }
   }, []);
 
@@ -82,7 +68,17 @@ const BillingSystem = () => {
       const recentProducts = cart.slice(0, 5).map(item => ({
         product_id: item.product_id,
         product_name: item.product_name,
-        unit_price: item.unit_price
+        unit_price: item.unit_price,
+        unit_id: item.selected_unit_id,
+        unit_name: item.selected_unit_name,
+        alternative_units: item.available_units ? item.available_units.slice(1).map(au => ({
+          unit_id: au.unit_id,
+          unit_details: { unit_name: au.unit_name },
+          conversion_factor: au.conversion_factor,
+          unit_price: au.unit_price
+        })) : [],
+        status: item.status || 'active',
+        stock_quantity: item.stock_quantity || 999
       }));
       setRecentItems(recentProducts);
       localStorage.setItem('recentCartItems', JSON.stringify(recentProducts));
@@ -116,14 +112,27 @@ const BillingSystem = () => {
 
     const rows = lastBill.items?.map((item) => {
       const itemDiscount = parseFloat(item.discount || 0);
-      const itemTotal = (item.unit_price * item.quantity) - itemDiscount;
+      const qty = parseFloat(item.billed_quantity !== undefined ? item.billed_quantity : item.quantity);
+      
+      let unitName = 'Unit';
+      if (item.selected_unit_name) {
+        unitName = item.selected_unit_name;
+      } else if (item.billed_unit?.unit_name) {
+        unitName = item.billed_unit.unit_name;
+      } else if (item.product?.unit?.unit_name) {
+        unitName = item.product.unit.unit_name;
+      }
+      
+      const priceVal = parseFloat(item.price_per_unit || item.unit_price);
+      const itemTotal = (priceVal * qty) - itemDiscount;
+      const displayProductName = item.product_name || item.product?.product_name || 'Product';
       return `
           <tr>
             <td style="padding:12px 0;border-bottom:1px solid #f0f0f0;">
-              <div style="font-weight:600;">${item.product_name}</div>
-              <div style="font-size:13px;color:#666;">${item.unit_price.toFixed(2)} x ${item.quantity}${itemDiscount ? ` - ${itemDiscount.toFixed(2)} disc` : ''}</div>
+              <div style="font-weight:600;">${displayProductName}</div>
+              <div style="font-size:13px;color:#666;">${priceVal.toFixed(2)} x ${qty} ${unitName}${itemDiscount ? ` - ${itemDiscount.toFixed(2)} disc` : ''}</div>
             </td>
-            <td style="text-align:center;padding:12px 0;border-bottom:1px solid #f0f0f0;">${item.quantity}</td>
+            <td style="text-align:center;padding:12px 0;border-bottom:1px solid #f0f0f0;">${qty} ${unitName}</td>
             <td style="text-align:right;padding:12px 0;border-bottom:1px solid #f0f0f0;"><strong>Rs. ${itemTotal.toFixed(2)}</strong></td>
           </tr>`;
     }).join('');
@@ -356,11 +365,31 @@ const BillingSystem = () => {
       return alert(`${product.product_name} is out of stock.`);
     }
 
-    const existingItem = cart.find(item => item.product_id === product.product_id);
+    // Resolve base unit name robustly
+    const baseUnitName = product.unit?.unit_name || product.unit_name || 'Unit';
+
+    const baseUnit = {
+      unit_id: parseInt(product.unit_id),
+      unit_name: baseUnitName,
+      conversion_factor: 1.0,
+      unit_price: parseFloat(product.unit_price)
+    };
+
+    const altUnits = (product.alternative_units || []).map(au => ({
+      unit_id: parseInt(au.unit_id),
+      unit_name: au.unit_details?.unit_name || au.unit?.unit_name || au.unit_name || 'Alt Unit',
+      conversion_factor: parseFloat(au.conversion_factor),
+      unit_price: parseFloat(au.unit_price || (product.unit_price * au.conversion_factor))
+    }));
+
+    const availableUnits = [baseUnit, ...altUnits];
+
+    // Check if item exists in the cart with the same unit_id
+    const existingItem = cart.find(item => item.product_id === product.product_id && item.selected_unit_id === parseInt(product.unit_id));
     
     if (existingItem) {
       setCart(cart.map(item =>
-        item.product_id === product.product_id
+        item.product_id === product.product_id && item.selected_unit_id === parseInt(product.unit_id)
           ? { ...item, quantity: item.quantity + 1 }
           : item
       ));
@@ -370,12 +399,32 @@ const BillingSystem = () => {
         product_name: product.product_name,
         unit_price: parseFloat(product.unit_price),
         price: parseFloat(product.unit_price),
-        quantity: 1
+        quantity: 1,
+        selected_unit_id: parseInt(product.unit_id),
+        selected_unit_name: baseUnitName,
+        conversion_factor: 1.0,
+        available_units: availableUnits,
+        discount: 0
       }]);
     }
 
     setSearchQuery('');
     setShowResults(false);
+  };
+
+  const handleUnitChange = (index, targetUnitId) => {
+    setCart(cart.map((item, i) => {
+      if (i !== index) return item;
+      const matchedUnit = item.available_units.find(u => u.unit_id === parseInt(targetUnitId));
+      if (!matchedUnit) return item;
+      return {
+        ...item,
+        selected_unit_id: matchedUnit.unit_id,
+        selected_unit_name: matchedUnit.unit_name,
+        unit_price: matchedUnit.unit_price,
+        conversion_factor: matchedUnit.conversion_factor
+      };
+    }));
   };
 
   // Remove product from cart
@@ -435,7 +484,9 @@ const BillingSystem = () => {
           product_id: item.product_id,
           quantity: item.quantity,
           price: item.unit_price,
-          discount: item.discount || 0
+          discount: item.discount || 0,
+          selected_unit_id: item.selected_unit_id,
+          conversion_factor: item.conversion_factor || 1.0
         })),
         subtotal,
         total_amount: total,
@@ -454,7 +505,11 @@ const BillingSystem = () => {
 
       setLastBill({
         ...res.data.data,
-        items: cart,
+        items: cart.map(item => ({
+          ...item,
+          billed_quantity: item.quantity,
+          selected_unit_name: item.selected_unit_name
+        })),
         amount_paid: amountPaidValue,
         change_returned: balance >= 0 ? balance : 0,
         due_amount: isPartial ? Math.abs(balance) : 0,
@@ -468,13 +523,6 @@ const BillingSystem = () => {
       setCustomerExists(false);
       setCustomerLookupMessage('');
       setPhoneError('');
-
-      // Reload catalog to reflect updated stock
-      try {
-        const catRes = await api.get('/products');
-        const products = Array.isArray(catRes.data) ? catRes.data : (catRes.data?.data || []);
-        setCatalogProducts(products.filter(p => isProductActive(p)));
-      } catch (e) { /* silent */ }
     } catch (err) { alert(err.response?.data?.error || "Error"); }
   };
 
@@ -614,84 +662,79 @@ const BillingSystem = () => {
             )}
           </div>
 
-          {/* Catalog Header with View Toggle */}
-          <div className="pos-catalog-header-modern">
+          <div className="pos-selected-products-header-modern">
             <div className="catalog-title">
               <Package size={18} />
-              <span>Product Catalog</span>
-              <span className="catalog-count">{catalogProducts.length}</span>
-            </div>
-            <div className="catalog-view-toggle">
-              <button 
-                className={`view-btn ${catalogView === 'grid' ? 'active' : ''}`}
-                onClick={() => setCatalogView('grid')}
-              >
-                <LayoutGrid size={16} />
-              </button>
-              <button 
-                className={`view-btn ${catalogView === 'list' ? 'active' : ''}`}
-                onClick={() => setCatalogView('list')}
-              >
-                <ListOrdered size={16} />
-              </button>
+              <span>Selected Products</span>
+              <span className="catalog-count">{cartItemCount}</span>
             </div>
           </div>
 
-          {/* Product Catalog Grid/List */}
-          <div className="pos-catalog-modern">
-            {catalogProducts.length === 0 ? (
-              <div className="catalog-empty">
-                <div className="empty-icon">📦</div>
-                <div className="empty-text">No products available</div>
-                <div className="empty-sub">Add products from the Products page</div>
-              </div>
-            ) : catalogView === 'grid' ? (
-              <div className="catalog-grid-modern">
-                {catalogProducts.map((product) => (
-                  <div
-                    key={product.product_id}
-                    className={`product-card-modern ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
-                    onClick={() => handleAddToCart(product)}
-                  >
-                    <div className="product-card-icon">
-                      <Package size={20} />
-                    </div>
-                    <div className="product-card-name">{product.product_name}</div>
-                    <div className="product-card-sku">
-                      {product.product_code || `ID: ${product.product_id}`}
-                    </div>
-                    <div className="product-card-bottom">
-                      <div className="product-card-price">Rs.{parseFloat(product.unit_price).toFixed(2)}</div>
-                      <div className={`product-card-stock ${getStockClass(product.stock_quantity)}`}>
-                        {getStockLabel(product.stock_quantity)}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+          <div className="pos-selected-products-modern">
+            {cart.length === 0 ? (
+              <div className="cart-empty-modern">
+                <div className="empty-cart-icon">🛒</div>
+                <div className="empty-cart-text">No products selected</div>
+                <div className="empty-cart-sub">Search and select products to begin billing</div>
               </div>
             ) : (
-              <div className="catalog-list-modern">
-                {catalogProducts.map((product) => (
-                  <div
-                    key={product.product_id}
-                    className={`product-list-item ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
-                    onClick={() => handleAddToCart(product)}
-                  >
-                    <div className="list-item-icon">
-                      <Package size={18} />
-                    </div>
-                    <div className="list-item-info">
-                      <div className="list-item-name">{product.product_name}</div>
-                      <div className="list-item-code">{product.product_code || `ID: ${product.product_id}`}</div>
-                    </div>
-                    <div className="list-item-right">
-                      <div className="list-item-price">Rs.{parseFloat(product.unit_price).toFixed(2)}</div>
-                      <div className={`list-item-stock ${getStockClass(product.stock_quantity)}`}>
-                        {getStockLabel(product.stock_quantity)}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div className="cart-items-modern">
+                <table className="cart-table-modern">
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th style={{ width: '160px', textAlign: 'center' }}>Unit</th>
+                      <th style={{ width: '110px', textAlign: 'center' }}>Qty</th>
+                      <th style={{ width: '110px', textAlign: 'right' }}>Subtotal</th>
+                      <th style={{ width: '36px' }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cart.map((item, idx) => (
+                      <tr key={idx}>
+                        <td>
+                          <div className="table-item-name">{item.product_name}</div>
+                          <div className="table-item-price">Rs.{item.unit_price.toFixed(2)} per {item.selected_unit_name || 'unit'}</div>
+                        </td>
+
+                        {/* Unit column — always a select; shows options if multi-unit, single option if not */}
+                        <td style={{ textAlign: 'center' }}>
+                          <select
+                            className={`unit-select-table${item.available_units && item.available_units.length > 1 ? ' multi' : ' single'}`}
+                            value={item.selected_unit_id}
+                            onChange={(e) => handleUnitChange(idx, e.target.value)}
+                            disabled={!item.available_units || item.available_units.length <= 1}
+                          >
+                            {(item.available_units || []).map(au => (
+                              <option key={au.unit_id} value={au.unit_id}>
+                                {au.unit_name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+
+                        <td style={{ textAlign: 'center' }}>
+                          <input
+                            type="number"
+                            className="qty-input-table"
+                            value={item.quantity}
+                            onChange={(e) => handleUpdateQty(idx, parseFloat(e.target.value) || 0)}
+                            min="0.01"
+                            step="0.01"
+                          />
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <strong>Rs.{(item.unit_price * item.quantity).toFixed(2)}</strong>
+                        </td>
+                        <td>
+                          <button className="table-remove-btn" onClick={() => handleRemoveFromCart(idx)}>
+                            <X size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
@@ -717,53 +760,11 @@ const BillingSystem = () => {
               )}
             </div>
 
-            {/* Cart Items as Table */}
-            {cart.length === 0 ? (
+            {cart.length === 0 && (
               <div className="cart-empty-modern">
                 <div className="empty-cart-icon">🛒</div>
-                <div className="empty-cart-text">No items added</div>
-                <div className="empty-cart-sub">Search or click a product to add</div>
-              </div>
-            ) : (
-              <div className="cart-items-modern">
-                <table className="cart-table-modern">
-                  <thead>
-                    <tr>
-                      <th>Product</th>
-                      <th style={{ width: '120px', textAlign: 'center' }}>Quantity</th>
-                      <th style={{ width: '100px', textAlign: 'right' }}>Subtotal</th>
-                      <th style={{ width: '40px' }}></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cart.map((item, idx) => (
-                      <tr key={idx}>
-                        <td>
-                          <div className="table-item-name">{item.product_name}</div>
-                          <div className="table-item-price">Rs.{item.unit_price.toFixed(2)} each</div>
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <input
-                            type="number"
-                            className="qty-input-table"
-                            value={item.quantity}
-                            onChange={(e) => handleUpdateQty(idx, parseFloat(e.target.value) || 0)}
-                            min="0.01"
-                            step="0.01"
-                          />
-                        </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <strong>Rs.{(item.unit_price * item.quantity).toFixed(2)}</strong>
-                        </td>
-                        <td>
-                          <button className="table-remove-btn" onClick={() => handleRemoveFromCart(idx)}>
-                            <X size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="empty-cart-text">No items selected</div>
+                <div className="empty-cart-sub">Search and add products from the left panel.</div>
               </div>
             )}
 

@@ -23,18 +23,43 @@ const REASONS = [
 
 export default function ProcessReturn() {
   const navigate = useNavigate();
-  const [searchMode,    setSearchMode]    = useState('bill_no');
-  const [searchValue,   setSearchValue]   = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [selectedBill,  setSelectedBill]  = useState(null);
-  const [returnItems,   setReturnItems]   = useState({});   // keyed by product_id
-  const [supplierId,    setSupplierId]    = useState('');
-  const [loading,       setLoading]       = useState(false);
-  const [error,         setError]         = useState('');
-  const [successData,   setSuccessData]   = useState(null);
-  const debounce = useRef(null);
+  const [searchMode,       setSearchMode]       = useState('bill_no');
+  const [searchValue,      setSearchValue]      = useState('');
+  const [searchResults,    setSearchResults]    = useState([]);
+  const [selectedBill,     setSelectedBill]     = useState(null);
+  const [returnItems,      setReturnItems]      = useState({});   // keyed by product_id
+  const [supplierId,       setSupplierId]       = useState('');
+  const [selectedSupplier, setSelectedSupplier] = useState(null); // { supplier_id, supplier_name }
+  const [suppliers,        setSuppliers]        = useState([]);
+  const [supplierSearch,   setSupplierSearch]   = useState('');
+  const [supplierDropOpen, setSupplierDropOpen] = useState(false);
+  const [loading,          setLoading]          = useState(false);
+  const [error,            setError]            = useState('');
+  const [successData,      setSuccessData]      = useState(null);
+  const debounce       = useRef(null);
+  const supplierBoxRef = useRef(null);
 
-  /* ---- auto-search ---- */
+  /* ---- load suppliers on mount ---- */
+  useEffect(() => {
+    api.get('/suppliers')
+      .then(res => {
+        const data = res.data?.data ?? res.data;
+        setSuppliers(Array.isArray(data) ? data : []);
+      })
+      .catch(() => toast.error('Could not load suppliers'));
+  }, []);
+
+  /* ---- close supplier dropdown on outside click ---- */
+  useEffect(() => {
+    const handler = (e) => {
+      if (supplierBoxRef.current && !supplierBoxRef.current.contains(e.target)) {
+        setSupplierDropOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
   useEffect(() => {
     const trimmed = (searchValue || '').toString().trim();
     if (trimmed.length < 1) { setSearchResults([]); return; }
@@ -144,12 +169,34 @@ export default function ProcessReturn() {
     }, 0).toFixed(2);
   };
 
+  /* ---- supplier select helpers ---- */
+  const filteredSuppliers = suppliers.filter(s => {
+    const q = supplierSearch.toLowerCase();
+    return (
+      String(s.supplier_id).includes(q) ||
+      (s.supplier_name || '').toLowerCase().includes(q)
+    );
+  });
+
+  const handleSelectSupplier = (s) => {
+    setSelectedSupplier(s);
+    setSupplierId(String(s.supplier_id));
+    setSupplierSearch('');
+    setSupplierDropOpen(false);
+  };
+
+  const handleClearSupplier = () => {
+    setSelectedSupplier(null);
+    setSupplierId('');
+    setSupplierSearch('');
+  };
+
   /* ---- submit ---- */
   const submitReturn = async () => {
     const itemsArr = Object.values(returnItems);
     if (itemsArr.length === 0) { setError('Please select at least one item to return.'); return; }
     if (itemsArr.some(i => i.destination === 'SUPPLIER') && !supplierId) {
-      setError('Supplier ID is required for items going back to Supplier.'); return;
+      setError('Supplier is required for items going back to Supplier.'); return;
     }
     const missingNotes = itemsArr.find(i => i.return_reason === 'Other' && !(i.destination_note || '').trim());
     if (missingNotes) {
@@ -416,16 +463,59 @@ export default function ProcessReturn() {
 
               <hr className="ret-divider" />
 
-              {/* Supplier ID if needed */}
+              {/* Supplier picker if needed */}
               {Object.values(returnItems).some(i => i.destination === 'SUPPLIER') && (
-                <div className="ret-supplier-box">
-                  <label>Supplier ID (required)</label>
-                  <input
-                    type="number"
-                    value={supplierId}
-                    onChange={e => setSupplierId(e.target.value)}
-                    placeholder="Enter supplier ID"
-                  />
+                <div className="ret-supplier-box" ref={supplierBoxRef}>
+                  <label>Supplier (required)</label>
+
+                  {selectedSupplier ? (
+                    /* ---- selected chip ---- */
+                    <div className="ret-supplier-selected">
+                      <span className="ret-supplier-chip">
+                        <span className="chip-id">#{selectedSupplier.supplier_id}</span>
+                        <span className="chip-name">{selectedSupplier.supplier_name}</span>
+                      </span>
+                      <button
+                        className="ret-supplier-clear"
+                        onClick={handleClearSupplier}
+                        title="Change supplier"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    /* ---- search input + dropdown ---- */
+                    <div className="ret-supplier-search-wrap">
+                      <input
+                        type="text"
+                        className="ret-supplier-search-input"
+                        value={supplierSearch}
+                        onChange={e => { setSupplierSearch(e.target.value); setSupplierDropOpen(true); }}
+                        onFocus={() => setSupplierDropOpen(true)}
+                        placeholder="Search by name or ID…"
+                        autoComplete="off"
+                      />
+                      {supplierDropOpen && (
+                        <div className="ret-supplier-dropdown">
+                          {filteredSuppliers.length === 0 ? (
+                            <div className="ret-supplier-no-result">No suppliers found</div>
+                          ) : (
+                            filteredSuppliers.map(s => (
+                              <div
+                                key={s.supplier_id}
+                                className="ret-supplier-option"
+                                onMouseDown={() => handleSelectSupplier(s)}
+                              >
+                                <span className="opt-id">#{s.supplier_id}</span>
+                                <span className="opt-name">{s.supplier_name}</span>
+                                {s.supplier_code && <span className="opt-code">{s.supplier_code}</span>}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 

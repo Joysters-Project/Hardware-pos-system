@@ -12,6 +12,7 @@ const authMiddleware   = require('./middleware/authMiddleware');
 const seedDefaultAdmin = require('./scripts/seedDefaultAdmin');
 const ensureSupplierSchema = require('./scripts/ensureSupplierSchema');
 const ensureProjectSchema = require('./scripts/ensureProjectSchema');
+const ensureMultiUnitSchema = require('./scripts/ensureMultiUnitSchema');
 const { startNearExpiryCron } = require('./cron/nearExpiryCron');
 
 const app    = express();
@@ -39,6 +40,7 @@ db.sequelize.sync({ force: false })
     console.log('✅ Database connected successfully');
     await ensureSupplierSchema();
     await ensureProjectSchema();
+    await ensureMultiUnitSchema();
     await seedDefaultAdmin();
     startNearExpiryCron();
   })

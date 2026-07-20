@@ -1,5 +1,5 @@
 const BillingService = require('../services/billingService');
-const { bills, bill_items, products, customers, payments } = require('../models');
+const { bills, bill_items, products, customers, payments, units } = require('../models');
 const { Op } = require('sequelize');
 
 // CREATE Bill (runs entire invoice workflow inside a transaction)
@@ -38,7 +38,13 @@ exports.searchBills = async (req, res) => {
     }
 
     let whereClause = {};
-    let include = [{ model: bill_items, include: [products] }];
+    let include = [{ 
+      model: bill_items, 
+      include: [
+        products,
+        { model: units, as: 'billed_unit', attributes: ['unit_id', 'unit_name'] }
+      ] 
+    }];
 
     if (searchType === 'bill_no') {
       whereClause.bill_no = { [Op.like]: `%${query}%` };
@@ -87,7 +93,10 @@ exports.getAllBills = async (req, res) => {
         },
         {
           model: bill_items,
-          include: [{ model: products, attributes: ['product_name'] }]
+          include: [
+            { model: products, attributes: ['product_name'] },
+            { model: units, as: 'billed_unit', attributes: ['unit_name'] }
+          ]
         },
         {
           model: payments,
@@ -109,7 +118,10 @@ exports.getBillById = async (req, res) => {
       include: [
         {
           model: bill_items,
-          include: [products]
+          include: [
+            products,
+            { model: units, as: 'billed_unit', attributes: ['unit_id', 'unit_name'] }
+          ]
         }
       ]
     });

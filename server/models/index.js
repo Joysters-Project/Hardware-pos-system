@@ -80,6 +80,7 @@ const procurement_notifications = require('./procurement_notifications');
 const auto_reorder_suggestions = require('./auto_reorder_suggestions');
 const email_logs = require('./email_logs');
 const supplier_documents = require('./supplier_documents');
+const product_units = require('./product_units');
 
 // 3. Initialize the DB object
 const db = {
@@ -114,6 +115,7 @@ const db = {
   auto_reorder_suggestions: auto_reorder_suggestions(sequelize),
   email_logs:       email_logs(sequelize),
   supplier_documents: supplier_documents(sequelize),
+  product_units:    product_units(sequelize),
 };
 
 // 4. Define Relationships
@@ -134,6 +136,9 @@ db.units.hasMany(db.products,  { foreignKey: 'unit_id' });
 db.products.belongsTo(db.units, { foreignKey: 'unit_id' });
 db.products.hasMany(db.alerts,  { foreignKey: 'product_id' });
 db.alerts.belongsTo(db.products, { foreignKey: 'product_id' });
+db.products.hasMany(db.product_units, { foreignKey: 'product_id', as: 'alternative_units' });
+db.product_units.belongsTo(db.products, { foreignKey: 'product_id' });
+db.product_units.belongsTo(db.units, { foreignKey: 'unit_id', as: 'unit_details' });
 
 // Sales Module
 db.users.hasMany(db.bills, { foreignKey: 'user_id' });
@@ -142,6 +147,8 @@ db.customers.hasMany(db.bills, { foreignKey: 'customer_id' });
 db.bills.belongsTo(db.customers, { foreignKey: 'customer_id' });
 db.bills.hasMany(db.bill_items, { foreignKey: 'bill_id' });
 db.bill_items.belongsTo(db.bills, { foreignKey: 'bill_id' });
+db.units.hasMany(db.bill_items, { foreignKey: 'billed_unit_id' });
+db.bill_items.belongsTo(db.units, { foreignKey: 'billed_unit_id', as: 'billed_unit' });
 db.bill_items.addScope('forBill', {
   unique: 'bill_product_unique',
   fields: ['bill_id', 'product_id']
