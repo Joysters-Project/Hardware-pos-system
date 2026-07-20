@@ -23,6 +23,7 @@ import {
   ClipboardList,
   UserCircle,
   Bell,
+  FolderOpen,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import NavbarNotificationBell from "./NavbarNotificationBell";
@@ -131,6 +132,12 @@ const getNavItems = (role) => {
       label: "Expenses",
       icon: Receipt,
       path: `${prefix}/expenses`,
+    },
+    {
+      key: "projects-mgmt",
+      label: "Projects",
+      icon: FolderOpen,
+      path: `${prefix}/projects`,
     },
     {
       key: "alerts",

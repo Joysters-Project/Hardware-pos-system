@@ -5,7 +5,7 @@ import {
   CreditCard, Printer, Download, XCircle, CheckCircle, 
   User, Phone, MapPin, DollarSign, Receipt, Tag, 
   AlertCircle, Grid3x3, List, ArrowRight, Sparkles,
-  TrendingUp, Clock, Zap, LayoutGrid, ListOrdered
+  TrendingUp, Clock, Zap, LayoutGrid, ListOrdered, FolderOpen
 } from 'lucide-react';
 import api from '../api/axios';
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
@@ -13,9 +13,11 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import SuccessAnim from './SuccessAnim';
 import DashboardLayout from './DashboardLayout';
+import ProjectsTab from './ProjectsTab';
 import '../styles/BillingSystem.css';
 
 const BillingSystem = () => {
+  const [posTab, setPosTab] = useState('billing'); // 'billing' | 'projects'
   const [cart, setCart] = useState([]);
   const [payData, setPayData] = useState({ amountPaid: '', customerName: '', customerPhone: '', customerAddress: '' });
   const [customerExists, setCustomerExists] = useState(false);
@@ -502,9 +504,9 @@ const BillingSystem = () => {
             <CreditCard size={24} className="header-icon" />
           </div>
           <div>
-            <h1 className="admin-page-title-modern">Billing Counter</h1>
+            <h1 className="admin-page-title-modern">Point of Sale</h1>
             <p className="admin-page-subtitle-modern">
-              Process sales, manage cart & complete transactions
+              Billing counter &amp; project item tracking
             </p>
           </div>
         </div>
@@ -520,7 +522,29 @@ const BillingSystem = () => {
         </div>
       </div>
 
-      {/* POS Terminal Layout */}
+      {/* ── POS Tab Switcher ── */}
+      <div className="pos-tab-switcher">
+        <button
+          className={`pos-tab-btn ${posTab === 'billing' ? 'active' : ''}`}
+          onClick={() => setPosTab('billing')}
+        >
+          <ShoppingCart size={16} />
+          Billing Counter
+        </button>
+        <button
+          className={`pos-tab-btn ${posTab === 'projects' ? 'active' : ''}`}
+          onClick={() => setPosTab('projects')}
+        >
+          <FolderOpen size={16} />
+          Projects
+        </button>
+      </div>
+
+      {/* ── Projects Tab ── */}
+      {posTab === 'projects' && <ProjectsTab />}
+
+      {/* ── Billing Tab ── */}
+      {posTab === 'billing' && (
       <div className="pos-terminal-modern">
         {/* LEFT PANEL: Search + Product Catalog */}
         <div className="pos-left-modern">
@@ -926,6 +950,7 @@ const BillingSystem = () => {
           </div>
         </div>
       </div>
+      )} {/* end billing tab */}
 
       {/* Success Animation */}
       <SuccessAnim

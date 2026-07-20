@@ -7,13 +7,17 @@ const getIp   = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() |
 exports.createProduct = async (req, res) => {
   const ip = getIp(req);
   try {
-    const safeBody = req.body;
-    const product = await products.create(safeBody);
+    const { product_name, unit_price, cost_price, stock_quantity, min_stock_quantity,
+            reorder_level, type, batch_no, expiry_date, status, category_id, brand_id, unit_id } = req.body;
+    const product = await products.create({
+      product_name, unit_price, cost_price, stock_quantity, min_stock_quantity,
+      reorder_level, type, batch_no, expiry_date, status, category_id, brand_id, unit_id
+    });
     await syncAlertsForProduct(product);
     const io = req.app.get('io');
     if (io) io.emit('alerts:updated');
     await logActivity(req.user?.user_id, req.user?.role, 'INVENTORY_ADD',
-      `Product added: "${product.product_name}" (ID: ${product.product_id}), Stock: ${product.stock_quantity}, Price: ${product.selling_price}`, ip);
+      `Product added: "${product.product_name}" (ID: ${product.product_id}), Stock: ${product.stock_quantity}, Price: ${product.unit_price}`, ip);
     res.status(201).json({ message: 'Product created successfully', data: product });
   } catch (error) {
     console.error('createProduct error:', error.message);
