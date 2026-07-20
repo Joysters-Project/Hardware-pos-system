@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { Bell, X, ChevronRight, Package, AlertTriangle, RefreshCw, Clock, ShoppingCart } from "lucide-react";
 import api from "../api/axios";
 import { useNavigate } from "react-router-dom";
-import { useUnreadNotificationsCount } from "../services/procurementApi";
+import { useUnreadNotificationsCount} from "../services/procurementApi";
 import "../styles/NavbarNotificationBell.css";
 
 const THEME = "#8b3a3a";

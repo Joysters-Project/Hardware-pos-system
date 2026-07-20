@@ -30,24 +30,22 @@ export default function ProcurementTopNav() {
         <p>Manage suppliers, purchase orders, payments and analytics.</p>
       </div>
 
-      <div className="procurement-actions">
-        <nav className="procurement-top-nav">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end={item.end}
-                className={({ isActive }) => `procurement-nav-item ${isActive ? 'active' : ''}`}
-              >
-                <Icon size={15} />
-                <span>{item.label}</span>
-              </NavLink>
-            );
-          })}
-        </nav>
-      </div>
+      <nav className="procurement-top-nav">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          return (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              end={item.end}
+              className={({ isActive }) => `procurement-nav-item ${isActive ? 'active' : ''}`}
+            >
+              <Icon size={15} />
+              <span>{item.label}</span>
+            </NavLink>
+          );
+        })}
+      </nav>
     </header>
   );
 }

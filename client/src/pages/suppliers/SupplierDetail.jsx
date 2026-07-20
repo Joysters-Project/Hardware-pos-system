@@ -158,10 +158,15 @@ export default function SupplierDetail() {
 
   const purchaseOrders = supplier.purchase_orders || [];
   const supplierPayments = supplier.supplier_payments || [];
-  
+
+  // When a date filter is active, use the filtered statementData from the API.
+  // Otherwise fall back to the full supplier data so the ledger always has entries.
+  const filteredOrders   = (statementStart && statementEnd && statementData?.orders)   ? statementData.orders   : purchaseOrders;
+  const filteredPayments = (statementStart && statementEnd && statementData?.payments) ? statementData.payments : supplierPayments;
+
   // Ledger statement entries formatting
   const ledgerEntries = [];
-  purchaseOrders.forEach(o => {
+  filteredOrders.forEach(o => {
     if (o.status !== 'Cancelled') {
       ledgerEntries.push({
         date: o.po_date,
@@ -172,7 +177,7 @@ export default function SupplierDetail() {
       });
     }
   });
-  supplierPayments.forEach(p => {
+  filteredPayments.forEach(p => {
     if (p.payment_status !== 'Cancelled') {
       ledgerEntries.push({
         date: p.paid_date || p.created_at?.split('T')[0] || 'N/A',
@@ -316,20 +321,6 @@ export default function SupplierDetail() {
                       <div className="proc-info-row">
                         <span className="proc-info-label">Company Registration No</span>
                         <span className="proc-info-value">{supplier.company_reg || '—'}</span>
-                      </div>
-                      <div className="proc-info-row">
-                        <span className="proc-info-label">Tax ID (VAT / TIN)</span>
-                        <span className="proc-info-value">{supplier.tax_id || '—'}</span>
-                      </div>
-                      <div className="proc-info-row">
-                        <span className="proc-info-label">Payment Terms</span>
-                        <span className="proc-info-value">{supplier.payment_terms || '—'}</span>
-                      </div>
-                      <div className="proc-info-row">
-                        <span className="proc-info-label">Credit Limit</span>
-                        <span className="proc-info-value">
-                          {supplier.credit_limit ? `LKR ${Number(supplier.credit_limit).toLocaleString()}` : '—'}
-                        </span>
                       </div>
                     </div>
                   </div>
@@ -732,13 +723,16 @@ export default function SupplierDetail() {
                   </motion.button>
                   <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                     className="proc-btn-outline white"
-                    onClick={() => {
-                      // Trigger statement pdf download endpoint
-                      const queryStr = statementStart && statementEnd ? `?startDate=${statementStart}&endDate=${statementEnd}` : '';
-                      window.open(`http://localhost:5000/api/procurement/suppliers/${id}/statement/pdf${queryStr}`, '_blank');
-                    }}
+                    disabled={downloadStatement.isPending}
+                    onClick={() => downloadStatement.mutate({
+                      id,
+                      params: {
+                        startDate: statementStart || undefined,
+                        endDate: statementEnd || undefined
+                      }
+                    })}
                   >
-                    <FileText size={14} /> Download PDF
+                    <FileText size={14} /> {downloadStatement.isPending ? 'Generating...' : 'Download PDF'}
                   </motion.button>
                   <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                     className="proc-btn-outline white warn"
