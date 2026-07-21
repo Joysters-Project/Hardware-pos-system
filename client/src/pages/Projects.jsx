@@ -11,13 +11,12 @@ import AdminDashboard from './AdminDashboard';
 import ManagerDashboard from './ManagerDashboard';
 import '../styles/Projects.css';
 
-const TYPES    = ['Welding', 'Timber', 'Hardware', 'Other'];
 const STATUSES = ['Active', 'Completed', 'On Hold', 'Cancelled'];
 const MONTHS   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const EMPTY_FORM = {
   project_name: '', project_owner: '', location: '',
-  project_type: 'Hardware', description: '',
-  start_date: '', deadline: '', end_date: '', status: 'Active', final_payment: '',
+  description: '', start_date: '', deadline: '', end_date: '',
+  status: 'Active', final_payment: '',
 };
 
 function ProjectsPage() {
@@ -36,7 +35,9 @@ function ProjectsPage() {
   const [yearlyYear, setYearlyYear]           = useState(new Date().getFullYear());
   const [projectEstimate, setProjectEstimate] = useState(null);
 
-  useEffect(() => { loadProjects(); }, []);
+  useEffect(() => {
+    loadProjects();
+  }, []);
 
   const loadProjects = async () => {
     try { const res = await api.get('/projects'); setProjects(res.data); }
@@ -55,7 +56,6 @@ function ProjectsPage() {
       project_name:  p.project_name,
       project_owner: p.project_owner || '',
       location:      p.location || '',
-      project_type:  p.project_type,
       description:   p.description || '',
       status:        p.status,
       start_date:    p.start_date || '',
@@ -129,7 +129,7 @@ function ProjectsPage() {
   };
 
   const statusPillClass = (s) => ({ Active: 'active', Completed: 'completed', 'On Hold': 'on-hold', Cancelled: 'cancelled' }[s] || '');
-  const typeIcon    = (t) => ({ Welding: '🔧', Timber: '🪵', Hardware: '🔩', Other: '📦' }[t] || '📦');
+  const typeIcon    = () => '📁';
   const fmtDate     = (d) => d ? new Date(d).toLocaleDateString('en-LK') : '—';
   const fmtCurrency = (n) => `LKR ${Number(n || 0).toLocaleString('en-LK', { minimumFractionDigits: 2 })}`;
   const f = (key) => (e) => setForm({ ...form, [key]: e.target.value });
@@ -186,23 +186,22 @@ function ProjectsPage() {
             <table className="proj-table">
               <thead>
                 <tr>
-                  <th>Project</th><th>Owner</th><th>Type</th><th>Status</th>
+                  <th>Project</th><th>Owner</th><th>Status</th>
                   <th>Start Date</th><th>Deadline</th><th>Location</th><th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {projects.length === 0 ? (
-                  <tr><td colSpan={8} className="proj-empty">No projects yet. Create one to get started.</td></tr>
+                  <tr><td colSpan={7} className="proj-empty">No projects yet. Create one to get started.</td></tr>
                 ) : projects.map(p => (
                   <tr key={p.project_id}>
                     <td>
                       <div className="proj-name-cell">
-                        <span className="proj-type-icon">{typeIcon(p.project_type)}</span>
+                        <span className="proj-type-icon">{typeIcon()}</span>
                         <span className="proj-name-text">{p.project_name}</span>
                       </div>
                     </td>
                     <td>{p.project_owner || '—'}</td>
-                    <td><span className="proj-type-badge">{p.project_type}</span></td>
                     <td><span className={`proj-status-pill ${statusPillClass(p.status)}`}>{p.status}</span></td>
                     <td>{fmtDate(p.start_date)}</td>
                     <td>{fmtDate(p.deadline)}</td>
@@ -265,9 +264,8 @@ function ProjectsPage() {
                   <div className="proj-report-group-header"
                     onClick={() => setExpandedProject(expandedProject === pg.project.project_id ? null : pg.project.project_id)}>
                     <div className="proj-report-group-title">
-                      <span>{typeIcon(pg.project.project_type)}</span>
+                      <span>{typeIcon()}</span>
                       <strong>{pg.project.project_name}</strong>
-                      <span className="proj-type-badge">{pg.project.project_type}</span>
                     </div>
                     <div className="proj-report-group-meta">
                       <span>{fmtCurrency(pg.totalValue)}</span>
@@ -373,12 +371,6 @@ function ProjectsPage() {
                     placeholder="e.g. Colombo, Site A" />
                 </div>
                 <div className="proj-field">
-                  <label>Type *</label>
-                  <select value={form.project_type} onChange={f('project_type')}>
-                    {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div className="proj-field">
                   <label>Status</label>
                   <select value={form.status} onChange={f('status')}>
                     {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -428,15 +420,15 @@ function ProjectsPage() {
         <div className="proj-overlay" onClick={() => setViewProject(null)}>
           <div className="proj-modal proj-modal-lg" onClick={e => e.stopPropagation()}>
             <div className="proj-modal-header">
-              <h2>{typeIcon(viewProject.project_type)} {viewProject.project_name}</h2>
+              <h2>{typeIcon()} {viewProject.project_name}</h2>
               <button className="proj-modal-close" onClick={() => setViewProject(null)}><X size={18} /></button>
             </div>
 
             <div className="proj-view-top">
-              <div className="proj-view-icon">{typeIcon(viewProject.project_type)}</div>
+              <div className="proj-view-icon">{typeIcon()}</div>
               <div>
                 <h3>{viewProject.project_name}</h3>
-                <p>{viewProject.project_type}{viewProject.project_owner ? ` · ${viewProject.project_owner}` : ''}</p>
+                <p>{viewProject.project_owner ? `${viewProject.project_owner}` : ''}</p>
                 <span className={`proj-status-pill ${statusPillClass(viewProject.status)}`}>{viewProject.status}</span>
               </div>
             </div>

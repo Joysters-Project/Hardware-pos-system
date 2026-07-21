@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const db = require('../models');
+const { normalizeDepartmentSelection, serializeDepartmentSelection } = require('../utils/projectDepartmentUtils');
 
 // ── GET all projects ──────────────────────────────────────────────────────────
 exports.getAllProjects = async (req, res) => {
@@ -8,7 +9,10 @@ exports.getAllProjects = async (req, res) => {
       include: [{ model: db.users, as: 'creator', attributes: ['user_id', 'user_name', 'first_name', 'last_name'] }],
       order: [['created_at', 'DESC']],
     });
-    res.json(projects);
+    res.json(projects.map((project) => ({
+      ...project.toJSON(),
+      project_departments: normalizeDepartmentSelection(project.project_departments),
+    })));
   } catch (err) {
     console.error('[Projects] getAllProjects error:', err.message);
     res.status(500).json({ error: err.message });
@@ -20,10 +24,13 @@ exports.getActiveProjects = async (req, res) => {
   try {
     const projects = await db.projects.findAll({
       where: { status: 'Active' },
-      attributes: ['project_id', 'project_name', 'project_type', 'project_owner', 'location', 'status'],
+      attributes: ['project_id', 'project_name', 'project_type', 'project_owner', 'location', 'status', 'project_departments'],
       order: [['project_name', 'ASC']],
     });
-    res.json(projects);
+    res.json(projects.map((project) => ({
+      ...project.toJSON(),
+      project_departments: normalizeDepartmentSelection(project.project_departments),
+    })));
   } catch (err) {
     console.error('[Projects] getActiveProjects error:', err.message);
     res.status(500).json({ error: err.message });
@@ -47,7 +54,10 @@ exports.getProjectById = async (req, res) => {
       ],
     });
     if (!project) return res.status(404).json({ message: 'Project not found' });
-    res.json(project);
+    res.json({
+      ...project.toJSON(),
+      project_departments: normalizeDepartmentSelection(project.project_departments),
+    });
   } catch (err) {
     console.error('[Projects] getProjectById error:', err.message);
     res.status(500).json({ error: err.message });
@@ -57,7 +67,7 @@ exports.getProjectById = async (req, res) => {
 // ── CREATE project (admin/manager only) ──────────────────────────────────────
 exports.createProject = async (req, res) => {
   try {
-    const { project_name, project_owner, location, project_type, description, status, start_date, deadline, end_date } = req.body;
+    const { project_name, project_owner, location, project_type, project_departments, description, status, start_date, deadline, end_date } = req.body;
 
     if (!project_name || !start_date) {
       return res.status(400).json({ message: 'Project name and start date are required' });
@@ -68,6 +78,7 @@ exports.createProject = async (req, res) => {
       project_owner: project_owner || null,
       location: location || null,
       project_type: project_type || 'Hardware',
+      project_departments: serializeDepartmentSelection(project_departments),
       description: description || null,
       start_date,
       deadline: deadline || null,
@@ -96,7 +107,7 @@ exports.updateProject = async (req, res) => {
     const project = await db.projects.findByPk(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
 
-    const { project_name, project_owner, location, project_type, description, status, start_date, deadline, end_date, final_cost, final_payment } = req.body;
+    const { project_name, project_owner, location, project_type, project_departments, description, status, start_date, deadline, end_date, final_cost, final_payment } = req.body;
     const nextStatus = status !== undefined ? status : project.status;
     const isClosingStatus = ['Completed', 'Cancelled'].includes(nextStatus);
 
@@ -127,6 +138,7 @@ exports.updateProject = async (req, res) => {
       project_owner: project_owner !== undefined ? project_owner : project.project_owner,
       location:      location      !== undefined ? location      : project.location,
       project_type:  project_type  || project.project_type,
+      project_departments: project_departments !== undefined ? serializeDepartmentSelection(project_departments) : project.project_departments,
       description:   description   !== undefined ? description   : project.description,
       status:        nextStatus,
       start_date:    start_date    || project.start_date,

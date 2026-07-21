@@ -20,7 +20,12 @@ export default function ProjectsTab() {
   const [showReport, setShowReport]     = useState(false);
   const searchRef = useRef();
 
-  useEffect(() => { loadProjects(); loadProducts(); }, []);
+  useEffect(() => {
+    const init = async () => {
+      await Promise.all([loadProjects(), loadProducts()]);
+    };
+    init();
+  }, []);
   useEffect(() => { if (selectedProject) loadItems(selectedProject.project_id); }, [selectedProject]);
 
   const loadProjects = async () => {
@@ -106,7 +111,7 @@ export default function ProjectsTab() {
   const fmtTime = (d) => new Date(d).toLocaleTimeString('en-LK', { hour: '2-digit', minute: '2-digit' });
   const fmtDate = (d) => new Date(d).toLocaleDateString('en-LK');
   const totalValue = items.reduce((s, i) => s + Number(i.quantity) * Number(i.unit_price), 0);
-  const typeIcon = (t) => ({ Welding: '🔧', Timber: '🪵', Hardware: '🔩', Other: '📦' }[t] || '📦');
+  const typeIcon = () => '📁';
 
   return (
     <div className="pt-container">
@@ -122,9 +127,8 @@ export default function ProjectsTab() {
               className={`pt-project-card ${selectedProject?.project_id === p.project_id ? 'selected' : ''}`}
               onClick={() => setSelectedProject(p)}
             >
-              <span className="pt-project-icon">{typeIcon(p.project_type)}</span>
+              <span className="pt-project-icon">{typeIcon()}</span>
               <span className="pt-project-name">{p.project_name}</span>
-              <span className="pt-project-type">{p.project_type}</span>
               {p.project_owner && <span className="pt-project-owner">👤 {p.project_owner}</span>}
               {p.location && <span className="pt-project-owner">📍 {p.location}</span>}
             </button>

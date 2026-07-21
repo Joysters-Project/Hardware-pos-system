@@ -42,6 +42,14 @@ async function ensureProjectSchema() {
       }));
     }
 
+    if (!table.project_departments) {
+      changes.push(queryInterface.addColumn('projects', 'project_departments', {
+        type: db.Sequelize.TEXT,
+        allowNull: true,
+        defaultValue: '[]',
+      }));
+    }
+
     if (!table.amount_paid) {
       changes.push(queryInterface.addColumn('projects', 'amount_paid', {
         type: db.Sequelize.DECIMAL(12, 2),

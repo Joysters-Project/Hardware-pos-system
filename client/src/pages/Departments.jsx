@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { Building2, Users, Package, Plus, Search, Pencil, Trash2, Eye, X, ChevronLeft, ChevronRight, DollarSign } from "lucide-react";
+import { Building2, Users, Package, FolderOpen, Plus, Search, Pencil, Trash2, Eye, X, ChevronLeft, ChevronRight, DollarSign } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
 import AdminDashboard from "./AdminDashboard";
