@@ -662,7 +662,7 @@ export default function ProjectsTab() {
                         <thead>
                           <tr>
                             <th>Product</th>
-                            <th style={{ textAlign: 'center' }}>Qty Sold</th>
+                            <th style={{ textAlign: 'right' }}>Qty Sold</th>
                             <th>Last Sold</th>
                             <th>Action</th>
                           </tr>
@@ -678,7 +678,7 @@ export default function ProjectsTab() {
                                 <td>
                                   <strong>{group.product_name}</strong>
                                 </td>
-                                <td style={{ textAlign: 'center' }}>{Number(group.quantity || 0).toFixed(2)}</td>
+                                <td style={{ textAlign: 'right' }}>{Number(group.quantity || 0).toFixed(2)}</td>
                                 <td>{formatTime(group.last_sold)}</td>
                                 <td>
                                   <div className="pt-action-btns">
