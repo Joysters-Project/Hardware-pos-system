@@ -3,8 +3,7 @@ import { useLocation, Link } from "react-router-dom";
 import {
   RefreshCw, Plus, FileDown, History,
   CheckCircle, Clock, AlertCircle,
-  Download, CreditCard, X, Pencil,
-  ChevronLeft, ChevronRight, Search, Mail
+  Download, X, ChevronLeft, ChevronRight, Search, Mail
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
@@ -12,48 +11,43 @@ import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
 import "../styles/Salary.css";
 
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const METHODS = ["Cash", "Bank Transfer", "Cheque"];
-const FREQUENCIES = [
-  { value: "monthly", label: "Monthly" },
-  { value: "weekly", label: "Weekly" },
-  { value: "daily", label: "Daily" },
-  { value: "work_based", label: "Work Based" }
-];
 
 const EMPTY_FORM = {
-  employee_id: "", basic_salary: "", bonus_amount: "0",
-  deduction_amount: "0", payment_month: "", payment_year: "",
-  payment_frequency: "monthly", pay_period_reference_date: "",
-  pay_period_start_date: "", pay_period_end_date: "", due_date: "",
-  payment_method: "Bank Transfer", remarks: ""
+  employee_id: "", salary_category: "",
+  basic_salary: "", bonus_amount: "0", deduction_amount: "0",
+  payment_month: "", payment_year: "",
+  payment_date: "", payment_method: "Bank Transfer", remarks: ""
 };
 
 function SalaryPage() {
-  const [payments, setPayments] = useState([]);
-  const [employees, setEmployees] = useState([]);
-  const [stats, setStats] = useState({ pending: 0, paid: 0, upcoming: 0, showAlert: false });
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [payModal, setPayModal] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [payments, setPayments]       = useState([]);
+  const [employees, setEmployees]     = useState([]);
+  const [stats, setStats]             = useState({ pending: 0, paid: 0, upcoming: 0 });
+  const [form, setForm]               = useState(EMPTY_FORM);
+  const [showModal, setShowModal]     = useState(false);
+  const [loading, setLoading]         = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
   const [filterMonth, setFilterMonth] = useState("");
-  const [filterYear, setFilterYear] = useState(new Date().getFullYear());
+  const [filterYear, setFilterYear]   = useState(new Date().getFullYear());
   const [filterStatus, setFilterStatus] = useState("");
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
+  const [filterCat, setFilterCat]     = useState("");
+  const [search, setSearch]           = useState("");
+  const [page, setPage]               = useState(1);
   const [sendingEmail, setSendingEmail] = useState(null);
+  const [payingId, setPayingId]       = useState(null);
   const PER_PAGE = 10;
 
   const loadAll = useCallback(async () => {
     setPageLoading(true);
     try {
       const params = {};
-      if (filterMonth) params.payment_month = filterMonth;
-      if (filterYear) params.payment_year = filterYear;
-      if (filterStatus) params.payment_status = filterStatus;
-      if (search) params.search = search;
+      if (filterMonth)  params.payment_month   = filterMonth;
+      if (filterYear)   params.payment_year    = filterYear;
+      if (filterStatus) params.payment_status  = filterStatus;
+      if (filterCat)    params.salary_category = filterCat;
+      if (search)       params.search          = search;
 
       const [pRes, eRes, sRes] = await Promise.all([
         api.get("/salary", { params }),
@@ -65,13 +59,20 @@ function SalaryPage() {
       setStats(sRes.data);
     } catch { toast.error("Failed to load salary data"); }
     finally { setPageLoading(false); }
-  }, [filterMonth, filterYear, filterStatus, search]);
+  }, [filterMonth, filterYear, filterStatus, filterCat, search]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
+  // When employee selected, auto-fill salary and category
   const handleEmpChange = (e) => {
     const emp = employees.find(em => String(em.employee_id) === String(e.target.value));
-    setForm(f => ({ ...f, employee_id: e.target.value, basic_salary: emp?.salary || "" }));
+    setForm(f => ({
+      ...f,
+      employee_id: e.target.value,
+      salary_category: emp?.salary_category || "monthly",
+      basic_salary: emp?.salary || "",
+      payment_method: emp?.salary_category === "daily" ? "Cash" : "Bank Transfer"
+    }));
   };
 
   const finalSalary = () => {
@@ -81,81 +82,124 @@ function SalaryPage() {
     return (bs + bn - dd).toFixed(2);
   };
 
-  const isBeforeMay2026 = (year, month) => {
-    const y = parseInt(year); const m = parseInt(month);
-    return y < 2026 || (y === 2026 && m < 5);
+  const formatPeriodDate = (payment) => {
+    const rawDate = payment?.payment_date;
+    if (rawDate) {
+      const parsed = new Date(rawDate);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.toLocaleDateString("en-GB");
+      }
+    }
+
+    if (payment?.salary_category === "monthly") {
+      const month = Number(payment?.payment_month || 1);
+      const year = payment?.payment_year || new Date().getFullYear();
+      return `${MONTHS[(month - 1)] || ""} ${year}`.trim();
+    }
+
+    return "—";
   };
 
   const handleCreate = async (evt) => {
     evt.preventDefault();
     if (parseFloat(finalSalary()) < 0) {
-      toast.error('Final salary cannot be negative. Check your deductions.');
-      return;
-    }
-    if (parseFloat(finalSalary()) < 500) {
-      toast.error('Final salary must be at least LKR 500.00.');
-      return;
-    }
-    if (isBeforeMay2026(form.payment_year, form.payment_month)) {
-      toast.error('Salary records can only be created from May 2026 onwards.');
+      toast.error("Final salary cannot be negative.");
       return;
     }
     setLoading(true);
     try {
       await api.post("/salary", { ...form });
-      toast.success("Salary record created");
+      toast.success("Salary paid successfully!");
       setShowModal(false);
       setForm(EMPTY_FORM);
       loadAll();
-    } catch (err) { toast.error(err.response?.data?.message || "Failed"); }
-    finally { setLoading(false); }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to create salary record");
+    } finally { setLoading(false); }
   };
 
-  const handlePayClick = async (p) => {
-    const now = new Date();
-    // Block payments before May 2026
-    if (now < new Date('2026-05-01')) {
-      toast.error('Salary payments are only allowed from May 2026 onwards.');
+  const handleDownload = (payment) => {
+    const win = window.open("", "_blank", "width=1000,height=800");
+    if (!win) {
+      toast.error("Popup blocked. Please allow popups to view the payslip.");
       return;
     }
-    // Check if a paid record already exists for this employee/month/year
-    const duplicate = payments.some(
-      x => x.employee_id === p.employee_id &&
-           String(x.payment_month) === String(p.payment_month) &&
-           String(x.payment_year) === String(p.payment_year) &&
-           String(x.payment_status).toLowerCase() === 'paid' &&
-           x.salary_payment_id !== p.salary_payment_id
-    );
-    setPayModal({ ...p, payment_method: p.payment_method || 'Bank Transfer', remarks: '', isDuplicate: duplicate });
+
+    const employeeName = payment?.employee
+      ? `${payment.employee.first_name || ""} ${payment.employee.last_name || ""}`.trim()
+      : `EMP-${payment?.employee_id || ""}`;
+    const departmentName = payment?.employee?.department?.department_name || "—";
+    const paymentDate = payment?.payment_date
+      ? new Date(payment.payment_date).toLocaleDateString("en-GB")
+      : "—";
+    const periodLabel = payment?.salary_category === "monthly"
+      ? `${MONTHS[(Number(payment?.payment_month || 1) - 1)] || ""} ${payment?.payment_year || ""}`.trim()
+      : "Daily Payment";
+
+    const html = `<!DOCTYPE html>
+      <html>
+        <head>
+          <title>Payslip</title>
+          <style>
+            body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: #f7f7f7; color: #222; padding: 24px; }
+            .page { background: #fff; max-width: 780px; margin: 0 auto; border: 1px solid #e0e0e0; box-shadow: 0 10px 30px rgba(0,0,0,.08); }
+            .header { background: linear-gradient(135deg, #8b3a3a, #a84545); color: #fff; padding: 24px 32px; }
+            .title { font-size: 24px; font-weight: 700; margin: 0; }
+            .sub { font-size: 12px; margin: 6px 0 0; opacity: 0.9; }
+            .body { padding: 24px 32px 32px; }
+            .row { display: flex; justify-content: space-between; gap: 18px; margin-bottom: 10px; font-size: 13px; }
+            .label { color: #777; font-weight: 600; min-width: 130px; }
+            .value { color: #222; }
+            .card { border: 1px solid #eee; border-radius: 10px; padding: 14px 16px; margin-top: 16px; }
+            .total { font-weight: 700; color: #1565c0; }
+            .footer { margin-top: 28px; text-align: center; color: #999; font-size: 11px; }
+          </style>
+        </head>
+        <body>
+          <div class="page">
+            <div class="header">
+              <h1 class="title">Mathumithan Hardware</h1>
+              <p class="sub">Salary Payment Confirmation</p>
+            </div>
+            <div class="body">
+              <div class="row"><span class="label">Employee</span><span class="value">${employeeName}</span></div>
+              <div class="row"><span class="label">Department</span><span class="value">${departmentName}</span></div>
+              <div class="row"><span class="label">Period</span><span class="value">${periodLabel}</span></div>
+              <div class="row"><span class="label">Payment Date</span><span class="value">${paymentDate}</span></div>
+              <div class="row"><span class="label">Payment Method</span><span class="value">${payment?.payment_method || "—"}</span></div>
+              <div class="card">
+                <div class="row"><span class="label">Basic Salary</span><span class="value">LKR ${Number(payment?.basic_salary || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}</span></div>
+                <div class="row"><span class="label">Bonus</span><span class="value">+LKR ${Number(payment?.bonus_amount || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}</span></div>
+                <div class="row"><span class="label">Deduction</span><span class="value">-LKR ${Number(payment?.deduction_amount || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}</span></div>
+                <div class="row"><span class="label">Net Salary</span><span class="value total">LKR ${Number(payment?.final_salary || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}</span></div>
+              </div>
+              <div class="footer">Generated in the browser • No backend PDF file is created</div>
+            </div>
+          </div>
+        </body>
+      </html>`;
+
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 400);
   };
 
-  const handlePay = async () => {
-    if (!payModal) return;
-    if (payModal.isDuplicate && !payModal.remarks?.trim()) {
-      toast.error('A reason is required for a second payment in the same month.');
-      return;
-    }
-    setLoading(true);
+  const handleMarkPaid = async (payment) => {
+    if (!payment?.salary_payment_id) return;
+    setPayingId(payment.salary_payment_id);
     try {
-      await api.put(`/salary/${payModal.salary_payment_id}/pay`, {
-        payment_method: payModal.payment_method || "Bank Transfer",
-        remarks: payModal.remarks || ""
+      await api.put(`/salary/${payment.salary_payment_id}/pay`, {
+        payment_method: payment.payment_method || "Bank Transfer",
+        remarks: payment.remarks || ""
       });
-      toast.success("Salary paid! Payslip sent to employee's email.");
-      setPayModal(null);
-      loadAll();
-    } catch (err) { toast.error(err.response?.data?.message || "Payment failed"); }
-    finally { setLoading(false); }
-  };
-
-  const handleDownload = async (id) => {
-    try {
-      const res = await api.get(`/salary/${id}/download`, { responseType: "blob" });
-      const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
-      const a = document.createElement("a");
-      a.href = url; a.download = `payslip_${id}.pdf`; a.click();
-      URL.revokeObjectURL(url);
-    } catch { toast.error("Download failed"); }
+      toast.success("Salary marked as paid");
+      await loadAll();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to mark salary as paid");
+    } finally {
+      setPayingId(null);
+    }
   };
 
   const handleResendEmail = async (p) => {
@@ -168,76 +212,54 @@ function SalaryPage() {
     } finally { setSendingEmail(null); }
   };
 
-  // ── Export full table as PDF ──
   const exportTablePDF = () => {
-    const win = window.open("", "_blank", "width=1000,height=700");
-    const rows = payments.map((p, i) => `
-      <tr style="background:${i % 2 === 0 ? "#fff" : "#fdf8f8"}">
-        <td>#${p.salary_payment_id}</td>
-        <td><strong>${p.employee ? `${p.employee.first_name} ${p.employee.last_name}` : `EMP-${p.employee_id}`}</strong></td>
-        <td>${MONTHS[(p.payment_month || 1) - 1]} ${p.payment_year}</td>
-        <td>LKR ${Number(p.basic_salary).toLocaleString("en-US")}</td>
-        <td style="color:#2e7d32">+LKR ${Number(p.bonus_amount || 0).toLocaleString("en-US")}</td>
-        <td style="color:#c62828">-LKR ${Number(p.deduction_amount || 0).toLocaleString("en-US")}</td>
-        <td><strong style="color:#1565c0">LKR ${Number(p.final_salary).toLocaleString("en-US")}</strong></td>
-        <td>${p.payment_method || "—"}</td>
-        <td>
-          <span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;
-            background:${p.payment_status === "Paid" ? "#e8f5e9" : "#fff3e0"};
-            color:${p.payment_status === "Paid" ? "#2e7d32" : "#e65100"}">
-            ${p.payment_status}
-          </span>
-        </td>
-      </tr>
-    `).join("");
+    const win = window.open("", "_blank", "width=1100,height=700");
+    const rows = payments.map((p, i) => {
+      const isMonthly = p.salary_category === "monthly";
+      return `
+        <tr style="background:${i % 2 === 0 ? "#fff" : "#fdf8f8"}">
+          <td>#${p.salary_payment_id}</td>
+          <td><strong>${p.employee ? `${p.employee.first_name} ${p.employee.last_name}` : `EMP-${p.employee_id}`}</strong></td>
+          <td>${p.salary_category === "monthly" ? "Monthly Worker" : "Daily Worker"}</td>
+          <td>${formatPeriodDate(p)}</td>
+          <td>LKR ${Number(p.basic_salary).toLocaleString("en-US")}</td>
+          <td style="color:#2e7d32">+LKR ${Number(p.bonus_amount||0).toLocaleString("en-US")}</td>
+          <td style="color:#c62828">-LKR ${Number(p.deduction_amount||0).toLocaleString("en-US")}</td>
+          <td><strong style="color:#1565c0">LKR ${Number(p.final_salary).toLocaleString("en-US")}</strong></td>
+          <td>${p.payment_method || "—"}</td>
+          <td><span style="padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;
+            background:${p.payment_status==="Paid"?"#e8f5e9":"#fff3e0"};
+            color:${p.payment_status==="Paid"?"#2e7d32":"#e65100"}">${p.payment_status}</span></td>
+        </tr>`;
+    }).join("");
 
-    win.document.write(`
-      <!DOCTYPE html><html><head><title>Salary Records — ${MONTHS[new Date().getMonth()]} ${new Date().getFullYear()}</title>
-      <style>
-        *{margin:0;padding:0;box-sizing:border-box}
-        body{font-family:'Segoe UI',sans-serif;background:#fff;color:#222;padding:32px}
-        .hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #8b3a3a;padding-bottom:14px;margin-bottom:22px}
-        .hdr h1{font-size:20px;color:#8b3a3a;font-weight:700}
-        .hdr p{font-size:11px;color:#888;margin-top:3px}
-        .meta{font-size:11px;color:#888;text-align:right}
-        .summary{display:flex;gap:16px;margin-bottom:20px}
-        .s-box{background:#fdf5f5;border:1px solid #f0dede;border-radius:8px;padding:10px 16px;font-size:12px;color:#555}
-        .s-box strong{display:block;font-size:18px;color:#8b3a3a;font-weight:700}
-        table{width:100%;border-collapse:collapse;font-size:12px}
-        th{background:linear-gradient(135deg,#8b3a3a,#a84545);color:#fff;padding:9px 10px;text-align:left;font-weight:600;white-space:nowrap}
-        td{padding:8px 10px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
-        .footer{margin-top:24px;text-align:center;font-size:10px;color:#aaa;border-top:1px solid #eee;padding-top:10px}
+    win.document.write(`<!DOCTYPE html><html><head><title>Salary Records</title>
+      <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',sans-serif;background:#fff;color:#222;padding:32px}
+      .hdr{display:flex;justify-content:space-between;border-bottom:3px solid #8b3a3a;padding-bottom:14px;margin-bottom:22px}
+      .hdr h1{font-size:20px;color:#8b3a3a;font-weight:700}.meta{font-size:11px;color:#888;text-align:right}
+      table{width:100%;border-collapse:collapse;font-size:12px}
+      th{background:linear-gradient(135deg,#8b3a3a,#a84545);color:#fff;padding:9px 10px;text-align:left;font-weight:600}
+      td{padding:8px 10px;border-bottom:1px solid #f0f0f0}
+      .footer{margin-top:24px;text-align:center;font-size:10px;color:#aaa;border-top:1px solid #eee;padding-top:10px}
       </style></head><body>
-      <div class="hdr">
-        <div><h1>Salary Records — Mathumithan Hardware</h1><p>All records as of ${new Date().toLocaleString()}</p></div>
-        <div class="meta">Generated: ${new Date().toLocaleDateString()}<br>Total Records: ${payments.length}</div>
-      </div>
-      <div class="summary">
-        <div class="s-box"><strong>${stats.paid}</strong>Paid This Month</div>
-        <div class="s-box"><strong>${stats.pending}</strong>Pending</div>
-        <div class="s-box"><strong>LKR ${payments.filter(p => p.payment_status === "Paid").reduce((s, p) => s + Number(p.final_salary || 0), 0).toLocaleString("en-US")}</strong>Total Paid</div>
-      </div>
-      <table>
-        <thead><tr><th>#</th><th>Employee</th><th>Period</th><th>Basic</th><th>Bonus</th><th>Deduction</th><th>Final Salary</th><th>Method</th><th>Status</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
+      <div class="hdr"><div><h1>Salary Records — Mathumithan Hardware</h1>
+      <p style="font-size:11px;color:#888;margin-top:3px">Total: ${payments.length} record(s)</p></div>
+      <div class="meta">Generated: ${new Date().toLocaleString()}</div></div>
+      <table><thead><tr><th>#</th><th>Employee</th><th>Category</th><th>Period / Date</th><th>Basic</th><th>Bonus</th><th>Deduction</th><th>Final Salary</th><th>Method</th><th>Status</th></tr></thead>
+      <tbody>${rows}</tbody></table>
       <div class="footer">Mathumithan Hardware POS System &bull; Salary Report &bull; Confidential</div>
-      </body></html>
-    `);
-    win.document.close();
-    win.focus();
+      </body></html>`);
+    win.document.close(); win.focus();
     setTimeout(() => { win.print(); win.close(); }, 400);
   };
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
   const totalPages = Math.ceil(payments.length / PER_PAGE);
-  const paginated = payments.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const paginated  = payments.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
-  const statCards = [
-    { label: "Pending Salaries", value: stats.pending, icon: <Clock size={18} />, color: "#e65100", bg: "#fff3e0" },
-    { label: "Paid This Month", value: stats.paid, icon: <CheckCircle size={18} />, color: "#2e7d32", bg: "#e8f5e9" },
-    { label: "Upcoming Payments", value: stats.upcoming, icon: <AlertCircle size={18} />, color: "#1565c0", bg: "#e8f4fd" },
-  ];
+  const selectedEmp = employees.find(e => String(e.employee_id) === String(form.employee_id));
+  const isMonthly   = form.salary_category === "monthly";
+  const isDaily     = form.salary_category === "daily";
 
   return (
     <div className="salary-container">
@@ -249,29 +271,21 @@ function SalaryPage() {
           <p>Manage and track employee salary payments</p>
         </div>
         <div className="salary-header-actions">
-          <button className="sal-btn-outline" onClick={exportTablePDF} title="Export table as PDF">
-            <FileDown size={15} /> Export PDF
-          </button>
-          <Link to="/salary/history" className="sal-btn-outline">
-            <History size={15} /> History
-          </Link>
-          <button className="sal-btn-primary" onClick={() => setShowModal(true)}>
+          <button className="sal-btn-outline" onClick={exportTablePDF}><FileDown size={15} /> Export PDF</button>
+          <Link to="/salary/history" className="sal-btn-outline"><History size={15} /> History</Link>
+          <button className="sal-btn-primary" onClick={() => { setForm(EMPTY_FORM); setShowModal(true); }}>
             <Plus size={15} /> New Record
           </button>
         </div>
       </div>
 
-      {/* Alert */}
-      {stats.showAlert && (
-        <div className="salary-alert">
-          <AlertCircle size={18} />
-          <span>Salary payment due in <strong>5 days</strong> (30th). <strong>{stats.pending}</strong> pending payment(s).</span>
-        </div>
-      )}
-
       {/* Stats */}
       <div className="salary-stats">
-        {statCards.map((s, i) => (
+        {[
+          { label: "Pending Salaries",   value: stats.pending,  icon: <Clock size={18} />,        color: "#e65100", bg: "#fff3e0" },
+          { label: "Paid This Month",    value: stats.paid,     icon: <CheckCircle size={18} />,   color: "#2e7d32", bg: "#e8f5e9" },
+          { label: "Active Employees",   value: stats.upcoming, icon: <AlertCircle size={18} />,   color: "#1565c0", bg: "#e8f4fd" },
+        ].map((s, i) => (
           <div className="salary-stat-card" key={i}>
             <div className="salary-stat-icon" style={{ background: s.bg, color: s.color }}>{s.icon}</div>
             <div>
@@ -289,6 +303,11 @@ function SalaryPage() {
           <input className="sal-search" placeholder="Search employee..." value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
+        <select className="sal-select" value={filterCat} onChange={e => { setFilterCat(e.target.value); setPage(1); }}>
+          <option value="">All Categories</option>
+          <option value="monthly">Monthly Worker</option>
+          <option value="daily">Daily Worker</option>
+        </select>
         <select className="sal-select" value={filterMonth} onChange={e => { setFilterMonth(e.target.value); setPage(1); }}>
           <option value="">All Months</option>
           {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
@@ -313,13 +332,12 @@ function SalaryPage() {
             <tr>
               <th>#</th>
               <th>Employee</th>
-              <th>Period</th>
+              <th>Category</th>
+              <th>Payment Date</th>
               <th>Basic (LKR)</th>
               <th>Bonus</th>
               <th>Deduction</th>
               <th>Final (LKR)</th>
-              <th>Frequency</th>
-              <th>Due Date</th>
               <th>Method</th>
               <th>Status</th>
               <th>Actions</th>
@@ -327,9 +345,9 @@ function SalaryPage() {
           </thead>
           <tbody>
             {pageLoading ? (
-              <tr><td colSpan="10" className="sal-empty">Loading...</td></tr>
+              <tr><td colSpan="11" className="sal-empty">Loading...</td></tr>
             ) : paginated.length === 0 ? (
-              <tr><td colSpan="10" className="sal-empty">No salary records found</td></tr>
+              <tr><td colSpan="11" className="sal-empty">No salary records found</td></tr>
             ) : paginated.map(p => (
               <tr key={p.salary_payment_id}>
                 <td><span className="sal-id-badge">#{p.salary_payment_id}</span></td>
@@ -339,13 +357,16 @@ function SalaryPage() {
                   </div>
                   {p.employee?.email && <div className="sal-emp-email">{p.employee.email}</div>}
                 </td>
-                <td>{MONTHS[(p.payment_month || 1) - 1]} {p.payment_year}</td>
+                <td>
+                  <span className={`sal-cat-pill ${p.salary_category}`}>
+                    {p.salary_category === "monthly" ? "Monthly" : "Daily"}
+                  </span>
+                </td>
+                <td>{formatPeriodDate(p)}</td>
                 <td>{Number(p.basic_salary).toLocaleString("en-LK")}</td>
                 <td className="sal-bonus">+{Number(p.bonus_amount || 0).toLocaleString("en-LK")}</td>
                 <td className="sal-deduct">-{Number(p.deduction_amount || 0).toLocaleString("en-LK")}</td>
                 <td className="sal-final"><strong>LKR {Number(p.final_salary).toLocaleString("en-LK")}</strong></td>
-                <td>{p.payment_frequency || "monthly"}</td>
-                <td>{p.due_date ? new Date(p.due_date).toLocaleDateString("en-GB") : "—"}</td>
                 <td>{p.payment_method || "—"}</td>
                 <td>
                   <span className={`sal-status-pill ${p.payment_status?.toLowerCase() === "paid" ? "paid" : "pending"}`}>
@@ -354,29 +375,28 @@ function SalaryPage() {
                 </td>
                 <td>
                   <div className="sal-action-btns">
-                    {String(p.payment_status).toLowerCase() === "pending" && (
-                      <button type="button" className="sal-icon-btn btn-pay" title="Mark as Paid"
-                        onClick={() => handlePayClick(p)}>
-                        <CreditCard size={14} />
-                      </button>
-                    )}
-                    {String(p.payment_status).toLowerCase() === "paid" && (<>
-                      <button className="sal-icon-btn btn-download" title="Download Payslip"
-                        onClick={() => handleDownload(p.salary_payment_id)}>
+                    {String(p.payment_status).toLowerCase() === "paid" ? (<>
+                      <button className="sal-icon-btn btn-download" title="View Payslip"
+                        onClick={() => handleDownload(p)}>
                         <Download size={14} />
                       </button>
-                      <button
-                        className="sal-icon-btn btn-email"
+                      <button className="sal-icon-btn btn-email"
                         title={`Resend payslip to ${p.employee?.email || "employee"}`}
                         onClick={() => handleResendEmail(p)}
-                        disabled={sendingEmail === p.salary_payment_id}
-                      >
+                        disabled={sendingEmail === p.salary_payment_id}>
                         {sendingEmail === p.salary_payment_id
                           ? <RefreshCw size={14} className="spin" />
-                          : <Mail size={14} />
-                        }
+                          : <Mail size={14} />}
                       </button>
-                    </>)}
+                    </>) : (
+                      <button className="sal-icon-btn btn-pay" title="Mark as paid"
+                        onClick={() => handleMarkPaid(p)}
+                        disabled={payingId === p.salary_payment_id}>
+                        {payingId === p.salary_payment_id
+                          ? <RefreshCw size={14} className="spin" />
+                          : <CheckCircle size={14} />}
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -388,16 +408,12 @@ function SalaryPage() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="sal-pagination">
-          <button disabled={page === 1} onClick={() => setPage(p => p - 1)}>
-            <ChevronLeft size={15} />
-          </button>
+          <button disabled={page === 1} onClick={() => setPage(p => p - 1)}><ChevronLeft size={15} /></button>
           <span className="sal-page-info">Page {page} of {totalPages}</span>
           {Array.from({ length: totalPages }, (_, i) => (
             <button key={i + 1} className={page === i + 1 ? "active" : ""} onClick={() => setPage(i + 1)}>{i + 1}</button>
           ))}
-          <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>
-            <ChevronRight size={15} />
-          </button>
+          <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight size={15} /></button>
         </div>
       )}
 
@@ -406,11 +422,13 @@ function SalaryPage() {
         <div className="sal-overlay" onClick={() => setShowModal(false)}>
           <div className="sal-modal sal-modal-lg" onClick={e => e.stopPropagation()}>
             <div className="sal-modal-header">
-              <h2>New Salary Record</h2>
+              <h2>New Salary Payment</h2>
               <button className="sal-modal-close" onClick={() => setShowModal(false)}><X size={18} /></button>
             </div>
             <form onSubmit={handleCreate} className="sal-modal-form">
               <div className="sal-form-grid">
+
+                {/* Employee */}
                 <div className="sal-field full">
                   <label>Employee *</label>
                   <select value={form.employee_id} onChange={handleEmpChange} required>
@@ -422,155 +440,100 @@ function SalaryPage() {
                     ))}
                   </select>
                 </div>
-                <div className="sal-field">
-                  <label>Month *</label>
-                  <select value={form.payment_month} onChange={e => setForm({ ...form, payment_month: e.target.value })} required>
-                    <option value="">Select Month</option>
-                    {MONTHS.map((m, i) => {
-                      const disabled = isBeforeMay2026(form.payment_year || 2026, i + 1);
-                      return <option key={i} value={i + 1} disabled={disabled} style={disabled ? { color: '#bbb' } : {}}>{m}</option>;
-                    })}
-                  </select>
-                </div>
-                <div className="sal-field">
-                  <label>Year *</label>
-                  <select value={form.payment_year} onChange={e => setForm({ ...form, payment_year: e.target.value })} required>
-                    <option value="">Select Year</option>
-                    {years.map(y => {
-                      const disabled = y < 2026;
-                      return <option key={y} value={y} disabled={disabled} style={disabled ? { color: '#bbb' } : {}}>{y}</option>;
-                    })}
-                  </select>
-                </div>
-                <div className="sal-field">
-                  <label>Basic Salary (LKR) *</label>
-                  <input type="number" min="0" step="0.01" value={form.basic_salary}
-                    onChange={e => setForm({ ...form, basic_salary: e.target.value })} required />
-                </div>
-                <div className="sal-field">
-                  <label>Bonus (LKR)</label>
-                  <input type="number" min="0" step="0.01" value={form.bonus_amount}
-                    onChange={e => setForm({ ...form, bonus_amount: e.target.value })} />
-                </div>
-                <div className="sal-field">
-                  <label>Deductions (LKR)</label>
-                  <input type="number" min="0" step="0.01" value={form.deduction_amount}
-                    onChange={e => setForm({ ...form, deduction_amount: e.target.value })} />
-                </div>
-                {parseFloat(finalSalary()) < 500 && form.basic_salary !== "" && (
+
+                {/* Salary Category — read from employee's salary_category */}
+                {form.employee_id && (
                   <div className="sal-field full">
-                    <div className="sal-negative-warning">
-                      {parseFloat(finalSalary()) < 0
-                        ? '⚠️ Final salary is negative. Reduce deductions or increase basic salary.'
-                        : '⚠️ Final salary must be at least LKR 500.00.'}
+                    <label>Salary Category</label>
+                    <div className="sal-category-display">
+                      {isMonthly ? "Monthly Worker" : "Daily Worker"}
                     </div>
                   </div>
                 )}
-                <div className="sal-field">
-                  <label>Payment Frequency</label>
-                  <select value={form.payment_frequency} onChange={e => setForm({ ...form, payment_frequency: e.target.value })}>
-                    {FREQUENCIES.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-                  </select>
-                </div>
-                <div className="sal-field">
-                  <label>Reference Date</label>
-                  <input type="date" value={form.pay_period_reference_date}
-                    onChange={e => setForm({ ...form, pay_period_reference_date: e.target.value })} />
-                </div>
-                <div className="sal-field">
-                  <label>Pay Period Start</label>
-                  <input type="date" value={form.pay_period_start_date}
-                    onChange={e => setForm({ ...form, pay_period_start_date: e.target.value })} />
-                </div>
-                <div className="sal-field">
-                  <label>Pay Period End</label>
-                  <input type="date" value={form.pay_period_end_date}
-                    onChange={e => setForm({ ...form, pay_period_end_date: e.target.value })} />
-                </div>
-                <div className="sal-field">
-                  <label>Due Date</label>
-                  <input type="date" value={form.due_date}
-                    onChange={e => setForm({ ...form, due_date: e.target.value })} />
-                </div>
-                <div className="sal-field">
-                  <label>Payment Method</label>
-                  <select value={form.payment_method} onChange={e => setForm({ ...form, payment_method: e.target.value })}>
-                    {METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                </div>
-                <div className="sal-field">
-                  <label>Final Salary (auto)</label>
-                  <div className="sal-final-preview">LKR {Number(finalSalary()).toLocaleString("en-US")}</div>
-                </div>
-                <div className="sal-field full">
-                  <label>Remarks</label>
-                  <textarea rows={2} value={form.remarks}
-                    onChange={e => setForm({ ...form, remarks: e.target.value })} placeholder="Optional notes..." />
-                </div>
+
+                {/* Monthly-only: Month + Year */}
+                {isMonthly && (<>
+                  <div className="sal-field">
+                    <label>Month *</label>
+                    <select value={form.payment_month}
+                      onChange={e => setForm({ ...form, payment_month: e.target.value })} required>
+                      <option value="">Select Month</option>
+                      {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div className="sal-field">
+                    <label>Year *</label>
+                    <select value={form.payment_year}
+                      onChange={e => setForm({ ...form, payment_year: e.target.value })} required>
+                      <option value="">Select Year</option>
+                      {years.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </div>
+                </>)}
+
+                {/* Payment Date */}
+                {form.employee_id && (
+                  <div className="sal-field">
+                    <label>Payment Date *</label>
+                    <input type="date" value={form.payment_date}
+                      onChange={e => setForm({ ...form, payment_date: e.target.value })} required />
+                  </div>
+                )}
+
+                {/* Basic Salary label differs by category */}
+                {form.employee_id && (
+                  <div className="sal-field">
+                    <label>{isDaily ? "Daily Salary (LKR) *" : "Basic Salary (LKR) *"}</label>
+                    <input type="number" min="0" step="0.01" value={form.basic_salary}
+                      onChange={e => setForm({ ...form, basic_salary: e.target.value })} required />
+                  </div>
+                )}
+
+                {form.employee_id && (<>
+                  <div className="sal-field">
+                    <label>Bonus (LKR)</label>
+                    <input type="number" min="0" step="0.01" value={form.bonus_amount}
+                      onChange={e => setForm({ ...form, bonus_amount: e.target.value })} />
+                  </div>
+                  <div className="sal-field">
+                    <label>Deductions (LKR)</label>
+                    <input type="number" min="0" step="0.01" value={form.deduction_amount}
+                      onChange={e => setForm({ ...form, deduction_amount: e.target.value })} />
+                  </div>
+                  <div className="sal-field">
+                    <label>Payment Method *</label>
+                    <select value={form.payment_method}
+                      onChange={e => setForm({ ...form, payment_method: e.target.value })} required>
+                      {METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div className="sal-field">
+                    <label>Final Salary (Auto)</label>
+                    <div className="sal-final-preview">LKR {Number(finalSalary()).toLocaleString("en-US")}</div>
+                  </div>
+                  {parseFloat(finalSalary()) < 0 && (
+                    <div className="sal-field full">
+                      <div className="sal-negative-warning">
+                        ⚠️ Final salary is negative. Reduce deductions or increase salary.
+                      </div>
+                    </div>
+                  )}
+                  <div className="sal-field full">
+                    <label>Remarks</label>
+                    <textarea rows={2} value={form.remarks}
+                      onChange={e => setForm({ ...form, remarks: e.target.value })}
+                      placeholder="Optional notes..." />
+                  </div>
+                </>)}
               </div>
+
               <div className="sal-modal-footer">
                 <button type="button" className="sal-btn-cancel" onClick={() => setShowModal(false)}>Cancel</button>
-                <button type="submit" className="sal-btn-submit" disabled={loading}>
-                  {loading ? "Saving..." : "Create Record"}
+                <button type="submit" className="sal-btn-submit" disabled={loading || !form.employee_id}>
+                  {loading ? "Saving..." : "Pay Salary"}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Pay Confirmation Modal */}
-      {payModal && (
-        <div className="sal-overlay" onClick={() => setPayModal(null)}>
-          <div className="sal-modal" onClick={e => e.stopPropagation()}>
-            <div className="sal-modal-header">
-              <h2>Confirm Salary Payment</h2>
-              <button className="sal-modal-close" onClick={() => setPayModal(null)}><X size={18} /></button>
-            </div>
-            <div className="sal-pay-body">
-              <div className="sal-pay-row"><span>Employee</span>
-                <strong>{payModal.employee ? `${payModal.employee.first_name} ${payModal.employee.last_name}` : `EMP-${payModal.employee_id}`}</strong>
-              </div>
-              <div className="sal-pay-row"><span>Email</span>
-                <strong>{payModal.employee?.email || "—"}</strong>
-              </div>
-              <div className="sal-pay-row"><span>Period</span>
-                <strong>{MONTHS[(payModal.payment_month || 1) - 1]} {payModal.payment_year}</strong>
-              </div>
-              <div className="sal-pay-row"><span>Final Salary</span>
-                <strong className="sal-pay-amount">LKR {Number(payModal.final_salary).toLocaleString("en-US")}</strong>
-              </div>
-              <div className="sal-field" style={{ marginTop: "1rem" }}>
-                <label>Payment Method</label>
-                <select value={payModal.payment_method}
-                  onChange={e => setPayModal({ ...payModal, payment_method: e.target.value })}>
-                  {METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </div>
-              {payModal.isDuplicate && (
-                <div className="sal-duplicate-warning">
-                  ⚠️ This employee already has a <strong>Paid</strong> salary record for <strong>{MONTHS[(payModal.payment_month || 1) - 1]} {payModal.payment_year}</strong>.
-                  A reason is <strong>required</strong> to proceed with a second payment.
-                </div>
-              )}
-              <div className="sal-field">
-                <label>{payModal.isDuplicate ? "Reason for 2nd Payment *" : "Remarks"}</label>
-                <textarea rows={2} value={payModal.remarks || ""}
-                  onChange={e => setPayModal({ ...payModal, remarks: e.target.value })}
-                  placeholder={payModal.isDuplicate ? "Required: explain why a second payment is being made..." : "Optional..."}
-                  required={payModal.isDuplicate} />
-              </div>
-              <div className="sal-email-note">
-                <Pencil size={14} />
-                Payslip PDF will be automatically emailed to <strong>{payModal.employee?.email || "the employee"}</strong> upon payment.
-              </div>
-            </div>
-            <div className="sal-modal-footer">
-              <button className="sal-btn-cancel" onClick={() => setPayModal(null)}>Cancel</button>
-              <button className="sal-btn-pay" onClick={handlePay} disabled={loading}>
-                {loading ? "Processing..." : "Pay Now"}
-              </button>
-            </div>
           </div>
         </div>
       )}

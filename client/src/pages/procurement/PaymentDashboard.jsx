@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { RefreshCw, Plus, Download, DollarSign, Clock, AlertTriangle, CheckCircle, X, AlertCircle } from 'lucide-react';
@@ -403,6 +404,9 @@ export default function PaymentDashboard() {
                     const cs = p.cheque_status || 'Pending';
                     const ov = p.is_overdue;
                     const c  = CHEQUE_COLORS[cs] || CHEQUE_COLORS.Cancelled;
+                    const displayAmount = (cs === 'Bounced' || cs === 'Cancelled')
+                      ? (p.invoice_amount ?? p.balance_amount ?? p.paid_amount)
+                      : p.paid_amount;
                     return (
                       <motion.tr key={p.payment_id}
                         initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
@@ -417,7 +421,7 @@ export default function PaymentDashboard() {
                           {ov && <AlertCircle size={12} color="#c62828" style={{ marginLeft: 4, verticalAlign: 'middle' }} />}
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          <span className="proc-amount" style={{ color: c.color }}>{fmt(p.paid_amount)}</span>
+                          <span className="proc-amount" style={{ color: c.color }}>{fmt(displayAmount)}</span>
                         </td>
                         <td>
                           <span style={{
@@ -461,8 +465,8 @@ export default function PaymentDashboard() {
         ) : null;
       })()}
 
-      {/* Record Payment Modal */}
-      <AnimatePresence>
+      {/* Record Payment Modal — rendered in document.body via portal to avoid stacking context issues */}
+      {createPortal(<AnimatePresence>
         {showModal && selectedPay && (
           <motion.div className="proc-modal-overlay"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -642,7 +646,7 @@ export default function PaymentDashboard() {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>, document.body)}
     </div>
   );
 }

@@ -1,5 +1,4 @@
 const { supplier_payments, suppliers, purchase_orders } = require('../models');
-const { Op } = require('sequelize');
 const emailService = require('./emailService');
 const notificationService = require('./procurementNotificationService');
 const { normalizeChequeDetails, calculatePendingChequeDate } = require('../utils/chequeLogic');
@@ -35,7 +34,7 @@ const createPaymentRecord = async (poId, supplierId, invoiceNumber, invoiceAmoun
  */
 const processPayment = async (paymentId, amountPaid, paymentMethod, paidDate, notes = '', chequeDetails = {}) => {
   try {
-    const payment = await supplier_payments.findByPk(paymentId, {
+    const payment = await supplier_payments.findById(paymentId, {
       include: [
         { model: suppliers },
         { model: purchase_orders }
@@ -143,7 +142,7 @@ const getOutstandingPayables = async () => {
   try {
     return await supplier_payments.findAll({
       where: {
-        payment_status: { [Op.in]: ['Pending', 'Partially Paid', 'Overdue'] }
+        payment_status: { $in: ['Pending', 'Partially Paid', 'Overdue'] }
       },
       include: [suppliers, purchase_orders],
       order: [['due_date', 'ASC']]
@@ -164,9 +163,9 @@ const getPaymentsDueThisWeek = async () => {
 
     return await supplier_payments.findAll({
       where: {
-        payment_status: { [Op.in]: ['Pending', 'Partially Paid', 'Overdue'] },
+        payment_status: { $in: ['Pending', 'Partially Paid', 'Overdue'] },
         due_date: {
-          [Op.between]: [today, sevenDaysLater]
+          $between: [today, sevenDaysLater]
         }
       },
       include: [suppliers],
@@ -236,8 +235,8 @@ const checkAndMarkOverdue = async () => {
     const today = new Date().toISOString().split('T')[0];
     const overdueInvoices = await supplier_payments.findAll({
       where: {
-        payment_status: { [Op.in]: ['Pending', 'Partially Paid'] },
-        due_date: { [Op.lt]: today }
+        payment_status: { $in: ['Pending', 'Partially Paid'] },
+        due_date: { $lt: today }
       },
       include: [suppliers]
     });

@@ -1,6 +1,8 @@
-const { salary_payments } = require('../models');
+const db = require('../models');
 const { getSalaryAlertState } = require('../utils/salaryLogic');
 const procurementNotificationService = require('./procurementNotificationService');
+
+const salary_payments = db.salary_payments;
 
 const createSalaryAlertNotification = async (record, state) => {
   if (!record || !state?.needsAlert) return null;
@@ -40,7 +42,7 @@ const syncSalaryAlertState = async (record) => {
   };
 
   await salary_payments.update(updateData, { where: { salary_payment_id: record.salary_payment_id } });
-  const updated = await salary_payments.findByPk(record.salary_payment_id);
+  const updated = await salary_payments.findOne({ where: { salary_payment_id: record.salary_payment_id } });
   if (state.needsAlert) {
     await createSalaryAlertNotification(updated, state);
   }
