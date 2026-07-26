@@ -2,6 +2,17 @@ const { Op } = require('sequelize');
 const db = require('../models');
 const { normalizeDepartmentSelection, serializeDepartmentSelection } = require('../utils/projectDepartmentUtils');
 
+const getDayBounds = (dateValue = new Date()) => {
+  const targetDate = dateValue instanceof Date ? new Date(dateValue) : new Date(dateValue);
+  const start = new Date(targetDate);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(targetDate);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+};
+
+const buildTransactionRef = () => `TXN-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+
 // ── GET all projects ──────────────────────────────────────────────────────────
 exports.getAllProjects = async (req, res) => {
   try {
@@ -194,10 +205,21 @@ exports.deleteProject = async (req, res) => {
 exports.addProjectItem = async (req, res) => {
   const t = await db.sequelize.transaction();
   try {
-    const { project_id, product_id, quantity, note } = req.body;
-    if (!project_id || !product_id || !quantity || quantity <= 0) {
+    const { project_id, note, receiver_name, receiver_phone } = req.body;
+    const incomingItems = Array.isArray(req.body.items) && req.body.items.length
+      ? req.body.items
+      : (req.body.product_id ? [{ product_id: req.body.product_id, quantity: req.body.quantity }] : []);
+
+    if (!project_id || !incomingItems.length) {
       await t.rollback();
-      return res.status(400).json({ message: 'project_id, product_id and quantity are required' });
+      return res.status(400).json({ message: 'project_id and at least one item are required' });
+    }
+
+    const resolvedReceiverName = receiver_name ? String(receiver_name).trim() : '';
+    const resolvedReceiverPhone = receiver_phone ? String(receiver_phone).trim() : '';
+    if (!resolvedReceiverName || !resolvedReceiverPhone) {
+      await t.rollback();
+      return res.status(400).json({ message: 'receiver_name and receiver_phone are required' });
     }
 
     // Validate project is active
@@ -205,43 +227,107 @@ exports.addProjectItem = async (req, res) => {
     if (!project) { await t.rollback(); return res.status(404).json({ message: 'Project not found' }); }
     if (project.status !== 'Active') { await t.rollback(); return res.status(400).json({ message: 'Cannot add items to a non-active project' }); }
 
-    // Validate product and check stock
-    const product = await db.products.findByPk(product_id, { transaction: t });
-    if (!product) { await t.rollback(); return res.status(404).json({ message: 'Product not found' }); }
-    if (product.stock_quantity < quantity) {
-      await t.rollback();
-      return res.status(400).json({ message: `Insufficient stock. Available: ${product.stock_quantity}` });
+    const transactionRef = buildTransactionRef();
+    const takenAt = new Date();
+    const createdItems = [];
+
+    for (const incomingItem of incomingItems) {
+      const productId = Number(incomingItem.product_id);
+      const quantity = Number(incomingItem.quantity);
+
+      if (!productId || !quantity || quantity <= 0) {
+        await t.rollback();
+        return res.status(400).json({ message: 'Each item requires a valid product_id and quantity' });
+      }
+
+      const product = await db.products.findByPk(productId, { transaction: t });
+      if (!product) { await t.rollback(); return res.status(404).json({ message: 'Product not found' }); }
+      if (product.stock_quantity < quantity) {
+        await t.rollback();
+        return res.status(400).json({ message: `Insufficient stock. Available: ${product.stock_quantity}` });
+      }
+
+      await product.update({ stock_quantity: product.stock_quantity - quantity }, { transaction: t });
+
+      const item = await db.project_items.create({
+        project_id,
+        product_id: productId,
+        quantity,
+        unit_price: product.unit_price,
+        note: note || incomingItem.note || null,
+        receiver_name: resolvedReceiverName,
+        receiver_phone: resolvedReceiverPhone,
+        transaction_ref: transactionRef,
+        taken_by: req.user.user_id,
+        taken_at: takenAt,
+      }, { transaction: t });
+
+      createdItems.push(item);
     }
-
-    // Deduct stock
-    await product.update({ stock_quantity: product.stock_quantity - quantity }, { transaction: t });
-
-    // Create project item
-    const item = await db.project_items.create({
-      project_id,
-      product_id,
-      quantity,
-      unit_price: product.unit_price,
-      note: note || null,
-      taken_by: req.user.user_id,
-      taken_at: new Date(),
-    }, { transaction: t });
 
     await t.commit();
 
-    // Return item with product details
-    const fullItem = await db.project_items.findByPk(item.item_id, {
+    // Return item(s) with product details
+    const fullItems = await db.project_items.findAll({
+      where: { transaction_ref: transactionRef },
+      order: [['item_id', 'ASC']],
       include: [
         { model: db.products, as: 'product', attributes: ['product_id', 'product_name', 'unit_price'] },
         { model: db.users, as: 'takenByUser', attributes: ['user_id', 'user_name', 'first_name', 'last_name'] },
       ],
     });
 
-    console.log(`[Projects] ✅ Added ${quantity}x "${product.product_name}" to project_id: ${project_id} by user_id: ${req.user.user_id}`);
-    res.status(201).json(fullItem);
+    console.log(`[Projects] ✅ Added ${createdItems.length} item(s) to project_id: ${project_id} by user_id: ${req.user.user_id}`);
+    if (incomingItems.length === 1) {
+      res.status(201).json(fullItems[0]);
+    } else {
+      res.status(201).json({ transaction_ref: transactionRef, items: fullItems });
+    }
   } catch (err) {
     await t.rollback();
     console.error('[Projects] addProjectItem error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ── DELETE all items for a product sold today ───────────────────────────────
+exports.deleteTodayProductSales = async (req, res) => {
+  const t = await db.sequelize.transaction();
+  try {
+    const productId = Number(req.params.productId);
+    if (!productId) {
+      await t.rollback();
+      return res.status(400).json({ message: 'Valid productId is required' });
+    }
+
+    const { project_id, date } = req.query;
+    const { start, end } = getDayBounds(date || new Date());
+
+    const where = {
+      product_id: productId,
+      taken_at: { [Op.between]: [start, end] },
+    };
+    if (project_id) where.project_id = project_id;
+
+    const items = await db.project_items.findAll({ where, transaction: t });
+    if (!items.length) {
+      await t.rollback();
+      return res.status(404).json({ message: 'No sales found for this product today' });
+    }
+
+    for (const item of items) {
+      const product = await db.products.findByPk(item.product_id, { transaction: t });
+      if (product) {
+        await product.update({ stock_quantity: Number(product.stock_quantity) + Number(item.quantity) }, { transaction: t });
+      }
+      await item.destroy({ transaction: t });
+    }
+
+    await t.commit();
+    res.json({ message: 'Product sales removed for today', removed: items.length });
+  } catch (err) {
+    await t.rollback();
+    console.error('[Projects] deleteTodayProductSales error:', err.message);
     res.status(500).json({ error: err.message });
   }
 };

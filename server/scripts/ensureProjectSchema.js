@@ -65,6 +65,29 @@ async function ensureProjectSchema() {
       }));
     }
 
+    // Ensure receiver_name in project_items table
+    const itemTable = await queryInterface.describeTable('project_items');
+    if (!itemTable.receiver_name) {
+      changes.push(queryInterface.addColumn('project_items', 'receiver_name', {
+        type: db.Sequelize.STRING(150),
+        allowNull: true,
+      }));
+    }
+
+    if (!itemTable.receiver_phone) {
+      changes.push(queryInterface.addColumn('project_items', 'receiver_phone', {
+        type: db.Sequelize.STRING(30),
+        allowNull: true,
+      }));
+    }
+
+    if (!itemTable.transaction_ref) {
+      changes.push(queryInterface.addColumn('project_items', 'transaction_ref', {
+        type: db.Sequelize.STRING(64),
+        allowNull: true,
+      }));
+    }
+
     if (changes.length) {
       await Promise.all(changes);
     }

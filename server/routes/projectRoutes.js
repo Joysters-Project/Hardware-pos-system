@@ -12,6 +12,7 @@ router.get('/active', ctrl.getActiveProjects);
 
 // ── Reports — admin and manager only ─────────────────────────────────────────
 router.get('/report/daily',   roleGuard(['Admin', 'Manager', 'Cashier']), ctrl.getDailyReport);
+router.delete('/report/daily/product/:productId', roleGuard(['Admin', 'Manager']), ctrl.deleteTodayProductSales);
 router.get('/report/monthly', roleGuard(['Admin', 'Manager']), ctrl.getMonthlyReport);
 router.get('/report/yearly',  roleGuard(['Admin', 'Manager']), ctrl.getYearlyReport);
 

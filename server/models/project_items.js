@@ -8,6 +8,9 @@ module.exports = (sequelize) => {
     quantity:    { type: DataTypes.DECIMAL(10, 2), allowNull: false },
     unit_price:  { type: DataTypes.DECIMAL(10, 2), allowNull: false }, // snapshot at time of taking
     note:        { type: DataTypes.STRING(255), allowNull: true },
+    receiver_name: { type: DataTypes.STRING(150), allowNull: true },
+    receiver_phone: { type: DataTypes.STRING(30), allowNull: true },
+    transaction_ref: { type: DataTypes.STRING(64), allowNull: true },
     taken_by:    { type: DataTypes.INTEGER, allowNull: false }, // user_id (cashier)
     taken_at:    { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
   }, {
