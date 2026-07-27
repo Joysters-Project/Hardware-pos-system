@@ -26,6 +26,7 @@ function ProjectsPage() {
   const [editId, setEditId]                   = useState(null);
   const [showModal, setShowModal]             = useState(false);
   const [viewProject, setViewProject]         = useState(null);
+  const [showViewItems, setShowViewItems]     = useState(false);
   const [activeTab, setActiveTab]             = useState('projects');
   const [loading, setLoading]                 = useState(false);
   const [monthlyData, setMonthlyData]         = useState(null);
@@ -111,7 +112,11 @@ function ProjectsPage() {
   };
 
   const handleView = async (p) => {
-    try { const res = await api.get(`/projects/${p.project_id}`); setViewProject(res.data); }
+    try {
+      const res = await api.get(`/projects/${p.project_id}`);
+      setViewProject(res.data);
+      setShowViewItems(false);
+    }
     catch { toast.error('Failed to load project details'); }
   };
 
@@ -341,8 +346,8 @@ function ProjectsPage() {
                             <td>{item.quantity}</td>
                             <td>{fmtCurrency(item.unit_price)}</td>
                             <td>{fmtCurrency(Number(item.quantity) * Number(item.unit_price))}</td>
-                            <td>{item.takenByUser ? `${item.takenByUser.first_name} ${item.takenByUser.last_name}` : '—'}</td>
-                            <td>{fmtDateTime(item.taken_at)}</td>
+                            <td>{item.receiver_name || (item.takenByUser ? `${item.takenByUser.first_name} ${item.takenByUser.last_name}` : '—')}</td>
+                            <td className="proj-date-cell">{fmtDateTime(item.taken_at)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -520,51 +525,65 @@ function ProjectsPage() {
             </div>
 
             <div className="proj-items-section">
-              <h3><Package size={16} /> Items Taken ({viewProject.items?.length || 0})</h3>
-              {(() => {
-                const grouped = groupAndSortItemsByMonth(viewProject.items || []);
-                if (grouped.length === 0) {
-                  return (
-                    <div className="proj-items-wrap">
-                      <div className="proj-items-empty">No items recorded yet.</div>
-                    </div>
-                  );
-                }
-                return (
-                  <div className="proj-items-grouped-list">
-                    {grouped.map(g => (
-                      <div key={g.monthKey} className="proj-items-month-group">
-                        <div className="proj-items-month-header">
-                          <span className="proj-items-month-title">📅 {g.monthLabel}</span>
-                          <span className="proj-items-month-badge">{g.items.length} item(s)</span>
-                        </div>
+              <div className="proj-items-action-bar">
+                <button
+                  type="button"
+                  className={`proj-items-toggle-btn ${showViewItems ? 'active' : ''}`}
+                  onClick={() => setShowViewItems(!showViewItems)}
+                >
+                  <Package size={16} />
+                  <span>Items Taken ({viewProject.items?.length || 0})</span>
+                  {showViewItems ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+              </div>
+
+              {showViewItems && (
+                <div className="proj-items-content-wrap">
+                  {(() => {
+                    const grouped = groupAndSortItemsByMonth(viewProject.items || []);
+                    if (grouped.length === 0) {
+                      return (
                         <div className="proj-items-wrap">
-                          <table className="proj-items-table">
-                            <thead>
-                              <tr>
-                                <th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th><th>Note</th><th>Taken By</th><th>Date</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {g.items.map(item => (
-                                <tr key={item.item_id}>
-                                  <td><strong>{item.product?.product_name || '—'}</strong></td>
-                                  <td>{item.quantity}</td>
-                                  <td>{fmtCurrency(item.unit_price)}</td>
-                                  <td>{fmtCurrency(Number(item.quantity) * Number(item.unit_price))}</td>
-                                  <td>{item.note || '—'}</td>
-                                  <td>{item.takenByUser ? `${item.takenByUser.first_name} ${item.takenByUser.last_name}` : '—'}</td>
-                                  <td>{fmtDateTime(item.taken_at)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                          <div className="proj-items-empty">No items recorded yet.</div>
                         </div>
+                      );
+                    }
+                    return (
+                      <div className="proj-items-grouped-list">
+                        {grouped.map(g => (
+                          <div key={g.monthKey} className="proj-items-month-group">
+                            <div className="proj-items-month-header">
+                              <span className="proj-items-month-title">📅 {g.monthLabel}</span>
+                              <span className="proj-items-month-badge">{g.items.length} item(s)</span>
+                            </div>
+                            <div className="proj-items-wrap">
+                              <table className="proj-items-table">
+                                <thead>
+                                  <tr>
+                                    <th>Product</th><th>Qty</th><th>Unit Price</th><th>Note</th><th>Taken By</th><th>Date</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {g.items.map(item => (
+                                    <tr key={item.item_id}>
+                                      <td><strong>{item.product?.product_name || '—'}</strong></td>
+                                      <td>{item.quantity}</td>
+                                      <td>{fmtCurrency(item.unit_price)}</td>
+                                      <td>{item.note || '—'}</td>
+                                      <td>{item.receiver_name || (item.takenByUser ? `${item.takenByUser.first_name} ${item.takenByUser.last_name}` : '—')}</td>
+                                      <td className="proj-date-cell">{fmtDateTime(item.taken_at)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                );
-              })()}
+                    );
+                  })()}
+                </div>
+              )}
             </div>
           </div>
         </div>,

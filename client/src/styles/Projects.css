@@ -428,10 +428,41 @@
 
 /* Items section inside view modal */
 .proj-items-section { padding: 0 1.5rem 1.5rem; }
-.proj-items-section h3 {
-  display: flex; align-items: center; gap: 6px;
-  margin: 0 0 0.85rem; font-size: 0.95rem; font-weight: 700; color: #333;
-  padding-top: 1rem; border-top: 1px solid #f0f0f0;
+.proj-items-action-bar {
+  padding-top: 1rem;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+}
+
+.proj-items-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #8b3a3a, #a84545);
+  color: #ffffff;
+  border: none;
+  border-radius: 9px;
+  padding: 0.62rem 1.15rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(139, 58, 58, 0.22);
+  transition: all 0.2s ease;
+}
+
+.proj-items-toggle-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 14px rgba(139, 58, 58, 0.32);
+}
+
+.proj-items-toggle-btn.active {
+  background: #6e2c2c;
+}
+
+.proj-items-content-wrap {
+  margin-top: 1rem;
+  animation: proj-modal-pop-in 0.22s ease-out both;
 }
 
 /* Items Month Grouping */
@@ -472,14 +503,22 @@
   border-radius: 999px;
   border: 1px solid #edd5d5;
 }
-.proj-items-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid #f0f0f0; }
-.proj-items-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.proj-items-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid #f0f0f0; background: #ffffff; }
+.proj-items-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; min-width: 760px; }
 .proj-items-table thead th {
   background: #fdf5f5; color: #8b3a3a;
-  padding: 0.55rem 0.9rem; font-weight: 700; text-align: left;
+  padding: 0.6rem 0.85rem; font-weight: 700; text-align: left;
+  white-space: nowrap;
 }
 .proj-items-table tbody td {
-  padding: 0.55rem 0.9rem; border-bottom: 1px solid #f8f8f8; color: #333;
+  padding: 0.6rem 0.85rem; border-bottom: 1px solid #f8f8f8; color: #333;
+  vertical-align: middle;
+}
+.proj-date-cell {
+  white-space: nowrap !important;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.83rem;
+  color: #444;
 }
 .proj-items-table tbody tr:last-child td { border-bottom: none; }
 .proj-items-table tbody tr:hover td { background: #fdf6f6; }
