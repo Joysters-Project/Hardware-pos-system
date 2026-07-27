@@ -269,7 +269,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	padding: 2rem;
+	padding: 52px 48px;
 	box-sizing: border-box;
 	animation: prod-modal-fade-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -282,7 +282,7 @@
 	.modal-overlay,
 	.admin-shell.sidebar-collapsed .modal-overlay {
 		left: 0;
-		padding: 1rem;
+		padding: 24px 16px;
 		z-index: 1200;
 	}
 }
@@ -305,7 +305,7 @@
 	border-radius: 18px;
 	width: 100%;
 	max-width: 560px;
-	max-height: calc(100vh - 4rem);
+	max-height: calc(100vh - 104px);
 	overflow-y: auto;
 	box-shadow: 0 24px 60px -10px rgba(0, 0, 0, 0.32), 0 0 1px rgba(0, 0, 0, 0.2);
 	border: 1px solid rgba(0, 0, 0, 0.08);

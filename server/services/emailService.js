@@ -560,6 +560,94 @@ const sendItemCommentEmail = async ({ supplier, poNumber, productName, quantity,
   await logEmail(recipientEmail, subject, type, 'po_item', null, 'sent');
 };
 
+/**
+ * sendProjectItemRemovedNotification
+ */
+const sendProjectItemRemovedNotification = async (details) => {
+  try {
+    const { users } = require('../models');
+    const adminUsers = await users.findAll({ where: { role: ['Admin', 'admin'] } });
+    let adminEmails = adminUsers.map(u => u.email).filter(Boolean);
+
+    if (adminEmails.length === 0) {
+      adminEmails = [process.env.ADMIN_EMAIL || process.env.SMTP_EMAIL || 'admin@mathumithanhardware.lk'];
+    }
+
+    const recipientEmail = adminEmails.join(', ');
+    const subject = `⚠️ Alert: Removed Project Item - ${details.product_name} (${details.project_name})`;
+
+    const formattedDateTime = details.taken_at
+      ? new Date(details.taken_at).toLocaleString('en-LK', { dateStyle: 'medium', timeStyle: 'short' })
+      : '—';
+
+    const htmlBody = `
+      <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:620px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #ea580c33;box-shadow:0 8px 24px rgba(0,0,0,0.08);">
+        <div style="background:linear-gradient(135deg,#c62828,#b71c1c);padding:24px 28px;color:#ffffff;">
+          <h2 style="margin:0;font-size:20px;font-weight:700;">⚠️ Project Transaction Item Removed</h2>
+          <p style="margin:6px 0 0;font-size:13px;opacity:0.9;">System Alert &bull; ${COMPANY.name}</p>
+        </div>
+        <div style="padding:28px;">
+          <p style="font-size:14px;color:#333333;margin:0 0 20px;line-height:1.5;">
+            A transaction line item was removed from a project by <strong>${details.removed_by}</strong>. Below are the complete transaction details:
+          </p>
+          <table style="width:100%;border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #f0f0f0;">
+            <tr style="background:#f9fafb;">
+              <td style="padding:12px 16px;font-size:13px;color:#666;font-weight:600;width:40%;border-bottom:1px solid #eee;">Project Name</td>
+              <td style="padding:12px 16px;font-size:13px;color:#111;font-weight:700;border-bottom:1px solid #eee;">${details.project_name}</td>
+            </tr>
+            <tr>
+              <td style="padding:12px 16px;font-size:13px;color:#666;font-weight:600;border-bottom:1px solid #eee;">Product Name</td>
+              <td style="padding:12px 16px;font-size:13px;color:#111;font-weight:700;border-bottom:1px solid #eee;">${details.product_name}</td>
+            </tr>
+            <tr style="background:#f9fafb;">
+              <td style="padding:12px 16px;font-size:13px;color:#666;font-weight:600;border-bottom:1px solid #eee;">Quantity Removed</td>
+              <td style="padding:12px 16px;font-size:13px;color:#111;font-weight:700;border-bottom:1px solid #eee;">${Number(details.quantity).toFixed(2)}</td>
+            </tr>
+            <tr>
+              <td style="padding:12px 16px;font-size:13px;color:#666;font-weight:600;border-bottom:1px solid #eee;">Receiver Details</td>
+              <td style="padding:12px 16px;font-size:13px;color:#111;border-bottom:1px solid #eee;">${details.receiver_name} ${details.receiver_phone ? `(${details.receiver_phone})` : ''}</td>
+            </tr>
+            <tr style="background:#f9fafb;">
+              <td style="padding:12px 16px;font-size:13px;color:#666;font-weight:600;border-bottom:1px solid #eee;">Date &amp; Time</td>
+              <td style="padding:12px 16px;font-size:13px;color:#111;border-bottom:1px solid #eee;">${formattedDateTime}</td>
+            </tr>
+            <tr>
+              <td style="padding:12px 16px;font-size:13px;color:#666;font-weight:600;border-bottom:1px solid #eee;">Removed By</td>
+              <td style="padding:12px 16px;font-size:13px;color:#111;font-weight:600;border-bottom:1px solid #eee;">${details.removed_by}</td>
+            </tr>
+            <tr style="background:#fdf2f2;">
+              <td style="padding:14px 16px;font-size:13px;color:#c62828;font-weight:700;border-bottom:1px solid #fee2e2;">Reason for Deletion</td>
+              <td style="padding:14px 16px;font-size:14px;color:#c62828;font-weight:700;border-bottom:1px solid #fee2e2;">${details.reason}</td>
+            </tr>
+          </table>
+        </div>
+        <div style="background:#fafafa;padding:16px 28px;text-align:center;border-top:1px solid #eee;">
+          <p style="margin:0;font-size:12px;color:#888;">${COMPANY.name} Automated System Notification</p>
+        </div>
+      </div>
+    `;
+
+    const transporter = createTransporter();
+    if (!transporter) {
+      console.warn('[EmailService] Transporter unavailable for removal email notification.');
+      await logEmail(recipientEmail, subject, 'PROJECT_ITEM_REMOVED', 'project_item', null, 'failed', 'SMTP credentials missing');
+      return;
+    }
+
+    await transporter.sendMail({
+      from: `"${COMPANY.name} Alerts" <${process.env.SMTP_EMAIL || process.env.EMAIL_USER}>`,
+      to: recipientEmail,
+      subject,
+      html: htmlBody,
+    });
+
+    console.log(`[EmailService] ✉️  Sent project item removal notification to Admin (${recipientEmail})`);
+    await logEmail(recipientEmail, subject, 'PROJECT_ITEM_REMOVED', 'project_item', null, 'sent');
+  } catch (err) {
+    console.error('[EmailService] Error sending item removal notification:', err.message);
+  }
+};
+
 module.exports = {
   sendPOCreatedEmail,
   sendPaymentReceiptEmail,
@@ -568,5 +656,6 @@ module.exports = {
   sendSupplierStatementEmail,
   sendPOCancelledEmail,
   sendItemCommentEmail,
+  sendProjectItemRemovedNotification,
 };
 

@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const db = require('../models');
+const emailService = require('../services/emailService');
 const { normalizeDepartmentSelection, serializeDepartmentSelection } = require('../utils/projectDepartmentUtils');
 
 const getDayBounds = (dateValue = new Date()) => {
@@ -332,23 +333,61 @@ exports.deleteTodayProductSales = async (req, res) => {
   }
 };
 
-// ── DELETE project item — restores stock ─────────────────────────────────────
+// ── DELETE project item — restores stock & notifies Admin via Email ─────────
 exports.deleteProjectItem = async (req, res) => {
   const t = await db.sequelize.transaction();
   try {
-    const item = await db.project_items.findByPk(req.params.itemId, { transaction: t });
-    if (!item) { await t.rollback(); return res.status(404).json({ message: 'Item not found' }); }
+    const { reason } = req.body || {};
+    if (!reason || !reason.trim()) {
+      await t.rollback();
+      return res.status(400).json({ message: 'Reason for deletion is required' });
+    }
+
+    const item = await db.project_items.findByPk(req.params.itemId, {
+      include: [
+        { model: db.projects, as: 'project' },
+        { model: db.products, as: 'product' },
+        { model: db.users, as: 'takenByUser' },
+      ],
+      transaction: t,
+    });
+
+    if (!item) {
+      await t.rollback();
+      return res.status(404).json({ message: 'Item not found' });
+    }
+
+    const removedByUser = req.user
+      ? `${req.user.first_name || ''} ${req.user.last_name || ''}`.trim() || req.user.username
+      : 'Cashier/User';
+
+    const itemDetails = {
+      project_name: item.project?.project_name || `Project #${item.project_id}`,
+      product_name: item.product?.product_name || `Product #${item.product_id}`,
+      quantity: item.quantity,
+      receiver_name: item.receiver_name || '—',
+      receiver_phone: item.receiver_phone || '—',
+      taken_at: item.taken_at,
+      removed_by: removedByUser,
+      reason: reason.trim(),
+    };
 
     // Restore stock
     const product = await db.products.findByPk(item.product_id, { transaction: t });
     if (product) {
-      await product.update({ stock_quantity: product.stock_quantity + Number(item.quantity) }, { transaction: t });
+      await product.update({ stock_quantity: Number(product.stock_quantity) + Number(item.quantity) }, { transaction: t });
     }
 
     await item.destroy({ transaction: t });
     await t.commit();
     console.log(`[Projects] ↩️  Removed item_id: ${req.params.itemId}, stock restored`);
-    res.json({ message: 'Item removed and stock restored' });
+
+    // Notify Admin via Email asynchronously
+    emailService.sendProjectItemRemovedNotification(itemDetails).catch((err) => {
+      console.error('[Projects] Failed to send deletion email to admin:', err.message);
+    });
+
+    res.json({ message: 'Item removed, stock restored, and Admin notified by email.' });
   } catch (err) {
     await t.rollback();
     console.error('[Projects] deleteProjectItem error:', err.message);

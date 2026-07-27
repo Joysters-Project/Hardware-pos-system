@@ -103,6 +103,9 @@ export default function ProjectsTab() {
   const [receiverPhone, setReceiverPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [summaryProduct, setSummaryProduct] = useState(null);
+  const [deletingItem, setDeletingItem] = useState(null);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const searchInputRef = useRef(null);
   const receiverNameRef = useRef(null);
@@ -345,22 +348,41 @@ export default function ProjectsTab() {
     }
   };
 
-  const removeSummaryItem = async (itemId) => {
-    if (!selectedProject) return;
-    if (!window.confirm('Remove this transaction line? Stock will be restored.')) return;
+  const removeSummaryItem = (item) => {
+    setDeletingItem(item);
+    setDeleteReason('');
+  };
 
+  const handleConfirmDeleteItem = async () => {
+    if (!deletingItem || !deleteReason.trim()) {
+      toast.error('Please enter a reason for deletion');
+      return;
+    }
+
+    setIsDeleting(true);
     try {
-      await api.delete(`/projects/items/${itemId}`);
-      toast.success('Transaction line removed');
-      await Promise.all([
-        loadProjectData(selectedProject.project_id),
-        loadProducts(),
-      ]);
-      if (summaryProduct?.items?.some((item) => item.item_id === itemId)) {
+      await api.delete(`/projects/items/${deletingItem.item_id}`, {
+        data: { reason: deleteReason.trim() },
+      });
+      toast.success('Transaction line removed. Notification emailed to Admin.');
+
+      const targetItemId = deletingItem.item_id;
+      setDeletingItem(null);
+      setDeleteReason('');
+
+      if (selectedProject) {
+        await Promise.all([
+          loadProjectData(selectedProject.project_id),
+          loadProducts(),
+        ]);
+      }
+      if (summaryProduct?.items?.some((item) => item.item_id === targetItemId)) {
         setSummaryProduct(null);
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to remove transaction line');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -744,7 +766,7 @@ export default function ProjectsTab() {
                       <td>{formatTime(item.taken_at)}</td>
                       <td>
                         <div className="pt-action-btns">
-                          <button type="button" className="pt-delete-btn" onClick={() => removeSummaryItem(item.item_id)} title="Remove" aria-label="Remove">
+                          <button type="button" className="pt-delete-btn" onClick={() => removeSummaryItem(item)} title="Remove" aria-label="Remove">
                             <Trash2 size={14} />
                           </button>
                         </div>
@@ -753,6 +775,58 @@ export default function ProjectsTab() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {deletingItem && createPortal(
+        <div className="pt-modal-overlay" onClick={() => setDeletingItem(null)}>
+          <div className="pt-delete-reason-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="pt-delete-modal-header">
+              <h3><Trash2 size={18} /> Confirm Transaction Removal</h3>
+              <button className="pt-modal-close-btn" onClick={() => setDeletingItem(null)} type="button">
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="pt-delete-modal-desc">
+              Removing this item will restore inventory stock and send an immediate email alert to the Admin containing the complete transaction details and your reason for deletion.
+            </p>
+
+            <div className="pt-delete-item-preview">
+              <div><strong>Project Name:</strong> {selectedProject?.project_name || '—'}</div>
+              <div><strong>Product Name:</strong> {deletingItem.product?.product_name || '—'}</div>
+              <div><strong>Quantity:</strong> {Number(deletingItem.quantity || 0).toFixed(2)}</div>
+              <div><strong>Receiver Details:</strong> {deletingItem.receiver_name || '—'} {deletingItem.receiver_phone ? `(${deletingItem.receiver_phone})` : ''}</div>
+              <div><strong>Date &amp; Time:</strong> {formatTime(deletingItem.taken_at)}</div>
+            </div>
+
+            <div className="pt-delete-reason-field">
+              <label>Reason for Deletion *</label>
+              <textarea
+                rows={3}
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                placeholder="Please enter the mandatory reason for deleting this transaction line item..."
+                required
+                autoFocus
+              />
+            </div>
+
+            <div className="pt-delete-modal-actions">
+              <button type="button" className="pt-btn-cancel-del" onClick={() => setDeletingItem(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="pt-btn-confirm-del"
+                onClick={handleConfirmDeleteItem}
+                disabled={!deleteReason.trim() || isDeleting}
+              >
+                {isDeleting ? 'Removing & Emailing...' : 'Confirm & Email Admin'}
+              </button>
             </div>
           </div>
         </div>,

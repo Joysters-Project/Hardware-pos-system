@@ -26,6 +26,6 @@ router.delete('/:id', roleGuard(['Admin']), ctrl.deleteProject);
 // ── Project items — cashier adds, admin/manager can remove ───────────────────
 router.get('/:id/items',          ctrl.getProjectItems);
 router.post('/items',             ctrl.addProjectItem);
-router.delete('/items/:itemId',   roleGuard(['Admin', 'Manager']), ctrl.deleteProjectItem);
+router.delete('/items/:itemId',   roleGuard(['Admin', 'Manager', 'Cashier']), ctrl.deleteProjectItem);
 
 module.exports = router;
