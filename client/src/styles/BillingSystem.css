@@ -1430,6 +1430,7 @@ body {
 .cart-table-modern {
   width: 100%;
   border-collapse: collapse;
+  table-layout: auto;
 }
 
 .cart-table-modern thead {
@@ -1438,13 +1439,14 @@ body {
 }
 
 .cart-table-modern th {
-  padding: 0.75rem 0.5rem;
-  font-size: 0.75rem;
+  padding: 0.55rem 0.45rem;
+  font-size: clamp(0.7rem, 0.85vw, 0.75rem);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--gray-600);
   text-align: left;
+  white-space: nowrap;
 }
 
 .cart-table-modern tbody tr {
@@ -1457,20 +1459,26 @@ body {
 }
 
 .cart-table-modern td {
-  padding: 0.875rem 0.5rem;
+  padding: 0.55rem 0.45rem;
   vertical-align: middle;
+  font-size: clamp(0.75rem, 0.9vw, 0.85rem);
 }
 
 .table-item-name {
   font-weight: 600;
   color: var(--gray-800);
-  font-size: 0.875rem;
+  font-size: clamp(0.78rem, 0.9vw, 0.875rem);
   margin-bottom: 0.125rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
 }
 
 .table-item-price {
   font-size: 0.688rem;
   color: var(--gray-400);
+  white-space: nowrap;
 }
 
 .qty-input-table {

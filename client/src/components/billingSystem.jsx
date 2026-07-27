@@ -772,18 +772,18 @@ const BillingSystem = () => {
                 <table className="cart-table-modern">
                   <thead>
                     <tr>
-                      <th>Product</th>
-                      <th style={{ width: '160px', textAlign: 'center' }}>Unit</th>
-                      <th style={{ width: '110px', textAlign: 'center' }}>Qty</th>
-                      <th style={{ width: '110px', textAlign: 'right' }}>Subtotal</th>
-                      <th style={{ width: '36px' }}></th>
+                      <th style={{ minWidth: '90px' }}>Product</th>
+                      <th style={{ width: '100px', textAlign: 'center' }}>Unit</th>
+                      <th style={{ width: '75px', textAlign: 'center' }}>Qty</th>
+                      <th style={{ width: '85px', textAlign: 'right' }}>Subtotal</th>
+                      <th style={{ width: '32px' }}></th>
                     </tr>
                   </thead>
                   <tbody>
                     {cart.map((item, idx) => (
                       <tr key={idx}>
                         <td>
-                          <div className="table-item-name">{item.product_name}</div>
+                          <div className="table-item-name" title={item.product_name}>{item.product_name}</div>
                           <div className="table-item-price">Rs.{item.unit_price.toFixed(2)} per {item.selected_unit_name || 'unit'}</div>
                         </td>
 

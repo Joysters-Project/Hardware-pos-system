@@ -445,22 +445,24 @@
 }
 
 .pt-summary-recent-table {
-  min-width: 860px;
+  min-width: 0;
+  width: 100%;
 }
 
 .pt-summary-recent-table th:nth-child(1),
 .pt-summary-recent-table td:nth-child(1) {
-  min-width: 180px;
+  min-width: 0;
 }
 
 .pt-summary-recent-table th:nth-child(3),
 .pt-summary-recent-table td:nth-child(3),
 .pt-summary-recent-table th:nth-child(4),
 .pt-summary-recent-table td:nth-child(4) {
-  min-width: 130px;
+  min-width: 0;
 }
 
 .pt-summary-table-wrap {
+  width: 100%;
   overflow-x: auto;
   border-radius: 12px;
   border: 1px solid #ececec;
@@ -471,25 +473,39 @@
 .pt-transactions-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 760px;
+  min-width: 0;
+  table-layout: auto;
 }
 
 .pt-transactions-table thead th {
   background: linear-gradient(135deg, #8b3a3a, #a84545);
   color: #fff;
-  font-size: 0.82rem;
+  font-size: clamp(0.74rem, 0.9vw, 0.82rem);
   font-weight: 700;
-  padding: 0.85rem 1rem;
+  padding: 0.55rem 0.55rem;
   text-align: left;
   white-space: nowrap;
 }
 
 .pt-transactions-table tbody td {
-  padding: 0.8rem 1rem;
+  padding: 0.5rem 0.55rem;
   border-bottom: 1px solid #f5f5f5;
-  font-size: 0.88rem;
+  font-size: clamp(0.76rem, 0.95vw, 0.85rem);
   color: #333;
   vertical-align: middle;
+}
+
+.pt-summary-product-cell {
+  max-width: 180px;
+  min-width: 80px;
+}
+
+.pt-summary-product-name {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .pt-transactions-table tbody tr:last-child td {
@@ -987,36 +1003,40 @@
 }
 
 .pt-cart-table-wrap {
+  width: 100%;
   overflow-x: auto;
   border-radius: 12px;
   border: 1px solid #ece1e1;
+  background: #ffffff;
 }
 
 .pt-cart-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 740px;
+  min-width: 0;
+  table-layout: auto;
 }
 
 .pt-cart-product-cell {
-  width: 30%;
-  max-width: 220px;
+  max-width: 200px;
+  min-width: 90px;
 }
 
 .pt-cart-table thead th {
   background: linear-gradient(135deg, #8b3a3a, #a84545);
   color: #ffffff;
-  padding: 0.8rem 0.95rem;
+  padding: 0.55rem 0.55rem;
   text-align: left;
-  font-size: 0.82rem;
+  font-size: clamp(0.74rem, 0.9vw, 0.82rem);
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .pt-cart-table tbody td {
-  padding: 0.75rem 0.95rem;
+  padding: 0.5rem 0.55rem;
   border-bottom: 1px solid #f1eaea;
   vertical-align: middle;
-  font-size: 0.88rem;
+  font-size: clamp(0.76rem, 0.95vw, 0.86rem);
 }
 
 .pt-cart-table tbody tr:hover td {
@@ -1026,27 +1046,33 @@
 .pt-cart-product-name {
   font-weight: 800;
   color: #1c1c1c;
-  max-width: 170px;
+  max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.pt-cart-price-cell {
+  white-space: nowrap;
+  font-weight: 600;
+  color: #444;
+}
+
 .pt-cart-product-meta {
-  margin-top: 0.2rem;
-  font-size: 0.76rem;
+  margin-top: 0.15rem;
+  font-size: 0.74rem;
   color: #8a8a8a;
 }
 
 .pt-cart-qty-input {
   width: 100%;
-  min-width: 72px;
-  max-width: 98px;
+  min-width: 48px;
+  max-width: 72px;
   text-align: center;
-  padding: 0.58rem 0.6rem;
+  padding: 0.38rem 0.4rem;
   border: 1.5px solid #d9c9c9;
-  border-radius: 10px;
-  font-size: 0.92rem;
+  border-radius: 8px;
+  font-size: 0.86rem;
   outline: none;
   background: #fff;
 }

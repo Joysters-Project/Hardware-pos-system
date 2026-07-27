@@ -550,20 +550,20 @@ export default function ProjectsTab() {
                         <table className="pt-cart-table">
                           <thead>
                             <tr>
-                              <th style={{ width: '38%' }}>Product</th>
-                              <th style={{ width: '140px', textAlign: 'center' }}>Unit Price</th>
-                              <th style={{ width: '110px', textAlign: 'center' }}>Qty</th>
-                              <th style={{ width: '42px' }} />
+                              <th style={{ minWidth: '100px' }}>Product</th>
+                              <th style={{ width: '90px', textAlign: 'center' }}>Unit Price</th>
+                              <th style={{ width: '75px', textAlign: 'center' }}>Qty</th>
+                              <th style={{ width: '36px', textAlign: 'center' }}></th>
                             </tr>
                           </thead>
                           <tbody>
                             {cart.map((item) => (
                               <tr key={item.product_id}>
                                 <td className="pt-cart-product-cell">
-                                  <div className="pt-cart-product-name">{item.product_name}</div>
+                                  <div className="pt-cart-product-name" title={item.product_name}>{item.product_name}</div>
                                   <div className="pt-cart-product-meta">Stock: {item.stock_quantity}</div>
                                 </td>
-                                <td style={{ textAlign: 'center' }}>{currency(item.unit_price)}</td>
+                                <td className="pt-cart-price-cell" style={{ textAlign: 'center' }}>{currency(item.unit_price)}</td>
                                 <td style={{ textAlign: 'center' }}>
                                   <input
                                     type="number"
@@ -575,8 +575,8 @@ export default function ProjectsTab() {
                                     onKeyDown={handleFormKeyDown}
                                   />
                                 </td>
-                                <td>
-                                  <button type="button" className="pt-cart-remove-btn" onClick={() => removeFromCart(item.product_id)}>
+                                <td style={{ textAlign: 'center' }}>
+                                  <button type="button" className="pt-cart-remove-btn" onClick={() => removeFromCart(item.product_id)} title="Remove item">
                                     <X size={14} />
                                   </button>
                                 </td>
@@ -660,10 +660,10 @@ export default function ProjectsTab() {
                       <table className="pt-transactions-table pt-summary-recent-table">
                         <thead>
                           <tr>
-                            <th>Product</th>
-                            <th style={{ textAlign: 'right' }}>Qty Sold</th>
-                            <th>Last Sold</th>
-                            <th>Action</th>
+                            <th style={{ minWidth: '90px' }}>Product</th>
+                            <th style={{ textAlign: 'right', width: '70px' }}>Qty Sold</th>
+                            <th style={{ width: '80px' }}>Last Sold</th>
+                            <th style={{ width: '40px', textAlign: 'center' }}>Action</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -674,14 +674,14 @@ export default function ProjectsTab() {
                           ) : (
                             summaryGroups.map((group) => (
                               <tr key={group.product_id}>
-                                <td>
-                                  <strong>{group.product_name}</strong>
+                                <td className="pt-summary-product-cell">
+                                  <strong className="pt-summary-product-name" title={group.product_name}>{group.product_name}</strong>
                                 </td>
-                                <td style={{ textAlign: 'right' }}>{Number(group.quantity || 0).toFixed(2)}</td>
-                                <td>{formatTime(group.last_sold)}</td>
-                                <td>
-                                  <div className="pt-action-btns">
-                                    <button type="button" className="pt-view-btn" onClick={() => setSummaryProduct(group)} title="View" aria-label="View">
+                                <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{Number(group.quantity || 0).toFixed(2)}</td>
+                                <td style={{ whiteSpace: 'nowrap' }}>{formatTime(group.last_sold)}</td>
+                                <td style={{ textAlign: 'center' }}>
+                                  <div className="pt-action-btns" style={{ justifyContent: 'center' }}>
+                                    <button type="button" className="pt-view-btn" onClick={() => setSummaryProduct(group)} title="View product details" aria-label="View">
                                       <Eye size={14} />
                                     </button>
                                   </div>
