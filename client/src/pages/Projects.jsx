@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   FolderOpen, Plus, X, Eye, Edit2, Trash2,
   BarChart2, TrendingUp, Package,
-  ChevronDown, ChevronUp
+  ChevronDown, ChevronUp, Calendar
 } from 'lucide-react';
 import api from '../utils/axios';
 import AdminDashboard from './AdminDashboard';
@@ -130,7 +131,64 @@ function ProjectsPage() {
 
   const statusPillClass = (s) => ({ Active: 'active', Completed: 'completed', 'On Hold': 'on-hold', Cancelled: 'cancelled' }[s] || '');
   const typeIcon    = () => '📁';
-  const fmtDate     = (d) => d ? new Date(d).toLocaleDateString('en-LK') : '—';
+  
+  const fmtDate = (d) => {
+    if (!d) return '—';
+    const dateObj = new Date(d);
+    if (isNaN(dateObj.getTime())) return '—';
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const year = dateObj.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  const fmtDateTime = (d) => {
+    if (!d) return '—';
+    const dateObj = new Date(d);
+    if (isNaN(dateObj.getTime())) return '—';
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const year = dateObj.getFullYear();
+    const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    return `${day}/${month}/${year}, ${timeStr}`;
+  };
+
+  const groupAndSortItemsByMonth = (items) => {
+    if (!items || items.length === 0) return [];
+
+    const groupsMap = new Map();
+
+    items.forEach(item => {
+      const d = new Date(item.taken_at);
+      if (isNaN(d.getTime())) return;
+      const year = d.getFullYear();
+      const monthIndex = d.getMonth();
+      const monthKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+      const monthLabel = d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+
+      if (!groupsMap.has(monthKey)) {
+        groupsMap.set(monthKey, {
+          monthKey,
+          monthLabel,
+          year,
+          monthIndex,
+          items: []
+        });
+      }
+      groupsMap.get(monthKey).items.push(item);
+    });
+
+    const sortedGroups = Array.from(groupsMap.values()).sort((a, b) => {
+      return b.monthKey.localeCompare(a.monthKey);
+    });
+
+    sortedGroups.forEach(group => {
+      group.items.sort((a, b) => new Date(b.taken_at) - new Date(a.taken_at));
+    });
+
+    return sortedGroups;
+  };
+
   const fmtCurrency = (n) => `LKR ${Number(n || 0).toLocaleString('en-LK', { minimumFractionDigits: 2 })}`;
   const f = (key) => (e) => setForm({ ...form, [key]: e.target.value });
 
@@ -284,7 +342,7 @@ function ProjectsPage() {
                             <td>{fmtCurrency(item.unit_price)}</td>
                             <td>{fmtCurrency(Number(item.quantity) * Number(item.unit_price))}</td>
                             <td>{item.takenByUser ? `${item.takenByUser.first_name} ${item.takenByUser.last_name}` : '—'}</td>
-                            <td>{new Date(item.taken_at).toLocaleString('en-LK')}</td>
+                            <td>{fmtDateTime(item.taken_at)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -346,7 +404,7 @@ function ProjectsPage() {
       )}
 
       {/* ══ CREATE / EDIT MODAL ══ */}
-      {showModal && (
+      {showModal && createPortal(
         <div className="proj-overlay" onClick={closeModal}>
           <div className="proj-modal" onClick={e => e.stopPropagation()}>
             <div className="proj-modal-header">
@@ -412,11 +470,12 @@ function ProjectsPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ══ VIEW MODAL ══ */}
-      {viewProject && (
+      {viewProject && createPortal(
         <div className="proj-overlay" onClick={() => setViewProject(null)}>
           <div className="proj-modal proj-modal-lg" onClick={e => e.stopPropagation()}>
             <div className="proj-modal-header">
@@ -461,30 +520,55 @@ function ProjectsPage() {
             </div>
 
             <div className="proj-items-section">
-              <h3><Package size={15} /> Items Taken ({viewProject.items?.length || 0})</h3>
-              <div className="proj-items-wrap">
-                <table className="proj-items-table">
-                  <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th><th>Note</th><th>Taken By</th><th>Date</th></tr></thead>
-                  <tbody>
-                    {(!viewProject.items || viewProject.items.length === 0) ? (
-                      <tr><td colSpan={7} className="proj-items-empty">No items recorded yet.</td></tr>
-                    ) : viewProject.items.map(item => (
-                      <tr key={item.item_id}>
-                        <td>{item.product?.product_name || '—'}</td>
-                        <td>{item.quantity}</td>
-                        <td>{fmtCurrency(item.unit_price)}</td>
-                        <td>{fmtCurrency(Number(item.quantity) * Number(item.unit_price))}</td>
-                        <td>{item.note || '—'}</td>
-                        <td>{item.takenByUser ? `${item.takenByUser.first_name} ${item.takenByUser.last_name}` : '—'}</td>
-                        <td>{new Date(item.taken_at).toLocaleString('en-LK')}</td>
-                      </tr>
+              <h3><Package size={16} /> Items Taken ({viewProject.items?.length || 0})</h3>
+              {(() => {
+                const grouped = groupAndSortItemsByMonth(viewProject.items || []);
+                if (grouped.length === 0) {
+                  return (
+                    <div className="proj-items-wrap">
+                      <div className="proj-items-empty">No items recorded yet.</div>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="proj-items-grouped-list">
+                    {grouped.map(g => (
+                      <div key={g.monthKey} className="proj-items-month-group">
+                        <div className="proj-items-month-header">
+                          <span className="proj-items-month-title">📅 {g.monthLabel}</span>
+                          <span className="proj-items-month-badge">{g.items.length} item(s)</span>
+                        </div>
+                        <div className="proj-items-wrap">
+                          <table className="proj-items-table">
+                            <thead>
+                              <tr>
+                                <th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th><th>Note</th><th>Taken By</th><th>Date</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {g.items.map(item => (
+                                <tr key={item.item_id}>
+                                  <td><strong>{item.product?.product_name || '—'}</strong></td>
+                                  <td>{item.quantity}</td>
+                                  <td>{fmtCurrency(item.unit_price)}</td>
+                                  <td>{fmtCurrency(Number(item.quantity) * Number(item.unit_price))}</td>
+                                  <td>{item.note || '—'}</td>
+                                  <td>{item.takenByUser ? `${item.takenByUser.first_name} ${item.takenByUser.last_name}` : '—'}</td>
+                                  <td>{fmtDateTime(item.taken_at)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

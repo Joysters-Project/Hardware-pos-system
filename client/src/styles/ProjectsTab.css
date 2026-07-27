@@ -16,16 +16,31 @@
 /* ── Modal Overlay with Blurred Backdrop ── */
 .pt-modal-overlay {
   position: fixed;
-  inset: 0;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
   background: rgba(0, 0, 0, 0.58);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
+  padding: 1.5rem 1.5rem 1.5rem 292px;
   animation: pt-fade-in 0.22s ease-out both;
+}
+
+.admin-shell.sidebar-collapsed .pt-modal-overlay {
+  padding-left: 112px;
+}
+
+@media (max-width: 992px) {
+  .pt-modal-overlay,
+  .admin-shell.sidebar-collapsed .pt-modal-overlay {
+    padding-left: 1.5rem;
+    z-index: 1200;
+  }
 }
 
 @keyframes pt-fade-in {

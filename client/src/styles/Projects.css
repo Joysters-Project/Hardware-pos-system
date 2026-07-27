@@ -263,17 +263,71 @@
 .proj-pagination button:disabled { opacity: 0.35; cursor: not-allowed; }
 .proj-page-info { font-size: 0.8rem; color: #999; padding: 0 4px; white-space: nowrap; }
 
-/* ── Modal ── */
+/* ── Modal Overlay with Full Viewport Height & Blur ── */
 .proj-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
-  backdrop-filter: blur(3px); z-index: 1000;
-  display: flex; align-items: center; justify-content: center; padding: 1rem;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1.5rem 1.5rem 292px;
+  animation: proj-modal-fade-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+
+.admin-shell.sidebar-collapsed .proj-overlay {
+  padding-left: 112px;
+}
+
+@media (max-width: 992px) {
+  .proj-overlay,
+  .admin-shell.sidebar-collapsed .proj-overlay {
+    padding-left: 1.5rem;
+    z-index: 1200;
+  }
+}
+
+@keyframes proj-modal-fade-in {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+}
+
 .proj-modal {
-  background: #fff; border-radius: 16px; width: 100%;
-  max-width: 520px; max-height: 90vh; overflow-y: auto;
-  box-shadow: 0 20px 56px rgba(0,0,0,0.2);
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 88vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.28);
+  animation: proj-modal-pop-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+
+@keyframes proj-modal-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
 .proj-modal-lg { max-width: 860px; }
 
 .proj-modal-header {
@@ -376,8 +430,47 @@
 .proj-items-section { padding: 0 1.5rem 1.5rem; }
 .proj-items-section h3 {
   display: flex; align-items: center; gap: 6px;
-  margin: 0 0 0.65rem; font-size: 0.95rem; font-weight: 700; color: #333;
+  margin: 0 0 0.85rem; font-size: 0.95rem; font-weight: 700; color: #333;
   padding-top: 1rem; border-top: 1px solid #f0f0f0;
+}
+
+/* Items Month Grouping */
+.proj-items-grouped-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.proj-items-month-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.proj-items-month-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 0.85rem;
+  background: #fdf5f5;
+  border-radius: 8px;
+  border-left: 4px solid #8b3a3a;
+}
+
+.proj-items-month-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #8b3a3a;
+}
+
+.proj-items-month-badge {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #666;
+  background: #ffffff;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid #edd5d5;
 }
 .proj-items-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid #f0f0f0; }
 .proj-items-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
