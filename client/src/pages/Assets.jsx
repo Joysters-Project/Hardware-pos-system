@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
 import { Eye, Pencil, Trash2, Plus, Search, RefreshCw, FileDown, X, ChevronLeft, ChevronRight, Package, Archive } from "lucide-react";
 import toast from "react-hot-toast";
@@ -205,89 +206,95 @@ function AssetsPage() {
       </div>}
 
       {/* Add/Edit Modal */}
-      {showModal && <div className="asset-overlay" onClick={closeModal}>
-        <div className="asset-modal asset-modal-lg" onClick={e => e.stopPropagation()}>
-          <div className="asset-modal-header">
-            <h2>{editId ? "Edit Asset" : "Add Asset"}</h2>
-            <button className="asset-modal-close" onClick={closeModal}><X size={18} /></button>
-          </div>
-          <form onSubmit={handleSubmit} className="asset-modal-form">
-            <div className="asset-form-grid">
-              <div className="asset-field asset-field-full"><label>Asset Name *</label>
-                <input value={form.asset_name} onChange={e => setForm({ ...form, asset_name: e.target.value })} required /></div>
-              <div className="asset-field"><label>Department *</label>
-                <select value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })} required>
-                  <option value="">Select</option>{departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
-                </select></div>
-              <div className="asset-field"><label>Cost (LKR) *</label>
-                <input type="number" min="0" step="0.01" value={form.cost}
-                  onChange={e => setForm({ ...form, cost: e.target.value, expense_amount: e.target.value })} required /></div>
-              <div className="asset-field"><label>Purchase Date *</label>
-                <input type="date" value={form.purchase_date} max={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, purchase_date: e.target.value })} required /></div>
-              <div className="asset-field"><label>Expiration Date</label>
-                <input type="date" value={form.expiration_date} min={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, expiration_date: e.target.value })} /></div>
-              <div className="asset-field"><label>Status</label>
-                <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
-                  {ASSET_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                </select></div>
-              <div className="asset-field"><label>Condition</label>
-                <select value={form.condition_type} onChange={e => setForm({ ...form, condition_type: e.target.value })}>
-                  {CONDITION_TYPES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select></div>
-              {form.condition_type === "Other" && <div className="asset-field"><label>Custom Condition *</label>
-                <input value={form.custom_condition} onChange={e => setForm({ ...form, custom_condition: e.target.value })} required /></div>}
+      {showModal && createPortal(
+        <div className="asset-overlay" onClick={closeModal}>
+          <div className="asset-modal asset-modal-lg" onClick={e => e.stopPropagation()}>
+            <div className="asset-modal-header">
+              <h2>{editId ? "Edit Asset" : "Add Asset"}</h2>
+              <button className="asset-modal-close" onClick={closeModal}><X size={18} /></button>
             </div>
-            {!editId && <div className="asset-expense-section">
-              <label className="asset-checkbox-label">
-                <input type="checkbox" checked={form.add_as_expense} onChange={e => setForm({ ...form, add_as_expense: e.target.checked })} />
-                <span>Also add as an expense record</span>
-              </label>
-              {form.add_as_expense && <div className="asset-form-grid asset-expense-fields">
-                <div className="asset-field"><label>Expense Type</label>
-                  <select value={form.expense_type} onChange={e => setForm({ ...form, expense_type: e.target.value })}>
-                    {EXPENSE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            <form onSubmit={handleSubmit} className="asset-modal-form">
+              <div className="asset-form-grid">
+                <div className="asset-field asset-field-full"><label>Asset Name *</label>
+                  <input value={form.asset_name} onChange={e => setForm({ ...form, asset_name: e.target.value })} required /></div>
+                <div className="asset-field"><label>Department *</label>
+                  <select value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })} required>
+                    <option value="">Select</option>{departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
                   </select></div>
-                <div className="asset-field"><label>Expense Amount</label>
-                  <input type="number" min="0" value={form.expense_amount} onChange={e => setForm({ ...form, expense_amount: e.target.value })} /></div>
-                <div className="asset-field asset-field-full"><label>Description</label>
-                  <input value={form.expense_description} onChange={e => setForm({ ...form, expense_description: e.target.value })} placeholder="Optional..." /></div>
+                <div className="asset-field"><label>Cost (LKR) *</label>
+                  <input type="number" min="0" step="0.01" value={form.cost}
+                    onChange={e => setForm({ ...form, cost: e.target.value, expense_amount: e.target.value })} required /></div>
+                <div className="asset-field"><label>Purchase Date *</label>
+                  <input type="date" value={form.purchase_date} max={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, purchase_date: e.target.value })} required /></div>
+                <div className="asset-field"><label>Expiration Date</label>
+                  <input type="date" value={form.expiration_date} min={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, expiration_date: e.target.value })} /></div>
+                <div className="asset-field"><label>Status</label>
+                  <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+                    {ASSET_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select></div>
+                <div className="asset-field"><label>Condition</label>
+                  <select value={form.condition_type} onChange={e => setForm({ ...form, condition_type: e.target.value })}>
+                    {CONDITION_TYPES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select></div>
+                {form.condition_type === "Other" && <div className="asset-field"><label>Custom Condition *</label>
+                  <input value={form.custom_condition} onChange={e => setForm({ ...form, custom_condition: e.target.value })} required /></div>}
+              </div>
+              {!editId && <div className="asset-expense-section">
+                <label className="asset-checkbox-label">
+                  <input type="checkbox" checked={form.add_as_expense} onChange={e => setForm({ ...form, add_as_expense: e.target.checked })} />
+                  <span>Also add as an expense record</span>
+                </label>
+                {form.add_as_expense && <div className="asset-form-grid asset-expense-fields">
+                  <div className="asset-field"><label>Expense Type</label>
+                    <select value={form.expense_type} onChange={e => setForm({ ...form, expense_type: e.target.value })}>
+                      {EXPENSE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select></div>
+                  <div className="asset-field"><label>Expense Amount</label>
+                    <input type="number" min="0" value={form.expense_amount} onChange={e => setForm({ ...form, expense_amount: e.target.value })} /></div>
+                  <div className="asset-field asset-field-full"><label>Description</label>
+                    <input value={form.expense_description} onChange={e => setForm({ ...form, expense_description: e.target.value })} placeholder="Optional..." /></div>
+                </div>}
               </div>}
-            </div>}
-            <div className="asset-modal-footer">
-              <button type="button" className="asset-btn-cancel" onClick={closeModal}>Cancel</button>
-              <button type="submit" className="asset-btn-submit" disabled={loading}>{loading ? "Saving..." : editId ? "Update" : "Create"}</button>
-            </div>
-          </form>
-        </div>
-      </div>}
+              <div className="asset-modal-footer">
+                <button type="button" className="asset-btn-cancel" onClick={closeModal}>Cancel</button>
+                <button type="submit" className="asset-btn-submit" disabled={loading}>{loading ? "Saving..." : editId ? "Update" : "Create"}</button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* View Modal */}
-      {viewAsset && <div className="asset-overlay" onClick={() => setViewAsset(null)}>
-        <div className="asset-modal" onClick={e => e.stopPropagation()}>
-          <div className="asset-modal-header">
-            <h2>Asset Details</h2>
-            <button className="asset-modal-close" onClick={() => setViewAsset(null)}><X size={18} /></button>
+      {viewAsset && createPortal(
+        <div className="asset-overlay" onClick={() => setViewAsset(null)}>
+          <div className="asset-modal" onClick={e => e.stopPropagation()}>
+            <div className="asset-modal-header">
+              <h2>Asset Details</h2>
+              <button className="asset-modal-close" onClick={() => setViewAsset(null)}><X size={18} /></button>
+            </div>
+            <div className="asset-view-grid">
+              {[["Asset Name", viewAsset.asset_name], ["Department", viewAsset.department?.department_name || getDeptName(viewAsset.department_id)],
+              ["Cost", `LKR ${Number(viewAsset.cost).toLocaleString("en-US")}`],
+              ["Condition", viewAsset.condition_type === "Other" ? viewAsset.custom_condition : viewAsset.condition_type],
+              ["Status", viewAsset.status], ["Purchase Date", viewAsset.purchase_date ? new Date(viewAsset.purchase_date).toLocaleDateString() : "—"],
+              ["Expiration", viewAsset.expiration_date ? new Date(viewAsset.expiration_date).toLocaleDateString() : "—"]
+              ].map(([l, v]) => <div className="asset-view-row" key={l}><span className="asset-view-label">{l}</span><span className="asset-view-value">{v}</span></div>)}
+            </div>
+            {(viewAsset.expenses || []).length > 0 && <div className="asset-view-section">
+              <h3>Linked Expenses</h3>
+              <div className="asset-inner-wrap"><table className="asset-inner-table">
+                <thead><tr><th>Type</th><th>Amount</th><th>Date</th></tr></thead>
+                <tbody>{viewAsset.expenses.map(exp => <tr key={exp.expense_id}>
+                  <td>{exp.expense_type}</td><td>LKR {Number(exp.amount).toLocaleString("en-US")}</td>
+                  <td>{exp.expense_date ? new Date(exp.expense_date).toLocaleDateString() : "—"}</td>
+                </tr>)}</tbody>
+              </table></div>
+            </div>}
           </div>
-          <div className="asset-view-grid">
-            {[["Asset Name", viewAsset.asset_name], ["Department", viewAsset.department?.department_name || getDeptName(viewAsset.department_id)],
-            ["Cost", `LKR ${Number(viewAsset.cost).toLocaleString("en-US")}`],
-            ["Condition", viewAsset.condition_type === "Other" ? viewAsset.custom_condition : viewAsset.condition_type],
-            ["Status", viewAsset.status], ["Purchase Date", viewAsset.purchase_date ? new Date(viewAsset.purchase_date).toLocaleDateString() : "—"],
-            ["Expiration", viewAsset.expiration_date ? new Date(viewAsset.expiration_date).toLocaleDateString() : "—"]
-            ].map(([l, v]) => <div className="asset-view-row" key={l}><span className="asset-view-label">{l}</span><span className="asset-view-value">{v}</span></div>)}
-          </div>
-          {(viewAsset.expenses || []).length > 0 && <div className="asset-view-section">
-            <h3>Linked Expenses</h3>
-            <div className="asset-inner-wrap"><table className="asset-inner-table">
-              <thead><tr><th>Type</th><th>Amount</th><th>Date</th></tr></thead>
-              <tbody>{viewAsset.expenses.map(exp => <tr key={exp.expense_id}>
-                <td>{exp.expense_type}</td><td>LKR {Number(exp.amount).toLocaleString("en-US")}</td>
-                <td>{exp.expense_date ? new Date(exp.expense_date).toLocaleDateString() : "—"}</td>
-              </tr>)}</tbody>
-            </table></div>
-          </div>}
-        </div>
-      </div>}
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

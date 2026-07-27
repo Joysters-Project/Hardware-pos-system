@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Pencil, Trash2, Eye, Plus, RefreshCw, FileDown, AlertTriangle } from "lucide-react";
 import toast from "react-hot-toast";
@@ -343,7 +344,7 @@ function ProductsPage() {
             </table>
           </div>
 
-      {editModal && (
+      {editModal && createPortal(
         <div className="modal-overlay">
           <div className="modal-box">
             <div className="modal-header">
@@ -416,10 +417,11 @@ function ProductsPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {viewProduct && (
+      {viewProduct && createPortal(
         <div className="modal-overlay" onClick={() => setViewProduct(null)}>
           <div className="modal-box view-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
@@ -526,7 +528,8 @@ function ProductsPage() {
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
