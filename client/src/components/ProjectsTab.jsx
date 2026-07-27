@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Search,
   Plus,
@@ -699,7 +700,7 @@ export default function ProjectsTab() {
           </div>
         )}
 
-      {summaryProduct && (
+      {summaryProduct && createPortal(
         <div className="pt-modal-overlay" onClick={() => setSummaryProduct(null)}>
           <div className="pt-project-details-modal pt-summary-detail-modal" onClick={(event) => event.stopPropagation()}>
             <div className="pt-modal-top-bar">
@@ -719,7 +720,6 @@ export default function ProjectsTab() {
 
             <div className="pt-summary-modal-head">
               <strong>{selectedSummaryRows.length} transaction line(s) today</strong>
-              
             </div>
 
             <div className="pt-summary-table-wrap">
@@ -755,7 +755,8 @@ export default function ProjectsTab() {
               </table>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
