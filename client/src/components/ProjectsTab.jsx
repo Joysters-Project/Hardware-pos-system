@@ -440,9 +440,8 @@ export default function ProjectsTab() {
       </div>
 
       {selectedProject && (
-        <div className="pt-modal-overlay" onClick={() => setSelectedProject(null)}>
-          <div className="pt-project-details-modal pt-project-transaction-modal" onClick={(event) => event.stopPropagation()}>
-            <div className="pt-modal-top-bar">
+        <div className="pt-project-details-container">
+          <div className="pt-modal-top-bar">
               <div className="pt-modal-top-title">
                 <span className="pt-display-badge">Active Project</span>
                 <h2>📁 {selectedProject.project_name}</h2>
@@ -698,8 +697,7 @@ export default function ProjectsTab() {
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {summaryProduct && (
         <div className="pt-modal-overlay" onClick={() => setSummaryProduct(null)}>

@@ -53,6 +53,20 @@
   max-width: 1360px;
 }
 
+/* ── In-Page Selected Project Details Container ── */
+.pt-project-details-container {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e8e8e8;
+  padding: 1.5rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  animation: page-fade-up 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @keyframes pt-zoom-in {
   from { opacity: 0; transform: scale(0.94) translateY(10px); }
   to   { opacity: 1; transform: scale(1) translateY(0); }
@@ -594,10 +608,12 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  background: rgba(255, 255, 255, 0.22);
-  color: #ffffff;
+  background: #fdf2f2;
+  color: #8b3a3a;
   padding: 0.15rem 0.55rem;
   border-radius: 999px;
+  border: 1px solid rgba(139, 58, 58, 0.15);
+  width: fit-content;
 }
 
 .pt-project-display-stats {
