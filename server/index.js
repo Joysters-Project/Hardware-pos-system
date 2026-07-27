@@ -11,6 +11,7 @@ const authRoutes       = require('./routes/auth');
 const authMiddleware   = require('./middleware/authMiddleware');
 const seedDefaultAdmin = require('./scripts/seedDefaultAdmin');
 const ensureSupplierSchema = require('./scripts/ensureSupplierSchema');
+const ensureProjectSchema = require('./scripts/ensureProjectSchema');
 const ensureMultiUnitSchema = require('./scripts/ensureMultiUnitSchema');
 const { startNearExpiryCron } = require('./cron/nearExpiryCron');
 
@@ -38,6 +39,7 @@ db.sequelize.sync({ force: false })
   .then(async () => {
     console.log('✅ Database connected successfully');
     await ensureSupplierSchema();
+    await ensureProjectSchema();
     await ensureMultiUnitSchema();
     await seedDefaultAdmin();
     startNearExpiryCron();
@@ -81,6 +83,39 @@ const autoReorderRoutes             = require('./routes/autoReorderRoutes');
 const forecastRoutes                = require('./routes/forecastRoutes');
 const procurementNotificationRoutes = require('./routes/procurementNotificationRoutes');
 const supplierPerformanceRoutes     = require('./routes/supplierPerformanceRoutes');
+const departmentRoutes   = require('./routes/departmentRoutes');
+const employeeRoutes     = require('./routes/employeeRoutes');
+const userRoutes         = require('./routes/userRoutes');
+const profileRoutes      = require('./routes/profileRoutes');
+const auditLogRoutes     = require('./routes/auditLogRoutes');
+const categoryRoutes     = require('./routes/categoryRoutes');
+const brandRoutes        = require('./routes/brandRoutes');
+const unitRoutes         = require('./routes/unitRoutes');
+const productRoutes      = require('./routes/productRoutes');
+const supplierRoutes     = require('./routes/supplierRoutes');
+const customerRoutes     = require('./routes/customerRoutes');
+const billRoutes         = require('./routes/billRoutes');
+const billItemsRoutes    = require('./routes/billItemsRoutes');
+const paymentRoutes      = require('./routes/paymentRoutes');
+const returnRoutes       = require('./routes/returnRoutes');
+const alertRoutes        = require('./routes/alertRoutes');
+const purchaseOrderRoutes = require('./routes/purchaseOrderRoutes');
+const poItemsRoutes      = require('./routes/poItemsRoutes');
+const schemaRoutes       = require('./routes/schemaRoutes');
+const dashboardRoutes    = require('./routes/dashboardRoutes');
+const assetRoutes        = require('./routes/assetRoutes');
+const expenseRoutes      = require('./routes/expenseRoutes');
+const salaryRoutes       = require('./routes/salaryRoutes');
+const projectRoutes      = require('./routes/projectRoutes');
+const RR_supplierRoutes              = require('./routes/RR_supplierRoutes');
+const RR_purchaseOrderRoutes         = require('./routes/RR_purchaseOrderRoutes');
+const procurementDashboardRoutes     = require('./routes/procurementDashboardRoutes');
+const procurementReportsRoutes       = require('./routes/procurementReportsRoutes');
+const procurementPaymentRoutes       = require('./routes/procurementPaymentRoutes');
+const autoReorderRoutes              = require('./routes/autoReorderRoutes');
+const forecastRoutes                 = require('./routes/forecastRoutes');
+const procurementNotificationRoutes  = require('./routes/procurementNotificationRoutes');
+const supplierPerformanceRoutes      = require('./routes/supplierPerformanceRoutes');
 
 app.use('/api/departments',    departmentRoutes);
 app.use('/api/employees',      employeeRoutes);
@@ -105,6 +140,7 @@ app.use('/api/dashboard',      authMiddleware, dashboardRoutes);
 app.use('/api/assets',         assetRoutes);
 app.use('/api/expenses',       expenseRoutes);
 app.use('/api/salary',         salaryRoutes);
+app.use('/api/projects',       projectRoutes);
 
 // Procurement module
 app.use('/api/procurement/suppliers',       RR_supplierRoutes);

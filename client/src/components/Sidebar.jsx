@@ -23,6 +23,7 @@ import {
   ClipboardList,
   UserCircle,
   Bell,
+  FolderOpen,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import NavbarNotificationBell from "./NavbarNotificationBell";
@@ -133,6 +134,12 @@ const getNavItems = (role) => {
       path: `${prefix}/expenses`,
     },
     {
+      key: "projects-mgmt",
+      label: "Projects",
+      icon: FolderOpen,
+      path: `${prefix}/projects`,
+    },
+    {
       key: "alerts",
       label: "Alerts",
       icon: Bell,
@@ -154,7 +161,7 @@ const getNavItems = (role) => {
 };
 
 export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed }) {
-  const { user, role } = useAuth();
+  const { user, role, profilePhoto } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -280,7 +287,12 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
             }`}
             title={isCollapsed ? `${userName} (${displayRole})` : undefined}
           >
-            <div className="sidebar-float__avatar">{initials}</div>
+            <div className="sidebar-float__avatar">
+              {profilePhoto
+                ? <img src={profilePhoto} alt={userName} className="sidebar-float__avatar-img" />
+                : initials
+              }
+            </div>
             <div className="sidebar-float__user-info">
               <div className="sidebar-float__user-name">{userName}</div>
               <div className="sidebar-float__user-role">{displayRole}</div>
