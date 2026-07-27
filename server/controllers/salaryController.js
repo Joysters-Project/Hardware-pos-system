@@ -1,5 +1,4 @@
 const db   = require('../models');
-const { Op } = require('sequelize');
 const { sendPayslipEmail } = require('../services/salaryService');
 const { logActivity } = require('../services/auditService');
 const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
@@ -8,26 +7,29 @@ const MONTHS = ['January','February','March','April','May','June','July','August
 
 const empInclude = {
   model: db.employees,
-  attributes: ['employee_id','first_name','last_name','email','position','salary_category','department_id'],
+  attributes: ['employee_id','first_name','last_name','email','phone_no','position','salary_category','department_id'],
   include: [{ model: db.departments, attributes: ['department_name'] }]
 };
 
 // GET /api/salary
 const getAllPayments = async (req, res) => {
   try {
-    const { employee_id, payment_month, payment_year, payment_status, salary_category, search } = req.query;
+    const { employee_id, payment_month, payment_year, status, salary_category, search } = req.query;
     const where = {};
     if (employee_id)     where.employee_id     = employee_id;
     if (payment_month)   where.payment_month   = payment_month;
     if (payment_year)    where.payment_year    = payment_year;
-    if (payment_status)  where.payment_status  = payment_status;
+    if (status)          where.payment_status  = status;
     if (salary_category) where.salary_category = salary_category;
 
     const empWhere = {};
     if (search) {
-      empWhere[Op.or] = [
-        { first_name: { [Op.like]: `%${search}%` } },
-        { last_name:  { [Op.like]: `%${search}%` } }
+      const searchPattern = `%${search}%`;
+      empWhere.$or = [
+        { first_name: { $like: searchPattern } },
+        { last_name:  { $like: searchPattern } },
+        { email:      { $like: searchPattern } },
+        { phone_no:   { $like: searchPattern } }
       ];
     }
 
@@ -39,6 +41,8 @@ const getAllPayments = async (req, res) => {
     });
     res.status(200).json(list);
   } catch (error) {
+    console.error('Salary fetch error:', error);
+    console.error(error.stack);
     res.status(500).json({ message: error.message });
   }
 };

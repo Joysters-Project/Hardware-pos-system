@@ -82,22 +82,38 @@ function SalaryPage() {
     return (bs + bn - dd).toFixed(2);
   };
 
-  const formatPeriodDate = (payment) => {
-    const rawDate = payment?.payment_date;
-    if (rawDate) {
-      const parsed = new Date(rawDate);
-      if (!Number.isNaN(parsed.getTime())) {
-        return parsed.toLocaleDateString("en-GB");
-      }
-    }
+  const getSalaryCategory = (payment) => {
+    return payment?.employee?.salary_category || payment?.salary_category;
+  };
 
-    if (payment?.salary_category === "monthly") {
+  const getSalaryCategoryLabel = (payment) => {
+    const category = getSalaryCategory(payment);
+    if (category === "monthly") return "Monthly Worker";
+    if (category === "daily") return "Daily Worker";
+    return "—";
+  };
+
+  const formatPayPeriod = (payment) => {
+    const category = getSalaryCategory(payment);
+    if (category === "monthly") {
       const month = Number(payment?.payment_month || 1);
       const year = payment?.payment_year || new Date().getFullYear();
       return `${MONTHS[(month - 1)] || ""} ${year}`.trim();
     }
 
+    if (category === "daily") {
+      const dateLabel = formatPaymentDate(payment);
+      return dateLabel !== "—" ? dateLabel : "Daily";
+    }
+
     return "—";
+  };
+
+  const formatPaymentDate = (payment) => {
+    const rawDate = payment?.payment_date;
+    if (!rawDate) return "—";
+    const parsed = new Date(rawDate);
+    return Number.isNaN(parsed.getTime()) ? "—" : parsed.toLocaleDateString("en-GB");
   };
 
   const handleCreate = async (evt) => {
@@ -129,12 +145,8 @@ function SalaryPage() {
       ? `${payment.employee.first_name || ""} ${payment.employee.last_name || ""}`.trim()
       : `EMP-${payment?.employee_id || ""}`;
     const departmentName = payment?.employee?.department?.department_name || "—";
-    const paymentDate = payment?.payment_date
-      ? new Date(payment.payment_date).toLocaleDateString("en-GB")
-      : "—";
-    const periodLabel = payment?.salary_category === "monthly"
-      ? `${MONTHS[(Number(payment?.payment_month || 1) - 1)] || ""} ${payment?.payment_year || ""}`.trim()
-      : "Daily Payment";
+    const paymentDate = formatPaymentDate(payment);
+    const periodLabel = formatPayPeriod(payment);
 
     const html = `<!DOCTYPE html>
       <html>
@@ -215,14 +227,12 @@ function SalaryPage() {
   const exportTablePDF = () => {
     const win = window.open("", "_blank", "width=1100,height=700");
     const rows = payments.map((p, i) => {
-      const isMonthly = p.salary_category === "monthly";
       return `
         <tr style="background:${i % 2 === 0 ? "#fff" : "#fdf8f8"}">
           <td>#${p.salary_payment_id}</td>
           <td><strong>${p.employee ? `${p.employee.first_name} ${p.employee.last_name}` : `EMP-${p.employee_id}`}</strong></td>
-          <td>${p.salary_category === "monthly" ? "Monthly Worker" : "Daily Worker"}</td>
-          <td>${formatPeriodDate(p)}</td>
-          <td>LKR ${Number(p.basic_salary).toLocaleString("en-US")}</td>
+          <td>${formatPayPeriod(p)}</td>
+          <td>${formatPaymentDate(p)}</td>
           <td style="color:#2e7d32">+LKR ${Number(p.bonus_amount||0).toLocaleString("en-US")}</td>
           <td style="color:#c62828">-LKR ${Number(p.deduction_amount||0).toLocaleString("en-US")}</td>
           <td><strong style="color:#1565c0">LKR ${Number(p.final_salary).toLocaleString("en-US")}</strong></td>
@@ -245,7 +255,7 @@ function SalaryPage() {
       <div class="hdr"><div><h1>Salary Records — Mathumithan Hardware</h1>
       <p style="font-size:11px;color:#888;margin-top:3px">Total: ${payments.length} record(s)</p></div>
       <div class="meta">Generated: ${new Date().toLocaleString()}</div></div>
-      <table><thead><tr><th>#</th><th>Employee</th><th>Category</th><th>Period / Date</th><th>Basic</th><th>Bonus</th><th>Deduction</th><th>Final Salary</th><th>Method</th><th>Status</th></tr></thead>
+      <table><thead><tr><th>#</th><th>Employee</th><th>Pay Period</th><th>Payment Date</th><th>Basic</th><th>Bonus</th><th>Deduction</th><th>Final Salary</th><th>Method</th><th>Status</th></tr></thead>
       <tbody>${rows}</tbody></table>
       <div class="footer">Mathumithan Hardware POS System &bull; Salary Report &bull; Confidential</div>
       </body></html>`);
@@ -332,7 +342,7 @@ function SalaryPage() {
             <tr>
               <th>#</th>
               <th>Employee</th>
-              <th>Category</th>
+              <th>Pay Period</th>
               <th>Payment Date</th>
               <th>Basic (LKR)</th>
               <th>Bonus</th>
@@ -357,12 +367,8 @@ function SalaryPage() {
                   </div>
                   {p.employee?.email && <div className="sal-emp-email">{p.employee.email}</div>}
                 </td>
-                <td>
-                  <span className={`sal-cat-pill ${p.salary_category}`}>
-                    {p.salary_category === "monthly" ? "Monthly" : "Daily"}
-                  </span>
-                </td>
-                <td>{formatPeriodDate(p)}</td>
+                <td>{formatPayPeriod(p)}</td>
+                <td>{formatPaymentDate(p)}</td>
                 <td>{Number(p.basic_salary).toLocaleString("en-LK")}</td>
                 <td className="sal-bonus">+{Number(p.bonus_amount || 0).toLocaleString("en-LK")}</td>
                 <td className="sal-deduct">-{Number(p.deduction_amount || 0).toLocaleString("en-LK")}</td>
