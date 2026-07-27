@@ -1365,12 +1365,17 @@
   }
 }
 
-/* ── Summary Details Modal Table Spacing & Margins ── */
+/* ── Summary Details Modal & Card Table Spacing ── */
 .pt-summary-table-wrap {
   flex: 1;
   overflow-y: auto;
-  padding: 1.5rem 2rem 2rem 2rem;
-  margin: 0.5rem 0.5rem 1rem 0.5rem;
+  padding: 0.5rem 0 0 0;
+  margin: 0;
+}
+
+.pt-summary-detail-modal .pt-summary-table-wrap {
+  padding: 0.75rem 1.25rem 1.25rem 1.25rem;
+  margin: 0;
 }
 
 .pt-summary-detail-table {

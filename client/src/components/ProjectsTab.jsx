@@ -673,9 +673,6 @@ export default function ProjectsTab() {
                         <button type="button" className="pt-print-btn" onClick={printSummary} disabled={!summaryGroups.length}>
                           <Printer size={14} /> Print Summary
                         </button>
-                        <button type="button" className="pt-btn-secondary" onClick={() => loadProjectData(selectedProject.project_id)} disabled={loadingProjectData}>
-                          <RefreshCw size={13} className={loadingProjectData ? 'spin' : ''} /> Refresh
-                        </button>
                       </div>
                     </div>
 
