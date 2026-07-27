@@ -378,7 +378,7 @@ function SalesReport() {
       </div>
       {/* Sales Revenue Chart */}
       <div className="chart-container" style={{ height: '300px', marginBottom: '20px' }}>
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
           <LineChart data={salesChartData} margin={{ top: 8, right: 20, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
             <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#2c2c2c', fontSize: 11, fontWeight: 600 }} />
@@ -829,7 +829,7 @@ const filteredReturns = useMemo(() => {
       </div>
       {/* Returns Refund Chart */}
       <div className="chart-container" style={{ height: '300px', marginBottom: '20px' }}>
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
           <BarChart data={returnsChartData} margin={{ top: 8, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
             <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#2c2c2c', fontSize: 11, fontWeight: 600 }} />
@@ -1178,7 +1178,7 @@ function BorrowReport() {
         <h3 style={{ textAlign: 'center', marginBottom: '8px', fontSize: '14px', color: '#800000', fontWeight: '700', letterSpacing: '0.4px' }}>
           📊 Monthly Sales Revenue vs Borrow Outstanding (Rs.)
         </h3>
-        <ResponsiveContainer width="100%" height="90%">
+        <ResponsiveContainer width="100%" height="90%" minWidth={0} minHeight={320}>
           <BarChart data={salesVsBorrowChartData} margin={{ top: 8, right: 30, left: 20, bottom: 5 }} barCategoryGap="28%" barGap={4}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f5e6e6" />
             <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#666', fontWeight: 600 }} />

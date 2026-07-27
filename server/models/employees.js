@@ -11,6 +11,7 @@ module.exports = (sequelize) => {
     address: { type: DataTypes.TEXT, allowNull: true },
     position: { type: DataTypes.STRING(100), allowNull: true },
     salary: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    salary_category: { type: DataTypes.STRING(20), allowNull: true, defaultValue: 'monthly' },
     join_date: { type: DataTypes.DATEONLY, allowNull: true },
     hire_date: { type: DataTypes.DATEONLY, allowNull: true },
     status: { type: DataTypes.ENUM('Active', 'Inactive', 'Resigned'), allowNull: false, defaultValue: 'Active' },

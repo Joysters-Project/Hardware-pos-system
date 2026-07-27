@@ -32,6 +32,8 @@ try {
   console.warn('⚠️ Could not read config/config.json, using environment variables only');
 }
 
+console.log('[Sequelize] Connecting to DB:', dbConfig.database, 'at', dbConfig.host + ':' + dbConfig.port, 'user:', dbConfig.username);
+
 const sequelize = new Sequelize(
   dbConfig.database,
   dbConfig.username,
@@ -45,7 +47,15 @@ const sequelize = new Sequelize(
     dialectOptions: {
       dateStrings: true,
       typeCast: true,
-      timezone: '+05:30' 
+      timezone: '+05:30',
+      connectTimeout: 10000,
+      multipleStatements: true
+    },
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 15000,
+      idle: 10000
     }
   }
 );

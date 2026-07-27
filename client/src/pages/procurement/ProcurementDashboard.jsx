@@ -6,7 +6,7 @@ import {
   Tooltip, PieChart, Pie, Cell, ResponsiveContainer, Legend,
 } from 'recharts';
 import {
-  Plus, RefreshCw, AlertTriangle, CheckCircle, Clock,
+  Plus, AlertTriangle, CheckCircle, Clock,
   TrendingUp, TrendingDown, Package, CreditCard, Users,
   ClipboardList, ChevronRight, Bell,
 } from 'lucide-react';
@@ -94,10 +94,6 @@ export default function ProcurementDashboard() {
           <p>Suppliers, purchase orders, payments and inventory health at a glance</p>
         </div>
         <div className="proc-header-actions">
-          <motion.button className="proc-btn-outline" whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-            onClick={() => rd()} disabled={dl}>
-            <RefreshCw size={14} className={dl ? 'proc-spin' : ''} /> Refresh
-          </motion.button>
           <motion.button className="proc-btn-outline success" whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
             onClick={() => navigate('/procurement/suppliers')}>
             <Users size={14} /> Suppliers

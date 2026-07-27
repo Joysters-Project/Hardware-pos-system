@@ -51,6 +51,38 @@ db.sequelize.sync({ force: false })
 // ── Routes ───────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 
+const departmentRoutes              = require('./routes/departmentRoutes');
+const employeeRoutes                = require('./routes/employeeRoutes');
+const userRoutes                    = require('./routes/userRoutes');
+const profileRoutes                 = require('./routes/profileRoutes');
+const auditLogRoutes                = require('./routes/auditLogRoutes');
+const categoryRoutes                = require('./routes/categoryRoutes');
+const brandRoutes                   = require('./routes/brandRoutes');
+const unitRoutes                    = require('./routes/unitRoutes');
+const productRoutes                 = require('./routes/productRoutes');
+const supplierRoutes                = require('./routes/supplierRoutes');
+const customerRoutes                = require('./routes/customerRoutes');
+const billRoutes                    = require('./routes/billRoutes');
+const billItemsRoutes               = require('./routes/billItemsRoutes');
+const paymentRoutes                 = require('./routes/paymentRoutes');
+const returnRoutes                  = require('./routes/returnRoutes');
+const alertRoutes                   = require('./routes/alertRoutes');
+const purchaseOrderRoutes           = require('./routes/purchaseOrderRoutes');
+const poItemsRoutes                 = require('./routes/poItemsRoutes');
+const schemaRoutes                  = require('./routes/schemaRoutes');
+const dashboardRoutes               = require('./routes/dashboardRoutes');
+const assetRoutes                   = require('./routes/assetRoutes');
+const expenseRoutes                 = require('./routes/expenseRoutes');
+const salaryRoutes                  = require('./routes/salaryRoutes');
+const RR_supplierRoutes             = require('./routes/RR_supplierRoutes');
+const RR_purchaseOrderRoutes        = require('./routes/RR_purchaseOrderRoutes');
+const procurementDashboardRoutes    = require('./routes/procurementDashboardRoutes');
+const procurementReportsRoutes      = require('./routes/procurementReportsRoutes');
+const procurementPaymentRoutes      = require('./routes/procurementPaymentRoutes');
+const autoReorderRoutes             = require('./routes/autoReorderRoutes');
+const forecastRoutes                = require('./routes/forecastRoutes');
+const procurementNotificationRoutes = require('./routes/procurementNotificationRoutes');
+const supplierPerformanceRoutes     = require('./routes/supplierPerformanceRoutes');
 const departmentRoutes   = require('./routes/departmentRoutes');
 const employeeRoutes     = require('./routes/employeeRoutes');
 const userRoutes         = require('./routes/userRoutes');
@@ -120,10 +152,10 @@ app.use('/api/procurement/reorder',         autoReorderRoutes);
 app.use('/api/procurement/forecast',        forecastRoutes);
 app.use('/api/procurement/notifications',   procurementNotificationRoutes);
 app.use('/api/procurement/performance',     supplierPerformanceRoutes);
-app.use('/api/RR_suppliers',        RR_supplierRoutes);
-app.use('/api/RR_purchase_orders',  RR_purchaseOrderRoutes);
+app.use('/api/RR_suppliers',               RR_supplierRoutes);
+app.use('/api/RR_purchase_orders',         RR_purchaseOrderRoutes);
 
-// ── Cron Jobs (each schedule registered once) ─────────────────────────────────
+// ── Cron Jobs ─────────────────────────────────────────────────────────────────
 
 // Daily 06:00 — Recalculate supplier performance scores
 cron.schedule('0 6 * * *', async () => {

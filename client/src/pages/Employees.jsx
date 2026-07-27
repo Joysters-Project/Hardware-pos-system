@@ -10,7 +10,7 @@ import "../styles/Employees.css";
 
 const BASE_URL = "http://localhost:5000";
 const POSITIONS = ["Admin", "Manager", "Cashier", "Supervisor", "Sales", "Warehouse", "IT", "HR", "Accountant","Other"];
-const EMPTY_FORM = { first_name: "", last_name: "", nic: "", phone_no: "", email: "", address: "", position: "", salary: "", join_date: "", status: "Active", department_id: "" };
+const EMPTY_FORM = { first_name: "", last_name: "", nic: "", phone_no: "", email: "", address: "", position: "", salary: "", salary_category: "monthly", join_date: "", status: "Active", department_id: "" };
 
 function EmployeesPage() {
   const [employees, setEmployees] = useState([]);
@@ -48,6 +48,7 @@ function EmployeesPage() {
     setForm({
       first_name: e.first_name || "", last_name: e.last_name || "", nic: e.nic || "", phone_no: e.phone_no || "",
       email: e.email || "", address: e.address || "", position: e.position || "", salary: e.salary || "",
+      salary_category: e.salary_category || "monthly",
       join_date: e.join_date || e.hire_date || "", status: e.status || "Active", department_id: e.department_id || ""
     });
     setEditId(e.employee_id);
@@ -68,17 +69,47 @@ function EmployeesPage() {
     evt.preventDefault();
     if (!form.first_name || !form.last_name) { toast.error("First and last name required"); return; }
     if (!form.email) {
-    toast.error("Email is required");
-    return;
-  }
+      toast.error("Email is required");
+      return;
+    }
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  if (!emailRegex.test(form.email.trim())) {
-    toast.error("Please enter a valid email address");
-    return;
-  }
-    
+    if (!emailRegex.test(form.email.trim())) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    const normalizedFirst = form.first_name.trim().toLowerCase();
+    const normalizedLast = form.last_name.trim().toLowerCase();
+    const normalizedEmail = form.email.trim().toLowerCase();
+    const normalizedNic = form.nic?.trim().toLowerCase() || '';
+    const normalizedPhone = (form.phone_no || '').trim();
+
+    const sameName = employees.find(emp => {
+      if (editId && emp.employee_id === editId) return false;
+      return emp.first_name?.trim().toLowerCase() === normalizedFirst
+        && emp.last_name?.trim().toLowerCase() === normalizedLast;
+    });
+    if (sameName) {
+      toast.error("Employee with same name already exists");
+      return;
+    }
+
+    const duplicate = employees.find(emp => {
+      if (editId && emp.employee_id === editId) return false;
+      return emp.first_name?.trim().toLowerCase() === normalizedFirst
+        && emp.last_name?.trim().toLowerCase() === normalizedLast
+        && (emp.email?.trim().toLowerCase() || '') === normalizedEmail
+        && (emp.nic?.trim().toLowerCase() || '') === normalizedNic
+        && (emp.phone_no?.trim() || '') === normalizedPhone;
+    });
+
+    if (duplicate) {
+      toast.error("Employee with same details already exists");
+      return;
+    }
+
     // Validate phone number if provided
     if (form.phone_no) {
       const phoneValidation = validateSriLankanPhone(form.phone_no);
@@ -111,7 +142,7 @@ function EmployeesPage() {
   };
 
   const handleView = async (e) => {
-    try { const res = await api.get(`/employees/${e.employee_id}`); setViewEmp(res.data); }
+    try { const res = await api.get(`/employees/${e.employee_id}`); setViewEmp(res.data.data); }
     catch { toast.error("Failed to load details"); }
   };
 
@@ -242,12 +273,12 @@ function EmployeesPage() {
       <div className="emp-table-wrap">
         <table className="emp-table">
           <thead><tr>
-            <th>Photo</th><th>#</th><th>Name</th><th>Position</th><th>Department</th>
+            <th>Photo</th><th>#</th><th>Name</th><th>Position</th><th>Department</th><th>Salary Category</th>
             <th>Phone</th><th>Salary (LKR)</th><th>Status</th><th>Actions</th>
           </tr></thead>
           <tbody>
-            {pageLoading ? <tr><td colSpan="9" className="emp-empty">Loading...</td></tr>
-              : paginated.length === 0 ? <tr><td colSpan="9" className="emp-empty">No employees found</td></tr>
+            {pageLoading ? <tr><td colSpan="10" className="emp-empty">Loading...</td></tr>
+              : paginated.length === 0 ? <tr><td colSpan="10" className="emp-empty">No employees found</td></tr>
                 : paginated.map(e => (
                   <tr key={e.employee_id}>
                     <td>{e.profile_photo
@@ -259,6 +290,7 @@ function EmployeesPage() {
                       <div className="emp-email-sub">{e.email}</div></td>
                     <td>{e.position}</td>
                     <td>{getDeptName(e.department_id)}</td>
+                    <td>{e.salary_category === "daily" ? "Daily Worker" : "Monthly Worker"}</td>
                     <td>{e.phone_no || "—"}</td>
                     <td className="emp-salary-cell">LKR {Number(e.salary || 0).toLocaleString("en-US")}</td>
                     <td><span className={`emp-status-pill ${e.status?.toLowerCase()}`}>{e.status}</span></td>
@@ -338,6 +370,11 @@ function EmployeesPage() {
                 </select></div>
               <div className="emp-field"><label>Salary (LKR) *</label>
                 <input type="number" min="0" value={form.salary} onChange={e => setForm({ ...form, salary: e.target.value })} required /></div>
+              <div className="emp-field"><label>Salary Category *</label>
+                <select value={form.salary_category} onChange={e => setForm({ ...form, salary_category: e.target.value })} required>
+                  <option value="monthly">Monthly Worker</option>
+                  <option value="daily">Daily Worker</option>
+                </select></div>
               <div className="emp-field"><label>Join Date</label>
                 <input type="date" value={form.join_date} max={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, join_date: e.target.value })} /></div>
               <div className="emp-field"><label>Department *</label>
