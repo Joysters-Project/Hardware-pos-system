@@ -10,8 +10,8 @@ export default function ReturnsLayout() {
         {/* Header */}
         <div className="ret-header" style={{ marginBottom: '16px' }}>
           <div>
-            <h1>Return Management</h1>
-            <p>Process customer returns and manage returned inventory</p>
+            <h1>Return & Warranty Management</h1>
+            <p>Customer returns, supplier warranty repairs, replacements, and stock status tracking</p>
           </div>
         </div>
 
@@ -24,10 +24,22 @@ export default function ReturnsLayout() {
             🔄 Process Return
           </NavLink>
           <NavLink
+            to="/returns/history"
+            className={({ isActive }) => `rp-tab ${isActive ? 'active' : ''}`}
+          >
+            📋 Return History
+          </NavLink>
+          <NavLink
+            to="/returns/supplier-services"
+            className={({ isActive }) => `rp-tab ${isActive ? 'active' : ''}`}
+          >
+            🛠️ Supplier Repairs & Warranty
+          </NavLink>
+          <NavLink
             to="/returns/inventory"
             className={({ isActive }) => `rp-tab ${isActive ? 'active' : ''}`}
           >
-            📦 Returned Inventory
+            📦 Inventory Status
           </NavLink>
         </div>
 

@@ -1,7 +1,4 @@
 const db = require('../models');
-const users = db.users;
-const employees = db.employees;
-const departments = db.departments;
 const bcrypt = require('bcrypt');
 const { logActivity } = require('../services/auditService');
 const path = require('path');
@@ -10,11 +7,11 @@ const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
 
 exports.getOwnProfile = async (req, res) => {
   try {
-    const user = await users.findByPk(req.user.user_id, {
+    const user = await db.users.findById(req.user.user_id, {
       attributes: { exclude: ['password', 'reset_token', 'reset_token_expiry'] },
       include: [{
-        model: employees,
-        include: [{ model: departments, attributes: ['department_name'] }]
+        model: db.employees,
+        include: [{ model: db.departments, attributes: ['department_name'] }]
       }]
     });
 
@@ -38,7 +35,8 @@ exports.getOwnProfile = async (req, res) => {
       profile_photo: emp?.profile_photo || null,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('[getOwnProfile] Error:', error);
+    res.status(500).json({ error: error.message, stack: error.stack });
   }
 };
 
@@ -46,10 +44,10 @@ exports.updateOwnProfile = async (req, res) => {
   const ip = getIp(req);
   try {
     const { first_name, last_name, email, phone_no, address } = req.body;
-    const user = await users.findByPk(req.user.user_id, {
+    const user = await db.users.findById(req.user.user_id, {
       include: [{
-        model: employees,
-        include: [{ model: departments, attributes: ['department_name'] }]
+        model: db.employees,
+        include: [{ model: db.departments, attributes: ['department_name'] }]
       }]
     });
 
@@ -58,7 +56,7 @@ exports.updateOwnProfile = async (req, res) => {
     if (!employee) return res.status(404).json({ message: 'Linked employee record not found' });
 
     if (email && email !== employee.email) {
-      const existingEmail = await employees.findOne({ where: { email } });
+      const existingEmail = await db.employees.findOne({ where: { email } });
       if (existingEmail) return res.status(400).json({ message: 'Email is already in use' });
     }
 
@@ -86,11 +84,11 @@ exports.updateOwnProfile = async (req, res) => {
     await logActivity(req.user.user_id, req.user.role, 'USER_PROFILE_UPDATED',
       `User profile updated for ${user.user_name} (ID: ${user.user_id})`, ip);
 
-    const updatedUser = await users.findByPk(req.user.user_id, {
+    const updatedUser = await db.users.findById(req.user.user_id, {
       attributes: { exclude: ['password', 'reset_token', 'reset_token_expiry'] },
       include: [{
-        model: employees,
-        include: [{ model: departments, attributes: ['department_name'] }]
+        model: db.employees,
+        include: [{ model: db.departments, attributes: ['department_name'] }]
       }]
     });
 
@@ -130,7 +128,7 @@ exports.changePassword = async (req, res) => {
       return res.status(400).json({ message: 'New password must be at least 6 characters' });
     }
 
-    const user = await users.findByPk(req.user.user_id);
+    const user = await db.users.findById(req.user.user_id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const isMatch = await bcrypt.compare(current_password, user.password);
@@ -149,7 +147,7 @@ exports.changePassword = async (req, res) => {
 exports.deleteProfilePhoto = async (req, res) => {
   const ip = getIp(req);
   try {
-    const user = await users.findByPk(req.user.user_id, { include: [{ model: employees }] });
+    const user = await db.users.findById(req.user.user_id, { include: [{ model: db.employees }] });
     if (!user) return res.status(404).json({ message: 'User not found' });
     const employee = user.employee;
     if (!employee?.profile_photo) return res.status(400).json({ message: 'No profile photo to remove' });
@@ -172,7 +170,7 @@ exports.createUser = async (req, res) => {
   try {
     const { password, ...otherData } = req.body;
     const hashedPassword = password ? await bcrypt.hash(password, 10) : password;
-    const user = await users.create({ ...otherData, password: hashedPassword });
+    const user = await db.users.create({ ...otherData, password: hashedPassword });
     await logActivity(req.user?.user_id, req.user?.role, 'USER_ACCOUNT_CREATED',
       `User account created: "${user.user_name}" (ID: ${user.user_id}), Role: ${user.role}`, ip);
     res.status(201).json({ message: 'User created successfully', data: user });
@@ -183,7 +181,7 @@ exports.createUser = async (req, res) => {
 
 exports.getAllUsers = async (req, res) => {
   try {
-    const userList = await users.findAll({ attributes: { exclude: ['password', 'reset_token', 'reset_token_expiry'] } });
+    const userList = await db.users.findAll({ attributes: { exclude: ['password', 'reset_token', 'reset_token_expiry'] } });
     res.status(200).json(userList);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -192,7 +190,7 @@ exports.getAllUsers = async (req, res) => {
 
 exports.getUserById = async (req, res) => {
   try {
-    const user = await users.findByPk(req.params.id, { attributes: { exclude: ['password', 'reset_token', 'reset_token_expiry'] } });
+    const user = await db.users.findById(req.params.id, { attributes: { exclude: ['password', 'reset_token', 'reset_token_expiry'] } });
     if (!user) return res.status(404).json({ message: 'User not found' });
     res.status(200).json(user);
   } catch (error) {
@@ -203,7 +201,7 @@ exports.getUserById = async (req, res) => {
 exports.updateUser = async (req, res) => {
   const ip = getIp(req);
   try {
-    const user = await users.findByPk(req.params.id);
+    const user = await db.users.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
     const updateData = { ...req.body };
     if (updateData.password) updateData.password = await bcrypt.hash(updateData.password, 10);
@@ -225,7 +223,7 @@ exports.updateUser = async (req, res) => {
 exports.deleteUser = async (req, res) => {
   const ip = getIp(req);
   try {
-    const user = await users.findByPk(req.params.id);
+    const user = await db.users.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
     const name = user.user_name;
     await user.destroy();

@@ -8,14 +8,21 @@ const {
   products,
   suppliers,
   supplier_returns,
+  supplier_services,
+  inventory_statuses,
+  product_warranties,
   audit_log,
   sequelize
 } = require('../models');
+const WarrantyService = require('./warrantyService');
 
 class ReturnService {
   static async processReturn(returnData, userId, userRole) {
     const bill_id = Number(returnData.bill_id);
-    const items = returnData.items; // Array of items
+    const items = returnData.items; // Array of return items
+    const customer_id = returnData.customer_id ? Number(returnData.customer_id) : null;
+    const return_type = returnData.return_type || 'REFUND';
+    const reason = returnData.reason || returnData.return_reason || 'Customer Return';
     const supplier_id = returnData.supplier_id ? Number(returnData.supplier_id) : null;
     const po_id = returnData.po_id ? Number(returnData.po_id) : null;
 
@@ -23,7 +30,8 @@ class ReturnService {
       throw new Error('bill_id and items array are required');
     }
 
-    const validDestinations = ['STOCK', 'REPAIR', 'SUPPLIER', 'WRITEOFF', 'DAMAGED_STOCK'];
+    const validActions = ['REFUND', 'REPAIR', 'EXCHANGE', 'SUPPLIER_RETURN', 'SCRAP', 'OTHER'];
+    const validConditions = ['GOOD', 'DEFECTIVE', 'DAMAGED'];
 
     return await sequelize.transaction(async (t) => {
       const bill = await bills.findByPk(bill_id, { transaction: t });
@@ -31,24 +39,29 @@ class ReturnService {
         throw new Error('Bill not found');
       }
 
-      let total_refund_amount = 0;
-      let hasSupplierReturn = false;
+      const effectiveCustomerId = customer_id || bill.customer_id || null;
 
-      // Validate all items first
+      let total_refund_amount = 0;
+      let hasSupplierAction = false;
+
+      // Validate each item
       for (const item of items) {
         const product_id = Number(item.product_id);
-        const return_quantity = Number(item.return_quantity);
-        const destination = String(item.destination || 'STOCK').toUpperCase();
-        
-        if (!validDestinations.includes(destination)) {
-          throw new Error(`Invalid destination: ${destination}`);
+        const return_quantity = Number(item.return_quantity || item.quantity || 1);
+        const action = String(item.action || item.destination || 'REFUND').toUpperCase();
+        const condition = String(item.condition || 'DEFECTIVE').toUpperCase();
+
+        if (!validActions.includes(action)) {
+          throw new Error(`Invalid action: ${action}`);
         }
-        if (['WRITEOFF', 'SUPPLIER'].includes(destination) && !['Manager', 'Admin'].includes(userRole)) {
-          throw new Error('Destination requires Manager or Admin role');
+        if (!validConditions.includes(condition)) {
+          throw new Error(`Invalid condition: ${condition}`);
         }
-        if (destination === 'SUPPLIER') {
-          if (!supplier_id) throw new Error('Supplier ID is required for supplier returns');
-          hasSupplierReturn = true;
+        if (['SCRAP', 'SUPPLIER_RETURN', 'OTHER'].includes(action) && !['Manager', 'Admin'].includes(userRole)) {
+          throw new Error('Action requires Manager or Admin role');
+        }
+        if (['SUPPLIER_RETURN', 'REPAIR', 'EXCHANGE'].includes(action)) {
+          hasSupplierAction = true;
         }
 
         const billItem = await bill_items.findOne({ where: { bill_id, product_id }, transaction: t });
@@ -60,128 +73,172 @@ class ReturnService {
           throw new Error(`Return quantity exceeds billed quantity for product ${product_id}`);
         }
 
-        // We can optionally check already returned quantity if we keep history of bill_items.
-        // Currently the system deletes/decreases bill_items on return.
-        
-        // Calculate refund for this item based on current bill item state
-        const perUnitDiscount = Number(billItem.discount || 0) / Number(billItem.quantity || 1);
-        const refund_amount = Number(((Number(billItem.price_per_unit) - perUnitDiscount) * return_quantity).toFixed(2));
-        
-        // Attach calculated refund to the item object for later use
-        item.calculated_refund = refund_amount;
-        total_refund_amount += refund_amount;
+        // Calculate refund amount if action is REFUND
+        if (action === 'REFUND') {
+          const perUnitDiscount = Number(billItem.discount || 0) / Number(billItem.quantity || 1);
+          const refund_amount = Number(((Number(billItem.price_per_unit) - perUnitDiscount) * return_quantity).toFixed(2));
+          item.calculated_refund = refund_amount;
+          total_refund_amount += refund_amount;
+        } else {
+          item.calculated_refund = 0;
+        }
       }
 
+      // Calculate cash refund to customer
       const original_balance_due = parseFloat(bill.balance_due) || 0;
       let actual_cash_refund = 0;
-      if (original_balance_due > 0) {
-        if (total_refund_amount <= original_balance_due) {
-          actual_cash_refund = 0;
+      if (total_refund_amount > 0) {
+        if (original_balance_due > 0) {
+          if (total_refund_amount <= original_balance_due) {
+            actual_cash_refund = 0;
+          } else {
+            actual_cash_refund = total_refund_amount - original_balance_due;
+          }
         } else {
-          actual_cash_refund = total_refund_amount - original_balance_due;
+          const totalPaid = await payments.sum('amount_paid', { where: { bill_id }, transaction: t }) || 0;
+          actual_cash_refund = Math.min(total_refund_amount, Math.max(0, Number(totalPaid)));
         }
-      } else {
-        const totalPaid = await payments.sum('amount_paid', { where: { bill_id }, transaction: t }) || 0;
-        actual_cash_refund = Math.min(total_refund_amount, Math.max(0, Number(totalPaid)));
       }
 
-      // Create Return Header (stores the actual cash refund amount given)
+      // Create Returns Header
       const newReturn = await returns.create({
         bill_id,
+        customer_id: effectiveCustomerId,
         return_date: new Date(),
+        return_type: return_type,
+        status: hasSupplierAction ? 'SENT_TO_SUPPLIER' : 'COMPLETED',
+        reason: reason,
         total_refund_amount: actual_cash_refund,
         processed_by: userId,
-        status: hasSupplierReturn ? 'PENDING_APPROVAL' : 'COMPLETED',
         po_id,
         supplier_id
       }, { transaction: t });
 
-      // Process each item
+      // Process each return item
       for (const item of items) {
         const product_id = Number(item.product_id);
-        const return_quantity = Number(item.return_quantity);
-        const refund_amount = item.calculated_refund;
-        const destination = String(item.destination || 'STOCK').toUpperCase();
-        const reason = item.return_reason || 'Unknown';
-        const destination_note = item.destination_note || null;
+        const return_quantity = Number(item.return_quantity || item.quantity || 1);
+        const refund_amount = item.calculated_refund || 0;
+        const action = String(item.action || 'REFUND').toUpperCase();
+        const condition = String(item.condition || 'DEFECTIVE').toUpperCase();
+        const itemReason = item.return_reason || reason || 'Customer Return';
+        const destination = action === 'REFUND' ? 'STOCK' : (action === 'SCRAP' ? 'WRITEOFF' : 'REPAIR');
 
-        // Create return_item (refund_amount here is the returned item value)
-        await return_items.create({
+        // Create return_item
+        const createdReturnItem = await return_items.create({
           return_id: newReturn.return_id,
           product_id,
           return_quantity,
+          quantity: return_quantity,
+          condition,
+          action,
           refund_amount,
-          return_reason: reason,
+          return_reason: itemReason,
           destination,
-          destination_note
+          destination_note: item.destination_note || null,
+          exchange_product_id: item.exchange_product_id || null
         }, { transaction: t });
 
         // Update bill item quantity and total
         const billItem = await bill_items.findOne({ where: { bill_id, product_id }, transaction: t });
-        const remainingQty = billItem.quantity - return_quantity;
-        if (remainingQty <= 0) {
-          await billItem.destroy({ transaction: t });
-        } else {
-          const perUnitDiscount = Number(billItem.discount || 0) / Number(billItem.quantity || 1);
-          const remainingDiscount = perUnitDiscount * remainingQty;
-          const remainingTotal = Math.max(0, remainingQty * Number(billItem.price_per_unit) - remainingDiscount);
-          
-          await billItem.update({
-            quantity: remainingQty,
-            discount: remainingDiscount,
-            total_price: remainingTotal
-          }, { transaction: t });
+        if (billItem) {
+          const remainingQty = billItem.quantity - return_quantity;
+          if (remainingQty <= 0) {
+            await billItem.destroy({ transaction: t });
+          } else {
+            const perUnitDiscount = Number(billItem.discount || 0) / Number(billItem.quantity || 1);
+            const remainingDiscount = perUnitDiscount * remainingQty;
+            const remainingTotal = Math.max(0, remainingQty * Number(billItem.price_per_unit) - remainingDiscount);
+            
+            await billItem.update({
+              quantity: remainingQty,
+              discount: remainingDiscount,
+              total_price: remainingTotal
+            }, { transaction: t });
+          }
         }
 
-        // Update Inventory based on destination
-        // STOCK: add back to active stock
-        // REPAIR / DAMAGED_STOCK / WRITEOFF: destination tracked via return_items.destination only
-        if (destination === 'STOCK') {
-          await products.increment('stock_quantity', { by: return_quantity, where: { product_id }, transaction: t });
-        } else if (destination === 'SUPPLIER') {
-          await supplier_returns.create({
-            return_id: newReturn.return_id,
-            supplier_id,
-            product_id,
-            quantity: return_quantity
+        // Update Inventory in inventory_statuses table
+        let [invStatus] = await inventory_statuses.findOrCreate({
+          where: { product_id },
+          defaults: { product_id, available_qty: 0, repair_qty: 0, damaged_qty: 0 },
+          transaction: t
+        });
+
+        const product = await products.findByPk(product_id, { transaction: t });
+
+        if (action === 'REFUND') {
+          // Increase available stock
+          await invStatus.increment('available_qty', { by: return_quantity, transaction: t });
+          if (product) {
+            await product.increment('stock_quantity', { by: return_quantity, transaction: t });
+          }
+        } else if (['REPAIR', 'EXCHANGE', 'SUPPLIER_RETURN'].includes(action)) {
+          // Move item to repair_qty in separate table
+          await invStatus.increment('repair_qty', { by: return_quantity, transaction: t });
+
+          // Create supplier_service entry using warranty data provided by user on the frontend
+          const targetSupplierId = supplier_id || product?.preferred_supplier_id || 1;
+          const repairCost = parseFloat(item.repair_cost) || 0;
+          const discountPct = parseFloat(item.discount_percentage) || 0;
+
+          // Use warranty status from user input (has_warranty, warranty_status from payload)
+          // If warranty is VALID, cost = 0; otherwise use entered cost
+          const isWarrantyValid = item.has_warranty === true && item.warranty_status === 'VALID';
+          const finalRepairCost = isWarrantyValid ? 0 : repairCost;
+          const finalDiscount = isWarrantyValid ? 100 : discountPct;
+          const discountAmt = finalRepairCost * (finalDiscount / 100);
+          const customerPayment = Math.max(0, finalRepairCost - discountAmt);
+
+          await supplier_services.create({
+            return_item_id: createdReturnItem.return_item_id,
+            supplier_id: targetSupplierId,
+            service_type: action === 'EXCHANGE' ? 'EXCHANGE' : 'REPAIR',
+            repair_cost: parseFloat(finalRepairCost.toFixed(2)),
+            discount_percentage: parseFloat(finalDiscount.toFixed(2)),
+            customer_payment: parseFloat(customerPayment.toFixed(2)),
+            status: 'PENDING'
           }, { transaction: t });
+        } else if (action === 'SCRAP' || action === 'OTHER') {
+          // Move item to damaged_qty in separate table
+          await invStatus.increment('damaged_qty', { by: return_quantity, transaction: t });
         }
       }
 
-      // Add single payment record for the total refund if there is actual cash refund
+      // Add payment refund record if cash refund occurred
       if (actual_cash_refund > 0) {
         await payments.create({
           bill_id,
           amount_paid: -Math.abs(actual_cash_refund),
-          payment_method: hasSupplierReturn ? 'SUPPLIER_RETURN' : 'REFUND'
+          payment_method: 'REFUND'
         }, { transaction: t });
       }
 
-      // Update Bill Totals (subtracting the full value of returned products)
-      const newTotalAmount = Math.max(0, parseFloat(bill.total_amount) - total_refund_amount);
-      const newSubtotal = Math.max(0, parseFloat(bill.subtotal) - total_refund_amount);
-      
-      const newPaymentSum = await payments.sum('amount_paid', { where: { bill_id }, transaction: t }) || 0;
-      let newBalanceDue = newTotalAmount - newPaymentSum;
-      if (Number.isNaN(newBalanceDue)) newBalanceDue = 0;
-      if (newBalanceDue < 0) newBalanceDue = 0;
+      // Update Bill Totals
+      if (total_refund_amount > 0) {
+        const newTotalAmount = Math.max(0, parseFloat(bill.total_amount) - total_refund_amount);
+        const newSubtotal = Math.max(0, parseFloat(bill.subtotal) - total_refund_amount);
+        
+        const newPaymentSum = await payments.sum('amount_paid', { where: { bill_id }, transaction: t }) || 0;
+        let newBalanceDue = newTotalAmount - newPaymentSum;
+        if (Number.isNaN(newBalanceDue) || newBalanceDue < 0) newBalanceDue = 0;
 
-      const updatedStatus = newBalanceDue > 0 ? 'PARTIAL' : 'PAID';
-
-      await bill.update({
-        subtotal: newSubtotal,
-        total_amount: newTotalAmount,
-        balance_due: newBalanceDue,
-        status: updatedStatus
-      }, { transaction: t });
+        await bill.update({
+          subtotal: newSubtotal,
+          total_amount: newTotalAmount,
+          balance_due: newBalanceDue,
+          status: newBalanceDue > 0 ? 'PARTIAL' : 'PAID'
+        }, { transaction: t });
+      }
 
       await audit_log.create({
         user_id: userId,
-        action: 'PROCESS_MULTI_ITEM_RETURN',
+        action: 'PROCESS_RETURN_MANAGEMENT',
         details: JSON.stringify({
           bill_no: bill.bill_no,
-          total_refund_amount: actual_cash_refund,
-          total_returned_value: total_refund_amount,
+          return_id: newReturn.return_id,
+          return_type,
+          actual_cash_refund,
           items_count: items.length
         })
       }, { transaction: t });
@@ -197,7 +254,10 @@ class ReturnService {
         { 
           model: return_items, 
           as: 'items',
-          include: [{ model: products, attributes: ['product_name'] }]
+          include: [
+            { model: products, attributes: ['product_name'] },
+            { model: supplier_services, as: 'supplier_service' }
+          ]
         }
       ]
     });
@@ -216,8 +276,6 @@ class ReturnService {
       throw new Error('Bill item not found for this bill and product');
     }
 
-    // Since we delete bill_items when they are fully returned, 
-    // the current billItem quantity IS the maximum returnable.
     const max_returnable = Number(billItem.quantity);
     const requestedQty = Number(returnQty);
 
@@ -228,11 +286,13 @@ class ReturnService {
     const perUnitDiscount = Number(billItem.discount || 0) / Number(billItem.quantity || 1);
     const refund_amount = Number(((Number(billItem.price_per_unit) - perUnitDiscount) * requestedQty).toFixed(2));
 
+    const warrantyInfo = await WarrantyService.checkWarranty(productId);
+
     return {
       original_qty: max_returnable,
-      already_returned: 0, // Since bill items are decreased, this doesn't apply the same way
       max_returnable,
-      refund_amount
+      refund_amount,
+      warranty: warrantyInfo
     };
   }
 }

@@ -13,7 +13,12 @@ module.exports = (sequelize) => {
     paid_date: { type: DataTypes.DATEONLY, allowNull: true },
     payment_method: { type: DataTypes.STRING(50), allowNull: true },
     payment_status: { type: DataTypes.STRING(50), allowNull: false, defaultValue: 'Pending' },
-    notes: { type: DataTypes.TEXT, allowNull: true }
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    cheque_number: { type: DataTypes.STRING(100), allowNull: true },
+    bank_name: { type: DataTypes.STRING(100), allowNull: true },
+    cheque_date: { type: DataTypes.DATEONLY, allowNull: true },
+    pending_cheque_date: { type: DataTypes.DATEONLY, allowNull: true },
+    cheque_status: { type: DataTypes.STRING(30), allowNull: true, defaultValue: null },
   }, {
     tableName: 'supplier_payments',
     timestamps: true,

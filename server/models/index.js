@@ -32,6 +32,8 @@ try {
   console.warn('⚠️ Could not read config/config.json, using environment variables only');
 }
 
+console.log('[Sequelize] Connecting to DB:', dbConfig.database, 'at', dbConfig.host + ':' + dbConfig.port, 'user:', dbConfig.username);
+
 const sequelize = new Sequelize(
   dbConfig.database,
   dbConfig.username,
@@ -45,7 +47,15 @@ const sequelize = new Sequelize(
     dialectOptions: {
       dateStrings: true,
       typeCast: true,
-      timezone: '+05:30' 
+      timezone: '+05:30',
+      connectTimeout: 10000,
+      multipleStatements: true
+    },
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 15000,
+      idle: 10000
     }
   }
 );
@@ -81,6 +91,9 @@ const auto_reorder_suggestions = require('./auto_reorder_suggestions');
 const email_logs = require('./email_logs');
 const supplier_documents = require('./supplier_documents');
 const product_units = require('./product_units');
+const inventory_statuses = require('./inventory_statuses');
+const product_warranties = require('./product_warranties');
+const supplier_services = require('./supplier_services');
 
 // 3. Initialize the DB object
 const db = {
@@ -116,6 +129,9 @@ const db = {
   email_logs:       email_logs(sequelize),
   supplier_documents: supplier_documents(sequelize),
   product_units:    product_units(sequelize),
+  inventory_statuses: inventory_statuses(sequelize),
+  product_warranties: product_warranties(sequelize),
+  supplier_services:  supplier_services(sequelize),
 };
 
 // 4. Define Relationships
@@ -140,11 +156,19 @@ db.products.hasMany(db.product_units, { foreignKey: 'product_id', as: 'alternati
 db.product_units.belongsTo(db.products, { foreignKey: 'product_id' });
 db.product_units.belongsTo(db.units, { foreignKey: 'unit_id', as: 'unit_details' });
 
+// Inventory Status & Warranty relations
+db.products.hasOne(db.inventory_statuses, { foreignKey: 'product_id', as: 'inventory_status' });
+db.inventory_statuses.belongsTo(db.products, { foreignKey: 'product_id' });
+db.products.hasMany(db.product_warranties, { foreignKey: 'product_id', as: 'warranties' });
+db.product_warranties.belongsTo(db.products, { foreignKey: 'product_id' });
+
 // Sales Module
 db.users.hasMany(db.bills, { foreignKey: 'user_id' });
 db.bills.belongsTo(db.users, { foreignKey: 'user_id' });
 db.customers.hasMany(db.bills, { foreignKey: 'customer_id' });
 db.bills.belongsTo(db.customers, { foreignKey: 'customer_id' });
+db.customers.hasMany(db.returns, { foreignKey: 'customer_id' });
+db.returns.belongsTo(db.customers, { foreignKey: 'customer_id' });
 db.bills.hasMany(db.bill_items, { foreignKey: 'bill_id' });
 db.bill_items.belongsTo(db.bills, { foreignKey: 'bill_id' });
 db.units.hasMany(db.bill_items, { foreignKey: 'billed_unit_id' });
@@ -165,6 +189,11 @@ db.return_items.belongsTo(db.returns, { foreignKey: 'return_id' });
 
 db.products.hasMany(db.return_items, { foreignKey: 'product_id' });
 db.return_items.belongsTo(db.products, { foreignKey: 'product_id' });
+
+db.return_items.hasOne(db.supplier_services, { foreignKey: 'return_item_id', as: 'supplier_service' });
+db.supplier_services.belongsTo(db.return_items, { foreignKey: 'return_item_id' });
+db.suppliers.hasMany(db.supplier_services, { foreignKey: 'supplier_id' });
+db.supplier_services.belongsTo(db.suppliers, { foreignKey: 'supplier_id' });
 
 db.returns.hasOne(db.supplier_returns, { foreignKey: 'return_id' });
 db.supplier_returns.belongsTo(db.returns, { foreignKey: 'return_id' });
