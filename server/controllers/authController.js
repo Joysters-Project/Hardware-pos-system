@@ -269,7 +269,7 @@ const simpleRegister = async (req, res) => {
     if (employee.first_name !== firstName || employee.last_name !== lastName)
       return res.status(400).json({ message: 'Employee details do not match' });
     if (employee.position !== role)
-      return res.status(400).json({ message: `Role mismatch. This Employee is assigned as '${employee.position}'.` });
+      return res.status(400).json({ message: `Role mismatch.` });
 
     const existingUser = await users.findOne({ where: { user_name: username } });
     if (existingUser) return res.status(400).json({ message: 'Username already exists' });

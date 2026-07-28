@@ -31,6 +31,7 @@ import Expenses from "./pages/Expenses";
 import SalaryManagement from "./pages/SalaryManagement";
 import AuditLogs from "./pages/AuditLogs";
 import SalaryHistory from "./pages/SalaryHistory";
+import Projects from "./pages/Projects";
 import MyProfile from "./pages/MyProfile";
 import BillingSystem from "./components/billingSystem";
 import DueCollection from "./components/DueCollection";
@@ -112,6 +113,8 @@ function AppRoutes() {
       <Route path="/expenses"       element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
       <Route path="/salary"         element={<ProtectedRoute><SalaryManagement /></ProtectedRoute>} />
       <Route path="/salary/history" element={<ProtectedRoute><SalaryHistory /></ProtectedRoute>} />
+      <Route path="/projects"         element={<ProtectedRoute><Projects /></ProtectedRoute>} />
+      <Route path="/manager/projects" element={<ProtectedRoute requiredRole="manager"><Projects /></ProtectedRoute>} />
 
       {/* Manager-prefixed */}
       <Route path="/manager/departments"    element={<ProtectedRoute requiredRole="manager"><Departments /></ProtectedRoute>} />
