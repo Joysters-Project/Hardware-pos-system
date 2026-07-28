@@ -1,540 +1,754 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import api from '../../utils/axios';
-import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../../utils/phoneValidation';
+import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import {
+  Search, CheckCircle, Package, Wrench, AlertTriangle,
+  ArrowRight, Printer, ClipboardList, RotateCcw
+} from 'lucide-react';
 import '../../styles/Returns.css';
+import WarrantyHandlingSection from '../../components/returns/WarrantyHandlingSection';
+import {
+  CONDITIONS,
+  ACTIONS,
+  getValidActions,
+  getRecommendation,
+  getValidationHint,
+  getStockMovement,
+  getConditionLabel,
+  getActionLabel,
+  mapActionToBackend,
+  calcCustomerPayment,
+  requiresWarranty,
+  requiresManagerApproval,
+} from '../../utils/returnWorkflowLogic';
 
-const DESTINATIONS = [
-  { value: 'STOCK',        label: 'Back to Stock'    },
-  { value: 'REPAIR',       label: 'Send to Repair'   },
-  { value: 'SUPPLIER',     label: 'Send to Supplier' },
-  { value: 'DAMAGED_STOCK',label: 'Damaged Stock'    },
-];
+// ─── Step Indicator ──────────────────────────────────────────────────────────
+function StepIndicator({ currentStep }) {
+  const steps = [
+    { n: 1, label: 'Select Invoice' },
+    { n: 2, label: 'Select Products' },
+    { n: 3, label: 'Inspect & Action' },
+    { n: 4, label: 'Confirm' },
+  ];
+  return (
+    <div className="ret-step-bar">
+      {steps.map((s, i) => (
+        <React.Fragment key={s.n}>
+          <div className={`ret-step ${currentStep === s.n ? 'active' : currentStep > s.n ? 'done' : ''}`}>
+            <div className="ret-step-circle">{currentStep > s.n ? '✓' : s.n}</div>
+            <span className="ret-step-label">{s.label}</span>
+          </div>
+          {i < steps.length - 1 && <div className={`ret-step-line ${currentStep > s.n + 1 || (currentStep > s.n) ? 'done' : ''}`} />}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
 
-const REASONS = [
-  'Damaged',
-  'Defective',
-  'Wrong Item',
-  'Customer Changed Mind',
-  'Expired',
-  'Other',
-];
-
-export default function ProcessReturn() {
-  const navigate = useNavigate();
-  const [searchMode,       setSearchMode]       = useState('bill_no');
-  const [searchValue,      setSearchValue]      = useState('');
-  const [searchResults,    setSearchResults]    = useState([]);
-  const [selectedBill,     setSelectedBill]     = useState(null);
-  const [returnItems,      setReturnItems]      = useState({});   // keyed by product_id
-  const [supplierId,       setSupplierId]       = useState('');
-  const [selectedSupplier, setSelectedSupplier] = useState(null); // { supplier_id, supplier_name }
-  const [suppliers,        setSuppliers]        = useState([]);
-  const [supplierSearch,   setSupplierSearch]   = useState('');
-  const [supplierDropOpen, setSupplierDropOpen] = useState(false);
-  const [loading,          setLoading]          = useState(false);
-  const [error,            setError]            = useState('');
-  const [successData,      setSuccessData]      = useState(null);
-  const debounce       = useRef(null);
-  const supplierBoxRef = useRef(null);
-
-  /* ---- load suppliers on mount ---- */
-  useEffect(() => {
-    api.get('/suppliers')
-      .then(res => {
-        const data = res.data?.data ?? res.data;
-        setSuppliers(Array.isArray(data) ? data : []);
-      })
-      .catch(() => toast.error('Could not load suppliers'));
-  }, []);
-
-  /* ---- close supplier dropdown on outside click ---- */
-  useEffect(() => {
-    const handler = (e) => {
-      if (supplierBoxRef.current && !supplierBoxRef.current.contains(e.target)) {
-        setSupplierDropOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  useEffect(() => {
-    const trimmed = (searchValue || '').toString().trim();
-    if (trimmed.length < 1) { setSearchResults([]); return; }
-    if (debounce.current) clearTimeout(debounce.current);
-    debounce.current = window.setTimeout(searchBills, 500);
-    return () => { if (debounce.current) clearTimeout(debounce.current); };
-  }, [searchMode, searchValue]);
-
-  const searchBills = async () => {
-    const trimmed = (searchValue || '').toString().trim();
-    if (!trimmed) return;
-    
-    // Validate phone number if searching by phone
-    if (searchMode === 'phone') {
-      const phoneValidation = validateSriLankanPhone(trimmed);
-      if (!phoneValidation.isValid) {
-        toast.error(phoneValidation.message);
-        return;
-      }
-    }
-    
-    setLoading(true);
-    try {
-      const params = searchMode === 'bill_no' ? { bill_no: trimmed } : { phone: trimmed };
-      const res = await api.get('/returns/lookup-bill', { params });
-      const responseData = res.data?.data ?? res.data;
-      const results = Array.isArray(responseData)
-        ? responseData
-        : responseData
-          ? [responseData]
-          : [];
-      setSearchResults(results);
-      if (!results.length) {
-        toast.error('No bills found');
-      }
-    } catch (err) {
-      setSearchResults([]);
-      const message = err.response?.data?.error || err.response?.data?.message || 'No bills found';
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const selectBill = (bill) => {
-    setSelectedBill(bill);
-    setReturnItems({});
-    setSearchResults([]);
-    setSearchValue('');
-    setError('');
-  };
-
-  /* ---- item toggle ---- */
-  const toggleItem = (item) => {
-    setReturnItems(prev => {
-      const next = { ...prev };
-      if (next[item.product_id]) {
-        delete next[item.product_id];
-      } else {
-        next[item.product_id] = {
-          product_id:      item.product_id,
-          product_name:    item.product?.product_name,
-          max_qty:         item.quantity,
-          price_per_unit:  item.price_per_unit,
-          discount:        item.discount,
-          return_quantity: 1,
-          return_reason:   'Customer Changed Mind',
-          destination:     'STOCK',
-          destination_note:'',
-        };
-      }
-      return next;
-    });
-  };
-
-  const selectAll = () => {
-    if (!selectedBill) return;
-    const next = {};
-    selectedBill.bill_items.forEach(item => {
-      next[item.product_id] = {
-        product_id:      item.product_id,
-        product_name:    item.product?.product_name,
-        max_qty:         item.quantity,
-        price_per_unit:  item.price_per_unit,
-        discount:        item.discount,
-        return_quantity: item.quantity,
-        return_reason:   'Customer Changed Mind',
-        destination:     'STOCK',
-        destination_note:'',
-      };
-    });
-    setReturnItems(next);
-  };
-
-  const updateField = (productId, field, value) => {
-    setReturnItems(prev => ({
-      ...prev,
-      [productId]: { ...prev[productId], [field]: value },
-    }));
-  };
-
-  /* ---- refund calc ---- */
-  const calcTotalRefund = () => {
-    return Object.values(returnItems).reduce((sum, item) => {
-      const perUnitDiscount = Number(item.discount || 0) / Number(item.max_qty || 1);
-      return sum + (Number(item.price_per_unit) - perUnitDiscount) * Number(item.return_quantity);
-    }, 0).toFixed(2);
-  };
-
-  /* ---- supplier select helpers ---- */
-  const filteredSuppliers = suppliers.filter(s => {
-    const q = supplierSearch.toLowerCase();
-    return (
-      String(s.supplier_id).includes(q) ||
-      (s.supplier_name || '').toLowerCase().includes(q)
-    );
-  });
-
-  const handleSelectSupplier = (s) => {
-    setSelectedSupplier(s);
-    setSupplierId(String(s.supplier_id));
-    setSupplierSearch('');
-    setSupplierDropOpen(false);
-  };
-
-  const handleClearSupplier = () => {
-    setSelectedSupplier(null);
-    setSupplierId('');
-    setSupplierSearch('');
-  };
-
-  /* ---- submit ---- */
-  const submitReturn = async () => {
-    const itemsArr = Object.values(returnItems);
-    if (itemsArr.length === 0) { setError('Please select at least one item to return.'); return; }
-    if (itemsArr.some(i => i.destination === 'SUPPLIER') && !supplierId) {
-      setError('Supplier is required for items going back to Supplier.'); return;
-    }
-    const missingNotes = itemsArr.find(i => i.return_reason === 'Other' && !(i.destination_note || '').trim());
-    if (missingNotes) {
-      setError('Please enter notes for items with reason "Other".');
-      return;
-    }
-    setLoading(true);
-    setError('');
-    try {
-      const payload = {
-        bill_id:     selectedBill.bill_id,
-        supplier_id: supplierId ? Number(supplierId) : null,
-        items: itemsArr.map(i => ({
-          product_id:       i.product_id,
-          return_quantity:  i.return_quantity,
-          destination:      i.destination,
-          destination_note: i.destination_note,
-          return_reason:    i.return_reason,
-        })),
-      };
-      const res = await api.post('/returns', payload);
-      setSuccessData({
-        refund_amount: res.data?.data?.total_refund_amount,
-        items_count:   itemsArr.length,
-      });
-    } catch (err) {
-      setError(err.response?.data?.error || 'Submission failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /* ---- success screen ---- */
-  if (successData) {
-    return (
-      <div className="ret-success" style={{ minHeight: 'auto', padding: '20px', background: 'transparent' }}>
-        <div className="ret-success-card">
-          <div className="ret-success-icon">✅</div>
-          <h2>Return Processed!</h2>
-          <p>
-            Successfully returned {successData.items_count} item(s) with a total refund of{' '}
-            <strong>Rs. {successData.refund_amount}</strong>
-          </p>
-          <button
-            className="ret-new-btn"
-            onClick={() => { setSuccessData(null); setSelectedBill(null); setReturnItems({}); }}
+// ─── Recommendation Panel ────────────────────────────────────────────────────
+function RecommendationPanel({ condition, currentAction, onSelect }) {
+  if (!condition) return null;
+  const { recommended, alternative } = getRecommendation(condition);
+  return (
+    <div className="ret-recommendation-panel">
+      <div className="ret-rec-title">💡 Suggested Action</div>
+      <div className="ret-rec-row">
+        <div
+          className={`ret-rec-chip recommended ${currentAction === recommended ? 'selected' : ''}`}
+          onClick={() => onSelect(recommended)}
+        >
+          ✓ {getActionLabel(recommended)}
+          <span className="ret-rec-badge">Recommended</span>
+        </div>
+        {alternative && (
+          <div
+            className={`ret-rec-chip alternative ${currentAction === alternative ? 'selected' : ''}`}
+            onClick={() => onSelect(alternative)}
           >
-            Process Another Return
+            {getActionLabel(alternative)}
+            <span className="ret-rec-badge alt">Alternative</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Validation Hint ─────────────────────────────────────────────────────────
+function ValidationHint({ condition, action }) {
+  const hint = getValidationHint(condition, action);
+  const needsApproval = requiresManagerApproval(condition, action);
+  if (!hint && !needsApproval) return null;
+  return (
+    <div className={`ret-validation-hint ${needsApproval ? 'approval' : 'info'}`}>
+      {needsApproval && <strong>⚠️ Manager Approval Required. </strong>}
+      {hint}
+    </div>
+  );
+}
+
+// ─── Return Item Card ────────────────────────────────────────────────────────
+function ReturnItemCard({ item, onToggle, onFieldChange, calcPayment }) {
+  const validActions = getValidActions(item.condition);
+  const hint = getValidationHint(item.condition, item.action);
+  const needsApproval = requiresManagerApproval(item.condition, item.action);
+
+  // Keep action in sync when condition changes and current action is no longer valid
+  const handleConditionChange = (newCondition) => {
+    onFieldChange('condition', newCondition);
+    const newValid = getValidActions(newCondition);
+    const rec = getRecommendation(newCondition);
+    if (!newValid.includes(item.action)) {
+      onFieldChange('action', rec.recommended);
+    }
+    // Reset warranty on condition change
+    onFieldChange('has_warranty_answer', null);
+    onFieldChange('repair_cost', 0);
+    onFieldChange('discount_percentage', 0);
+  };
+
+  const handleActionChange = (newAction) => {
+    onFieldChange('action', newAction);
+    // Reset warranty fields if action is no longer repair/exchange
+    if (!requiresWarranty(newAction)) {
+      onFieldChange('has_warranty_answer', null);
+      onFieldChange('repair_cost', 0);
+      onFieldChange('discount_percentage', 0);
+    }
+  };
+
+  return (
+    <div className={`ret-item-card ${item.selected ? 'selected' : ''}`}>
+      {/* ── Header row ── */}
+      <div className="ret-item-header" onClick={onToggle}>
+        <input
+          type="checkbox"
+          checked={item.selected}
+          onChange={onToggle}
+          onClick={(e) => e.stopPropagation()}
+        />
+        <div style={{ flex: 1 }}>
+          <div className="ret-item-name">{item.product_name}</div>
+          <div className="ret-item-meta">
+            Billed Price: LKR {item.price_per_unit.toFixed(2)} &nbsp;|&nbsp; Billed Qty: {item.max_quantity}
+          </div>
+        </div>
+        {item.selected && item.action && (
+          <div className="ret-item-action-badge">
+            {getActionLabel(item.action)}
+          </div>
+        )}
+      </div>
+
+      {/* ── Expanded fields ── */}
+      {item.selected && (
+        <div className="ret-item-fields">
+
+          {/* Step 2: Quantity */}
+          <div>
+            <label>Return Quantity</label>
+            <input
+              type="number"
+              min="1"
+              max={item.max_quantity}
+              value={item.return_quantity}
+              onChange={(e) =>
+                onFieldChange('return_quantity',
+                  Math.min(item.max_quantity, Math.max(1, parseInt(e.target.value) || 1))
+                )
+              }
+            />
+            {item.return_quantity > item.max_quantity && (
+              <div className="ret-field-error">⚠️ Cannot exceed billed quantity ({item.max_quantity})</div>
+            )}
+          </div>
+
+          {/* Return Reason */}
+          <div className="span-full">
+            <label>Return Reason <span style={{ color: '#c00' }}>*</span></label>
+            <select
+              value={item.return_reason || ''}
+              onChange={(e) => {
+                onFieldChange('return_reason', e.target.value);
+                if (e.target.value !== 'Other') onFieldChange('inspection_notes', '');
+              }}
+              style={{ borderColor: !item.return_reason ? '#e57373' : undefined }}
+            >
+              <option value="">— Select a reason —</option>
+              <option value="Defective Product">Defective Product</option>
+              <option value="Physically Damaged">Physically Damaged</option>
+              <option value="Wrong Product Delivered">Wrong Product Delivered</option>
+              <option value="Warranty Claim">Warranty Claim</option>
+              <option value="Customer Changed Mind">Customer Changed Mind</option>
+              <option value="Quality Issue">Quality Issue</option>
+              <option value="Missing Accessories">Missing Accessories</option>
+              <option value="Not As Described">Not As Described</option>
+              <option value="Other">Other (please specify)</option>
+            </select>
+            {!item.return_reason && (
+              <div className="ret-field-error">⚠️ Please select a return reason</div>
+            )}
+          </div>
+
+          {/* Other — mandatory notes */}
+          {item.return_reason === 'Other' && (
+            <div className="span-full">
+              <label>Please Describe the Reason <span style={{ color: '#c00' }}>*</span></label>
+              <input
+                type="text"
+                placeholder="Describe the specific reason for return…"
+                value={item.inspection_notes || ''}
+                onChange={(e) => onFieldChange('inspection_notes', e.target.value)}
+                style={{ borderColor: !item.inspection_notes?.trim() ? '#e57373' : undefined }}
+              />
+              {!item.inspection_notes?.trim() && (
+                <div className="ret-field-error">⚠️ Description is required when reason is "Other"</div>
+              )}
+            </div>
+          )}
+
+          {/* Step 3: Product Condition */}
+          <div>
+            <label>Product Condition</label>
+            <select value={item.condition} onChange={(e) => handleConditionChange(e.target.value)}>
+              {CONDITIONS.map(c => (
+                <option key={c.value} value={c.value}>{c.icon} {c.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Step 4: Requested Return Action */}
+          <div className="span-full">
+            <label>Requested Return Action</label>
+            <select value={item.action} onChange={(e) => handleActionChange(e.target.value)}>
+              {validActions.map(key => (
+                <option key={key} value={key}>{getActionLabel(key)}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Validation hint */}
+          {(hint || needsApproval) && (
+            <div className="span-full">
+              <ValidationHint condition={item.condition} action={item.action} />
+            </div>
+          )}
+
+          {/* Step 5: Warranty — only for REPAIR / EXCHANGE */}
+          {requiresWarranty(item.action) && (
+            <WarrantyHandlingSection
+              item={item}
+              onChangeField={onFieldChange}
+              calculateCustomerPayment={() => calcPayment(item)}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Summary Panel ────────────────────────────────────────────────────────────
+function SummaryPanel({ selectedItems, globalDecision, onGlobalDecisionChange, suppliers, globalSupplierId, onSupplierChange, onSubmit, submitting }) {
+  const total = selectedItems.length;
+  const refundItems = selectedItems.filter(i => ['REFUND', 'PARTIAL_REFUND', 'STOCK'].includes(i.action));
+  const supplierItems = selectedItems.filter(i => ['REPAIR', 'EXCHANGE', 'SUPPLIER_CLAIM'].includes(i.action));
+  const totalRefund = refundItems.reduce((s, i) => s + (i.price_per_unit * i.return_quantity), 0);
+  const totalRepair = selectedItems.reduce((s, i) => s + calcCustomerPayment(i), 0);
+  const needsSupplier = supplierItems.length > 0;
+
+  return (
+    <div className="ret-right">
+      <h3>Return Summary</h3>
+
+      {total === 0 ? (
+        <p style={{ color: '#aaa', fontSize: '14px', marginTop: '8px' }}>
+          Select items on the left to see a summary here.
+        </p>
+      ) : (
+        <>
+          {/* Per-item breakdown */}
+          {selectedItems.map(item => (
+            <div key={item.product_id} className="ret-summary-item-block">
+              <div className="ret-summary-item-name">{item.product_name}</div>
+              <div className="ret-summary-item-row">
+                <span>Condition</span>
+                <span>{getConditionLabel(item.condition)}</span>
+              </div>
+              <div className="ret-summary-item-row">
+                <span>Requested Action</span>
+                <span className="ret-summary-action-tag">{getActionLabel(item.action)}</span>
+              </div>
+              <div className="ret-summary-item-row">
+                <span>Stock Movement</span>
+                <span style={{ fontSize: '12px' }}>{getStockMovement(item.action)}</span>
+              </div>
+              {requiresWarranty(item.action) && item.has_warranty_answer && (
+                <div className="ret-summary-item-row">
+                  <span>Warranty</span>
+                  <span className={`ret-summary-warranty ${item.warranty_status === 'VALID' ? 'valid' : 'expired'}`}>
+                    {item.has_warranty_answer === 'YES'
+                      ? (item.warranty_status === 'VALID' ? '✓ Valid' : '✕ Expired')
+                      : 'No Warranty'}
+                  </span>
+                </div>
+              )}
+            </div>
+          ))}
+
+          <hr className="ret-divider" />
+
+          {/* Final Processing Decision */}
+          <div className="ret-summary-row">
+            <span>Final Processing Decision</span>
+          </div>
+          <select
+            value={globalDecision}
+            onChange={(e) => onGlobalDecisionChange(e.target.value)}
+            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '13px', marginBottom: '12px' }}
+          >
+            <option value="Defective">Defective Product</option>
+            <option value="Damaged">Physically Damaged</option>
+            <option value="Wrong Product">Wrong Product Delivered</option>
+            <option value="Warranty Claim">Warranty Claim</option>
+            <option value="Customer Request">Customer Request</option>
+            <option value="Quality Issue">Quality Issue</option>
+            <option value="Other">Other</option>
+          </select>
+
+          {/* Supplier picker — only when supplier action exists */}
+          {needsSupplier && (
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#555', display: 'block', marginBottom: '4px' }}>
+                Preferred Supplier for Service:
+              </label>
+              <select
+                value={globalSupplierId}
+                onChange={(e) => onSupplierChange(e.target.value)}
+                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '13px' }}
+              >
+                <option value="">Select Supplier…</option>
+                {suppliers.map(s => (
+                  <option key={s.supplier_id} value={s.supplier_id}>{s.supplier_name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <hr className="ret-divider" />
+
+          <div className="ret-summary-row">
+            <span>Items to Process:</span>
+            <span>{total}</span>
+          </div>
+          <div className="ret-summary-row">
+            <span>Customer Refund:</span>
+            <span style={{ color: '#166534', fontWeight: 'bold' }}>LKR {totalRefund.toFixed(2)}</span>
+          </div>
+          <div className="ret-summary-row">
+            <span>Repair / Service Charge:</span>
+            <span style={{ color: '#800000', fontWeight: 'bold' }}>LKR {totalRepair.toFixed(2)}</span>
+          </div>
+
+          <hr className="ret-divider" />
+
+          <button
+            className="ret-confirm-btn"
+            disabled={total === 0 || submitting}
+            onClick={onSubmit}
+          >
+            {submitting ? 'Processing…' : 'Confirm & Process Return'}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Success Screen ───────────────────────────────────────────────────────────
+function SuccessScreen({ result, bill, onReset, onGoToHistory, onGoToRepair }) {
+  return (
+    <div className="ret-success">
+      <div className="ret-success-card">
+        <CheckCircle size={64} style={{ color: '#166534', marginBottom: '16px' }} />
+        <h2>Return Successfully Processed</h2>
+        <p style={{ color: '#777', marginBottom: '24px' }}>All operations completed.</p>
+
+        <div className="ret-success-details">
+          <div className="ret-success-detail-row">
+            <span>Return ID</span>
+            <strong>RET-{result.return_id}</strong>
+          </div>
+          <div className="ret-success-detail-row">
+            <span>Invoice</span>
+            <strong>{bill?.bill_no || `INV-${bill?.bill_id}`}</strong>
+          </div>
+          <div className="ret-success-detail-row">
+            <span>Items Processed</span>
+            <strong>{result.items_count} item{result.items_count !== 1 ? 's' : ''}</strong>
+          </div>
+          {result.total_refund > 0 && (
+            <div className="ret-success-detail-row">
+              <span>Financial Adjustment</span>
+              <strong style={{ color: '#166534' }}>LKR {result.total_refund.toFixed(2)} Refund</strong>
+            </div>
+          )}
+          {result.customer_payment > 0 && (
+            <div className="ret-success-detail-row">
+              <span>Repair Charge</span>
+              <strong style={{ color: '#800000' }}>LKR {result.customer_payment.toFixed(2)}</strong>
+            </div>
+          )}
+          <div className="ret-success-detail-row">
+            <span>Stock Movement</span>
+            <strong style={{ color: '#166534' }}>✓ Completed</strong>
+          </div>
+        </div>
+
+        <div className="ret-success-actions">
+          <button className="ret-success-btn secondary" onClick={onGoToHistory}>
+            <ClipboardList size={16} /> Return History
+          </button>
+          {result.has_supplier_action && (
+            <button className="ret-success-btn secondary" onClick={onGoToRepair}>
+              <Wrench size={16} /> Supplier Queue
+            </button>
+          )}
+          <button className="ret-success-btn secondary" onClick={() => window.print()}>
+            <Printer size={16} /> Print Receipt
+          </button>
+          <button className="ret-success-btn primary" onClick={onReset}>
+            <RotateCcw size={16} /> Process Another Return
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+export default function ProcessReturn() {
+  const [searchType, setSearchType] = useState('bill');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [billsList, setBillsList] = useState([]);
+  const [selectedBill, setSelectedBill] = useState(null);
+  const [suppliers, setSuppliers] = useState([]);
+
+  // selectedItems: Map<productId, itemState>
+  const [selectedItems, setSelectedItems] = useState({});
+  const [globalDecision, setGlobalDecision] = useState('Defective');
+  const [globalSupplierId, setGlobalSupplierId] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [successResult, setSuccessResult] = useState(null);
+
+  // Determine current step for progress indicator
+  const selectedList = Object.values(selectedItems).filter(i => i.selected);
+  const currentStep = !selectedBill ? 1 : selectedList.length === 0 ? 2 : 3;
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    fetch('/api/suppliers', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(data => setSuppliers(Array.isArray(data) ? data : (data.data || [])))
+      .catch(() => {});
+  }, []);
+
+  // ── Bill search ──
+  const handleSearch = async (e) => {
+    if (e) e.preventDefault();
+    if (!searchTerm.trim()) { toast.error('Enter a bill number or customer phone'); return; }
+
+    try {
+      setLoading(true);
+      setSelectedBill(null);
+      setSuccessResult(null);
+      const token = localStorage.getItem('token');
+      const param = searchType === 'bill'
+        ? `bill_no=${encodeURIComponent(searchTerm)}`
+        : `phone=${encodeURIComponent(searchTerm)}`;
+      const res = await fetch(`/api/returns/lookup-bill?${param}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success && data.data?.length > 0) {
+        setBillsList(data.data);
+        if (data.data.length === 1) selectBill(data.data[0]);
+      } else {
+        toast.error(data.error || 'No matching bill found');
+        setBillsList([]);
+      }
+    } catch {
+      toast.error('Failed to lookup bill');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Bill selection ──
+  const selectBill = async (bill) => {
+    setSelectedBill(bill);
+    const token = localStorage.getItem('token');
+    const init = {};
+    for (const item of bill.bill_items || []) {
+      const prodId = item.product_id;
+      const defaultCondition = 'DEFECTIVE';
+      const defaultAction = getRecommendation(defaultCondition).recommended;
+      init[prodId] = {
+        selected: false,
+        product_id: prodId,
+        product_name: item.product?.product_name || `Product #${prodId}`,
+        price_per_unit: parseFloat(item.price_per_unit) || 0,
+        max_quantity: item.quantity,
+        return_quantity: 1,
+        condition: defaultCondition,
+        action: defaultAction,
+        return_reason: '',
+        inspection_notes: '',
+        has_warranty_answer: null,
+        warranty_card_no: '',
+        warranty_expiry_date: '',
+        warranty_status: 'VALID',
+        repair_cost: 0,
+        discount_percentage: 0,
+      };
+    }
+    setSelectedItems(init);
+  };
+
+  // ── Item state helpers ──
+  const toggleItem = (prodId) =>
+    setSelectedItems(prev => ({
+      ...prev,
+      [prodId]: { ...prev[prodId], selected: !prev[prodId].selected }
+    }));
+
+  const changeItemField = (prodId, field, value) =>
+    setSelectedItems(prev => ({ ...prev, [prodId]: { ...prev[prodId], [field]: value } }));
+
+  // ── Toggle all ──
+  const allSelected = Object.values(selectedItems).every(i => i.selected);
+  const toggleAll = () =>
+    setSelectedItems(prev => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach(k => { updated[k] = { ...updated[k], selected: !allSelected }; });
+      return updated;
+    });
+
+  // ── Submit ──
+  const handleSubmit = async () => {
+    if (selectedList.length === 0) { toast.error('Select at least one product to return'); return; }
+
+    // Warranty validation
+    const missingWarranty = selectedList.filter(i => requiresWarranty(i.action) && !i.has_warranty_answer);
+    if (missingWarranty.length > 0) {
+      toast.error(`Answer the warranty question for: ${missingWarranty.map(i => i.product_name).join(', ')}`);
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const token = localStorage.getItem('token');
+
+      const hasSupplierAction = selectedList.some(i => ['REPAIR', 'EXCHANGE', 'SUPPLIER_CLAIM'].includes(i.action));
+
+      const payload = {
+        bill_id: selectedBill.bill_id,
+        customer_id: selectedBill.customer_id || null,
+        return_type: hasSupplierAction ? 'REPAIR' : 'REFUND',
+        reason: globalDecision,
+        supplier_id: globalSupplierId || null,
+        items: selectedList.map(item => {
+          const { backend, destination } = mapActionToBackend(item.action);
+          const isValidWarranty = item.has_warranty_answer === 'YES' && item.warranty_status === 'VALID';
+          return {
+            product_id: item.product_id,
+            return_quantity: Number(item.return_quantity),
+            quantity: Number(item.return_quantity),
+            condition: (() => {
+              // Map extended conditions to backend-accepted ENUM values
+              const map = {
+                BRAND_NEW: 'GOOD', OPENED_UNUSED: 'GOOD', DEFECTIVE: 'DEFECTIVE',
+                MINOR_DAMAGE: 'DAMAGED', MAJOR_DAMAGE: 'DAMAGED',
+                MISSING_ACCESSORIES: 'DAMAGED', USED: 'DEFECTIVE'
+              };
+              return map[item.condition] || 'DEFECTIVE';
+            })(),
+            action: backend,
+            destination,
+            return_reason: item.return_reason === 'Other'
+                ? (item.inspection_notes || globalDecision)
+                : (item.return_reason || globalDecision),
+            repair_cost: isValidWarranty ? 0 : (parseFloat(item.repair_cost) || 0),
+            discount_percentage: isValidWarranty ? 100 : (parseFloat(item.discount_percentage) || 0),
+            has_warranty: requiresWarranty(item.action) ? (item.has_warranty_answer === 'YES') : null,
+            warranty_card_no: item.warranty_card_no || null,
+            warranty_expiry_date: item.warranty_expiry_date || null,
+            warranty_status: requiresWarranty(item.action) ? (item.warranty_status || null) : null,
+          };
+        }),
+      };
+
+      const res = await fetch('/api/returns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        toast.success('Return processed successfully!');
+        const totalRefund = selectedList.reduce((s, i) =>
+          ['REFUND', 'PARTIAL_REFUND', 'STOCK'].includes(i.action)
+            ? s + i.price_per_unit * i.return_quantity : s, 0);
+        const customerPayment = selectedList.reduce((s, i) => s + calcCustomerPayment(i), 0);
+        setSuccessResult({
+          return_id: data.data?.return_id,
+          total_refund: totalRefund,
+          customer_payment: customerPayment,
+          items_count: selectedList.length,
+          has_supplier_action: hasSupplierAction,
+        });
+      } else {
+        toast.error(data.error || 'Failed to process return');
+      }
+    } catch {
+      toast.error('Error processing return');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleReset = () => {
+    setSuccessResult(null);
+    setSelectedBill(null);
+    setSearchTerm('');
+    setBillsList([]);
+    setSelectedItems({});
+    setGlobalDecision('Defective');
+    setGlobalSupplierId('');
+  };
+
+  // ── Success screen ──
+  if (successResult) {
+    return (
+      <SuccessScreen
+        result={successResult}
+        bill={selectedBill}
+        onReset={handleReset}
+        onGoToHistory={() => window.location.hash = '#/returns/history'}
+        onGoToRepair={() => window.location.hash = '#/returns/supplier-service'}
+      />
     );
   }
 
-  const totalBill = selectedBill ? parseFloat(selectedBill.total_amount) : 0;
-  const originalBalanceDue = selectedBill ? parseFloat(selectedBill.balance_due) : 0;
-  const howMuchPaid = Math.max(0, totalBill - originalBalanceDue);
-  const totalReturnedValue = parseFloat(calcTotalRefund()) || 0;
-
-  let actualRefundToCustomer = 0;
-  let remainingBalancePayable = 0;
-
-  if (originalBalanceDue > 0) {
-    if (totalReturnedValue <= originalBalanceDue) {
-      remainingBalancePayable = originalBalanceDue - totalReturnedValue;
-      actualRefundToCustomer = 0;
-    } else {
-      remainingBalancePayable = 0;
-      actualRefundToCustomer = totalReturnedValue - originalBalanceDue;
-    }
-  } else {
-    remainingBalancePayable = 0;
-    actualRefundToCustomer = totalReturnedValue;
-  }
-
+  // ── Main UI ──
   return (
-    <>
-      {error && <div className="ret-error">{error}</div>}
+    <div style={{ marginTop: '16px' }}>
+      {/* Step Indicator */}
+      <StepIndicator currentStep={currentStep} />
 
-      {/* ===== BILL SEARCH ===== */}
+      {/* Step 1: Invoice Lookup */}
       {!selectedBill ? (
         <div className="ret-search-card">
-          <h2>Find Invoice</h2>
+          <h2>Step 1: Lookup Customer Invoice</h2>
+
           <div className="ret-radio-row">
             <label>
-              <input type="radio" checked={searchMode === 'bill_no'} onChange={() => setSearchMode('bill_no')} />
-              Bill Number
+              <input type="radio" name="stype" value="bill"
+                checked={searchType === 'bill'} onChange={() => setSearchType('bill')} />
+              Search by Invoice No (e.g. INV-1024)
             </label>
             <label>
-              <input type="radio" checked={searchMode === 'phone'} onChange={() => setSearchMode('phone')} />
-              Customer Phone
+              <input type="radio" name="stype" value="phone"
+                checked={searchType === 'phone'} onChange={() => setSearchType('phone')} />
+              Search by Customer Phone
             </label>
           </div>
-          <div className="ret-search-box">
+
+          <form onSubmit={handleSearch} className="ret-search-box">
             <input
-              type={searchMode === 'phone' ? 'tel' : 'text'}
-              value={searchValue}
-              onChange={e => {
-                if (searchMode === 'phone') {
-                  setSearchValue(filterSriLankanPhoneInput(e.target.value));
-                } else {
-                  setSearchValue(e.target.value);
-                }
-              }}
-              placeholder={searchMode === 'bill_no' ? 'e.g. INV-2024-0001' : 'e.g. 0771234567 (070-078 only)'}
-              maxLength={searchMode === 'phone' ? 10 : undefined}
+              type="text"
+              placeholder={searchType === 'bill' ? 'Enter Invoice / Bill No…' : 'Enter Customer Phone Number…'}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
-            <button onClick={searchBills}>Search</button>
-          </div>
+            <button type="submit" disabled={loading}>
+              <Search size={16} style={{ display: 'inline', marginRight: 6 }} />
+              {loading ? 'Searching…' : 'Lookup Invoice'}
+            </button>
+          </form>
 
-          {loading && <p style={{ color: '#888', fontSize: 14 }}>Searching…</p>}
-
-          {searchResults.length > 0 && (
+          {billsList.length > 1 && (
             <div className="ret-bill-results">
-              {searchResults.map(b => (
-                <div key={b.bill_id} className="ret-bill-result-item" onClick={() => selectBill(b)}>
+              <h3 style={{ fontSize: '14px', color: '#555', margin: '0 0 10px' }}>Select an Invoice:</h3>
+              {billsList.map(bill => (
+                <div key={bill.bill_id} className="ret-bill-result-item" onClick={() => selectBill(bill)}>
                   <div>
-                    <div className="bill-no">Bill #{b.bill_no}</div>
+                    <div className="bill-no">{bill.bill_no || `INV-${bill.bill_id}`}</div>
                     <div className="bill-date">
-                      {new Date(b.bill_date).toLocaleString()} &nbsp;·&nbsp; <strong style={{ color: '#333' }}>{b.customer?.customer_name || 'Walk-in'}</strong> {b.customer?.phone_no ? `(${b.customer.phone_no})` : ''}
+                      {new Date(bill.bill_date).toLocaleDateString()} — {bill.customer?.customer_name || 'Walk-in Customer'}
                     </div>
                   </div>
-                  <div className="bill-total">Rs. {parseFloat(b.total_amount).toFixed(2)}</div>
+                  <div className="bill-total">LKR {parseFloat(bill.total_amount || 0).toFixed(2)}</div>
                 </div>
               ))}
             </div>
           )}
         </div>
       ) : (
-        /* ===== ITEM SELECTION ===== */
+        /* Steps 2-4 */
         <div>
-          {/* Back to Search button above the search/item selection card */}
-          <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '16px' }}>
+          {/* Invoice bar */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <button className="ret-back-btn" onClick={() => setSelectedBill(null)}>
-              ← Back to Search
+              ← Different Invoice
             </button>
+            <div style={{ fontSize: '15px', color: '#333' }}>
+              Invoice:&nbsp;
+              <strong style={{ color: '#800000' }}>
+                {selectedBill.bill_no || `INV-${selectedBill.bill_id}`}
+              </strong>
+              &nbsp;({new Date(selectedBill.bill_date).toLocaleDateString()})
+              {selectedBill.customer?.customer_name &&
+                <> &mdash; {selectedBill.customer.customer_name}</>}
+            </div>
           </div>
 
           <div className="ret-content">
-            {/* Left — item list */}
+            {/* ── Left: item cards ── */}
             <div className="ret-left">
               <div className="ret-section-header">
-                <h2>Select Items to Return</h2>
-                <button className="ret-select-all-btn" onClick={selectAll}>Select All</button>
+                <h2>Step 2 &amp; 3: Select Products &amp; Inspect</h2>
+                <button className="ret-select-all-btn" onClick={toggleAll}>
+                  {allSelected ? 'Deselect All' : 'Select All Items'}
+                </button>
               </div>
 
-              {selectedBill.bill_items?.map(item => {
-                const isSelected = !!returnItems[item.product_id];
-                const ri = returnItems[item.product_id];
-
-                return (
-                  <div key={item.product_id} className={`ret-item-card${isSelected ? ' selected' : ''}`}>
-                    {/* Row */}
-                    <div className="ret-item-header" onClick={() => toggleItem(item)}>
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleItem(item)}
-                        onClick={e => e.stopPropagation()}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div className="ret-item-name">{item.product?.product_name}</div>
-                        <div className="ret-item-meta">
-                          Qty sold: {item.quantity} &nbsp;·&nbsp; Unit price: Rs. {parseFloat(item.price_per_unit).toFixed(2)}
-                          {item.discount > 0 && ` · Discount: Rs. ${item.discount}`}
-                        </div>
-                      </div>
-                      <div className="ret-item-total">Rs. {parseFloat(item.total_price).toFixed(2)}</div>
-                    </div>
-
-                    {/* Expanded fields */}
-                    {isSelected && (
-                      <div className="ret-item-fields">
-                        <div>
-                          <label>Return Qty (max {item.quantity})</label>
-                          <input
-                            type="number"
-                            min={1}
-                            max={item.quantity}
-                            value={ri.return_quantity}
-                            onChange={e =>
-                              updateField(item.product_id, 'return_quantity',
-                                Math.min(Math.max(1, Number(e.target.value)), item.quantity))
-                            }
-                          />
-                        </div>
-                        <div>
-                          <label>Reason</label>
-                          <select
-                            value={ri.return_reason}
-                            onChange={e => updateField(item.product_id, 'return_reason', e.target.value)}
-                          >
-                            {REASONS.map(r => <option key={r} value={r}>{r}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label>Destination</label>
-                          <select
-                            value={ri.destination}
-                            onChange={e => updateField(item.product_id, 'destination', e.target.value)}
-                          >
-                            {DESTINATIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
-                          </select>
-                        </div>
-                        <div className="span-full">
-                          <label>{ri.return_reason === 'Other' ? 'Notes (required)' : 'Notes (optional)'}</label>
-                          <input
-                            type="text"
-                            placeholder="Any additional notes…"
-                            value={ri.destination_note}
-                            onChange={e => updateField(item.product_id, 'destination_note', e.target.value)}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+              {Object.values(selectedItems).map(item => (
+                <ReturnItemCard
+                  key={item.product_id}
+                  item={item}
+                  onToggle={() => toggleItem(item.product_id)}
+                  onFieldChange={(f, v) => changeItemField(item.product_id, f, v)}
+                  calcPayment={calcCustomerPayment}
+                />
+              ))}
             </div>
 
-            {/* Right — summary */}
-            <div className="ret-right">
-              <h3>Return Summary</h3>
-
-              <div className="ret-summary-row">
-                <span>Bill Number</span>
-                <span>{selectedBill.bill_no}</span>
-              </div>
-              <div className="ret-summary-row">
-                <span>Customer</span>
-                <span>{selectedBill.customer?.customer_name || 'Walk-in'}</span>
-              </div>
-              {selectedBill.customer?.phone_no && (
-                <div className="ret-summary-row">
-                  <span>Phone</span>
-                  <span>{selectedBill.customer.phone_no}</span>
-                </div>
-              )}
-              <div className="ret-summary-row">
-                <span>Items Selected</span>
-                <span>{Object.keys(returnItems).length}</span>
-              </div>
-
-              <hr className="ret-divider" />
-
-              <div className="ret-summary-row">
-                <span>Total Bill</span>
-                <span>Rs. {totalBill.toFixed(2)}</span>
-              </div>
-              <div className="ret-summary-row">
-                <span>How Much Paid</span>
-                <span>Rs. {howMuchPaid.toFixed(2)}</span>
-              </div>
-              <div className="ret-summary-row">
-                <span>Returned Products Value</span>
-                <span>Rs. {totalReturnedValue.toFixed(2)}</span>
-              </div>
-              <div className="ret-summary-row">
-                <span>How much should be Pay</span>
-                <span style={{ color: remainingBalancePayable > 0 ? '#b30000' : '#333', fontWeight: 'bold' }}>
-                  Rs. {remainingBalancePayable.toFixed(2)}
-                </span>
-              </div>
-
-              <hr className="ret-divider" />
-
-              {/* Supplier picker if needed */}
-              {Object.values(returnItems).some(i => i.destination === 'SUPPLIER') && (
-                <div className="ret-supplier-box" ref={supplierBoxRef}>
-                  <label>Supplier (required)</label>
-
-                  {selectedSupplier ? (
-                    /* ---- selected chip ---- */
-                    <div className="ret-supplier-selected">
-                      <span className="ret-supplier-chip">
-                        <span className="chip-id">#{selectedSupplier.supplier_id}</span>
-                        <span className="chip-name">{selectedSupplier.supplier_name}</span>
-                      </span>
-                      <button
-                        className="ret-supplier-clear"
-                        onClick={handleClearSupplier}
-                        title="Change supplier"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ) : (
-                    /* ---- search input + dropdown ---- */
-                    <div className="ret-supplier-search-wrap">
-                      <input
-                        type="text"
-                        className="ret-supplier-search-input"
-                        value={supplierSearch}
-                        onChange={e => { setSupplierSearch(e.target.value); setSupplierDropOpen(true); }}
-                        onFocus={() => setSupplierDropOpen(true)}
-                        placeholder="Search by name or ID…"
-                        autoComplete="off"
-                      />
-                      {supplierDropOpen && (
-                        <div className="ret-supplier-dropdown">
-                          {filteredSuppliers.length === 0 ? (
-                            <div className="ret-supplier-no-result">No suppliers found</div>
-                          ) : (
-                            filteredSuppliers.map(s => (
-                              <div
-                                key={s.supplier_id}
-                                className="ret-supplier-option"
-                                onMouseDown={() => handleSelectSupplier(s)}
-                              >
-                                <span className="opt-id">#{s.supplier_id}</span>
-                                <span className="opt-name">{s.supplier_name}</span>
-                                {s.supplier_code && <span className="opt-code">{s.supplier_code}</span>}
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="ret-total-row">
-                <span className="label" style={{ fontWeight: '600' }}>Should Return to Customer</span>
-                <span className="amount">Rs. {actualRefundToCustomer.toFixed(2)}</span>
-              </div>
-
-              <button
-                className="ret-confirm-btn"
-                disabled={loading || Object.keys(returnItems).length === 0}
-                onClick={submitReturn}
-              >
-                {loading ? 'Processing…' : 'Confirm Return'}
-              </button>
-            </div>
+            {/* ── Right: summary panel ── */}
+            <SummaryPanel
+              selectedItems={selectedList}
+              globalDecision={globalDecision}
+              onGlobalDecisionChange={setGlobalDecision}
+              suppliers={suppliers}
+              globalSupplierId={globalSupplierId}
+              onSupplierChange={setGlobalSupplierId}
+              onSubmit={handleSubmit}
+              submitting={submitting}
+            />
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

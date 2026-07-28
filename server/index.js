@@ -13,6 +13,7 @@ const seedDefaultAdmin = require('./scripts/seedDefaultAdmin');
 const ensureSupplierSchema = require('./scripts/ensureSupplierSchema');
 const ensureProjectSchema = require('./scripts/ensureProjectSchema');
 const ensureMultiUnitSchema = require('./scripts/ensureMultiUnitSchema');
+const ensureReturnSchema = require('./scripts/ensureReturnSchema');
 const { startNearExpiryCron } = require('./cron/nearExpiryCron');
 
 const app    = express();
@@ -41,6 +42,7 @@ db.sequelize.sync({ force: false })
     await ensureSupplierSchema();
     await ensureProjectSchema();
     await ensureMultiUnitSchema();
+    await ensureReturnSchema();
     await seedDefaultAdmin();
     startNearExpiryCron();
   })
@@ -98,6 +100,7 @@ const billRoutes         = require('./routes/billRoutes');
 const billItemsRoutes    = require('./routes/billItemsRoutes');
 const paymentRoutes      = require('./routes/paymentRoutes');
 const returnRoutes       = require('./routes/returnRoutes');
+const supplierServiceRoutes = require('./routes/supplierServiceRoutes');
 const alertRoutes        = require('./routes/alertRoutes');
 const purchaseOrderRoutes = require('./routes/purchaseOrderRoutes');
 const poItemsRoutes      = require('./routes/poItemsRoutes');
@@ -132,6 +135,7 @@ app.use('/api/bills',          authMiddleware, billRoutes);
 app.use('/api/bill_items',     billItemsRoutes);
 app.use('/api/payments',       authMiddleware, paymentRoutes);
 app.use('/api/returns',        authMiddleware, returnRoutes);
+app.use('/api/supplier-services', authMiddleware, supplierServiceRoutes);
 app.use('/api/alerts',         alertRoutes);
 app.use('/api/purchase_orders', purchaseOrderRoutes);
 app.use('/api/po_items',       poItemsRoutes);

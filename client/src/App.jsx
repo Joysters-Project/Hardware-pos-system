@@ -12,6 +12,8 @@ import Signup from "./pages/Signup";
 import ReturnsLayout from "./pages/returns/ReturnsLayout";
 import ProcessReturn from "./pages/returns/ProcessReturn";
 import ReturnInventory from "./pages/returns/ReturnInventory";
+import ReturnList from "./pages/returns/ReturnList";
+import SupplierServiceTracking from "./pages/returns/SupplierServiceTracking";
 
 import ForgotPassword from "./pages/ForgotPassword";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -99,6 +101,8 @@ function AppRoutes() {
       <Route path="/returns" element={<ProtectedRoute><ReturnsLayout /></ProtectedRoute>}>
         <Route index element={<Navigate to="process" replace />} />
         <Route path="process" element={<ProcessReturn />} />
+        <Route path="history" element={<ReturnList />} />
+        <Route path="supplier-services" element={<SupplierServiceTracking />} />
         <Route path="inventory" element={<ReturnInventory />} />
       </Route>
       {/* <Route path="/return-logs"    element={<ProtectedRoute><ReturnLogsPage /></ProtectedRoute>} /> */}
@@ -161,6 +165,8 @@ function AppRoutes() {
       <Route path="/returns" element={<ProtectedRoute><ReturnsLayout /></ProtectedRoute>}>
         <Route index element={<Navigate to="process" replace />} />
         <Route path="process" element={<ProcessReturn />} />
+        <Route path="history" element={<ReturnList />} />
+        <Route path="supplier-services" element={<SupplierServiceTracking />} />
         <Route path="inventory" element={<ReturnInventory />} />
       </Route>
       <Route 
