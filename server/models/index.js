@@ -90,6 +90,7 @@ const procurement_notifications = require('./procurement_notifications');
 const auto_reorder_suggestions = require('./auto_reorder_suggestions');
 const email_logs = require('./email_logs');
 const supplier_documents = require('./supplier_documents');
+const batch_inventory    = require('./batch_inventory');
 const product_units = require('./product_units');
 const inventory_statuses = require('./inventory_statuses');
 const product_warranties = require('./product_warranties');
@@ -128,6 +129,7 @@ const db = {
   auto_reorder_suggestions: auto_reorder_suggestions(sequelize),
   email_logs:       email_logs(sequelize),
   supplier_documents: supplier_documents(sequelize),
+  batch_inventory:     batch_inventory(sequelize),
   product_units:    product_units(sequelize),
   inventory_statuses: inventory_statuses(sequelize),
   product_warranties: product_warranties(sequelize),
@@ -253,5 +255,13 @@ db.products.belongsTo(db.suppliers, { foreignKey: 'preferred_supplier_id', as: '
 
 db.suppliers.hasMany(db.supplier_documents, { foreignKey: 'supplier_id' });
 db.supplier_documents.belongsTo(db.suppliers, { foreignKey: 'supplier_id' });
+
+// Batch Inventory
+db.products.hasMany(db.batch_inventory, { foreignKey: 'product_id' });
+db.batch_inventory.belongsTo(db.products, { foreignKey: 'product_id' });
+db.purchase_orders.hasMany(db.batch_inventory, { foreignKey: 'purchase_order_id' });
+db.batch_inventory.belongsTo(db.purchase_orders, { foreignKey: 'purchase_order_id' });
+db.suppliers.hasMany(db.batch_inventory, { foreignKey: 'supplier_id' });
+db.batch_inventory.belongsTo(db.suppliers, { foreignKey: 'supplier_id' });
 
 module.exports = db;

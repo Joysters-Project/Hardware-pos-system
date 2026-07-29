@@ -294,6 +294,14 @@
   white-space: nowrap;
 }
 
+.action-btn--po-created {
+  background: rgba(34, 197, 94, 0.08);
+  color: #15803d;
+  border-color: rgba(34, 197, 94, 0.3);
+  cursor: default;
+  opacity: 0.85;
+}
+
 .action-btn--po {
   background: rgba(139, 58, 58, 0.07);
   color: #8b3a3a;
@@ -314,15 +322,24 @@
   background: rgba(168, 85, 247, 0.16);
 }
 
-.action-btn--resolve {
-  background: #fff;
-  color: #4b5563;
-  border-color: #e5e7eb;
+.action-btn--dispose {
+  background: rgba(153, 27, 27, 0.07);
+  color: #991b1b;
+  border-color: rgba(153, 27, 27, 0.25);
 }
 
-.action-btn--resolve:hover:not(:disabled) {
-  background: #f9fafb;
-  border-color: #d1d5db;
+.action-btn--dispose:hover {
+  background: rgba(153, 27, 27, 0.14);
+}
+
+.action-btn--review {
+  background: rgba(168, 85, 247, 0.08);
+  color: #7c3aed;
+  border-color: rgba(168, 85, 247, 0.25);
+}
+
+.action-btn--review:hover {
+  background: rgba(168, 85, 247, 0.16);
 }
 
 .action-btn:disabled {
@@ -345,3 +362,149 @@
     min-width: 700px;
   }
 }
+
+/* ── Dispose Stock Modal ── */
+.dispose-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.dispose-modal {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.18);
+  width: 100%;
+  max-width: 420px;
+  overflow: hidden;
+  animation: dispose-in 0.2s ease-out;
+}
+
+@keyframes dispose-in {
+  from { opacity: 0; transform: scale(0.95) translateY(-8px); }
+  to   { opacity: 1; transform: scale(1)   translateY(0); }
+}
+
+.dispose-modal-header {
+  background: linear-gradient(135deg, #991b1b, #b91c1c);
+  color: #fff;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.dispose-close {
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.8);
+  font-size: 1rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+.dispose-close:hover { color: #fff; }
+.dispose-close:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.dispose-modal-body {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dispose-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.dispose-row--input {
+  align-items: center;
+}
+
+.dispose-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #5e4a48;
+  flex-shrink: 0;
+}
+
+.dispose-value {
+  font-size: 0.9rem;
+  color: #2b2b2b;
+  font-weight: 600;
+  text-align: right;
+}
+
+.dispose-qty-input {
+  width: 90px;
+  padding: 0.45rem 0.65rem;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #2b2b2b;
+  text-align: center;
+  transition: border-color 0.2s;
+}
+.dispose-qty-input:focus {
+  outline: none;
+  border-color: #991b1b;
+  box-shadow: 0 0 0 3px rgba(153, 27, 27, 0.1);
+}
+.dispose-qty-input:disabled { opacity: 0.6; }
+
+.dispose-error {
+  font-size: 0.78rem;
+  color: #b91c1c;
+  margin: 0;
+  font-weight: 600;
+}
+
+.dispose-modal-footer {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid #f0eded;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.dispose-btn-cancel {
+  padding: 0.55rem 1.1rem;
+  border: 1.5px solid #ddd;
+  border-radius: 9px;
+  background: transparent;
+  color: #555;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.dispose-btn-cancel:hover:not(:disabled) { border-color: #991b1b; color: #991b1b; }
+.dispose-btn-cancel:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.dispose-btn-confirm {
+  padding: 0.55rem 1.25rem;
+  border: none;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #991b1b, #b91c1c);
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(153, 27, 27, 0.25);
+  transition: all 0.2s;
+}
+.dispose-btn-confirm:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(153, 27, 27, 0.32); }
+.dispose-btn-confirm:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }

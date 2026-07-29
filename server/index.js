@@ -119,6 +119,7 @@ const autoReorderRoutes              = require('./routes/autoReorderRoutes');
 const forecastRoutes                 = require('./routes/forecastRoutes');
 const procurementNotificationRoutes  = require('./routes/procurementNotificationRoutes');
 const supplierPerformanceRoutes      = require('./routes/supplierPerformanceRoutes');
+const batchRoutes                    = require('./routes/batchRoutes');
 
 app.use('/api/departments',    departmentRoutes);
 app.use('/api/employees',      employeeRoutes);
@@ -156,8 +157,9 @@ app.use('/api/procurement/reorder',         autoReorderRoutes);
 app.use('/api/procurement/forecast',        forecastRoutes);
 app.use('/api/procurement/notifications',   procurementNotificationRoutes);
 app.use('/api/procurement/performance',     supplierPerformanceRoutes);
-app.use('/api/RR_suppliers',               RR_supplierRoutes);
-app.use('/api/RR_purchase_orders',         RR_purchaseOrderRoutes);
+app.use('/api/RR_suppliers',        RR_supplierRoutes);
+app.use('/api/RR_purchase_orders',  RR_purchaseOrderRoutes);
+app.use('/api/batch-inventory',     batchRoutes);
 
 // ── Cron Jobs ─────────────────────────────────────────────────────────────────
 

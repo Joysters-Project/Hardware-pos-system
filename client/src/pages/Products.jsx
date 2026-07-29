@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Pencil, Trash2, Eye, Plus, RefreshCw, FileDown, AlertTriangle, Settings, Check, X } from "lucide-react";
+import { Pencil, Trash2, Eye, Plus, RefreshCw, FileDown, Layers } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../api/axios";
 import AdminDashboard from "./AdminDashboard";
@@ -227,10 +228,84 @@ function ProductsPage() {
 
   /* View modal */
   const [viewProduct, setViewProduct] = useState(null);
+  const [productBatches, setProductBatches] = useState([]);
+  const [batchesLoading, setBatchesLoading] = useState(false);
   const printRef = useRef(null);
 
-  /* Units manager modal */
-  const [unitsModal, setUnitsModal] = useState(false);
+  const openView = useCallback(async (p) => {
+    setViewProduct(p);
+    setProductBatches([]);
+    setBatchesLoading(true);
+    try {
+      const res = await api.get(`/batch-inventory/product/${p.product_id}`);
+      setProductBatches(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setProductBatches([]);
+    } finally {
+      setBatchesLoading(false);
+    }
+  }, []);
+
+  const exportPDF = () => {
+    const printContent = printRef.current;
+    if (!printContent) return;
+    const win = window.open("", "_blank", "width=800,height=700");
+    win.document.write(`
+			<!DOCTYPE html><html><head><title>Product Details — #${viewProduct.product_id}</title>
+			<style>
+				* { margin: 0; padding: 0; box-sizing: border-box; }
+				body { font-family: 'Segoe UI', sans-serif; background: #fff; color: #222; padding: 36px; }
+				.pdf-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #8b3a3a; padding-bottom: 16px; margin-bottom: 24px; }
+				.pdf-header h1 { font-size: 22px; color: #8b3a3a; font-weight: 700; }
+				.pdf-header p { font-size: 12px; color: #888; margin-top: 4px; }
+				.pdf-meta { text-align: right; font-size: 12px; color: #888; }
+				.section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #8b3a3a; margin: 20px 0 8px; border-bottom: 1px solid #f0e0e0; padding-bottom: 4px; }
+				table { width: 100%; border-collapse: collapse; }
+				tr:nth-child(even) td { background: #fdf8f8; }
+				td { padding: 9px 14px; font-size: 13px; border-bottom: 1px solid #f0f0f0; }
+				td:first-child { color: #777; font-weight: 600; width: 42%; }
+				td:last-child { color: #222; font-weight: 500; }
+				.badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+				.badge.active { background: #e5f7eb; color: #1d7e42; }
+				.badge.inactive { background: #f8e7e7; color: #a13232; }
+				.footer { margin-top: 32px; text-align: center; font-size: 11px; color: #aaa; border-top: 1px solid #f0f0f0; padding-top: 12px; }
+			</style></head><body>
+			<div class="pdf-header">
+				<div><h1>Product Details</h1><p>Hardware POS System</p></div>
+				<div class="pdf-meta">Generated: ${new Date().toLocaleString()}</div>
+			</div>
+			<div class="section-title">Basic Information</div>
+			<table>
+				<tr><td>Product ID</td><td>#${viewProduct.product_id}</td></tr>
+				<tr><td>Product Name</td><td>${viewProduct.product_name || "—"}</td></tr>
+				<tr><td>Type</td><td>${viewProduct.type || "—"}</td></tr>
+				<tr><td>Batch No</td><td>${viewProduct.batch_no || "—"}</td></tr>
+				<tr><td>Status</td><td><span class="badge ${String(viewProduct.status).toLowerCase() === 'inactive' ? 'inactive' : 'active'}">${String(viewProduct.status).toLowerCase() === 'inactive' ? 'Inactive' : 'Active'}</span></td></tr>
+			</table>
+			<div class="section-title">Classification</div>
+			<table>
+				<tr><td>Category</td><td>${categoryMap.get(Number(viewProduct.category_id)) || "—"}</td></tr>
+				<tr><td>Brand</td><td>${brandMap.get(Number(viewProduct.brand_id)) || "—"}</td></tr>
+				<tr><td>Unit</td><td>${unitMap.get(Number(viewProduct.unit_id)) || "—"}</td></tr>
+			</table>
+			<div class="section-title">Pricing</div>
+			<table>
+				<tr><td>Unit Price</td><td>Rs. ${Number(viewProduct.unit_price || 0).toFixed(2)}</td></tr>
+				<tr><td>Cost Price</td><td>Rs. ${Number(viewProduct.cost_price || 0).toFixed(2)}</td></tr>
+			</table>
+			<div class="section-title">Stock Details</div>
+			<table>
+				<tr><td>Stock Quantity</td><td>${viewProduct.stock_quantity ?? 0}</td></tr>
+				<tr><td>Min Stock</td><td>${viewProduct.min_stock_quantity ?? 0}</td></tr>
+				<tr><td>Reorder Level</td><td>${viewProduct.reorder_level ?? 0}</td></tr>
+			</table>
+			<div class="footer">This document was generated from Hardware POS System &bull; Product #${viewProduct.product_id}</div>
+			</body></html>
+		`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); win.close(); }, 400);
+  };
 
   /* ── data loading ── */
   const loadPageData = async () => {
@@ -530,13 +605,13 @@ function ProductsPage() {
                 <td>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString() : "—"}</td>
                 <td>{p.min_stock_quantity ?? 0}</td>
                 <td>
-                  <span className={`status-pill ${String(p.status).toLowerCase() === "active" ? "active" : "inactive"}`}>
-                    {p.status || "active"}
+                  <span className={`status-pill ${String(p.status).toLowerCase() === "inactive" ? "inactive" : "active"}`}>
+                    {String(p.status).toLowerCase() === "inactive" ? "Inactive" : "Active"}
                   </span>
                 </td>
                 <td>
                   <div className="action-btns">
-                    <button className="icon-btn view" title="View" onClick={() => setViewProduct(p)}>
+                    <button className="icon-btn view" title="View" onClick={() => openView(p)}>
                       <Eye size={15} />
                     </button>
                     <button className="icon-btn edit" title="Edit" onClick={() => openEdit(p)}>
@@ -727,7 +802,7 @@ function ProductsPage() {
 
       {viewProduct && createPortal(
         <div className="modal-overlay" onClick={() => setViewProduct(null)}>
-          <div className="modal-box view-modal" style={{ maxWidth: 580 }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-box view-modal" style={{ maxWidth: 620 }} onClick={(e) => e.stopPropagation()} ref={printRef}>
             <div className="modal-header">
               <h2>Product Details</h2>
               <div className="view-header-actions">
@@ -740,13 +815,21 @@ function ProductsPage() {
               </div>
             </div>
 
-            {viewProduct.status === "deleted" ? (
-              <div style={{ padding: "2rem", textAlign: "center", color: "#888" }}>
-                <AlertTriangle size={48} style={{ color: "#8b3a3a", marginBottom: "1rem" }} />
-                <h3>Product Discontinued</h3>
-                <p style={{ fontSize: "0.9rem", marginTop: "0.5rem" }}>
-                  This product has been deleted or is no longer active.
-                </p>
+            <div className="view-section">
+              <p className="view-section-title">Basic Information</p>
+              <div className="view-grid">
+                {[
+                  ["Product ID", `#${viewProduct.product_id}`],
+                  ["Product Name", viewProduct.product_name],
+                  ["Type", viewProduct.type || "—"],
+                  ["Batch No", viewProduct.batch_no || "—"],
+                  ["Status", <span key="s" className={`status-pill ${String(viewProduct.status).toLowerCase() === "inactive" ? "inactive" : "active"}`}>{String(viewProduct.status).toLowerCase() === "inactive" ? "Inactive" : "Active"}</span>],
+                ].map(([label, value]) => (
+                  <div className="view-row" key={label}>
+                    <span className="view-label">{label}</span>
+                    <span className="view-value">{value}</span>
+                  </div>
+                ))}
               </div>
             ) : (
               <>
@@ -830,38 +913,48 @@ function ProductsPage() {
                       </div>
                     ))}
                   </div>
-                </div>
+                ))}
+              </div>
+            </div>
 
-                {/* Alternative Units */}
-                {Array.isArray(viewProduct.alternative_units) && viewProduct.alternative_units.length > 0 && (
-                  <div className="view-section">
-                    <h3 className="view-section-title">Alternative Packaging Units</h3>
-                    <table className="view-alt-units-table">
-                      <thead>
-                        <tr>
-                          <th>Unit</th>
-                          <th>Conversion</th>
-                          <th>Sell Price</th>
-                          <th>Cost Price</th>
-                          <th>Barcode</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {viewProduct.alternative_units.map((au, idx) => (
-                          <tr key={idx}>
-                            <td>{au.unit_details?.unit_name || unitMap.get(Number(au.unit_id)) || au.unit_id}</td>
-                            <td>1 = {au.conversion_factor} base</td>
-                            <td>{au.unit_price != null ? `Rs. ${Number(au.unit_price).toFixed(2)}` : "—"}</td>
-                            <td>{au.cost_price != null ? `Rs. ${Number(au.cost_price).toFixed(2)}` : "—"}</td>
-                            <td>{au.barcode || "—"}</td>
-                          </tr>
+            <div className="view-section">
+              <p className="view-section-title">Batch History</p>
+              {batchesLoading ? (
+                <p style={{ fontSize: "0.85rem", color: "#888", padding: "0.5rem 0" }}>Loading batches...</p>
+              ) : productBatches.length === 0 ? (
+                <p style={{ fontSize: "0.85rem", color: "#aaa", padding: "0.5rem 0" }}>No batches found for this product.</p>
+              ) : (
+                <div style={{ overflowX: "auto", borderRadius: 8, border: "1px solid #f0e0e0" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                    <thead>
+                      <tr style={{ background: "linear-gradient(135deg,#8b3a3a,#a84545)", color: "#fff" }}>
+                        {["Batch", "Supplier", "PO", "Buy Price", "Rcvd", "Rem", "Rcvd Date", "Expiry", "Status"].map(h => (
+                          <th key={h} style={{ padding: "6px 8px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>{h}</th>
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </>
-            )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {productBatches.map((b, i) => {
+                        const BSTYLE = { Active: { background: "#e5f7eb", color: "#1d7e42" }, "Low Stock": { background: "#fff3e0", color: "#e65100" }, Expired: { background: "#fdecea", color: "#c62828" }, Disposed: { background: "#f0f0f0", color: "#888" } };
+                        return (
+                          <tr key={b.batch_id} style={{ background: i % 2 === 0 ? "#fff" : "#fdf8f8", borderTop: "1px solid #f5f0f0" }}>
+                            <td style={{ padding: "5px 8px", fontWeight: 600 }}>{b.batch_number}</td>
+                            <td style={{ padding: "5px 8px" }}>{b.supplier?.supplier_name || "—"}</td>
+                            <td style={{ padding: "5px 8px" }}>{b.purchase_order?.po_number || "—"}</td>
+                            <td style={{ padding: "5px 8px" }}>Rs.{Number(b.purchase_price || 0).toFixed(2)}</td>
+                            <td style={{ padding: "5px 8px" }}>{b.received_quantity}</td>
+                            <td style={{ padding: "5px 8px", fontWeight: 700 }}>{b.remaining_quantity}</td>
+                            <td style={{ padding: "5px 8px" }}>{b.received_date ? new Date(b.received_date).toLocaleDateString("en-GB") : "—"}</td>
+                            <td style={{ padding: "5px 8px" }}>{b.expiry_date ? new Date(b.expiry_date).toLocaleDateString("en-GB") : "—"}</td>
+                            <td style={{ padding: "5px 8px" }}><span className="status-pill" style={BSTYLE[b.status] || {}}>{b.status}</span></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         </div>,
         document.body
