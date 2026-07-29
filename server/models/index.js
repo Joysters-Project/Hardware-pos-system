@@ -32,6 +32,8 @@ try {
   console.warn('⚠️ Could not read config/config.json, using environment variables only');
 }
 
+console.log('[Sequelize] Connecting to DB:', dbConfig.database, 'at', dbConfig.host + ':' + dbConfig.port, 'user:', dbConfig.username);
+
 const sequelize = new Sequelize(
   dbConfig.database,
   dbConfig.username,
@@ -45,7 +47,15 @@ const sequelize = new Sequelize(
     dialectOptions: {
       dateStrings: true,
       typeCast: true,
-      timezone: '+05:30' 
+      timezone: '+05:30',
+      connectTimeout: 10000,
+      multipleStatements: true
+    },
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 15000,
+      idle: 10000
     }
   }
 );
@@ -73,11 +83,18 @@ const po_items        = require('./po_items');
 const assets           = require('./assets');
 const expenses         = require('./expenses');
 const salary_payments  = require('./salary_payments');
+const projects         = require('./projects');
+const project_items    = require('./project_items');
 const supplier_payments = require('./supplier_payments');
 const procurement_notifications = require('./procurement_notifications');
 const auto_reorder_suggestions = require('./auto_reorder_suggestions');
 const email_logs = require('./email_logs');
 const supplier_documents = require('./supplier_documents');
+const batch_inventory    = require('./batch_inventory');
+const product_units = require('./product_units');
+const inventory_statuses = require('./inventory_statuses');
+const product_warranties = require('./product_warranties');
+const supplier_services = require('./supplier_services');
 
 // 3. Initialize the DB object
 const db = {
@@ -105,11 +122,18 @@ const db = {
   assets:           assets(sequelize),
   expenses:         expenses(sequelize),
   salary_payments:  salary_payments(sequelize),
+  projects:         projects(sequelize),
+  project_items:    project_items(sequelize),
   supplier_payments: supplier_payments(sequelize),
   procurement_notifications: procurement_notifications(sequelize),
   auto_reorder_suggestions: auto_reorder_suggestions(sequelize),
   email_logs:       email_logs(sequelize),
   supplier_documents: supplier_documents(sequelize),
+  batch_inventory:     batch_inventory(sequelize),
+  product_units:    product_units(sequelize),
+  inventory_statuses: inventory_statuses(sequelize),
+  product_warranties: product_warranties(sequelize),
+  supplier_services:  supplier_services(sequelize),
 };
 
 // 4. Define Relationships
@@ -130,14 +154,27 @@ db.units.hasMany(db.products,  { foreignKey: 'unit_id' });
 db.products.belongsTo(db.units, { foreignKey: 'unit_id' });
 db.products.hasMany(db.alerts,  { foreignKey: 'product_id' });
 db.alerts.belongsTo(db.products, { foreignKey: 'product_id' });
+db.products.hasMany(db.product_units, { foreignKey: 'product_id', as: 'alternative_units' });
+db.product_units.belongsTo(db.products, { foreignKey: 'product_id' });
+db.product_units.belongsTo(db.units, { foreignKey: 'unit_id', as: 'unit_details' });
+
+// Inventory Status & Warranty relations
+db.products.hasOne(db.inventory_statuses, { foreignKey: 'product_id', as: 'inventory_status' });
+db.inventory_statuses.belongsTo(db.products, { foreignKey: 'product_id' });
+db.products.hasMany(db.product_warranties, { foreignKey: 'product_id', as: 'warranties' });
+db.product_warranties.belongsTo(db.products, { foreignKey: 'product_id' });
 
 // Sales Module
 db.users.hasMany(db.bills, { foreignKey: 'user_id' });
 db.bills.belongsTo(db.users, { foreignKey: 'user_id' });
 db.customers.hasMany(db.bills, { foreignKey: 'customer_id' });
 db.bills.belongsTo(db.customers, { foreignKey: 'customer_id' });
+db.customers.hasMany(db.returns, { foreignKey: 'customer_id' });
+db.returns.belongsTo(db.customers, { foreignKey: 'customer_id' });
 db.bills.hasMany(db.bill_items, { foreignKey: 'bill_id' });
 db.bill_items.belongsTo(db.bills, { foreignKey: 'bill_id' });
+db.units.hasMany(db.bill_items, { foreignKey: 'billed_unit_id' });
+db.bill_items.belongsTo(db.units, { foreignKey: 'billed_unit_id', as: 'billed_unit' });
 db.bill_items.addScope('forBill', {
   unique: 'bill_product_unique',
   fields: ['bill_id', 'product_id']
@@ -154,6 +191,11 @@ db.return_items.belongsTo(db.returns, { foreignKey: 'return_id' });
 
 db.products.hasMany(db.return_items, { foreignKey: 'product_id' });
 db.return_items.belongsTo(db.products, { foreignKey: 'product_id' });
+
+db.return_items.hasOne(db.supplier_services, { foreignKey: 'return_item_id', as: 'supplier_service' });
+db.supplier_services.belongsTo(db.return_items, { foreignKey: 'return_item_id' });
+db.suppliers.hasMany(db.supplier_services, { foreignKey: 'supplier_id' });
+db.supplier_services.belongsTo(db.suppliers, { foreignKey: 'supplier_id' });
 
 db.returns.hasOne(db.supplier_returns, { foreignKey: 'return_id' });
 db.supplier_returns.belongsTo(db.returns, { foreignKey: 'return_id' });
@@ -182,6 +224,16 @@ db.po_items.belongsTo(db.purchase_orders, { foreignKey: 'po_id' });
 db.products.hasMany(db.po_items, { foreignKey: 'product_id' });
 db.po_items.belongsTo(db.products, { foreignKey: 'product_id' });
 
+// Project Module
+db.users.hasMany(db.projects, { foreignKey: 'created_by', as: 'createdProjects' });
+db.projects.belongsTo(db.users, { foreignKey: 'created_by', as: 'creator' });
+db.projects.hasMany(db.project_items, { foreignKey: 'project_id', as: 'items' });
+db.project_items.belongsTo(db.projects, { foreignKey: 'project_id' });
+db.project_items.belongsTo(db.products, { foreignKey: 'product_id', as: 'product' });
+db.products.hasMany(db.project_items, { foreignKey: 'product_id' });
+db.users.hasMany(db.project_items, { foreignKey: 'taken_by', as: 'takenItems' });
+db.project_items.belongsTo(db.users, { foreignKey: 'taken_by', as: 'takenByUser' });
+
 // Enhanced Procurement relations
 db.suppliers.hasMany(db.supplier_payments, { foreignKey: 'supplier_id' });
 db.supplier_payments.belongsTo(db.suppliers, { foreignKey: 'supplier_id' });
@@ -203,5 +255,13 @@ db.products.belongsTo(db.suppliers, { foreignKey: 'preferred_supplier_id', as: '
 
 db.suppliers.hasMany(db.supplier_documents, { foreignKey: 'supplier_id' });
 db.supplier_documents.belongsTo(db.suppliers, { foreignKey: 'supplier_id' });
+
+// Batch Inventory
+db.products.hasMany(db.batch_inventory, { foreignKey: 'product_id' });
+db.batch_inventory.belongsTo(db.products, { foreignKey: 'product_id' });
+db.purchase_orders.hasMany(db.batch_inventory, { foreignKey: 'purchase_order_id' });
+db.batch_inventory.belongsTo(db.purchase_orders, { foreignKey: 'purchase_order_id' });
+db.suppliers.hasMany(db.batch_inventory, { foreignKey: 'supplier_id' });
+db.batch_inventory.belongsTo(db.suppliers, { foreignKey: 'supplier_id' });
 
 module.exports = db;

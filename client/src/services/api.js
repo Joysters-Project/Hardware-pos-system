@@ -35,6 +35,10 @@ export const brandService = {
 
 export const unitService = {
   getAll: () => api.get('/units'),
+  getById: (id) => api.get(`/units/${id}`),
+  create: (data) => api.post('/units', data),
+  update: (id, data) => api.put(`/units/${id}`, data),
+  delete: (id) => api.delete(`/units/${id}`),
 };
 
 export default api;

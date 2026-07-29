@@ -1,5 +1,4 @@
 const db = require('../models');
-const { Op } = require('sequelize');
 const PDFDocument = require('pdfkit');
 
 exports.getCashierStats = async (req, res) => {
@@ -13,7 +12,7 @@ exports.getCashierStats = async (req, res) => {
     endOfDay.setHours(23, 59, 59, 999);
 
     const dateFilter = {
-      [Op.between]: [startOfDay, endOfDay]
+      $between: [startOfDay, endOfDay]
     };
 
     const whereClause = { bill_date: dateFilter };
@@ -37,7 +36,7 @@ exports.getCashierStats = async (req, res) => {
     if (billIds.length > 0) {
       const items = await db.bill_items.findAll({
         where: {
-          bill_id: { [Op.in]: billIds }
+          bill_id: { $in: billIds }
         }
       });
       items.forEach(item => {
@@ -49,7 +48,7 @@ exports.getCashierStats = async (req, res) => {
     if (billIds.length > 0) {
       returnsCount = await db.returns.count({
         where: {
-          bill_id: { [Op.in]: billIds },
+          bill_id: { $in: billIds },
           return_date: dateFilter
         }
       });
@@ -91,6 +90,7 @@ exports.getCashierStats = async (req, res) => {
 
 exports.getAnalyticalStats = async (req, res) => {
   try {
+    if (!db.bills) return res.status(503).json({ error: 'Database not ready yet, please retry.' });
     // 1. Fetch KPI Core Aggregations from real bills
     const totalAmountSum = await db.bills.sum('total_amount') || 0;
     const totalOrdersCount = await db.bills.count() || 0;
@@ -138,7 +138,7 @@ exports.getAnalyticalStats = async (req, res) => {
     const todayBillsList = await db.bills.findAll({
       attributes: ['bill_id', 'bill_date', 'total_amount'],
       where: {
-        bill_date: { [Op.gte]: startOfToday }
+        bill_date: { $gte: startOfToday }
       },
       order: [['bill_date', 'ASC']]
     });
@@ -178,7 +178,7 @@ exports.getAnalyticalStats = async (req, res) => {
     const weeklyBills = await db.bills.findAll({
       attributes: ['bill_id', 'bill_date', 'total_amount'],
       where: {
-        bill_date: { [Op.gte]: startOf7Days }
+        bill_date: { $gte: startOf7Days }
       }
     });
 
@@ -214,7 +214,7 @@ exports.getAnalyticalStats = async (req, res) => {
     const monthlyBills = await db.bills.findAll({
       attributes: ['bill_id', 'bill_date', 'total_amount'],
       where: {
-        bill_date: { [Op.gte]: startOf6Months }
+        bill_date: { $gte: startOf6Months }
       }
     });
 

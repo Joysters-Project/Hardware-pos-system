@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
 import { Eye, Pencil, Trash2, Plus, Search, RefreshCw, FileDown, X, ChevronLeft, ChevronRight, Users, AlertCircle } from "lucide-react";
 import toast from "react-hot-toast";
@@ -10,7 +11,7 @@ import "../styles/Employees.css";
 
 const BASE_URL = "http://localhost:5000";
 const POSITIONS = ["Admin", "Manager", "Cashier", "Supervisor", "Sales", "Warehouse", "IT", "HR", "Accountant","Other"];
-const EMPTY_FORM = { first_name: "", last_name: "", nic: "", phone_no: "", email: "", address: "", position: "", salary: "", join_date: "", status: "Active", department_id: "" };
+const EMPTY_FORM = { first_name: "", last_name: "", nic: "", phone_no: "", email: "", address: "", position: "", salary: "", salary_category: "monthly", join_date: "", status: "Active", department_id: "" };
 
 function EmployeesPage() {
   const [employees, setEmployees] = useState([]);
@@ -48,6 +49,7 @@ function EmployeesPage() {
     setForm({
       first_name: e.first_name || "", last_name: e.last_name || "", nic: e.nic || "", phone_no: e.phone_no || "",
       email: e.email || "", address: e.address || "", position: e.position || "", salary: e.salary || "",
+      salary_category: e.salary_category || "monthly",
       join_date: e.join_date || e.hire_date || "", status: e.status || "Active", department_id: e.department_id || ""
     });
     setEditId(e.employee_id);
@@ -68,17 +70,47 @@ function EmployeesPage() {
     evt.preventDefault();
     if (!form.first_name || !form.last_name) { toast.error("First and last name required"); return; }
     if (!form.email) {
-    toast.error("Email is required");
-    return;
-  }
+      toast.error("Email is required");
+      return;
+    }
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  if (!emailRegex.test(form.email.trim())) {
-    toast.error("Please enter a valid email address");
-    return;
-  }
-    
+    if (!emailRegex.test(form.email.trim())) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    const normalizedFirst = form.first_name.trim().toLowerCase();
+    const normalizedLast = form.last_name.trim().toLowerCase();
+    const normalizedEmail = form.email.trim().toLowerCase();
+    const normalizedNic = form.nic?.trim().toLowerCase() || '';
+    const normalizedPhone = (form.phone_no || '').trim();
+
+    const sameName = employees.find(emp => {
+      if (editId && emp.employee_id === editId) return false;
+      return emp.first_name?.trim().toLowerCase() === normalizedFirst
+        && emp.last_name?.trim().toLowerCase() === normalizedLast;
+    });
+    if (sameName) {
+      toast.error("Employee with same name already exists");
+      return;
+    }
+
+    const duplicate = employees.find(emp => {
+      if (editId && emp.employee_id === editId) return false;
+      return emp.first_name?.trim().toLowerCase() === normalizedFirst
+        && emp.last_name?.trim().toLowerCase() === normalizedLast
+        && (emp.email?.trim().toLowerCase() || '') === normalizedEmail
+        && (emp.nic?.trim().toLowerCase() || '') === normalizedNic
+        && (emp.phone_no?.trim() || '') === normalizedPhone;
+    });
+
+    if (duplicate) {
+      toast.error("Employee with same details already exists");
+      return;
+    }
+
     // Validate phone number if provided
     if (form.phone_no) {
       const phoneValidation = validateSriLankanPhone(form.phone_no);
@@ -111,7 +143,7 @@ function EmployeesPage() {
   };
 
   const handleView = async (e) => {
-    try { const res = await api.get(`/employees/${e.employee_id}`); setViewEmp(res.data); }
+    try { const res = await api.get(`/employees/${e.employee_id}`); setViewEmp(res.data.data); }
     catch { toast.error("Failed to load details"); }
   };
 
@@ -242,12 +274,12 @@ function EmployeesPage() {
       <div className="emp-table-wrap">
         <table className="emp-table">
           <thead><tr>
-            <th>Photo</th><th>#</th><th>Name</th><th>Position</th><th>Department</th>
+            <th>Photo</th><th>#</th><th>Name</th><th>Position</th><th>Department</th><th>Salary Category</th>
             <th>Phone</th><th>Salary (LKR)</th><th>Status</th><th>Actions</th>
           </tr></thead>
           <tbody>
-            {pageLoading ? <tr><td colSpan="9" className="emp-empty">Loading...</td></tr>
-              : paginated.length === 0 ? <tr><td colSpan="9" className="emp-empty">No employees found</td></tr>
+            {pageLoading ? <tr><td colSpan="10" className="emp-empty">Loading...</td></tr>
+              : paginated.length === 0 ? <tr><td colSpan="10" className="emp-empty">No employees found</td></tr>
                 : paginated.map(e => (
                   <tr key={e.employee_id}>
                     <td>{e.profile_photo
@@ -259,6 +291,7 @@ function EmployeesPage() {
                       <div className="emp-email-sub">{e.email}</div></td>
                     <td>{e.position}</td>
                     <td>{getDeptName(e.department_id)}</td>
+                    <td>{e.salary_category === "daily" ? "Daily Worker" : "Monthly Worker"}</td>
                     <td>{e.phone_no || "—"}</td>
                     <td className="emp-salary-cell">LKR {Number(e.salary || 0).toLocaleString("en-US")}</td>
                     <td><span className={`emp-status-pill ${e.status?.toLowerCase()}`}>{e.status}</span></td>
@@ -281,56 +314,76 @@ function EmployeesPage() {
       </div>}
 
       {/* Add/Edit Modal */}
-      {showModal && <div className="emp-overlay" onClick={closeModal}>
-        <div className="emp-modal emp-modal-lg" onClick={e => e.stopPropagation()}>
-          <div className="emp-modal-header">
-            <h2>{editId ? "Edit Employee" : "Add Employee"}</h2>
-            <button className="emp-modal-close" onClick={closeModal}><X size={18} /></button>
-          </div>
-          <form onSubmit={handleSubmit} className="emp-modal-form">
-            <div className="emp-photo-upload" onClick={() => fileRef.current.click()}>
-              {photoPreview ? <img src={photoPreview} alt="" className="emp-photo-preview" />
-                : <div className="emp-photo-placeholder">📷<br /><small>Click to upload</small></div>}
-              <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhotoChange} />
+      {showModal && createPortal(
+        <div className="emp-overlay" onClick={closeModal}>
+          <div className="emp-modal emp-modal-lg" onClick={e => e.stopPropagation()}>
+            <div className="emp-modal-header">
+              <h2>{editId ? "Edit Employee" : "Add Employee"}</h2>
+              <button className="emp-modal-close" onClick={closeModal}><X size={18} /></button>
             </div>
-            <div className="emp-form-grid">
-              {[["First Name *", "text", "first_name", true], ["Last Name *", "text", "last_name", true],
-              ["NIC", "text", "nic"], ["Email *", "email", "email", true]].map(([label, type, key, req]) => (
-                <div className="emp-field" key={key}>
-                  <label>{label}</label>
-                  <input type={type} value={form[key]} onChange={e => setForm({ ...form, [key]: e.target.value })} required={!!req} />
+            <form onSubmit={handleSubmit} className="emp-modal-form">
+              <div className="emp-photo-upload" onClick={() => fileRef.current.click()}>
+                {photoPreview ? <img src={photoPreview} alt="" className="emp-photo-preview" />
+                  : <div className="emp-photo-placeholder">📷<br /><small>Click to upload</small></div>}
+                <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhotoChange} />
+              </div>
+              <div className="emp-form-grid">
+                {[["First Name *", "text", "first_name", true], ["Last Name *", "text", "last_name", true],
+                ["NIC", "text", "nic"], ["Email *", "email", "email", true]].map(([label, type, key, req]) => (
+                  <div className="emp-field" key={key}>
+                    <label>{label}</label>
+                    <input type={type} value={form[key]} onChange={e => setForm({ ...form, [key]: e.target.value })} required={!!req} />
+                  </div>
+                ))}
+                {/* Phone Field with Validation */}
+                <div className="emp-field">
+                  <label>Phone (Sri Lanka)</label>
+                  <div style={{ position: "relative" }}>
+                    <input 
+                      type="text" 
+                      placeholder="e.g., 0712345678 (10 digits, numbers only)"
+                      value={form.phone_no} 
+                      maxLength="10"
+                      onChange={e => {
+                        // Only allow valid Sri Lankan mobile patterns (070-078)
+                        const filtered = filterSriLankanPhoneInput(e.target.value);
+                        setForm({ ...form, phone_no: filtered });
+                        // Clear error on change
+                        if (phoneError) setPhoneError("");
+                      }} 
+                      style={phoneError ? { borderColor: "#ef4444", borderWidth: "2px" } : {}}
+                    />
+                    {form.phone_no && (
+                      <span style={{ fontSize: "11px", color: "#666", marginTop: "2px", display: "block" }}>
+                        {form.phone_no.length}/10 digits
+                      </span>
+                    )}
+                    {phoneError && (
+                      <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "4px", color: "#ef4444", fontSize: "12px" }}>
+                        <AlertCircle size={14} />
+                        {phoneError}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ))}
-              {/* Phone Field with Validation */}
-              <div className="emp-field">
-                <label>Phone (Sri Lanka)</label>
-                <div style={{ position: "relative" }}>
-                  <input 
-                    type="text" 
-                    placeholder="e.g., 0712345678 (10 digits, numbers only)"
-                    value={form.phone_no} 
-                    maxLength="10"
-                    onChange={e => {
-                      // Only allow valid Sri Lankan mobile patterns (070-078)
-                      const filtered = filterSriLankanPhoneInput(e.target.value);
-                      setForm({ ...form, phone_no: filtered });
-                      // Clear error on change
-                      if (phoneError) setPhoneError("");
-                    }} 
-                    style={phoneError ? { borderColor: "#ef4444", borderWidth: "2px" } : {}}
-                  />
-                  {form.phone_no && (
-                    <span style={{ fontSize: "11px", color: "#666", marginTop: "2px", display: "block" }}>
-                      {form.phone_no.length}/10 digits
-                    </span>
-                  )}
-                  {phoneError && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "4px", color: "#ef4444", fontSize: "12px" }}>
-                      <AlertCircle size={14} />
-                      {phoneError}
-                    </div>
-                  )}
-                </div>
+                <div className="emp-field"><label>Position *</label>
+                  <select value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} required>
+                    <option value=""></option>{POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select></div>
+                <div className="emp-field"><label>Salary (LKR) *</label>
+                  <input type="number" min="0" value={form.salary} onChange={e => setForm({ ...form, salary: e.target.value })} required /></div>
+                <div className="emp-field"><label>Join Date</label>
+                  <input type="date" value={form.join_date} max={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, join_date: e.target.value })} /></div>
+                <div className="emp-field"><label>Department *</label>
+                  <select value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })} required>
+                    <option value=""></option>{departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
+                  </select></div>
+                <div className="emp-field"><label>Status</label>
+                  <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+                    <option value="Active">Active</option><option value="Inactive">Inactive</option><option value="Resigned">Resigned</option>
+                  </select></div>
+                <div className="emp-field emp-field-full"><label>Address</label>
+                  <textarea rows={2} value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Full address..." /></div>
               </div>
               <div className="emp-field"><label>Position *</label>
                 <select value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} required>
@@ -338,6 +391,11 @@ function EmployeesPage() {
                 </select></div>
               <div className="emp-field"><label>Salary (LKR) *</label>
                 <input type="number" min="0" value={form.salary} onChange={e => setForm({ ...form, salary: e.target.value })} required /></div>
+              <div className="emp-field"><label>Salary Category *</label>
+                <select value={form.salary_category} onChange={e => setForm({ ...form, salary_category: e.target.value })} required>
+                  <option value="monthly">Monthly Worker</option>
+                  <option value="daily">Daily Worker</option>
+                </select></div>
               <div className="emp-field"><label>Join Date</label>
                 <input type="date" value={form.join_date} max={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, join_date: e.target.value })} /></div>
               <div className="emp-field"><label>Department *</label>
@@ -360,35 +418,38 @@ function EmployeesPage() {
       </div>}
 
       {/* View Modal */}
-      {viewEmp && <div className="emp-overlay" onClick={() => setViewEmp(null)}>
-        <div className="emp-modal emp-modal-lg" onClick={e => e.stopPropagation()}>
-          <div className="emp-modal-header">
-            <h2>Employee Details</h2>
-            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-              <button className="emp-export-btn" onClick={() => exportViewPDF(viewEmp)}><FileDown size={14} /> Export PDF</button>
-              <button className="emp-modal-close" onClick={() => setViewEmp(null)}><X size={18} /></button>
+      {viewEmp && createPortal(
+        <div className="emp-overlay" onClick={() => setViewEmp(null)}>
+          <div className="emp-modal emp-modal-lg" onClick={e => e.stopPropagation()}>
+            <div className="emp-modal-header">
+              <h2>Employee Details</h2>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <button className="emp-export-btn" onClick={() => exportViewPDF(viewEmp)}><FileDown size={14} /> Export PDF</button>
+                <button className="emp-modal-close" onClick={() => setViewEmp(null)}><X size={18} /></button>
+              </div>
+            </div>
+            <div className="emp-view-top">
+              {viewEmp.profile_photo
+                ? <img src={`${BASE_URL}/${viewEmp.profile_photo}`} alt="" className="emp-view-photo" />
+                : <div className="emp-view-avatar">{viewEmp.first_name?.[0]}{viewEmp.last_name?.[0]}</div>}
+              <div>
+                <h3>{viewEmp.first_name} {viewEmp.last_name}</h3>
+                <p>{viewEmp.position} — {viewEmp.department?.department_name || getDeptName(viewEmp.department_id)}</p>
+                <span className={`emp-status-pill ${viewEmp.status?.toLowerCase()}`}>{viewEmp.status}</span>
+              </div>
+            </div>
+            <div className="emp-view-grid">
+              {[["NIC", viewEmp.nic || "—"], ["Phone", viewEmp.phone_no || "—"], ["Email", viewEmp.email || "—"],
+              ["Salary", `LKR ${Number(viewEmp.salary || 0).toLocaleString("en-US")}`],
+              ["Join Date", viewEmp.join_date ? new Date(viewEmp.join_date).toLocaleDateString() : "—"],
+              ["Address", viewEmp.address || "—"]].map(([l, v]) => (
+                <div className="emp-view-row" key={l}><span className="emp-view-label">{l}</span><span className="emp-view-value">{v}</span></div>
+              ))}
             </div>
           </div>
-          <div className="emp-view-top">
-            {viewEmp.profile_photo
-              ? <img src={`${BASE_URL}/${viewEmp.profile_photo}`} alt="" className="emp-view-photo" />
-              : <div className="emp-view-avatar">{viewEmp.first_name?.[0]}{viewEmp.last_name?.[0]}</div>}
-            <div>
-              <h3>{viewEmp.first_name} {viewEmp.last_name}</h3>
-              <p>{viewEmp.position} — {viewEmp.department?.department_name || getDeptName(viewEmp.department_id)}</p>
-              <span className={`emp-status-pill ${viewEmp.status?.toLowerCase()}`}>{viewEmp.status}</span>
-            </div>
-          </div>
-          <div className="emp-view-grid">
-            {[["NIC", viewEmp.nic || "—"], ["Phone", viewEmp.phone_no || "—"], ["Email", viewEmp.email || "—"],
-            ["Salary", `LKR ${Number(viewEmp.salary || 0).toLocaleString("en-US")}`],
-            ["Join Date", viewEmp.join_date ? new Date(viewEmp.join_date).toLocaleDateString() : "—"],
-            ["Address", viewEmp.address || "—"]].map(([l, v]) => (
-              <div className="emp-view-row" key={l}><span className="emp-view-label">{l}</span><span className="emp-view-value">{v}</span></div>
-            ))}
-          </div>
-        </div>
-      </div>}
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

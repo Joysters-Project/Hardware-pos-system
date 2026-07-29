@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 import Sidebar from "./Sidebar";
+import NavbarNotificationBell from "./NavbarNotificationBell";
 import "../styles/DashboardLayout.css";
 import "../styles/Departments.css";
 
@@ -53,7 +54,10 @@ export default function DashboardLayout({ children, active }) {
         isCollapsed={isCollapsed}
         setIsCollapsed={handleCollapseToggle}
       />
-      <main key={pageTransitionKey} className="admin-content cashier-page-shell">
+      <main className="admin-content">
+        <div className="admin-topbar-bell">
+          <NavbarNotificationBell />
+        </div>
         {children}
       </main>
     </div>

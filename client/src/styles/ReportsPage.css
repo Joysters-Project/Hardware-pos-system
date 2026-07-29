@@ -85,6 +85,11 @@
   gap: 20px;
 }
 
+.chart-container {
+  width: 100%;
+  min-width: 0;
+}
+
 .rp-timeframe-row {
   display: flex;
   flex-wrap: wrap;

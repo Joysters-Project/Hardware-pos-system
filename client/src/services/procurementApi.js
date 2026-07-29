@@ -279,15 +279,32 @@ export function useProducts() {
   });
 }
 
+// ── Receive Order Item Hook ───────────────────────────────────────────────────
+
+export function useReceiveOrderItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data) => api.post('/batch-inventory/receive', data),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: ['purchaseOrder', String(variables.po_id)] });
+      qc.invalidateQueries({ queryKey: ['purchaseOrders'] });
+      qc.invalidateQueries({ queryKey: ['products'] });
+      toast.success('Order received and batch created successfully!');
+    },
+    onError: (e) => toast.error(e.response?.data?.error || 'Failed to receive order'),
+  });
+}
+
 // ── New API definitions ──────────────────────────────────────────────────────
 
 const paymentApi = {
-  getAll: (params) => api.get('/procurement/payments', { params }),
-  getById: (id) => api.get(`/procurement/payments/${id}`),
-  record: (data) => api.post('/procurement/payments', data),
-  getDashboard: () => api.get('/procurement/payments/dashboard'),
-  getSupplierPayments: (supplierId) => api.get(`/procurement/payments/supplier/${supplierId}`),
-  downloadReceipt: (id) => api.get(`/procurement/payments/${id}/pdf`, { responseType: 'blob' })
+  getAll:             (params) => api.get('/procurement/payments', { params }),
+  getById:            (id)     => api.get(`/procurement/payments/${id}`),
+  record:             (data)   => api.post('/procurement/payments', data),
+  getDashboard:       ()       => api.get('/procurement/payments/dashboard'),
+  getSupplierPayments:(id)     => api.get(`/procurement/payments/supplier/${id}`),
+  downloadReceipt:    (id)     => api.get(`/procurement/payments/${id}/pdf`, { responseType: 'blob' }),
+  updateChequeStatus: (id, cheque_status) => api.patch(`/procurement/payments/${id}/cheque-status`, { cheque_status }),
 };
 
 const reorderApi = {
@@ -609,6 +626,19 @@ export function useDownloadPerformanceReportPDF() {
       toast.success('Supplier Performance Report PDF downloaded!');
     },
     onError: () => toast.error('Failed to download Supplier Performance Report PDF')
+  });
+}
+
+export function useUpdateChequeStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, cheque_status }) => paymentApi.updateChequeStatus(id, cheque_status),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['procurement-payments'] });
+      qc.invalidateQueries({ queryKey: ['procurement-payment-dashboard'] });
+      toast.success('Cheque status updated!');
+    },
+    onError: (e) => toast.error(e.response?.data?.error || 'Failed to update cheque status'),
   });
 }
 

@@ -1,0 +1,352 @@
+/* =============================================
+   NAVBAR NOTIFICATION BELL
+   ============================================= */
+
+.nbell-root {
+  position: relative;
+  display: inline-flex;
+}
+
+/* ── Bell Button ── */
+.nbell-btn {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1.5px solid #e5e7eb;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 4px 12px rgba(0, 0, 0, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+  outline: none;
+}
+
+.nbell-btn:hover {
+  background: #fafafa;
+  transform: translateY(-2px) scale(1.03);
+  box-shadow:
+    0 4px 10px rgba(0, 0, 0, 0.1),
+    0 10px 28px rgba(0, 0, 0, 0.1);
+}
+
+.nbell-btn:active {
+  transform: translateY(0) scale(0.97);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.nbell-btn:focus-visible {
+  outline: 2px solid #8b3a3a;
+  outline-offset: 3px;
+}
+
+/* ── Bell Icon ── */
+.nbell-icon {
+  width: 20px;
+  height: 20px;
+  color: #4b5563;
+  flex-shrink: 0;
+}
+
+/* ── Notification Badge ── */
+.nbell-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 0.67rem;
+  font-weight: 800;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ffffff;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* =============================================
+   DROPDOWN PANEL
+   ============================================= */
+
+.nbell-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 348px;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.04),
+    0 20px 60px rgba(0, 0, 0, 0.14);
+  border: 1px solid #e5e7eb;
+  z-index: 999;
+  overflow: hidden;
+}
+
+/* ── Dropdown Header ── */
+.nbell-dropdown__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px 12px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.nbell-dropdown__title {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #1f2937;
+  letter-spacing: -0.01em;
+}
+
+.nbell-dropdown__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  padding: 2px;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.nbell-dropdown__close:hover {
+  color: #374151;
+  background: #f3f4f6;
+}
+
+.nbell-dropdown__loading {
+  padding: 24px 20px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.84rem;
+}
+
+/* ── Section Label ── */
+.nbell-section-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.nbell-section-count {
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #ef4444;
+  font-size: 0.68rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nbell-section-count--proc {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+/* ── Inventory List ── */
+.nbell-inv-list {
+  padding: 2px 12px 4px;
+}
+
+.nbell-inv-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.nbell-inv-row:hover {
+  background: #f9fafb;
+}
+
+.nbell-inv-row--zero {
+  opacity: 0.5;
+}
+
+.nbell-inv-row--zero:hover {
+  background: transparent;
+  cursor: default;
+}
+
+.nbell-inv-icon {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nbell-inv-label {
+  flex: 1;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #374151;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.nbell-inv-badge {
+  flex-shrink: 0;
+  min-width: 22px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #9ca3af;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.nbell-inv-timestamp {
+  padding: 2px 20px 8px;
+  font-size: 0.72rem;
+  color: #d1d5db;
+  font-style: italic;
+}
+
+/* ── Divider ── */
+.nbell-divider {
+  height: 1px;
+  background: #f3f4f6;
+  margin: 4px 0;
+}
+
+/* ── Procurement Card ── */
+.nbell-proc-card {
+  margin: 4px 12px 8px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+}
+
+.nbell-proc-card__headline {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 2px;
+}
+
+.nbell-proc-card__sub {
+  font-size: 0.76rem;
+  color: #9ca3af;
+  margin: 0 0 8px;
+}
+
+.nbell-proc-card__sub--ok {
+  margin-bottom: 8px;
+}
+
+.nbell-proc-card__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #8b3a3a;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.nbell-proc-card__link:hover {
+  color: #a84545;
+}
+
+/* ── Footer ── */
+.nbell-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 11px 20px;
+  border-top: 1px solid #f3f4f6;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #8b3a3a;
+  cursor: pointer;
+  background: #ffffff;
+  transition: background 0.15s, color 0.15s;
+}
+
+.nbell-footer:hover {
+  background: #faf5f5;
+  color: #a84545;
+}
+
+/* =============================================
+   RESPONSIVE
+   ============================================= */
+
+@media (max-width: 992px) {
+  .nbell-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .nbell-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .nbell-dropdown {
+    width: 320px;
+  }
+}
+
+@media (max-width: 480px) {
+  .nbell-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .nbell-icon {
+    width: 17px;
+    height: 17px;
+  }
+
+  .nbell-badge {
+    min-width: 17px;
+    height: 17px;
+    font-size: 0.62rem;
+  }
+
+  .nbell-dropdown {
+    width: calc(100vw - 28px);
+    right: 0;
+  }
+}

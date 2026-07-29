@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Search, Package, X, Minus, Plus, Trash2, ShoppingCart, 
   CreditCard, Printer, Download, XCircle, CheckCircle, 
   User, Phone, MapPin, DollarSign, Receipt, Tag, 
-  AlertCircle, Grid3x3, List, ArrowRight, Sparkles,
+  AlertCircle, AlertTriangle, Grid3x3, List, ArrowRight, Sparkles,
   TrendingUp, Clock, Zap, LayoutGrid, ListOrdered
 } from 'lucide-react';
 import api from '../api/axios';
@@ -13,9 +13,12 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import SuccessAnim from './SuccessAnim';
 import DashboardLayout from './DashboardLayout';
+import toast from 'react-hot-toast';
+import ProjectsTab from './ProjectsTab';
 import '../styles/BillingSystem.css';
 
 const BillingSystem = () => {
+  const [posTab, setPosTab] = useState('billing');
   const [cart, setCart] = useState([]);
   const [payData, setPayData] = useState({ amountPaid: '', customerName: '', customerPhone: '', customerAddress: '' });
   const [customerExists, setCustomerExists] = useState(false);
@@ -27,8 +30,10 @@ const BillingSystem = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
   const [catalogProducts, setCatalogProducts] = useState([]);
-  const [catalogView, setCatalogView] = useState('grid'); // 'grid' or 'list'
+  const [catalogView, setCatalogView] = useState('grid');
   const [recentItems, setRecentItems] = useState([]);
+  const [showExpiredModal, setShowExpiredModal] = useState(false);
+  const [expiredProduct, setExpiredProduct] = useState(null);
   const searchInputRef = useRef(null);
   const navigate = useNavigate();
 
@@ -52,13 +57,23 @@ const BillingSystem = () => {
     return isNaN(date) ? value : date.toLocaleString();
   };
 
-  // Load catalog products on mount and load recent items from localStorage
+  const refreshCatalog = async () => {
+    try {
+      const res = await api.get('/products');
+      const products = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setCatalogProducts(products.filter((product) => isProductActive(product)));
+    } catch (err) {
+      console.error('Failed to load catalog:', err);
+    }
+  };
+
+  // Load catalog products and recent items from localStorage
   useEffect(() => {
     const loadCatalog = async () => {
       try {
         const res = await api.get('/products');
         const products = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-        setCatalogProducts(products.filter(p => isProductActive(p)));
+        setCatalogProducts(products);
       } catch (err) {
         console.error('Failed to load catalog:', err);
       }
@@ -70,7 +85,7 @@ const BillingSystem = () => {
     if (savedRecent) {
       try {
         setRecentItems(JSON.parse(savedRecent).slice(0, 5));
-      } catch(e) {}
+      } catch (e) {}
     }
   }, []);
 
@@ -80,7 +95,17 @@ const BillingSystem = () => {
       const recentProducts = cart.slice(0, 5).map(item => ({
         product_id: item.product_id,
         product_name: item.product_name,
-        unit_price: item.unit_price
+        unit_price: item.unit_price,
+        unit_id: item.selected_unit_id,
+        unit_name: item.selected_unit_name,
+        alternative_units: item.available_units ? item.available_units.slice(1).map(au => ({
+          unit_id: au.unit_id,
+          unit_details: { unit_name: au.unit_name },
+          conversion_factor: au.conversion_factor,
+          unit_price: au.unit_price
+        })) : [],
+        status: item.status || 'active',
+        stock_quantity: item.stock_quantity || 999
       }));
       setRecentItems(recentProducts);
       localStorage.setItem('recentCartItems', JSON.stringify(recentProducts));
@@ -114,14 +139,27 @@ const BillingSystem = () => {
 
     const rows = lastBill.items?.map((item) => {
       const itemDiscount = parseFloat(item.discount || 0);
-      const itemTotal = (item.unit_price * item.quantity) - itemDiscount;
+      const qty = parseFloat(item.billed_quantity !== undefined ? item.billed_quantity : item.quantity);
+      
+      let unitName = 'Unit';
+      if (item.selected_unit_name) {
+        unitName = item.selected_unit_name;
+      } else if (item.billed_unit?.unit_name) {
+        unitName = item.billed_unit.unit_name;
+      } else if (item.product?.unit?.unit_name) {
+        unitName = item.product.unit.unit_name;
+      }
+      
+      const priceVal = parseFloat(item.price_per_unit || item.unit_price);
+      const itemTotal = (priceVal * qty) - itemDiscount;
+      const displayProductName = item.product_name || item.product?.product_name || 'Product';
       return `
           <tr>
             <td style="padding:12px 0;border-bottom:1px solid #f0f0f0;">
-              <div style="font-weight:600;">${item.product_name}</div>
-              <div style="font-size:13px;color:#666;">${item.unit_price.toFixed(2)} x ${item.quantity}${itemDiscount ? ` - ${itemDiscount.toFixed(2)} disc` : ''}</div>
+              <div style="font-weight:600;">${displayProductName}</div>
+              <div style="font-size:13px;color:#666;">${priceVal.toFixed(2)} x ${qty} ${unitName}${itemDiscount ? ` - ${itemDiscount.toFixed(2)} disc` : ''}</div>
             </td>
-            <td style="text-align:center;padding:12px 0;border-bottom:1px solid #f0f0f0;">${item.quantity}</td>
+            <td style="text-align:center;padding:12px 0;border-bottom:1px solid #f0f0f0;">${qty} ${unitName}</td>
             <td style="text-align:right;padding:12px 0;border-bottom:1px solid #f0f0f0;"><strong>Rs. ${itemTotal.toFixed(2)}</strong></td>
           </tr>`;
     }).join('');
@@ -282,9 +320,8 @@ const BillingSystem = () => {
         params: { q: trimmedQuery }
       });
       const products = Array.isArray(res.data) ? res.data : [];
-      const activeResults = products.filter(product => isProductActive(product));
-      setSearchResults(activeResults);
-      setShowResults(activeResults.length > 0);
+      setSearchResults(products);
+      setShowResults(products.length > 0);
     } catch (err) {
       console.error('Search error:', err);
       setSearchResults([]);
@@ -292,9 +329,14 @@ const BillingSystem = () => {
     }
   };
 
-  const isProductActive = (product) => {
-    const activeStatuses = ['active', 'Active', 'ACTIVE'];
-    return activeStatuses.includes(product.status);
+  const getSellabilityError = (product) => {
+    const isInactive = String(product.status).toLowerCase() === 'inactive';
+    if (isInactive) return `"${product.product_name}" is inactive and cannot be sold.`;
+    // Use cart-adjusted available stock: catalog stock minus quantity already in cart
+    const inCart = cart.find(i => i.product_id === product.product_id)?.quantity || 0;
+    const available = (product.stock_quantity ?? 0) - inCart;
+    if (available <= 0) return 'This product is out of stock and cannot be sold.';
+    return null;
   };
 
   const lookupCustomerByPhone = async (phone) => {
@@ -346,19 +388,81 @@ const BillingSystem = () => {
   };
 
   // Add product to cart
-  const handleAddToCart = (product) => {
-    if (!isProductActive(product)) {
-      return alert(`${product.product_name} is unavailable.`);
-    }
-    if (product.stock_quantity <= 0) {
-      return alert(`${product.product_name} is out of stock.`);
+  const handleAddToCart = async (product) => {
+    // 1. Block only explicitly inactive products
+    const isInactive = String(product.status).toLowerCase() === 'inactive';
+    if (isInactive) {
+      alert(`"${product.product_name}" is inactive and cannot be sold.`);
+      return;
     }
 
-    const existingItem = cart.find(item => item.product_id === product.product_id);
+    // 2. Check cart-adjusted available stock
+    const inCart = cart.find(i => i.product_id === product.product_id)?.quantity || 0;
+    const available = (product.stock_quantity ?? 0) - inCart;
+    if (available <= 0) {
+      alert('This product is out of stock and cannot be sold.');
+      return;
+    }
+
+    // 3. Batch check: if batch records exist, require at least one valid non-expired batch
+    try {
+      const batchRes = await api.get(`/batch-inventory/product/${product.product_id}`);
+      const batches = Array.isArray(batchRes.data) ? batchRes.data : [];
+      if (batches.length > 0) {
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const allExpired = batches.every(
+          b => b.expiry_date && new Date(b.expiry_date) < today
+        );
+        const hasValidBatch = batches.some(
+          b => b.remaining_quantity > 0 &&
+               (!b.expiry_date || new Date(b.expiry_date) >= today)
+        );
+        if (allExpired) {
+          setExpiredProduct(product);
+          setShowExpiredModal(true);
+          toast.error(
+            <div>
+              <div style={{ fontWeight: 600 }}>Product has expired</div>
+              <div style={{ fontSize: '0.875rem' }}>This product cannot be sold.</div>
+            </div>,
+            { duration: 3000 }
+          );
+          return;
+        }
+        if (!hasValidBatch) {
+          alert('No valid batch is available for this product.');
+          return;
+        }
+      }
+    } catch {
+      // Batch API unavailable — fall through and allow the sale; server will validate
+    }
+
+    // Resolve base unit name robustly
+    const baseUnitName = product.unit?.unit_name || product.unit_name || 'Unit';
+
+    const baseUnit = {
+      unit_id: parseInt(product.unit_id),
+      unit_name: baseUnitName,
+      conversion_factor: 1.0,
+      unit_price: parseFloat(product.unit_price)
+    };
+
+    const altUnits = (product.alternative_units || []).map(au => ({
+      unit_id: parseInt(au.unit_id),
+      unit_name: au.unit_details?.unit_name || au.unit?.unit_name || au.unit_name || 'Alt Unit',
+      conversion_factor: parseFloat(au.conversion_factor),
+      unit_price: parseFloat(au.unit_price || (product.unit_price * au.conversion_factor))
+    }));
+
+    const availableUnits = [baseUnit, ...altUnits];
+
+    // Check if item exists in the cart with the same unit_id
+    const existingItem = cart.find(item => item.product_id === product.product_id && item.selected_unit_id === parseInt(product.unit_id));
     
     if (existingItem) {
       setCart(cart.map(item =>
-        item.product_id === product.product_id
+        item.product_id === product.product_id && item.selected_unit_id === parseInt(product.unit_id)
           ? { ...item, quantity: item.quantity + 1 }
           : item
       ));
@@ -368,12 +472,32 @@ const BillingSystem = () => {
         product_name: product.product_name,
         unit_price: parseFloat(product.unit_price),
         price: parseFloat(product.unit_price),
-        quantity: 1
+        quantity: 1,
+        selected_unit_id: parseInt(product.unit_id),
+        selected_unit_name: baseUnitName,
+        conversion_factor: 1.0,
+        available_units: availableUnits,
+        discount: 0
       }]);
     }
 
     setSearchQuery('');
     setShowResults(false);
+  };
+
+  const handleUnitChange = (index, targetUnitId) => {
+    setCart(cart.map((item, i) => {
+      if (i !== index) return item;
+      const matchedUnit = item.available_units.find(u => u.unit_id === parseInt(targetUnitId));
+      if (!matchedUnit) return item;
+      return {
+        ...item,
+        selected_unit_id: matchedUnit.unit_id,
+        selected_unit_name: matchedUnit.unit_name,
+        unit_price: matchedUnit.unit_price,
+        conversion_factor: matchedUnit.conversion_factor
+      };
+    }));
   };
 
   // Remove product from cart
@@ -433,7 +557,9 @@ const BillingSystem = () => {
           product_id: item.product_id,
           quantity: item.quantity,
           price: item.unit_price,
-          discount: item.discount || 0
+          discount: item.discount || 0,
+          selected_unit_id: item.selected_unit_id,
+          conversion_factor: item.conversion_factor || 1.0
         })),
         subtotal,
         total_amount: total,
@@ -452,7 +578,11 @@ const BillingSystem = () => {
 
       setLastBill({
         ...res.data.data,
-        items: cart,
+        items: cart.map(item => ({
+          ...item,
+          billed_quantity: item.quantity,
+          selected_unit_name: item.selected_unit_name
+        })),
         amount_paid: amountPaidValue,
         change_returned: balance >= 0 ? balance : 0,
         due_amount: isPartial ? Math.abs(balance) : 0,
@@ -471,7 +601,7 @@ const BillingSystem = () => {
       try {
         const catRes = await api.get('/products');
         const products = Array.isArray(catRes.data) ? catRes.data : (catRes.data?.data || []);
-        setCatalogProducts(products.filter(p => isProductActive(p)));
+        setCatalogProducts(products);
       } catch (e) { /* silent */ }
     } catch (err) { alert(err.response?.data?.error || "Error"); }
   };
@@ -486,6 +616,23 @@ const BillingSystem = () => {
     if (qty <= 0) return 'Out of Stock';
     if (qty <= 10) return `Low: ${qty}`;
     return `In Stock: ${qty}`;
+  };
+
+  const isProductExpired = (product) => {
+    if (!product.expiry_date) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expiry = new Date(product.expiry_date);
+    return expiry < today;
+  };
+
+  const formatExpiryDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const dd = String(date.getDate()).padStart(2, '0');
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    return `${dd}-${mm}-${yyyy}`;
   };
 
   // Quick add from recent items
@@ -520,7 +667,26 @@ const BillingSystem = () => {
         </div>
       </div>
 
-      {/* POS Terminal Layout */}
+      <div className="pos-tab-switcher">
+        <button
+          className={`pos-tab-btn ${posTab === 'billing' ? 'active' : ''}`}
+          onClick={() => setPosTab('billing')}
+        >
+          <ShoppingCart size={16} />
+          Billing Counter
+        </button>
+        <button
+          className={`pos-tab-btn ${posTab === 'projects' ? 'active' : ''}`}
+          onClick={() => setPosTab('projects')}
+        >
+          <FolderOpen size={16} />
+          Projects
+        </button>
+      </div>
+
+      {posTab === 'projects' && <ProjectsTab />}
+
+      {posTab === 'billing' && (
       <div className="pos-terminal-modern">
         {/* LEFT PANEL: Search + Product Catalog */}
         <div className="pos-left-modern">
@@ -567,7 +733,7 @@ const BillingSystem = () => {
                       <div className="result-name">{product.product_name}</div>
                       <div className="result-meta">
                         {product.product_code && `Code: ${product.product_code}`}
-                        {product.barcode && ` · Barcode: ${product.barcode}`}
+                        {product.barcode && ` Â· Barcode: ${product.barcode}`}
                       </div>
                     </div>
                     <div className="result-right">
@@ -583,14 +749,13 @@ const BillingSystem = () => {
 
             {searchQuery.trim() && !showResults && searchResults.length === 0 && (
               <div className="pos-search-dropdown-modern no-results">
-                <div className="no-results-icon">🔍</div>
+                <div className="no-results-icon">ðŸ”</div>
                 <div>No products found for "{searchQuery.trim()}"</div>
                 <div className="no-results-hint">Try searching by name, barcode or SKU</div>
               </div>
             )}
           </div>
 
-          {/* Catalog Header with View Toggle */}
           <div className="pos-catalog-header-modern">
             <div className="catalog-title">
               <Package size={18} />
@@ -598,26 +763,25 @@ const BillingSystem = () => {
               <span className="catalog-count">{catalogProducts.length}</span>
             </div>
             <div className="catalog-view-toggle">
-              <button 
+              <button
                 className={`view-btn ${catalogView === 'grid' ? 'active' : ''}`}
                 onClick={() => setCatalogView('grid')}
               >
-                <LayoutGrid size={16} />
+                <Grid3x3 size={16} />
               </button>
-              <button 
+              <button
                 className={`view-btn ${catalogView === 'list' ? 'active' : ''}`}
                 onClick={() => setCatalogView('list')}
               >
-                <ListOrdered size={16} />
+                <List size={16} />
               </button>
             </div>
           </div>
 
-          {/* Product Catalog Grid/List */}
           <div className="pos-catalog-modern">
             {catalogProducts.length === 0 ? (
               <div className="catalog-empty">
-                <div className="empty-icon">📦</div>
+                <div className="empty-icon">ðŸ“¦</div>
                 <div className="empty-text">No products available</div>
                 <div className="empty-sub">Add products from the Products page</div>
               </div>
@@ -626,9 +790,12 @@ const BillingSystem = () => {
                 {catalogProducts.map((product) => (
                   <div
                     key={product.product_id}
-                    className={`product-card-modern ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
+                    className={`product-card-modern ${isProductExpired(product) ? 'expired' : ''} ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
                     onClick={() => handleAddToCart(product)}
                   >
+                    {isProductExpired(product) && (
+                      <div className="expired-badge">EXPIRED</div>
+                    )}
                     <div className="product-card-icon">
                       <Package size={20} />
                     </div>
@@ -636,6 +803,9 @@ const BillingSystem = () => {
                     <div className="product-card-sku">
                       {product.product_code || `ID: ${product.product_id}`}
                     </div>
+                    {isProductExpired(product) && (
+                      <div className="expired-date-text">Expired on {formatExpiryDate(product.expiry_date)}</div>
+                    )}
                     <div className="product-card-bottom">
                       <div className="product-card-price">Rs.{parseFloat(product.unit_price).toFixed(2)}</div>
                       <div className={`product-card-stock ${getStockClass(product.stock_quantity)}`}>
@@ -650,15 +820,21 @@ const BillingSystem = () => {
                 {catalogProducts.map((product) => (
                   <div
                     key={product.product_id}
-                    className={`product-list-item ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
+                    className={`product-list-item ${isProductExpired(product) ? 'expired' : ''} ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
                     onClick={() => handleAddToCart(product)}
                   >
+                    {isProductExpired(product) && (
+                      <div className="expired-badge-list">EXPIRED</div>
+                    )}
                     <div className="list-item-icon">
                       <Package size={18} />
                     </div>
                     <div className="list-item-info">
                       <div className="list-item-name">{product.product_name}</div>
                       <div className="list-item-code">{product.product_code || `ID: ${product.product_id}`}</div>
+                      {isProductExpired(product) && (
+                        <div className="expired-date-text-list">Expired on {formatExpiryDate(product.expiry_date)}</div>
+                      )}
                     </div>
                     <div className="list-item-right">
                       <div className="list-item-price">Rs.{parseFloat(product.unit_price).toFixed(2)}</div>
@@ -668,6 +844,83 @@ const BillingSystem = () => {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+
+          <div className="pos-selected-products-header-modern">
+            <div className="catalog-title">
+              <Package size={18} />
+              <span>Selected Products</span>
+              <span className="catalog-count">{cartItemCount}</span>
+            </div>
+          </div>
+
+          <div className="pos-selected-products-modern">
+            {cart.length === 0 ? (
+              <div className="cart-empty-modern">
+                <div className="empty-cart-icon">ðŸ›’</div>
+                <div className="empty-cart-text">No items added</div>
+                <div className="empty-cart-sub">Search or click a product to add</div>
+              </div>
+            ) : (
+              <div className="cart-items-modern">
+                <table className="cart-table-modern">
+                  <thead>
+                    <tr>
+                      <th style={{ minWidth: '90px' }}>Product</th>
+                      <th style={{ width: '100px', textAlign: 'center' }}>Unit</th>
+                      <th style={{ width: '75px', textAlign: 'center' }}>Qty</th>
+                      <th style={{ width: '85px', textAlign: 'right' }}>Subtotal</th>
+                      <th style={{ width: '32px' }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cart.map((item, idx) => (
+                      <tr key={idx}>
+                        <td>
+                          <div className="table-item-name" title={item.product_name}>{item.product_name}</div>
+                          <div className="table-item-price">Rs.{item.unit_price.toFixed(2)} per {item.selected_unit_name || 'unit'}</div>
+                        </td>
+
+                        {/* Unit column — always a select; shows options if multi-unit, single option if not */}
+                        <td style={{ textAlign: 'center' }}>
+                          <select
+                            className={`unit-select-table${item.available_units && item.available_units.length > 1 ? ' multi' : ' single'}`}
+                            value={item.selected_unit_id}
+                            onChange={(e) => handleUnitChange(idx, e.target.value)}
+                            disabled={!item.available_units || item.available_units.length <= 1}
+                          >
+                            {(item.available_units || []).map(au => (
+                              <option key={au.unit_id} value={au.unit_id}>
+                                {au.unit_name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+
+                        <td style={{ textAlign: 'center' }}>
+                          <input
+                            type="number"
+                            className="qty-input-table"
+                            value={item.quantity}
+                            onChange={(e) => handleUpdateQty(idx, parseFloat(e.target.value) || 0)}
+                            min="0.01"
+                            step="0.01"
+                          />
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <strong>Rs.{(item.unit_price * item.quantity).toFixed(2)}</strong>
+                        </td>
+                        <td>
+                          <button className="table-remove-btn" onClick={() => handleRemoveFromCart(idx)}>
+                            <X size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
@@ -693,53 +946,11 @@ const BillingSystem = () => {
               )}
             </div>
 
-            {/* Cart Items as Table */}
-            {cart.length === 0 ? (
+            {cart.length === 0 && (
               <div className="cart-empty-modern">
                 <div className="empty-cart-icon">🛒</div>
-                <div className="empty-cart-text">No items added</div>
-                <div className="empty-cart-sub">Search or click a product to add</div>
-              </div>
-            ) : (
-              <div className="cart-items-modern">
-                <table className="cart-table-modern">
-                  <thead>
-                    <tr>
-                      <th>Product</th>
-                      <th style={{ width: '120px', textAlign: 'center' }}>Quantity</th>
-                      <th style={{ width: '100px', textAlign: 'right' }}>Subtotal</th>
-                      <th style={{ width: '40px' }}></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cart.map((item, idx) => (
-                      <tr key={idx}>
-                        <td>
-                          <div className="table-item-name">{item.product_name}</div>
-                          <div className="table-item-price">Rs.{item.unit_price.toFixed(2)} each</div>
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <input
-                            type="number"
-                            className="qty-input-table"
-                            value={item.quantity}
-                            onChange={(e) => handleUpdateQty(idx, parseFloat(e.target.value) || 0)}
-                            min="0.01"
-                            step="0.01"
-                          />
-                        </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <strong>Rs.{(item.unit_price * item.quantity).toFixed(2)}</strong>
-                        </td>
-                        <td>
-                          <button className="table-remove-btn" onClick={() => handleRemoveFromCart(idx)}>
-                            <X size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="empty-cart-text">No items selected</div>
+                <div className="empty-cart-sub">Search and add products from the left panel.</div>
               </div>
             )}
 
@@ -926,6 +1137,7 @@ const BillingSystem = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Success Animation */}
       <SuccessAnim
@@ -935,6 +1147,26 @@ const BillingSystem = () => {
         message="Transaction Complete!"
         subMessage={lastBill ? `Bill Total: Rs. ${(lastBill.total_amount ?? 0).toFixed(2)}` : `Bill total: Rs. ${total.toFixed(2)}`}
       />
+
+      {/* Expired Product Modal */}
+      {showExpiredModal && expiredProduct && (
+        <div className="expired-modal-overlay" onClick={() => setShowExpiredModal(false)}>
+          <div className="expired-modal">
+            <div className="expired-modal-icon">
+              <AlertTriangle size={32} color="#dc2626" />
+            </div>
+            <h3 className="expired-modal-title">Product Expired</h3>
+            <div className="expired-modal-body">
+              <p>This product expired on</p>
+              <p className="expired-modal-date"><strong>{formatExpiryDate(expiredProduct.expiry_date)}</strong></p>
+              <p className="expired-modal-sub">This product cannot be sold.</p>
+            </div>
+            <button className="expired-modal-btn" onClick={() => setShowExpiredModal(false)}>
+              OK
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Receipt Modal */}
       {lastBill && (
@@ -968,7 +1200,7 @@ const BillingSystem = () => {
                   <div key={idx} className="receipt-item-row">
                     <div>
                       <div className="receipt-item-name">{item.product_name}</div>
-                      <div className="receipt-item-detail">Rs.{item.unit_price.toFixed(2)} × {item.quantity}</div>
+                      <div className="receipt-item-detail">Rs.{item.unit_price.toFixed(2)} Ã— {item.quantity}</div>
                     </div>
                     <div style={{ textAlign: 'center' }}>{item.quantity}</div>
                     <div style={{ textAlign: 'right', fontWeight: 600 }}>Rs.{itemTotal.toFixed(2)}</div>

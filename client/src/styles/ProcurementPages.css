@@ -39,7 +39,7 @@
   gap: 1.25rem;
   flex-wrap: wrap;
 }
-.pp-charts-row .proc-card { flex: 1; min-width: 280px; }
+.pp-charts-row .proc-card { flex: 1; min-width: 280px; min-width: 0; overflow: hidden; }
 .pp-aging-chart   { flex: 2 !important; }
 .pp-aging-breakdown { flex: 1 !important; }
 

@@ -23,9 +23,9 @@ import {
   ClipboardList,
   UserCircle,
   Bell,
+  Archive,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import NavbarNotificationBell from "./NavbarNotificationBell";
 import "../styles/Sidebar.css";
 
 /* ─── Nav configuration ─── */
@@ -133,11 +133,21 @@ const getNavItems = (role) => {
       path: `${prefix}/expenses`,
     },
     {
+      key: "projects-mgmt",
+      label: "Projects",
+      icon: FolderOpen,
+      path: `${prefix}/projects`,
+    },
+    {
       key: "alerts",
       label: "Alerts",
       icon: Bell,
       path: `${prefix}/alerts`,
     },
+    // Batch Inventory — Admin and Manager
+    ...(normalizedRole !== "cashier"
+      ? [{ key: "batch-inventory", label: "Batch Inventory", icon: Archive, path: `${prefix}/inventory/batches` }]
+      : []),
     // Salary is Admin-only — hidden for manager role
     ...(role !== "manager"
       ? [{ key: "salary", label: "Salary", icon: Wallet, path: "/salary" }]
@@ -154,7 +164,7 @@ const getNavItems = (role) => {
 };
 
 export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed }) {
-  const { user, role } = useAuth();
+  const { user, role, profilePhoto } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -231,17 +241,14 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
               <div className="sidebar-float__brand-sub">Hardware POS</div>
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <NavbarNotificationBell />
-            <button
-              type="button"
-              className="sidebar-collapse-toggle"
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-            </button>
-          </div>
+          <button
+            type="button"
+            className="sidebar-collapse-toggle"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+          </button>
         </div>
 
         {/* Navigation */}
@@ -280,7 +287,12 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
             }`}
             title={isCollapsed ? `${userName} (${displayRole})` : undefined}
           >
-            <div className="sidebar-float__avatar">{initials}</div>
+            <div className="sidebar-float__avatar">
+              {profilePhoto
+                ? <img src={profilePhoto} alt={userName} className="sidebar-float__avatar-img" />
+                : initials
+              }
+            </div>
             <div className="sidebar-float__user-info">
               <div className="sidebar-float__user-name">{userName}</div>
               <div className="sidebar-float__user-role">{displayRole}</div>
