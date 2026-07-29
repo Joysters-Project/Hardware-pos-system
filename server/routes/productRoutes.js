@@ -16,15 +16,15 @@ router.get('/search', async (req, res) => {
     const searchClauses = [
       db.Sequelize.where(
         db.Sequelize.fn('LOWER', db.Sequelize.col('product_name')),
-        { [db.Sequelize.Op.like]: `%${lowerQuery}%` }
+        { $like: `%${lowerQuery}%` }
       ),
       db.Sequelize.where(
         db.Sequelize.fn('LOWER', db.Sequelize.col('type')),
-        { [db.Sequelize.Op.like]: `%${lowerQuery}%` }
+        { $like: `%${lowerQuery}%` }
       ),
       db.Sequelize.where(
         db.Sequelize.fn('LOWER', db.Sequelize.col('batch_no')),
-        { [db.Sequelize.Op.like]: `%${lowerQuery}%` }
+        { $like: `%${lowerQuery}%` }
       )
     ];
 
@@ -35,8 +35,18 @@ router.get('/search', async (req, res) => {
 
     const results = await db.products.findAll({
       where: {
-        [db.Sequelize.Op.or]: searchClauses
+        $or: searchClauses
       },
+      include: [
+        { model: db.units, attributes: ['unit_id', 'unit_name'] },
+        {
+          model: db.product_units,
+          as: 'alternative_units',
+          include: [
+            { model: db.units, as: 'unit_details', attributes: ['unit_id', 'unit_name'] }
+          ]
+        }
+      ],
       limit: 50,
       order: [['product_name', 'ASC']]
     });

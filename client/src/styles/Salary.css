@@ -324,6 +324,9 @@
 .btn-pay      { background: #e8f5e9; color: #2e7d32; }
 .btn-pay:hover { background: #2e7d32; color: #fff; transform: translateY(-1px); }
 
+.btn-edit      { background: #fff8e1; color: #f57f17; }
+.btn-edit:hover { background: #f57f17; color: #fff; transform: translateY(-1px); }
+
 .btn-download { background: #e8f4fd; color: #1565c0; }
 .btn-download:hover { background: #1565c0; color: #fff; transform: translateY(-1px); }
 
@@ -522,6 +525,28 @@
 }
 .sal-btn-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 5px 14px rgba(139,58,58,0.3); }
 .sal-btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.sal-negative-warning {
+  background: #fdecea;
+  border: 1px solid #ef9a9a;
+  border-left: 4px solid #c62828;
+  border-radius: 8px;
+  padding: 0.65rem 1rem;
+  font-size: 0.83rem;
+  color: #c62828;
+  font-weight: 600;
+}
+
+.sal-duplicate-warning {
+  background: #fff3e0;
+  border: 1px solid #ffb74d;
+  border-left: 4px solid #e65100;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.83rem;
+  color: #bf360c;
+  margin-bottom: 0.25rem;
+}
 
 /* Pay modal */
 .sal-pay-body { padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 0.75rem; }

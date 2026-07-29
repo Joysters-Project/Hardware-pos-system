@@ -9,7 +9,11 @@ import DashboardLayout from "./components/DashboardLayout";
 import Login from "./pages/Login";
 import RoleSelect from "./pages/RoleSelect";
 import Signup from "./pages/Signup";
-import ReturnPage from "./pages/ReturnPage";
+import ReturnsLayout from "./pages/returns/ReturnsLayout";
+import ProcessReturn from "./pages/returns/ProcessReturn";
+import ReturnInventory from "./pages/returns/ReturnInventory";
+import ReturnList from "./pages/returns/ReturnList";
+import SupplierServiceTracking from "./pages/returns/SupplierServiceTracking";
 
 import ForgotPassword from "./pages/ForgotPassword";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -29,12 +33,14 @@ import Expenses from "./pages/Expenses";
 import SalaryManagement from "./pages/SalaryManagement";
 import AuditLogs from "./pages/AuditLogs";
 import SalaryHistory from "./pages/SalaryHistory";
+import Projects from "./pages/Projects";
 import MyProfile from "./pages/MyProfile";
 import BillingSystem from "./components/billingSystem";
 import DueCollection from "./components/DueCollection";
 import ReturnSystem from "./components/ReturnSystem";
 import Receipts from "./pages/Receipts";
 import ReportsPage from "./pages/ReportsPage";
+import CashierPanelPage from "./pages/CashierPanelPage";
 
 import ProcurementWorkspace from "./components/procurement/ProcurementWorkspace";
 import SupplierList from "./pages/suppliers/SupplierList";
@@ -95,14 +101,23 @@ function AppRoutes() {
       <Route path="/catalog"        element={<ProtectedRoute><Catalog /></ProtectedRoute>} />
       <Route path="/billing"        element={<ProtectedRoute><BillingSystem /></ProtectedRoute>} />
       <Route path="/due-collection" element={<ProtectedRoute><DueCollection /></ProtectedRoute>} />
-      <Route path="/returns"        element={<ProtectedRoute><ReturnPage userRole={role} /></ProtectedRoute>} />
+      <Route path="/returns" element={<ProtectedRoute><ReturnsLayout /></ProtectedRoute>}>
+        <Route index element={<Navigate to="process" replace />} />
+        <Route path="process" element={<ProcessReturn />} />
+        <Route path="history" element={<ReturnList />} />
+        <Route path="supplier-services" element={<SupplierServiceTracking />} />
+        <Route path="inventory" element={<ReturnInventory />} />
+      </Route>
       {/* <Route path="/return-logs"    element={<ProtectedRoute><ReturnLogsPage /></ProtectedRoute>} /> */}
       <Route path="/reports"        element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
       <Route path="/receipts"       element={<ProtectedRoute><Receipts /></ProtectedRoute>} />
+      <Route path="/cashier-panel"  element={<ProtectedRoute><CashierPanelPage /></ProtectedRoute>} />
       <Route path="/assets"         element={<ProtectedRoute><Assets /></ProtectedRoute>} />
       <Route path="/expenses"       element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
       <Route path="/salary"         element={<ProtectedRoute><SalaryManagement /></ProtectedRoute>} />
       <Route path="/salary/history" element={<ProtectedRoute><SalaryHistory /></ProtectedRoute>} />
+      <Route path="/projects"         element={<ProtectedRoute><Projects /></ProtectedRoute>} />
+      <Route path="/manager/projects" element={<ProtectedRoute requiredRole="manager"><Projects /></ProtectedRoute>} />
 
       {/* Manager-prefixed */}
       <Route path="/manager/departments"    element={<ProtectedRoute requiredRole="manager"><Departments /></ProtectedRoute>} />
@@ -162,10 +177,13 @@ function AppRoutes() {
         path="/due-collection" 
         element={<ProtectedRoute><DueCollection /></ProtectedRoute>} 
       />
-      <Route 
-        path="/returns" 
-        element={<ProtectedRoute><ReturnPage userRole={role} /></ProtectedRoute>} 
-      />
+      <Route path="/returns" element={<ProtectedRoute><ReturnsLayout /></ProtectedRoute>}>
+        <Route index element={<Navigate to="process" replace />} />
+        <Route path="process" element={<ProcessReturn />} />
+        <Route path="history" element={<ReturnList />} />
+        <Route path="supplier-services" element={<SupplierServiceTracking />} />
+        <Route path="inventory" element={<ReturnInventory />} />
+      </Route>
       <Route 
         path="/reports" 
         element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} 
@@ -230,7 +248,6 @@ function AppRoutes() {
       {/* Profile — all authenticated roles */}
       <Route path="/profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
 
-      {/* ── Procurement Module ── */}
       <Route
         path="/procurement"
         element={

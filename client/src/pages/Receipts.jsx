@@ -276,24 +276,27 @@ const Receipts = () => {
               className={`receipt-stat-box ${activeView === 'paid' ? 'active' : ''}`}
               onClick={() => toggleView('paid')}
             >
-              <strong>{fullyPaidReceipts.length}</strong>
               <span>Fully paid</span>
+              <strong>{fullyPaidReceipts.length}</strong>
+              
             </button>
             <button
               type="button"
               className={`receipt-stat-box ${activeView === 'partial' ? 'active' : ''}`}
               onClick={() => toggleView('partial')}
             >
+               <span>Partial paid</span>
               <strong>{partialPaidReceipts.length}</strong>
-              <span>Partial paid</span>
+             
             </button>
             <button
               type="button"
               className={`receipt-stat-box total-box ${activeView === 'all' ? 'active' : ''}`}
               onClick={() => setActiveView((cur) => (cur === 'all' ? null : 'all'))}
             >
-              <strong>{filteredReceipts.length}</strong>
+              
               <span>Total bills</span>
+              <strong>{filteredReceipts.length}</strong>
             </button>
           </div>
         </header>

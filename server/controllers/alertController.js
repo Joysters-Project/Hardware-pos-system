@@ -66,9 +66,9 @@ exports.getAllAlerts = async (req, res) => {
     if (alert_type) where.alert_type = alert_type;
 
     if (search) {
-      where[Op.or] = [
-        { alert_type: { [Op.like]: `%${search}%` } },
-        { '$product.product_name$': { [Op.like]: `%${search}%` } },
+      where.$or = [
+        { alert_type: { $like: `%${search}%` } },
+        { '$product.product_name$': { $like: `%${search}%` } },
       ];
     }
 
@@ -224,7 +224,7 @@ exports.getExpiryAlerts = async (req, res) => {
     const future = new Date(today.getTime() + days * 24 * 60 * 60 * 1000);
     const [expiring, expired] = await Promise.all([
       products.findAll({
-        where: { expiry_date: { [Op.between]: [today, future] }, status: 'active' },
+        where: { expiry_date: { $between: [today, future] }, status: 'active' },
         attributes: ['product_id', 'product_name', 'expiry_date', 'stock_quantity', 'batch_no'],
         order: [['expiry_date', 'ASC']],
       }),

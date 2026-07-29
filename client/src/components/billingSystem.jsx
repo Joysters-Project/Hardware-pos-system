@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Search, Package, X, Minus, Plus, Trash2, ShoppingCart, 
@@ -14,9 +14,11 @@ import html2canvas from 'html2canvas';
 import SuccessAnim from './SuccessAnim';
 import DashboardLayout from './DashboardLayout';
 import toast from 'react-hot-toast';
+import ProjectsTab from './ProjectsTab';
 import '../styles/BillingSystem.css';
 
 const BillingSystem = () => {
+  const [posTab, setPosTab] = useState('billing');
   const [cart, setCart] = useState([]);
   const [payData, setPayData] = useState({ amountPaid: '', customerName: '', customerPhone: '', customerAddress: '' });
   const [customerExists, setCustomerExists] = useState(false);
@@ -28,7 +30,7 @@ const BillingSystem = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
   const [catalogProducts, setCatalogProducts] = useState([]);
-  const [catalogView, setCatalogView] = useState('grid'); // 'grid' or 'list'
+  const [catalogView, setCatalogView] = useState('grid');
   const [recentItems, setRecentItems] = useState([]);
   const [showExpiredModal, setShowExpiredModal] = useState(false);
   const [expiredProduct, setExpiredProduct] = useState(null);
@@ -55,7 +57,17 @@ const BillingSystem = () => {
     return isNaN(date) ? value : date.toLocaleString();
   };
 
-  // Load catalog products on mount and load recent items from localStorage
+  const refreshCatalog = async () => {
+    try {
+      const res = await api.get('/products');
+      const products = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setCatalogProducts(products.filter((product) => isProductActive(product)));
+    } catch (err) {
+      console.error('Failed to load catalog:', err);
+    }
+  };
+
+  // Load catalog products and recent items from localStorage
   useEffect(() => {
     const loadCatalog = async () => {
       try {
@@ -73,7 +85,7 @@ const BillingSystem = () => {
     if (savedRecent) {
       try {
         setRecentItems(JSON.parse(savedRecent).slice(0, 5));
-      } catch(e) {}
+      } catch (e) {}
     }
   }, []);
 
@@ -83,7 +95,17 @@ const BillingSystem = () => {
       const recentProducts = cart.slice(0, 5).map(item => ({
         product_id: item.product_id,
         product_name: item.product_name,
-        unit_price: item.unit_price
+        unit_price: item.unit_price,
+        unit_id: item.selected_unit_id,
+        unit_name: item.selected_unit_name,
+        alternative_units: item.available_units ? item.available_units.slice(1).map(au => ({
+          unit_id: au.unit_id,
+          unit_details: { unit_name: au.unit_name },
+          conversion_factor: au.conversion_factor,
+          unit_price: au.unit_price
+        })) : [],
+        status: item.status || 'active',
+        stock_quantity: item.stock_quantity || 999
       }));
       setRecentItems(recentProducts);
       localStorage.setItem('recentCartItems', JSON.stringify(recentProducts));
@@ -117,14 +139,27 @@ const BillingSystem = () => {
 
     const rows = lastBill.items?.map((item) => {
       const itemDiscount = parseFloat(item.discount || 0);
-      const itemTotal = (item.unit_price * item.quantity) - itemDiscount;
+      const qty = parseFloat(item.billed_quantity !== undefined ? item.billed_quantity : item.quantity);
+      
+      let unitName = 'Unit';
+      if (item.selected_unit_name) {
+        unitName = item.selected_unit_name;
+      } else if (item.billed_unit?.unit_name) {
+        unitName = item.billed_unit.unit_name;
+      } else if (item.product?.unit?.unit_name) {
+        unitName = item.product.unit.unit_name;
+      }
+      
+      const priceVal = parseFloat(item.price_per_unit || item.unit_price);
+      const itemTotal = (priceVal * qty) - itemDiscount;
+      const displayProductName = item.product_name || item.product?.product_name || 'Product';
       return `
           <tr>
             <td style="padding:12px 0;border-bottom:1px solid #f0f0f0;">
-              <div style="font-weight:600;">${item.product_name}</div>
-              <div style="font-size:13px;color:#666;">${item.unit_price.toFixed(2)} x ${item.quantity}${itemDiscount ? ` - ${itemDiscount.toFixed(2)} disc` : ''}</div>
+              <div style="font-weight:600;">${displayProductName}</div>
+              <div style="font-size:13px;color:#666;">${priceVal.toFixed(2)} x ${qty} ${unitName}${itemDiscount ? ` - ${itemDiscount.toFixed(2)} disc` : ''}</div>
             </td>
-            <td style="text-align:center;padding:12px 0;border-bottom:1px solid #f0f0f0;">${item.quantity}</td>
+            <td style="text-align:center;padding:12px 0;border-bottom:1px solid #f0f0f0;">${qty} ${unitName}</td>
             <td style="text-align:right;padding:12px 0;border-bottom:1px solid #f0f0f0;"><strong>Rs. ${itemTotal.toFixed(2)}</strong></td>
           </tr>`;
     }).join('');
@@ -403,11 +438,31 @@ const BillingSystem = () => {
       // Batch API unavailable — fall through and allow the sale; server will validate
     }
 
-    const existingItem = cart.find(item => item.product_id === product.product_id);
+    // Resolve base unit name robustly
+    const baseUnitName = product.unit?.unit_name || product.unit_name || 'Unit';
+
+    const baseUnit = {
+      unit_id: parseInt(product.unit_id),
+      unit_name: baseUnitName,
+      conversion_factor: 1.0,
+      unit_price: parseFloat(product.unit_price)
+    };
+
+    const altUnits = (product.alternative_units || []).map(au => ({
+      unit_id: parseInt(au.unit_id),
+      unit_name: au.unit_details?.unit_name || au.unit?.unit_name || au.unit_name || 'Alt Unit',
+      conversion_factor: parseFloat(au.conversion_factor),
+      unit_price: parseFloat(au.unit_price || (product.unit_price * au.conversion_factor))
+    }));
+
+    const availableUnits = [baseUnit, ...altUnits];
+
+    // Check if item exists in the cart with the same unit_id
+    const existingItem = cart.find(item => item.product_id === product.product_id && item.selected_unit_id === parseInt(product.unit_id));
     
     if (existingItem) {
       setCart(cart.map(item =>
-        item.product_id === product.product_id
+        item.product_id === product.product_id && item.selected_unit_id === parseInt(product.unit_id)
           ? { ...item, quantity: item.quantity + 1 }
           : item
       ));
@@ -417,12 +472,32 @@ const BillingSystem = () => {
         product_name: product.product_name,
         unit_price: parseFloat(product.unit_price),
         price: parseFloat(product.unit_price),
-        quantity: 1
+        quantity: 1,
+        selected_unit_id: parseInt(product.unit_id),
+        selected_unit_name: baseUnitName,
+        conversion_factor: 1.0,
+        available_units: availableUnits,
+        discount: 0
       }]);
     }
 
     setSearchQuery('');
     setShowResults(false);
+  };
+
+  const handleUnitChange = (index, targetUnitId) => {
+    setCart(cart.map((item, i) => {
+      if (i !== index) return item;
+      const matchedUnit = item.available_units.find(u => u.unit_id === parseInt(targetUnitId));
+      if (!matchedUnit) return item;
+      return {
+        ...item,
+        selected_unit_id: matchedUnit.unit_id,
+        selected_unit_name: matchedUnit.unit_name,
+        unit_price: matchedUnit.unit_price,
+        conversion_factor: matchedUnit.conversion_factor
+      };
+    }));
   };
 
   // Remove product from cart
@@ -482,7 +557,9 @@ const BillingSystem = () => {
           product_id: item.product_id,
           quantity: item.quantity,
           price: item.unit_price,
-          discount: item.discount || 0
+          discount: item.discount || 0,
+          selected_unit_id: item.selected_unit_id,
+          conversion_factor: item.conversion_factor || 1.0
         })),
         subtotal,
         total_amount: total,
@@ -501,7 +578,11 @@ const BillingSystem = () => {
 
       setLastBill({
         ...res.data.data,
-        items: cart,
+        items: cart.map(item => ({
+          ...item,
+          billed_quantity: item.quantity,
+          selected_unit_name: item.selected_unit_name
+        })),
         amount_paid: amountPaidValue,
         change_returned: balance >= 0 ? balance : 0,
         due_amount: isPartial ? Math.abs(balance) : 0,
@@ -586,7 +667,26 @@ const BillingSystem = () => {
         </div>
       </div>
 
-      {/* POS Terminal Layout */}
+      <div className="pos-tab-switcher">
+        <button
+          className={`pos-tab-btn ${posTab === 'billing' ? 'active' : ''}`}
+          onClick={() => setPosTab('billing')}
+        >
+          <ShoppingCart size={16} />
+          Billing Counter
+        </button>
+        <button
+          className={`pos-tab-btn ${posTab === 'projects' ? 'active' : ''}`}
+          onClick={() => setPosTab('projects')}
+        >
+          <FolderOpen size={16} />
+          Projects
+        </button>
+      </div>
+
+      {posTab === 'projects' && <ProjectsTab />}
+
+      {posTab === 'billing' && (
       <div className="pos-terminal-modern">
         {/* LEFT PANEL: Search + Product Catalog */}
         <div className="pos-left-modern">
@@ -656,7 +756,6 @@ const BillingSystem = () => {
             )}
           </div>
 
-          {/* Catalog Header with View Toggle */}
           <div className="pos-catalog-header-modern">
             <div className="catalog-title">
               <Package size={18} />
@@ -664,22 +763,21 @@ const BillingSystem = () => {
               <span className="catalog-count">{catalogProducts.length}</span>
             </div>
             <div className="catalog-view-toggle">
-              <button 
+              <button
                 className={`view-btn ${catalogView === 'grid' ? 'active' : ''}`}
                 onClick={() => setCatalogView('grid')}
               >
-                <LayoutGrid size={16} />
+                <Grid3x3 size={16} />
               </button>
-              <button 
+              <button
                 className={`view-btn ${catalogView === 'list' ? 'active' : ''}`}
                 onClick={() => setCatalogView('list')}
               >
-                <ListOrdered size={16} />
+                <List size={16} />
               </button>
             </div>
           </div>
 
-          {/* Product Catalog Grid/List */}
           <div className="pos-catalog-modern">
             {catalogProducts.length === 0 ? (
               <div className="catalog-empty">
@@ -749,29 +847,16 @@ const BillingSystem = () => {
               </div>
             )}
           </div>
-        </div>
 
-        {/* RIGHT PANEL: Cart + Payment */}
-        <div className="pos-right-modern">
-          <div className="cart-container-modern">
-            {/* Cart Header */}
-            <div className="cart-header-modern">
-              <div className="cart-title">
-                <ShoppingCart size={18} />
-                <span>Cart</span>
-                {cart.length > 0 && (
-                  <span className="cart-badge-modern">{cartItemCount}</span>
-                )}
-              </div>
-              {cart.length > 0 && (
-                <button className="cart-clear-modern" onClick={() => setCart([])}>
-                  <Trash2 size={14} />
-                  Clear All
-                </button>
-              )}
+          <div className="pos-selected-products-header-modern">
+            <div className="catalog-title">
+              <Package size={18} />
+              <span>Selected Products</span>
+              <span className="catalog-count">{cartItemCount}</span>
             </div>
+          </div>
 
-            {/* Cart Items as Table */}
+          <div className="pos-selected-products-modern">
             {cart.length === 0 ? (
               <div className="cart-empty-modern">
                 <div className="empty-cart-icon">ðŸ›’</div>
@@ -784,9 +869,10 @@ const BillingSystem = () => {
                   <thead>
                     <tr>
                       <th>Product</th>
-                      <th style={{ width: '120px', textAlign: 'center' }}>Quantity</th>
-                      <th style={{ width: '100px', textAlign: 'right' }}>Subtotal</th>
-                      <th style={{ width: '40px' }}></th>
+                      <th style={{ width: '160px', textAlign: 'center' }}>Unit</th>
+                      <th style={{ width: '110px', textAlign: 'center' }}>Qty</th>
+                      <th style={{ width: '110px', textAlign: 'right' }}>Subtotal</th>
+                      <th style={{ width: '36px' }}></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -794,8 +880,25 @@ const BillingSystem = () => {
                       <tr key={idx}>
                         <td>
                           <div className="table-item-name">{item.product_name}</div>
-                          <div className="table-item-price">Rs.{item.unit_price.toFixed(2)} each</div>
+                          <div className="table-item-price">Rs.{item.unit_price.toFixed(2)} per {item.selected_unit_name || 'unit'}</div>
                         </td>
+
+                        {/* Unit column — always a select; shows options if multi-unit, single option if not */}
+                        <td style={{ textAlign: 'center' }}>
+                          <select
+                            className={`unit-select-table${item.available_units && item.available_units.length > 1 ? ' multi' : ' single'}`}
+                            value={item.selected_unit_id}
+                            onChange={(e) => handleUnitChange(idx, e.target.value)}
+                            disabled={!item.available_units || item.available_units.length <= 1}
+                          >
+                            {(item.available_units || []).map(au => (
+                              <option key={au.unit_id} value={au.unit_id}>
+                                {au.unit_name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+
                         <td style={{ textAlign: 'center' }}>
                           <input
                             type="number"
@@ -818,6 +921,36 @@ const BillingSystem = () => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT PANEL: Cart + Payment */}
+        <div className="pos-right-modern">
+          <div className="cart-container-modern">
+            {/* Cart Header */}
+            <div className="cart-header-modern">
+              <div className="cart-title">
+                <ShoppingCart size={18} />
+                <span>Cart</span>
+                {cart.length > 0 && (
+                  <span className="cart-badge-modern">{cartItemCount}</span>
+                )}
+              </div>
+              {cart.length > 0 && (
+                <button className="cart-clear-modern" onClick={() => setCart([])}>
+                  <Trash2 size={14} />
+                  Clear All
+                </button>
+              )}
+            </div>
+
+            {cart.length === 0 && (
+              <div className="cart-empty-modern">
+                <div className="empty-cart-icon">🛒</div>
+                <div className="empty-cart-text">No items selected</div>
+                <div className="empty-cart-sub">Search and add products from the left panel.</div>
               </div>
             )}
 
@@ -1004,6 +1137,7 @@ const BillingSystem = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Success Animation */}
       <SuccessAnim

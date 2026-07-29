@@ -360,7 +360,7 @@
   color: #4caf50;
 }
 
-/* Supplier ID warning box */
+/* ---- Supplier Picker (search + dropdown) ---- */
 .ret-supplier-box {
   background: #fff8e1;
   border: 1px solid #f0c040;
@@ -368,6 +368,7 @@
   border-radius: 6px;
   padding: 14px;
   margin-bottom: 20px;
+  position: relative;
 }
 .ret-supplier-box label {
   display: block;
@@ -377,18 +378,129 @@
   margin-bottom: 8px;
   text-transform: uppercase;
 }
-.ret-supplier-box input {
+
+/* Search input */
+.ret-supplier-search-wrap {
+  position: relative;
+}
+.ret-supplier-search-input {
   width: 100%;
-  padding: 10px;
+  padding: 10px 12px;
   border: 1px solid #d1a84f;
   border-radius: 6px;
   box-sizing: border-box;
   font-size: 14px;
   outline: none;
+  background: white;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
-.ret-supplier-box input:focus {
+.ret-supplier-search-input:focus {
   border-color: #800000;
+  box-shadow: 0 0 0 3px rgba(128, 0, 0, 0.08);
 }
+
+/* Dropdown list */
+.ret-supplier-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e0c080;
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 9999;
+}
+
+.ret-supplier-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.15s;
+  border-bottom: 1px solid #f5f5f5;
+}
+.ret-supplier-option:last-child {
+  border-bottom: none;
+}
+.ret-supplier-option:hover {
+  background: #fff3cd;
+}
+
+.ret-supplier-option .opt-id {
+  font-weight: 700;
+  color: #a47614;
+  font-size: 12px;
+  min-width: 36px;
+}
+.ret-supplier-option .opt-name {
+  flex: 1;
+  color: #333;
+  font-weight: 500;
+}
+.ret-supplier-option .opt-code {
+  font-size: 11px;
+  color: #999;
+  background: #f5f5f5;
+  padding: 2px 7px;
+  border-radius: 8px;
+}
+
+.ret-supplier-no-result {
+  padding: 14px;
+  color: #999;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* Selected chip */
+.ret-supplier-selected {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ret-supplier-chip {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  border: 1px solid #d1a84f;
+  border-radius: 6px;
+  padding: 9px 13px;
+}
+.ret-supplier-chip .chip-id {
+  font-weight: 700;
+  color: #a47614;
+  font-size: 13px;
+}
+.ret-supplier-chip .chip-name {
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+.ret-supplier-clear {
+  background: #f9ead0;
+  border: 1px solid #d1a84f;
+  border-radius: 6px;
+  padding: 8px 11px;
+  cursor: pointer;
+  color: #a47614;
+  font-size: 14px;
+  font-weight: bold;
+  transition: background 0.2s, color 0.2s;
+  flex-shrink: 0;
+}
+.ret-supplier-clear:hover {
+  background: #800000;
+  border-color: #800000;
+  color: white;
+}
+
 
 .ret-confirm-btn {
   background: #800000;
@@ -754,7 +866,7 @@
 }
 .rp-ret-vertical-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 24px;
   padding: 20px;
   background: #fdf2f2;
@@ -818,9 +930,477 @@
   border-left: 3px solid #f0a500;
 }
 
+.rp-ret-col--wide {
+  grid-column: 1 / -1;
+  min-width: 0;
+  border-top: 1px solid #f0dada;
+  padding-top: 16px;
+}
+
 @media screen and (max-width: 992px) {
   .rp-ret-vertical-grid {
     grid-template-columns: 1fr;
     gap: 16px;
   }
+}
+
+/* ── Tab Navigation Bar ── */
+.rp-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.rp-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #777;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: -2px;
+}
+
+.rp-tab:hover {
+  color: #8b3a3a;
+}
+
+.rp-tab.active {
+  color: #8b3a3a;
+  border-bottom-color: #8b3a3a;
+}
+
+/* ═══════════════════════════════════════════════════
+   NEW — Improved Workflow UI
+   ═══════════════════════════════════════════════════ */
+
+/* ── Step Indicator Bar ── */
+.ret-step-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: 28px;
+  padding: 16px 24px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+}
+.ret-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.ret-step-circle {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  color: #9ca3af;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s;
+}
+.ret-step.active .ret-step-circle {
+  background: #800000;
+  color: white;
+}
+.ret-step.done .ret-step-circle {
+  background: #166534;
+  color: white;
+}
+.ret-step-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+.ret-step.active .ret-step-label { color: #800000; }
+.ret-step.done .ret-step-label  { color: #166534; }
+
+.ret-step-line {
+  flex: 1;
+  height: 2px;
+  background: #e5e7eb;
+  min-width: 30px;
+  margin-bottom: 20px;
+  transition: background 0.25s;
+}
+.ret-step-line.done { background: #166534; }
+
+/* ── Item action badge (shown in collapsed header) ── */
+.ret-item-action-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: #fdf2f2;
+  color: #800000;
+  border: 1px solid #e09090;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Recommendation Panel ── */
+.ret-recommendation-panel {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-left: 4px solid #0284c7;
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+.ret-rec-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #0369a1;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+.ret-rec-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ret-rec-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 13px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.18s;
+  background: white;
+}
+.ret-rec-chip.recommended {
+  border-color: #0284c7;
+  color: #0369a1;
+}
+.ret-rec-chip.recommended:hover,
+.ret-rec-chip.recommended.selected {
+  background: #0284c7;
+  color: white;
+}
+.ret-rec-chip.alternative {
+  border-color: #94a3b8;
+  color: #475569;
+}
+.ret-rec-chip.alternative:hover,
+.ret-rec-chip.alternative.selected {
+  background: #475569;
+  color: white;
+}
+.ret-rec-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.25);
+  border: 1px solid currentColor;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.ret-rec-badge.alt {
+  opacity: 0.8;
+}
+
+/* ── Validation Hint ── */
+.ret-validation-hint {
+  padding: 9px 13px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-top: 2px;
+}
+.ret-validation-hint.info {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+.ret-validation-hint.approval {
+  background: #fef3c7;
+  color: #78350f;
+  border: 1px solid #f59e0b;
+  border-left: 4px solid #f59e0b;
+}
+
+/* ── Field error under input ── */
+.ret-field-error {
+  font-size: 11px;
+  color: #dc2626;
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+/* ── Warranty Block ── */
+.ret-warranty-block {
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-left: 4px solid #f59e0b;
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-top: 4px;
+}
+.ret-warranty-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.ret-warranty-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #92400e;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.ret-warranty-change-btn {
+  background: transparent;
+  border: 1px solid #d97706;
+  color: #92400e;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.ret-warranty-change-btn:hover {
+  background: #92400e;
+  color: white;
+}
+.ret-warranty-question {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.ret-warranty-q-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  flex: 1;
+}
+.ret-warranty-q-btns {
+  display: flex;
+  gap: 8px;
+}
+.ret-wq-btn {
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.18s;
+}
+.ret-wq-btn.yes {
+  background: #f0fdf4;
+  color: #166534;
+  border-color: #86efac;
+}
+.ret-wq-btn.yes:hover {
+  background: #166534;
+  color: white;
+  border-color: #166534;
+}
+.ret-wq-btn.no {
+  background: #fef2f2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+.ret-wq-btn.no:hover {
+  background: #991b1b;
+  color: white;
+  border-color: #991b1b;
+}
+.ret-warranty-fields label {
+  display: block;
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+  font-weight: 600;
+}
+.ret-warranty-fields input {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.ret-warranty-fields input:focus { border-color: #800000; }
+.ret-warranty-status-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 10px;
+}
+.ret-warranty-status-note.valid    { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+.ret-warranty-status-note.expired  { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
+.ret-warranty-status-note.nowarranty { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
+
+/* Warranty status toggle buttons */
+.ret-wstatus-btn {
+  flex: 1;
+  padding: 7px 0;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.15s;
+}
+.ret-wstatus-btn.valid              { background: #f0fdf4; color: #166534; border-color: #86efac; }
+.ret-wstatus-btn.valid.active       { background: #166534; color: white; border-color: #166534; }
+.ret-wstatus-btn.expired            { background: #fef2f2; color: #991b1b; border-color: #fca5a5; }
+.ret-wstatus-btn.expired.active     { background: #991b1b; color: white; border-color: #991b1b; }
+
+/* Read-only display field */
+.ret-readonly-field {
+  padding: 9px 10px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-weight: 700;
+  color: #800000;
+  font-size: 14px;
+}
+.ret-readonly-field.free {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+/* ── Summary Panel — Per-item blocks ── */
+.ret-summary-item-block {
+  background: #fafafa;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.ret-summary-item-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 7px;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 5px;
+}
+.ret-summary-item-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+.ret-summary-item-row span:last-child {
+  font-weight: 600;
+  color: #333;
+  text-align: right;
+  max-width: 55%;
+}
+.ret-summary-action-tag {
+  background: #fdf2f2;
+  color: #800000;
+  border: 1px solid #e09090;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.ret-summary-warranty.valid   { color: #166534; font-weight: 700; }
+.ret-summary-warranty.expired { color: #991b1b; font-weight: 700; }
+
+/* ── Success Screen Improvements ── */
+.ret-success-details {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 20px 0;
+  text-align: left;
+  font-size: 14px;
+  border: 1px solid #e2e8f0;
+}
+.ret-success-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+  color: #555;
+}
+.ret-success-detail-row:last-child { border-bottom: none; }
+.ret-success-detail-row strong { color: #333; }
+
+.ret-success-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 24px;
+}
+.ret-success-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+  width: 100%;
+}
+.ret-success-btn.primary {
+  background: #800000;
+  color: white;
+}
+.ret-success-btn.primary:hover { background: #a52a2a; }
+.ret-success-btn.secondary {
+  background: white;
+  color: #444;
+  border: 1px solid #d1d5db;
+}
+.ret-success-btn.secondary:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+/* ── Responsive tweaks for new elements ── */
+@media screen and (max-width: 1024px) {
+  .ret-step-bar { flex-wrap: wrap; gap: 8px; justify-content: flex-start; }
+  .ret-step-line { display: none; }
+  .ret-rec-row { flex-direction: column; }
+}
+@media screen and (max-width: 720px) {
+  .ret-warranty-question { flex-direction: column; align-items: flex-start; }
+  .ret-wq-btn { flex: 1; }
 }

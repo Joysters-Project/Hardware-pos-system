@@ -55,7 +55,8 @@ class BillingService {
                 const product = await products.findByPk(item.product_id, { transaction: t });
                 const isActiveStatus = [0, '0', 'active', 'Active', 'ACTIVE'].includes(product?.status);
                 if (!product || !isActiveStatus) throw new Error(`Product ${item.product_id} is unavailable.`);
-                if (product.stock_quantity < item.quantity) throw new Error(`Low stock for ${product.product_name}.`);
+                const baseQuantity = Number(item.quantity) * Number(item.conversion_factor || 1);
+                if (product.stock_quantity < baseQuantity) throw new Error(`Low stock for ${product.product_name}.`);
             }
 
             // 3. Generate Sequential Bill No (INV-YYYY-NNNN)
@@ -78,6 +79,8 @@ class BillingService {
             const lowStockAlerts = [];
             for (const item of saleData.items) {
                 const quantity = Number(item.quantity) || 0;
+                const factor = Number(item.conversion_factor) || 1;
+                const baseQuantityDeducted = quantity * factor;
                 const pricePerUnit = parseFloat(item.price) || 0;
                 const discount = parseFloat(item.discount) || 0;
                 const totalPrice = (quantity * pricePerUnit) - discount;
@@ -85,7 +88,9 @@ class BillingService {
                 await bill_items.create({
                     bill_id: bill.bill_id,
                     product_id: item.product_id,
-                    quantity,
+                    quantity: baseQuantityDeducted,
+                    billed_quantity: quantity,
+                    billed_unit_id: item.selected_unit_id || null,
                     price_per_unit: pricePerUnit,
                     discount,
                     total_price: totalPrice
@@ -94,7 +99,7 @@ class BillingService {
                 // Decrement stock atomically inside the transaction to prevent oversell.
                 // Batch FEFO deduction + full sync runs after commit (see process.nextTick below).
                 await products.decrement('stock_quantity', {
-                    by: quantity,
+                    by: baseQuantityDeducted,
                     where: { product_id: item.product_id },
                     transaction: t
                 });
@@ -121,8 +126,11 @@ class BillingService {
                     const forecastService = require('./forecastService');
 
                     for (const item of saleData.items) {
+                        const factor = Number(item.conversion_factor) || 1;
+                        const baseQty = Number(item.quantity) * factor;
+                        // Record inventory movement
                         await logActivity(userId, null, 'INVENTORY_MOVEMENT',
-                          `Sales checkout: reduced stock of product_id=${item.product_id} by ${item.quantity} units for Invoice ${bill_no}`
+                          `Sales checkout: reduced stock of product_id=${item.product_id} by ${baseQty} units for Invoice ${bill_no}`
                         );
 
                         // Steps 1-4: Deduct batches FEFO, mark zero-qty batches Expired,

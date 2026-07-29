@@ -1,12 +1,12 @@
-const { returns, products, payments, bills, bill_items, sequelize } = require('../models');
-﻿const { Op } = require('sequelize');
-const {  customers, supplier_returns } = require('../models');
+const { returns, return_items, products, payments, bills, bill_items, customers, supplier_returns, supplier_services, inventory_statuses, sequelize } = require('../models');
+const { Op } = require('sequelize');
 const ReturnService = require('../services/returnService');
+const WarrantyService = require('../services/warrantyService');
 
 exports.processReturn = async (req, res) => {
   try {
-    const userId = req.user?.user_id || 1; // Fallback to 1 if not set
-    const userRole = req.user?.role || 'Admin'; // Fallback to Admin if not set
+    const userId = req.user?.user_id || 1;
+    const userRole = req.user?.role || 'Admin';
     const data = await ReturnService.processReturn(req.body, userId, userRole);
 
     res.status(201).json({
@@ -38,6 +38,22 @@ exports.previewRefund = async (req, res) => {
   }
 };
 
+exports.checkWarrantyStatus = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const { warranty_card_no, bill_date } = req.query;
+
+    if (!productId) {
+      return res.status(400).json({ success: false, error: 'Product ID is required' });
+    }
+
+    const info = await WarrantyService.checkWarranty(Number(productId), warranty_card_no, bill_date);
+    res.status(200).json({ success: true, data: info });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+};
+
 exports.getReturnsByBill = async (req, res) => {
   try {
     const { billId } = req.params;
@@ -46,6 +62,68 @@ exports.getReturnsByBill = async (req, res) => {
     res.status(200).json({ success: true, data: returnsByBill });
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
+  }
+};
+
+exports.getReturnById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const returnRecord = await returns.findByPk(id, {
+      include: [
+        { model: bills, include: [{ model: customers }] },
+        { 
+          model: return_items, 
+          as: 'items',
+          include: [
+            { model: products },
+            { model: supplier_services, as: 'supplier_service' }
+          ]
+        }
+      ]
+    });
+
+    if (!returnRecord) {
+      return res.status(404).json({ success: false, error: 'Return record not found' });
+    }
+
+    res.status(200).json({ success: true, data: returnRecord });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+exports.updateReturnStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const validStatuses = ['REQUESTED', 'APPROVED', 'SENT_TO_SUPPLIER', 'REPAIRED', 'COMPLETED', 'REJECTED'];
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({ success: false, error: `Valid status required: ${validStatuses.join(', ')}` });
+    }
+
+    const returnRecord = await returns.findByPk(id);
+    if (!returnRecord) {
+      return res.status(404).json({ success: false, error: 'Return record not found' });
+    }
+
+    await returnRecord.update({ status });
+    res.status(200).json({ success: true, message: 'Return status updated', data: returnRecord });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+};
+
+exports.getInventoryStatuses = async (req, res) => {
+  try {
+    const list = await inventory_statuses.findAll({
+      include: [
+        { model: products, attributes: ['product_id', 'product_name', 'unit_price', 'cost_price', 'stock_quantity'] }
+      ]
+    });
+    res.status(200).json({ success: true, data: list });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 
@@ -87,7 +165,7 @@ exports.lookupBill = async (req, res) => {
         include: [
           {
             model: bill_items,
-            include: [{ model: products, attributes: ['product_name'] }]
+            include: [{ model: products, attributes: ['product_id', 'product_name', 'unit_price', 'cost_price'] }]
           },
           {
             model: customers,
@@ -122,7 +200,7 @@ exports.lookupBill = async (req, res) => {
       include: [
         {
           model: bill_items,
-          include: [{ model: products, attributes: ['product_name'] }]
+          include: [{ model: products, attributes: ['product_id', 'product_name', 'unit_price', 'cost_price'] }]
         },
         {
           model: customers,
@@ -144,7 +222,7 @@ exports.lookupBill = async (req, res) => {
 
 exports.getAllReturns = async (req, res) => {
   try {
-    const { destination, from_date, to_date } = req.query;
+    const { destination, status, return_type, from_date, to_date } = req.query;
     const headerWhere = {};
     const itemWhere = {};
 
@@ -152,9 +230,10 @@ exports.getAllReturns = async (req, res) => {
     const isCashier = userRole.toLowerCase() === 'cashier';
 
     if (destination) itemWhere.destination = destination;
+    if (status) headerWhere.status = status;
+    if (return_type) headerWhere.return_type = return_type;
 
     if (isCashier) {
-      // Cashiers can ONLY see today's returns
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       headerWhere.return_date = { [Op.gte]: today };
@@ -164,11 +243,6 @@ exports.getAllReturns = async (req, res) => {
       if (to_date) headerWhere.return_date[Op.lte] = new Date(to_date);
     }
 
-    // We need to require return_items here since it might not be in the file scope
-    const { return_items } = require('../models');
-
-    // Build the include array — supplier_returns is optional
-    const { customers } = require('../models');
     const includeArr = [
       {
         model: bills,
@@ -182,13 +256,15 @@ exports.getAllReturns = async (req, res) => {
       {
         model: return_items,
         as: 'items',
-        required: false,
+        required: Object.keys(itemWhere).length > 0,
         where: Object.keys(itemWhere).length ? itemWhere : undefined,
-        include: [{ model: products, attributes: ['product_name', 'product_id'] }]
+        include: [
+          { model: products, attributes: ['product_name', 'product_id'] },
+          { model: supplier_services, as: 'supplier_service' }
+        ]
       }
     ];
 
-    // Only include supplier_returns if the model exists and is associated
     try {
       includeArr.push({
         model: supplier_returns,
@@ -197,15 +273,12 @@ exports.getAllReturns = async (req, res) => {
       });
     } catch (_) { /* skip if not available */ }
 
-    // Fetch returns with associated bill total and payments
     const returnListRaw = await returns.findAll({
       where: headerWhere,
       include: includeArr,
       order: [['return_date', 'DESC']]
     });
 
-    // Attach financial summary and detailed return summary to each return
-    // Sequelize auto-alias for belongsTo(bills) is 'bill' (singular)
     const returnList = returnListRaw.map(ret => {
       const plain = ret.get({ plain: true });
       const bill = plain.bill || plain.bills || {};
@@ -213,20 +286,17 @@ exports.getAllReturns = async (req, res) => {
       const currentBillTotal = parseFloat(bill.total_amount) || 0;
       const billPayments = bill.payments || [];
       
-      // Original bill total before returns = current bill total + sum of all negative payments (refunds) on this bill
       const totalRefundedOnBill = billPayments
         .filter(p => parseFloat(p.amount_paid) < 0)
         .reduce((sum, p) => sum + Math.abs(parseFloat(p.amount_paid)), 0);
       const originalBillTotal = currentBillTotal + totalRefundedOnBill;
       
-      // Original paid amount = sum of all positive payments (payments from customer) on this bill
       const originalPaid = billPayments
         .filter(p => parseFloat(p.amount_paid) > 0)
         .reduce((sum, p) => sum + parseFloat(p.amount_paid), 0);
 
       const refundable = Math.min(plain.total_refund_amount || 0, originalPaid);
       
-      // Calculate per-product totals
       const productTotals = {};
       let grandTotalReturned = 0;
       
@@ -242,7 +312,7 @@ exports.getAllReturns = async (req, res) => {
           };
         }
         
-        productTotals[productName].total_returned_qty += item.return_quantity;
+        productTotals[productName].total_returned_qty += (item.return_quantity || item.quantity || 1);
         productTotals[productName].total_amount_per_product += refundAmount;
         grandTotalReturned += refundAmount;
       });

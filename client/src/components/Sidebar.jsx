@@ -48,7 +48,7 @@ const getNavItems = (role) => {
       },
       {
         key: "due-collection",
-        label: "Due Collection",
+        label: "Due",
         icon: Wallet,
         path: "/due-collection",
       },
@@ -83,6 +83,12 @@ const getNavItems = (role) => {
       label: "Dashboard",
       icon: LayoutDashboard,
       path: dashPath,
+    },
+    {
+      key: "cashier-panel",
+      label: "Cashier Panel",
+      icon: ShoppingCart,
+      path: "/cashier-panel",
     },
     {
       key: "departments",
@@ -121,16 +127,16 @@ const getNavItems = (role) => {
       path: "/reports",
     },
     {
-      key: "returns",
-      label: "Returns",
-      icon: RefreshCw,
-      path: "/returns",
-    },
-    {
       key: "expenses",
       label: "Expenses",
       icon: Receipt,
       path: `${prefix}/expenses`,
+    },
+    {
+      key: "projects-mgmt",
+      label: "Projects",
+      icon: FolderOpen,
+      path: `${prefix}/projects`,
     },
     {
       key: "alerts",
@@ -158,7 +164,7 @@ const getNavItems = (role) => {
 };
 
 export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed }) {
-  const { user, role } = useAuth();
+  const { user, role, profilePhoto } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -281,7 +287,12 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
             }`}
             title={isCollapsed ? `${userName} (${displayRole})` : undefined}
           >
-            <div className="sidebar-float__avatar">{initials}</div>
+            <div className="sidebar-float__avatar">
+              {profilePhoto
+                ? <img src={profilePhoto} alt={userName} className="sidebar-float__avatar-img" />
+                : initials
+              }
+            </div>
             <div className="sidebar-float__user-info">
               <div className="sidebar-float__user-name">{userName}</div>
               <div className="sidebar-float__user-role">{displayRole}</div>
