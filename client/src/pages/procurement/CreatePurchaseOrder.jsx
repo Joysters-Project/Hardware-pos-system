@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Plus, Trash2, Save, Send } from 'lucide-react';
 import { useActiveSuppliers, useProducts, useCreatePurchaseOrder } from '@/services/procurementApi';
@@ -9,6 +9,7 @@ const emptyItem = () => ({ product_id: '', quantity: 1, cost_price: 0, total_pri
 
 export default function CreatePurchaseOrder() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const today    = new Date().toISOString().split('T')[0];
 
   const [supplierId,       setSupplierId]       = useState('');
@@ -21,6 +22,24 @@ export default function CreatePurchaseOrder() {
   const { data: products  = [], isLoading: pl } = useProducts();
   const createMutation = useCreatePurchaseOrder();
   const isBusy = createMutation.isPending;
+
+  const prefilledProductId = searchParams.get('productId');
+  const returnTo = searchParams.get('returnTo');
+
+  useEffect(() => {
+    if (prefilledProductId && products.length > 0) {
+      const product = products.find(p => p.product_id === parseInt(prefilledProductId));
+      if (product) {
+        const autoItem = {
+          product_id: product.product_id,
+          quantity: 1,
+          cost_price: Number(product.cost_price) || 0,
+          total_price: Number(product.cost_price) || 0,
+        };
+        setItems([autoItem]);
+      }
+    }
+  }, [prefilledProductId, products]);
 
   const grandTotal = useMemo(
     () => items.reduce((s, i) => s + (Number(i.total_price) || 0), 0),
@@ -55,7 +74,7 @@ export default function CreatePurchaseOrder() {
         expected_delivery: expectedDelivery || null, status, notes: notes || null,
         items: items.map(i => ({ product_id: i.product_id, quantity: i.quantity, unit_price: i.cost_price, total_price: i.total_price })),
       });
-      navigate('/procurement/orders');
+      navigate(returnTo ? decodeURIComponent(returnTo) : '/procurement/orders');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create purchase order');
     }

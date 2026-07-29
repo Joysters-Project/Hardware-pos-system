@@ -8,8 +8,7 @@ import '../../styles/Procurement.css';
 
 const EMPTY = {
   supplier_name: '', contact_person: '', phone: '', email: '',
-  address: '', company_reg: '', tax_id: '',
-  payment_terms: '', credit_limit: '', status: 'Active',
+  address: '', company_reg: '', status: 'Active',
 };
 
 const fieldVariants = {
@@ -39,9 +38,6 @@ export default function SupplierForm() {
         email:          supplier.email          || '',
         address:        supplier.address        || '',
         company_reg:    supplier.company_reg    || '',
-        tax_id:         supplier.tax_id         || '',
-        payment_terms:  supplier.payment_terms  || '',
-        credit_limit:   supplier.credit_limit   || '',
         status:         supplier.status         || 'Active',
       });
     }
@@ -61,7 +57,7 @@ export default function SupplierForm() {
         return;
       }
     }
-    const payload = { ...form, credit_limit: form.credit_limit ? parseFloat(form.credit_limit) : null };
+    const payload = { ...form };
     try {
       if (isEdit) await updateMutation.mutateAsync({ id, data: payload });
       else        await createMutation.mutateAsync(payload);
@@ -90,9 +86,6 @@ export default function SupplierForm() {
     { label: 'Status', name: 'status', type: 'select', options: ['Active','Inactive'] },
     { label: 'Address', name: 'address', type: 'textarea', placeholder: 'Full address', full: true },
     { label: 'Company Registration No.', name: 'company_reg', placeholder: 'e.g. PV00012345' },
-    { label: 'Tax ID / VAT No.', name: 'tax_id', placeholder: 'e.g. 123456789V' },
-    { label: 'Payment Terms', name: 'payment_terms', placeholder: 'e.g. Net 30, Net 60' },
-    { label: 'Credit Limit (LKR)', name: 'credit_limit', type: 'number', placeholder: '0.00' },
   ];
 
   return (

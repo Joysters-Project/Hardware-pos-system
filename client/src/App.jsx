@@ -24,6 +24,8 @@ import Products from "./pages/Products";
 import AddProduct from "./pages/AddProduct";
 import ProductForm from "./pages/products/ProductForm";
 import Alerts from "./pages/Alerts";
+//import AlertProductView from "./pages/AlertProductView";
+//import AlertPOView from "./pages/AlertPOView";
 import Employees from "./pages/Employees";
 import Catalog from "./pages/Catalog";
 import Assets from "./pages/Assets";
@@ -53,6 +55,7 @@ import AnalyticsDashboard from "./pages/procurement/AnalyticsDashboard";
 import ForecastDashboard from "./pages/procurement/ForecastDashboard";
 import NotificationCenter from "./pages/procurement/NotificationCenter";
 import ProcurementReports from "./pages/procurement/ProcurementReports";
+import BatchInventory from "./pages/inventory/BatchInventory";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
@@ -146,6 +149,18 @@ function AppRoutes() {
         path="/alerts" 
         element={<ProtectedRoute><Alerts /></ProtectedRoute>} 
       />
+      {/* <Route
+        path="/alerts/product/:id"
+        element={<ProtectedRoute><AlertProductView /></ProtectedRoute>}
+      />
+      <Route
+        path="/alerts/po/:id"
+        element={<ProtectedRoute><AlertPOView /></ProtectedRoute>}
+      />
+      <Route
+        path="/alerts/po/:id"
+        element={<ProtectedRoute><AlertPOView /></ProtectedRoute>}
+      /> */}
       <Route 
         path="/employees" 
         element={<ProtectedRoute><Employees /></ProtectedRoute>} 
@@ -236,7 +251,7 @@ function AppRoutes() {
       <Route
         path="/procurement"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute blockedRoles={["cashier"]}>
             <ProcPage active="procurement">
               <ProcurementWorkspace />
             </ProcPage>
@@ -257,6 +272,9 @@ function AppRoutes() {
         <Route path="reports"             element={<ProcurementReports />} />
         <Route path="notifications"       element={<NotificationCenter />} />
       </Route>
+
+      <Route path="/inventory/batches"         element={<ProtectedRoute><BatchInventory /></ProtectedRoute>} />
+      <Route path="/manager/inventory/batches" element={<ProtectedRoute requiredRole="manager"><BatchInventory /></ProtectedRoute>} />
 
       {/* Fallback */}
       <Route

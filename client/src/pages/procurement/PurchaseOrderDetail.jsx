@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, XCircle, CheckCircle, Truck, Package, Download, Mail, MessageSquare, Send, X } from 'lucide-react';
+import { ArrowLeft, XCircle, CheckCircle, Truck, Package, Download, Mail, MessageSquare, Send, X, PackageCheck } from 'lucide-react';
 import {
   usePurchaseOrder, useUpdatePurchaseOrder, useCancelPurchaseOrder,
   useExportPurchaseOrderPDF, useActiveSuppliers, useSendPOEmail,
-  useUpdateItemComment, useSendItemCommentEmail,
+  useUpdateItemComment, useSendItemCommentEmail, useReceiveOrderItem,
 } from '@/services/procurementApi';
 import '@/styles/Procurement.css';
 
@@ -123,11 +123,146 @@ function ItemCommentCell({ item, poId, supplierHasEmail }) {
   );
 }
 
+const TODAY = new Date().toISOString().split('T')[0];
+
+function ReceiveItemModal({ item, po, onClose }) {
+  const receiveMutation = useReceiveOrderItem();
+  const [form, setForm] = useState({
+    supplier_batch_number: '',
+    expiry_date: '',
+    received_date: TODAY,
+    received_quantity: item.quantity,
+  });
+  const [error, setError] = useState('');
+
+  const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (!form.supplier_batch_number.trim()) return setError('Supplier Batch Number is required.');
+    if (!form.expiry_date) return setError('Expiry Date is required.');
+    if (!form.received_quantity || Number(form.received_quantity) <= 0) return setError('Received Quantity must be greater than zero.');
+
+    try {
+      await receiveMutation.mutateAsync({
+        po_id:                 po.po_id,
+        po_item_id:            item.id,
+        product_id:            item.product_id,
+        supplier_batch_number: form.supplier_batch_number.trim(),
+        expiry_date:           form.expiry_date,
+        received_date:         form.received_date || TODAY,
+        received_quantity:     Number(form.received_quantity),
+      });
+      onClose();
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to receive order.');
+    }
+  };
+
+  return (
+    <motion.div className="proc-modal-overlay"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      onClick={onClose}>
+      <motion.div className="proc-modal" style={{ maxWidth: 500 }}
+        initial={{ scale: 0.93, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.93, opacity: 0 }}
+        onClick={e => e.stopPropagation()}>
+
+        <div className="proc-modal-header" style={{ borderBottomColor: '#d4edda' }}>
+          <h2 style={{ color: '#1d7e42', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <PackageCheck size={18} /> Receive Order Item
+          </h2>
+          <button className="proc-modal-close" onClick={onClose}><X size={16} /></button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="proc-modal-body">
+            {/* Read-only info */}
+            <div style={{ background: '#f8fdf9', border: '1px solid #d4edda', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                <span style={{ color: '#666', fontWeight: 600 }}>Product</span>
+                <span style={{ fontWeight: 700, color: '#2c2c2c' }}>{item.product?.product_name || `#${item.product_id}`}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                <span style={{ color: '#666', fontWeight: 600 }}>PO Number</span>
+                <span style={{ fontWeight: 700, color: '#8b3a3a', fontFamily: 'monospace' }}>{po.po_number}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                <span style={{ color: '#666', fontWeight: 600 }}>Ordered Quantity</span>
+                <span style={{ fontWeight: 700 }}>{item.quantity}</span>
+              </div>
+            </div>
+
+            {error && (
+              <div className="proc-error-banner" style={{ marginBottom: '0.85rem' }}>{error}</div>
+            )}
+
+            <div className="proc-form-grid">
+              <div className="proc-field proc-field-full">
+                <label>Supplier Batch Number <span className="req">*</span></label>
+                <input
+                  className="proc-input"
+                  placeholder="e.g. AP240701, LOT-2026-015"
+                  value={form.supplier_batch_number}
+                  onChange={e => set('supplier_batch_number', e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              <div className="proc-field">
+                <label>Received Quantity <span className="req">*</span></label>
+                <input
+                  className="proc-input"
+                  type="number" min="1" max={item.quantity}
+                  value={form.received_quantity}
+                  onChange={e => set('received_quantity', e.target.value)}
+                />
+              </div>
+
+              <div className="proc-field">
+                <label>Received Date <span className="req">*</span></label>
+                <input
+                  className="proc-input"
+                  type="date"
+                  value={form.received_date}
+                  onChange={e => set('received_date', e.target.value)}
+                />
+              </div>
+
+              <div className="proc-field proc-field-full">
+                <label>Expiry Date <span className="req">*</span></label>
+                <input
+                  className="proc-input"
+                  type="date"
+                  value={form.expiry_date}
+                  onChange={e => set('expiry_date', e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="proc-modal-footer">
+            <button type="button" className="proc-btn-outline" onClick={onClose}>Cancel</button>
+            <motion.button type="submit" className="proc-btn-receive"
+              whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+              disabled={receiveMutation.isPending}>
+              <PackageCheck size={14} />
+              {receiveMutation.isPending ? 'Receiving…' : 'Receive'}
+            </motion.button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export default function PurchaseOrderDetail() {
   const { id }   = useParams();
   const navigate = useNavigate();
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason,    setCancelReason]    = useState('');
+  const [receiveItem,     setReceiveItem]     = useState(null);
 
   const { data: po, isLoading } = usePurchaseOrder(id);
   const { data: suppliers = [] } = useActiveSuppliers();
@@ -213,10 +348,9 @@ export default function PurchaseOrderDetail() {
                 </motion.button>
               )}
               {po.status === 'Shipped' && (
-                <motion.button className="proc-btn-receive" whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-                  onClick={() => handleStatus('Received')} disabled={updateMutation.isPending}>
-                  <Package size={14} /> {updateMutation.isPending ? '…' : 'Mark as Received'}
-                </motion.button>
+                <span style={{ fontSize: '0.82rem', color: '#1d7e42', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <PackageCheck size={15} /> Use the <strong>Receive</strong> button on each line item below.
+                </span>
               )}
               <motion.button className="proc-btn-cancel-action" whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
                 onClick={() => setShowCancelModal(true)} disabled={cancelMutation.isPending}>
@@ -287,11 +421,12 @@ export default function PurchaseOrderDetail() {
                     <th style={{ textAlign: 'right' }}>Unit Price</th>
                     <th style={{ textAlign: 'right' }}>Total</th>
                     <th>Comment</th>
+                    {po.status === 'Shipped' && <th style={{ textAlign: 'center' }}>Receive</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {(po.po_items || []).length === 0 ? (
-                    <tr><td colSpan="6" className="proc-empty">No items found.</td></tr>
+                    <tr><td colSpan={po.status === 'Shipped' ? 7 : 6} className="proc-empty">No items found.</td></tr>
                   ) : (po.po_items || []).map((item, i) => (
                     <motion.tr key={item.id || i}
                       initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
@@ -304,6 +439,17 @@ export default function PurchaseOrderDetail() {
                       <td style={{ minWidth: '160px', maxWidth: '220px' }}>
                         <ItemCommentCell item={item} poId={parseInt(id)} supplierHasEmail={supplierHasEmail} />
                       </td>
+                      {po.status === 'Shipped' && (
+                        <td style={{ textAlign: 'center' }}>
+                          <motion.button
+                            className="proc-btn-receive"
+                            style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem', gap: 5 }}
+                            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                            onClick={() => setReceiveItem(item)}>
+                            <PackageCheck size={13} /> Receive
+                          </motion.button>
+                        </td>
+                      )}
                     </motion.tr>
                   ))}
                 </tbody>
@@ -430,6 +576,15 @@ export default function PurchaseOrderDetail() {
               </div>
             </motion.div>
           </motion.div>
+        )}
+
+        {/* Receive Item Modal */}
+        {receiveItem && (
+          <ReceiveItemModal
+            item={receiveItem}
+            po={po}
+            onClose={() => setReceiveItem(null)}
+          />
         )}
       </AnimatePresence>
     </div>

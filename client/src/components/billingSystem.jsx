@@ -4,8 +4,8 @@ import {
   Search, Package, X, Minus, Plus, Trash2, ShoppingCart, 
   CreditCard, Printer, Download, XCircle, CheckCircle, 
   User, Phone, MapPin, DollarSign, Receipt, Tag, 
-  AlertCircle, Grid3x3, List, ArrowRight, Sparkles,
-  TrendingUp, Clock, Zap, FolderOpen
+  AlertCircle, AlertTriangle, Grid3x3, List, ArrowRight, Sparkles,
+  TrendingUp, Clock, Zap, LayoutGrid, ListOrdered
 } from 'lucide-react';
 import api from '../api/axios';
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
@@ -13,6 +13,7 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import SuccessAnim from './SuccessAnim';
 import DashboardLayout from './DashboardLayout';
+import toast from 'react-hot-toast';
 import ProjectsTab from './ProjectsTab';
 import '../styles/BillingSystem.css';
 
@@ -31,6 +32,8 @@ const BillingSystem = () => {
   const [catalogProducts, setCatalogProducts] = useState([]);
   const [catalogView, setCatalogView] = useState('grid');
   const [recentItems, setRecentItems] = useState([]);
+  const [showExpiredModal, setShowExpiredModal] = useState(false);
+  const [expiredProduct, setExpiredProduct] = useState(null);
   const searchInputRef = useRef(null);
   const navigate = useNavigate();
 
@@ -66,8 +69,18 @@ const BillingSystem = () => {
 
   // Load catalog products and recent items from localStorage
   useEffect(() => {
-    refreshCatalog();
-
+    const loadCatalog = async () => {
+      try {
+        const res = await api.get('/products');
+        const products = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+        setCatalogProducts(products);
+      } catch (err) {
+        console.error('Failed to load catalog:', err);
+      }
+    };
+    loadCatalog();
+    
+    // Load recent items from localStorage
     const savedRecent = localStorage.getItem('recentCartItems');
     if (savedRecent) {
       try {
@@ -307,9 +320,8 @@ const BillingSystem = () => {
         params: { q: trimmedQuery }
       });
       const products = Array.isArray(res.data) ? res.data : [];
-      const activeResults = products.filter(product => isProductActive(product));
-      setSearchResults(activeResults);
-      setShowResults(activeResults.length > 0);
+      setSearchResults(products);
+      setShowResults(products.length > 0);
     } catch (err) {
       console.error('Search error:', err);
       setSearchResults([]);
@@ -317,9 +329,14 @@ const BillingSystem = () => {
     }
   };
 
-  const isProductActive = (product) => {
-    const activeStatuses = ['active', 'Active', 'ACTIVE'];
-    return activeStatuses.includes(product.status);
+  const getSellabilityError = (product) => {
+    const isInactive = String(product.status).toLowerCase() === 'inactive';
+    if (isInactive) return `"${product.product_name}" is inactive and cannot be sold.`;
+    // Use cart-adjusted available stock: catalog stock minus quantity already in cart
+    const inCart = cart.find(i => i.product_id === product.product_id)?.quantity || 0;
+    const available = (product.stock_quantity ?? 0) - inCart;
+    if (available <= 0) return 'This product is out of stock and cannot be sold.';
+    return null;
   };
 
   const lookupCustomerByPhone = async (phone) => {
@@ -371,12 +388,54 @@ const BillingSystem = () => {
   };
 
   // Add product to cart
-  const handleAddToCart = (product) => {
-    if (!isProductActive(product)) {
-      return alert(`${product.product_name} is unavailable.`);
+  const handleAddToCart = async (product) => {
+    // 1. Block only explicitly inactive products
+    const isInactive = String(product.status).toLowerCase() === 'inactive';
+    if (isInactive) {
+      alert(`"${product.product_name}" is inactive and cannot be sold.`);
+      return;
     }
-    if (product.stock_quantity <= 0) {
-      return alert(`${product.product_name} is out of stock.`);
+
+    // 2. Check cart-adjusted available stock
+    const inCart = cart.find(i => i.product_id === product.product_id)?.quantity || 0;
+    const available = (product.stock_quantity ?? 0) - inCart;
+    if (available <= 0) {
+      alert('This product is out of stock and cannot be sold.');
+      return;
+    }
+
+    // 3. Batch check: if batch records exist, require at least one valid non-expired batch
+    try {
+      const batchRes = await api.get(`/batch-inventory/product/${product.product_id}`);
+      const batches = Array.isArray(batchRes.data) ? batchRes.data : [];
+      if (batches.length > 0) {
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const allExpired = batches.every(
+          b => b.expiry_date && new Date(b.expiry_date) < today
+        );
+        const hasValidBatch = batches.some(
+          b => b.remaining_quantity > 0 &&
+               (!b.expiry_date || new Date(b.expiry_date) >= today)
+        );
+        if (allExpired) {
+          setExpiredProduct(product);
+          setShowExpiredModal(true);
+          toast.error(
+            <div>
+              <div style={{ fontWeight: 600 }}>Product has expired</div>
+              <div style={{ fontSize: '0.875rem' }}>This product cannot be sold.</div>
+            </div>,
+            { duration: 3000 }
+          );
+          return;
+        }
+        if (!hasValidBatch) {
+          alert('No valid batch is available for this product.');
+          return;
+        }
+      }
+    } catch {
+      // Batch API unavailable — fall through and allow the sale; server will validate
     }
 
     // Resolve base unit name robustly
@@ -537,7 +596,13 @@ const BillingSystem = () => {
       setCustomerExists(false);
       setCustomerLookupMessage('');
       setPhoneError('');
-      await refreshCatalog();
+
+      // Reload catalog to reflect updated stock
+      try {
+        const catRes = await api.get('/products');
+        const products = Array.isArray(catRes.data) ? catRes.data : (catRes.data?.data || []);
+        setCatalogProducts(products);
+      } catch (e) { /* silent */ }
     } catch (err) { alert(err.response?.data?.error || "Error"); }
   };
 
@@ -551,6 +616,23 @@ const BillingSystem = () => {
     if (qty <= 0) return 'Out of Stock';
     if (qty <= 10) return `Low: ${qty}`;
     return `In Stock: ${qty}`;
+  };
+
+  const isProductExpired = (product) => {
+    if (!product.expiry_date) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expiry = new Date(product.expiry_date);
+    return expiry < today;
+  };
+
+  const formatExpiryDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const dd = String(date.getDate()).padStart(2, '0');
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    return `${dd}-${mm}-${yyyy}`;
   };
 
   // Quick add from recent items
@@ -651,7 +733,7 @@ const BillingSystem = () => {
                       <div className="result-name">{product.product_name}</div>
                       <div className="result-meta">
                         {product.product_code && `Code: ${product.product_code}`}
-                        {product.barcode && ` · Barcode: ${product.barcode}`}
+                        {product.barcode && ` Â· Barcode: ${product.barcode}`}
                       </div>
                     </div>
                     <div className="result-right">
@@ -667,7 +749,7 @@ const BillingSystem = () => {
 
             {searchQuery.trim() && !showResults && searchResults.length === 0 && (
               <div className="pos-search-dropdown-modern no-results">
-                <div className="no-results-icon">🔍</div>
+                <div className="no-results-icon">ðŸ”</div>
                 <div>No products found for "{searchQuery.trim()}"</div>
                 <div className="no-results-hint">Try searching by name, barcode or SKU</div>
               </div>
@@ -698,24 +780,32 @@ const BillingSystem = () => {
 
           <div className="pos-catalog-modern">
             {catalogProducts.length === 0 ? (
-              <div className="cart-empty-modern">
-                <div className="empty-cart-icon">📦</div>
-                <div className="empty-cart-text">No products available</div>
-                <div className="empty-cart-sub">Products will appear here once they are added.</div>
+              <div className="catalog-empty">
+                <div className="empty-icon">ðŸ“¦</div>
+                <div className="empty-text">No products available</div>
+                <div className="empty-sub">Add products from the Products page</div>
               </div>
             ) : catalogView === 'grid' ? (
               <div className="catalog-grid-modern">
                 {catalogProducts.map((product) => (
                   <div
                     key={product.product_id}
-                    className={`product-card-modern ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
+                    className={`product-card-modern ${isProductExpired(product) ? 'expired' : ''} ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
                     onClick={() => handleAddToCart(product)}
                   >
+                    {isProductExpired(product) && (
+                      <div className="expired-badge">EXPIRED</div>
+                    )}
                     <div className="product-card-icon">
                       <Package size={20} />
                     </div>
                     <div className="product-card-name">{product.product_name}</div>
-                    <div className="product-card-sku">{product.product_code || `ID: ${product.product_id}`}</div>
+                    <div className="product-card-sku">
+                      {product.product_code || `ID: ${product.product_id}`}
+                    </div>
+                    {isProductExpired(product) && (
+                      <div className="expired-date-text">Expired on {formatExpiryDate(product.expiry_date)}</div>
+                    )}
                     <div className="product-card-bottom">
                       <div className="product-card-price">Rs.{parseFloat(product.unit_price).toFixed(2)}</div>
                       <div className={`product-card-stock ${getStockClass(product.stock_quantity)}`}>
@@ -730,15 +820,21 @@ const BillingSystem = () => {
                 {catalogProducts.map((product) => (
                   <div
                     key={product.product_id}
-                    className={`product-list-item ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
+                    className={`product-list-item ${isProductExpired(product) ? 'expired' : ''} ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
                     onClick={() => handleAddToCart(product)}
                   >
+                    {isProductExpired(product) && (
+                      <div className="expired-badge-list">EXPIRED</div>
+                    )}
                     <div className="list-item-icon">
                       <Package size={18} />
                     </div>
                     <div className="list-item-info">
                       <div className="list-item-name">{product.product_name}</div>
                       <div className="list-item-code">{product.product_code || `ID: ${product.product_id}`}</div>
+                      {isProductExpired(product) && (
+                        <div className="expired-date-text-list">Expired on {formatExpiryDate(product.expiry_date)}</div>
+                      )}
                     </div>
                     <div className="list-item-right">
                       <div className="list-item-price">Rs.{parseFloat(product.unit_price).toFixed(2)}</div>
@@ -763,9 +859,9 @@ const BillingSystem = () => {
           <div className="pos-selected-products-modern">
             {cart.length === 0 ? (
               <div className="cart-empty-modern">
-                <div className="empty-cart-icon">🛒</div>
-                <div className="empty-cart-text">No products selected</div>
-                <div className="empty-cart-sub">Search and select products to begin billing</div>
+                <div className="empty-cart-icon">ðŸ›’</div>
+                <div className="empty-cart-text">No items added</div>
+                <div className="empty-cart-sub">Search or click a product to add</div>
               </div>
             ) : (
               <div className="cart-items-modern">
@@ -1052,6 +1148,26 @@ const BillingSystem = () => {
         subMessage={lastBill ? `Bill Total: Rs. ${(lastBill.total_amount ?? 0).toFixed(2)}` : `Bill total: Rs. ${total.toFixed(2)}`}
       />
 
+      {/* Expired Product Modal */}
+      {showExpiredModal && expiredProduct && (
+        <div className="expired-modal-overlay" onClick={() => setShowExpiredModal(false)}>
+          <div className="expired-modal">
+            <div className="expired-modal-icon">
+              <AlertTriangle size={32} color="#dc2626" />
+            </div>
+            <h3 className="expired-modal-title">Product Expired</h3>
+            <div className="expired-modal-body">
+              <p>This product expired on</p>
+              <p className="expired-modal-date"><strong>{formatExpiryDate(expiredProduct.expiry_date)}</strong></p>
+              <p className="expired-modal-sub">This product cannot be sold.</p>
+            </div>
+            <button className="expired-modal-btn" onClick={() => setShowExpiredModal(false)}>
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Receipt Modal */}
       {lastBill && (
         <div className="receipt-overlay-modern" onClick={(e) => { if (e.target === e.currentTarget) setLastBill(null); }}>
@@ -1084,7 +1200,7 @@ const BillingSystem = () => {
                   <div key={idx} className="receipt-item-row">
                     <div>
                       <div className="receipt-item-name">{item.product_name}</div>
-                      <div className="receipt-item-detail">Rs.{item.unit_price.toFixed(2)} × {item.quantity}</div>
+                      <div className="receipt-item-detail">Rs.{item.unit_price.toFixed(2)} Ã— {item.quantity}</div>
                     </div>
                     <div style={{ textAlign: 'center' }}>{item.quantity}</div>
                     <div style={{ textAlign: 'right', fontWeight: 600 }}>Rs.{itemTotal.toFixed(2)}</div>

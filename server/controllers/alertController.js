@@ -1,4 +1,5 @@
-const { alerts, products } = require('../models');
+const { alerts, products, batch_inventory } = require('../models');
+const { Op } = require('sequelize');
 const { syncAlertsForProduct, generateAllAlerts } = require('../services/alertService');
 
 const NEAR_EXPIRY_DAYS = 30; // dashboard uses 30-day window
@@ -16,20 +17,30 @@ exports.generateAlerts = async (req, res) => {
   }
 };
 
-// GET /api/alerts/summary — counts for all 5 alert types (used by dashboard + bell)
+// GET /api/alerts/summary — counts for all 5 alert types + Active/Purchase Ordered statuses
 exports.getAlertSummary = async (req, res) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const in30 = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const baseInclude = [{ model: products, attributes: ['stock_quantity', 'min_stock_quantity', 'reorder_level'] }];
 
-    const [outOfStock, lowStock, reorder, nearExpiry, expired] = await Promise.all([
-      alerts.count({ where: { alert_type: 'Out of Stock',  is_resolved: false } }),
-      alerts.count({ where: { alert_type: 'Low Stock',     is_resolved: false } }),
-      alerts.count({ where: { alert_type: 'Reorder',       is_resolved: false } }),
-      alerts.count({ where: { alert_type: 'Near Expiry',   is_resolved: false } }),
-      alerts.count({ where: { alert_type: 'Expired',       is_resolved: false } }),
+    const [outOfStockRows, lowStockRows, reorder, nearExpiry, expired, activeCount, poOrderedCount] = await Promise.all([
+      alerts.findAll({ where: { alert_type: 'Out of Stock', is_resolved: false }, include: baseInclude }),
+      alerts.findAll({ where: { alert_type: 'Low Stock',    is_resolved: false }, include: baseInclude }),
+      alerts.count({ where: { alert_type: 'Reorder',      is_resolved: false } }),
+      alerts.count({ where: { alert_type: 'Near Expiry',  is_resolved: false } }),
+      alerts.count({ where: { alert_type: 'Expired',      is_resolved: false } }),
+      alerts.count({ where: { status: 'Active' } }),
+      alerts.count({ where: { status: 'Purchase Ordered', is_resolved: false }, distinct: true, col: 'product_id' }),
     ]);
+
+    // Only count Out of Stock alerts where product stock is actually 0
+    const outOfStock = outOfStockRows.filter(a => a.product && parseInt(a.product.stock_quantity) === 0).length;
+    // Only count Low Stock alerts where product stock > 0 AND stock <= min_stock_quantity
+    const lowStock = lowStockRows.filter(a => {
+      if (!a.product) return false;
+      const stock = parseInt(a.product.stock_quantity);
+      const min   = parseInt(a.product.min_stock_quantity);
+      return stock > 0 && stock <= min;
+    }).length;
 
     res.json({
       'Out of Stock': outOfStock,
@@ -38,6 +49,8 @@ exports.getAlertSummary = async (req, res) => {
       'Near Expiry':  nearExpiry,
       'Expired':      expired,
       total: outOfStock + lowStock + reorder + nearExpiry + expired,
+      'Active': activeCount,
+      'Purchase Ordered': poOrderedCount,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -47,10 +60,11 @@ exports.getAlertSummary = async (req, res) => {
 // GET /api/alerts
 exports.getAllAlerts = async (req, res) => {
   try {
-    const { limit, unresolved, search, alert_type } = req.query;
-    const where = {};
-    if (unresolved === 'true') where.is_resolved = false;
+    const { limit, search, alert_type, status } = req.query;
+    const where = { is_resolved: false };
+    if (status) where.status = status;
     if (alert_type) where.alert_type = alert_type;
+
     if (search) {
       where.$or = [
         { alert_type: { $like: `%${search}%` } },
@@ -65,12 +79,62 @@ exports.getAllAlerts = async (req, res) => {
         attributes: ['product_id', 'product_name', 'stock_quantity', 'min_stock_quantity',
                      'reorder_level', 'batch_no', 'expiry_date', 'status'],
       }],
-      order: [['is_resolved', 'ASC'], ['alert_id', 'DESC']],
+      order: [['alert_id', 'DESC']],
       ...(search ? { subQuery: false } : {}),
       ...(limit && !isNaN(parseInt(limit)) ? { limit: parseInt(limit) } : {}),
     };
 
-    res.status(200).json(await alerts.findAll(opts));
+    const alertsList = await alerts.findAll(opts);
+
+    // Filter out stale stock alerts that no longer match actual product stock
+    let response = alertsList.filter(alert => {
+      const product = alert.product;
+      if (!product) return true;
+      const stock = parseInt(product.stock_quantity);
+      const min   = parseInt(product.min_stock_quantity);
+      if (alert.alert_type === 'Out of Stock') return stock === 0;
+      if (alert.alert_type === 'Low Stock')    return stock > 0 && stock <= min;
+      return true;
+    });
+
+    if (where.status === 'Purchase Ordered' && !alert_type) {
+      const seen = new Set();
+      response = [];
+      for (const alert of alertsList) {
+        const pid = alert.product_id;
+        if (!seen.has(pid)) {
+          seen.add(pid);
+          response.push(alert);
+        }
+      }
+    }
+
+    if (alert_type === 'Expired') {
+      // Expired alert transitions are handled by generateAllAlerts / syncAlertsForProduct
+    }
+
+    // Build FIFO batch map: batch_inventory (Active, remaining_qty > 0) takes priority,
+    // fallback to product.batch_no if no inventory record exists.
+    const productIds = [...new Set(response.map(a => a.product_id).filter(Boolean))];
+    const batchMap = {};
+    if (batch_inventory && productIds.length) {
+      const batches = await batch_inventory.findAll({
+        where: { product_id: productIds, remaining_quantity: { [Op.gt]: 0 }, status: 'Active' },
+        attributes: ['product_id', 'batch_number', 'expiry_date'],
+        order: [['expiry_date', 'ASC']],
+      });
+      for (const b of batches) {
+        if (!batchMap[b.product_id]) batchMap[b.product_id] = b.batch_number;
+      }
+    }
+
+    const mapped = response.map(alert => {
+      const plain = alert.toJSON();
+      plain.batch_number = batchMap[plain.product_id] || plain.product?.batch_no || null;
+      return plain;
+    });
+
+    res.status(200).json(mapped);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -165,7 +229,7 @@ exports.getExpiryAlerts = async (req, res) => {
         order: [['expiry_date', 'ASC']],
       }),
       products.findAll({
-        where: { expiry_date: { $lt: today }, status: 'active' },
+        where: { expiry_date: { [Op.lte]: today }, status: 'active' },
         attributes: ['product_id', 'product_name', 'expiry_date', 'stock_quantity', 'batch_no'],
         order: [['expiry_date', 'ASC']],
       }),

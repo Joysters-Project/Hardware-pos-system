@@ -353,13 +353,13 @@
 .proc-action-bar { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid #f0f0f0; }
 
 /* ── Form ── */
-.proc-form-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.05); border: 1px solid #ececec; overflow: hidden; max-width: 760px; }
+.proc-form-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.05); border: 1px solid #ececec; overflow: hidden; max-width: 900px; width: 100%; margin: 0 auto; }
 .proc-form-card-header { padding: 1rem 1.5rem; background: linear-gradient(135deg, #8b3a3a, #a84545); color: #fff; }
 .proc-form-card-header h2 { margin: 0; font-size: 1rem; font-weight: 700; }
 .proc-form-card-header p  { margin: 3px 0 0; font-size: 0.82rem; opacity: 0.85; }
 .proc-form { padding: 1.5rem; }
-.proc-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-.proc-field { display: flex; flex-direction: column; gap: 5px; }
+.proc-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem 1.5rem; }
+.proc-field { display: flex; flex-direction: column; gap: 6px; }
 .proc-field-full { grid-column: 1 / -1; }
 .proc-field label { font-size: 0.82rem; font-weight: 700; color: #555; }
 .req { color: #c62828; }
@@ -373,7 +373,7 @@
 .proc-input-sm { padding: 0.45rem 0.65rem; font-size: 0.85rem; }
 .proc-input-qty { width: 70px; text-align: center; padding: 0.45rem 0.5rem; font-size: 0.85rem; }
 .proc-textarea { resize: vertical; min-height: 75px; }
-.proc-form-footer { display: flex; justify-content: flex-end; gap: 0.75rem; padding-top: 1.25rem; border-top: 1px solid #f0f0f0; margin-top: 0.5rem; }
+.proc-form-footer { display: flex; justify-content: flex-end; gap: 0.875rem; padding-top: 1.25rem; padding-bottom: 0.25rem; border-top: 1px solid #f0f0f0; margin-top: 1.25rem; }
 
 /* ── Create PO Layout ── */
 .proc-create-grid { display: grid; grid-template-columns: 1fr 300px; gap: 1.25rem; align-items: flex-start; }
