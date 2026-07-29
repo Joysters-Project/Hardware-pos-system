@@ -1,23 +1,23 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   FolderOpen, Plus, X, Eye, Edit2, Trash2,
   BarChart2, TrendingUp, Package,
-  ChevronDown, ChevronUp
+  ChevronDown, ChevronUp, Calendar
 } from 'lucide-react';
 import api from '../utils/axios';
 import AdminDashboard from './AdminDashboard';
 import ManagerDashboard from './ManagerDashboard';
 import '../styles/Projects.css';
 
-const TYPES    = ['Welding', 'Timber', 'Hardware', 'Other'];
 const STATUSES = ['Active', 'Completed', 'On Hold', 'Cancelled'];
 const MONTHS   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const EMPTY_FORM = {
   project_name: '', project_owner: '', location: '',
-  project_type: 'Hardware', description: '',
-  start_date: '', deadline: '', end_date: '', status: 'Active', final_payment: '',
+  description: '', start_date: '', deadline: '', end_date: '',
+  status: 'Active', final_payment: '',
 };
 
 function ProjectsPage() {
@@ -26,6 +26,7 @@ function ProjectsPage() {
   const [editId, setEditId]                   = useState(null);
   const [showModal, setShowModal]             = useState(false);
   const [viewProject, setViewProject]         = useState(null);
+  const [showViewItems, setShowViewItems]     = useState(false);
   const [activeTab, setActiveTab]             = useState('projects');
   const [loading, setLoading]                 = useState(false);
   const [monthlyData, setMonthlyData]         = useState(null);
@@ -36,7 +37,9 @@ function ProjectsPage() {
   const [yearlyYear, setYearlyYear]           = useState(new Date().getFullYear());
   const [projectEstimate, setProjectEstimate] = useState(null);
 
-  useEffect(() => { loadProjects(); }, []);
+  useEffect(() => {
+    loadProjects();
+  }, []);
 
   const loadProjects = async () => {
     try { const res = await api.get('/projects'); setProjects(res.data); }
@@ -55,7 +58,6 @@ function ProjectsPage() {
       project_name:  p.project_name,
       project_owner: p.project_owner || '',
       location:      p.location || '',
-      project_type:  p.project_type,
       description:   p.description || '',
       status:        p.status,
       start_date:    p.start_date || '',
@@ -110,7 +112,11 @@ function ProjectsPage() {
   };
 
   const handleView = async (p) => {
-    try { const res = await api.get(`/projects/${p.project_id}`); setViewProject(res.data); }
+    try {
+      const res = await api.get(`/projects/${p.project_id}`);
+      setViewProject(res.data);
+      setShowViewItems(false);
+    }
     catch { toast.error('Failed to load project details'); }
   };
 
@@ -129,8 +135,65 @@ function ProjectsPage() {
   };
 
   const statusPillClass = (s) => ({ Active: 'active', Completed: 'completed', 'On Hold': 'on-hold', Cancelled: 'cancelled' }[s] || '');
-  const typeIcon    = (t) => ({ Welding: '🔧', Timber: '🪵', Hardware: '🔩', Other: '📦' }[t] || '📦');
-  const fmtDate     = (d) => d ? new Date(d).toLocaleDateString('en-LK') : '—';
+  const typeIcon    = () => '📁';
+  
+  const fmtDate = (d) => {
+    if (!d) return '—';
+    const dateObj = new Date(d);
+    if (isNaN(dateObj.getTime())) return '—';
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const year = dateObj.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  const fmtDateTime = (d) => {
+    if (!d) return '—';
+    const dateObj = new Date(d);
+    if (isNaN(dateObj.getTime())) return '—';
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const year = dateObj.getFullYear();
+    const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    return `${day}/${month}/${year}, ${timeStr}`;
+  };
+
+  const groupAndSortItemsByMonth = (items) => {
+    if (!items || items.length === 0) return [];
+
+    const groupsMap = new Map();
+
+    items.forEach(item => {
+      const d = new Date(item.taken_at);
+      if (isNaN(d.getTime())) return;
+      const year = d.getFullYear();
+      const monthIndex = d.getMonth();
+      const monthKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+      const monthLabel = d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+
+      if (!groupsMap.has(monthKey)) {
+        groupsMap.set(monthKey, {
+          monthKey,
+          monthLabel,
+          year,
+          monthIndex,
+          items: []
+        });
+      }
+      groupsMap.get(monthKey).items.push(item);
+    });
+
+    const sortedGroups = Array.from(groupsMap.values()).sort((a, b) => {
+      return b.monthKey.localeCompare(a.monthKey);
+    });
+
+    sortedGroups.forEach(group => {
+      group.items.sort((a, b) => new Date(b.taken_at) - new Date(a.taken_at));
+    });
+
+    return sortedGroups;
+  };
+
   const fmtCurrency = (n) => `LKR ${Number(n || 0).toLocaleString('en-LK', { minimumFractionDigits: 2 })}`;
   const f = (key) => (e) => setForm({ ...form, [key]: e.target.value });
 
@@ -186,23 +249,22 @@ function ProjectsPage() {
             <table className="proj-table">
               <thead>
                 <tr>
-                  <th>Project</th><th>Owner</th><th>Type</th><th>Status</th>
+                  <th>Project</th><th>Owner</th><th>Status</th>
                   <th>Start Date</th><th>Deadline</th><th>Location</th><th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {projects.length === 0 ? (
-                  <tr><td colSpan={8} className="proj-empty">No projects yet. Create one to get started.</td></tr>
+                  <tr><td colSpan={7} className="proj-empty">No projects yet. Create one to get started.</td></tr>
                 ) : projects.map(p => (
                   <tr key={p.project_id}>
                     <td>
                       <div className="proj-name-cell">
-                        <span className="proj-type-icon">{typeIcon(p.project_type)}</span>
+                        <span className="proj-type-icon">{typeIcon()}</span>
                         <span className="proj-name-text">{p.project_name}</span>
                       </div>
                     </td>
                     <td>{p.project_owner || '—'}</td>
-                    <td><span className="proj-type-badge">{p.project_type}</span></td>
                     <td><span className={`proj-status-pill ${statusPillClass(p.status)}`}>{p.status}</span></td>
                     <td>{fmtDate(p.start_date)}</td>
                     <td>{fmtDate(p.deadline)}</td>
@@ -265,9 +327,8 @@ function ProjectsPage() {
                   <div className="proj-report-group-header"
                     onClick={() => setExpandedProject(expandedProject === pg.project.project_id ? null : pg.project.project_id)}>
                     <div className="proj-report-group-title">
-                      <span>{typeIcon(pg.project.project_type)}</span>
+                      <span>{typeIcon()}</span>
                       <strong>{pg.project.project_name}</strong>
-                      <span className="proj-type-badge">{pg.project.project_type}</span>
                     </div>
                     <div className="proj-report-group-meta">
                       <span>{fmtCurrency(pg.totalValue)}</span>
@@ -285,8 +346,8 @@ function ProjectsPage() {
                             <td>{item.quantity}</td>
                             <td>{fmtCurrency(item.unit_price)}</td>
                             <td>{fmtCurrency(Number(item.quantity) * Number(item.unit_price))}</td>
-                            <td>{item.takenByUser ? `${item.takenByUser.first_name} ${item.takenByUser.last_name}` : '—'}</td>
-                            <td>{new Date(item.taken_at).toLocaleString('en-LK')}</td>
+                            <td>{item.receiver_name || (item.takenByUser ? `${item.takenByUser.first_name} ${item.takenByUser.last_name}` : '—')}</td>
+                            <td className="proj-date-cell">{fmtDateTime(item.taken_at)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -348,7 +409,7 @@ function ProjectsPage() {
       )}
 
       {/* ══ CREATE / EDIT MODAL ══ */}
-      {showModal && (
+      {showModal && createPortal(
         <div className="proj-overlay" onClick={closeModal}>
           <div className="proj-modal" onClick={e => e.stopPropagation()}>
             <div className="proj-modal-header">
@@ -371,12 +432,6 @@ function ProjectsPage() {
                   <label>Location</label>
                   <input value={form.location} onChange={f('location')}
                     placeholder="e.g. Colombo, Site A" />
-                </div>
-                <div className="proj-field">
-                  <label>Type *</label>
-                  <select value={form.project_type} onChange={f('project_type')}>
-                    {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
                 </div>
                 <div className="proj-field">
                   <label>Status</label>
@@ -420,23 +475,24 @@ function ProjectsPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ══ VIEW MODAL ══ */}
-      {viewProject && (
+      {viewProject && createPortal(
         <div className="proj-overlay" onClick={() => setViewProject(null)}>
           <div className="proj-modal proj-modal-lg" onClick={e => e.stopPropagation()}>
             <div className="proj-modal-header">
-              <h2>{typeIcon(viewProject.project_type)} {viewProject.project_name}</h2>
+              <h2>{typeIcon()} {viewProject.project_name}</h2>
               <button className="proj-modal-close" onClick={() => setViewProject(null)}><X size={18} /></button>
             </div>
 
             <div className="proj-view-top">
-              <div className="proj-view-icon">{typeIcon(viewProject.project_type)}</div>
+              <div className="proj-view-icon">{typeIcon()}</div>
               <div>
                 <h3>{viewProject.project_name}</h3>
-                <p>{viewProject.project_type}{viewProject.project_owner ? ` · ${viewProject.project_owner}` : ''}</p>
+                <p>{viewProject.project_owner ? `${viewProject.project_owner}` : ''}</p>
                 <span className={`proj-status-pill ${statusPillClass(viewProject.status)}`}>{viewProject.status}</span>
               </div>
             </div>
@@ -469,30 +525,69 @@ function ProjectsPage() {
             </div>
 
             <div className="proj-items-section">
-              <h3><Package size={15} /> Items Taken ({viewProject.items?.length || 0})</h3>
-              <div className="proj-items-wrap">
-                <table className="proj-items-table">
-                  <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th><th>Note</th><th>Taken By</th><th>Date</th></tr></thead>
-                  <tbody>
-                    {(!viewProject.items || viewProject.items.length === 0) ? (
-                      <tr><td colSpan={7} className="proj-items-empty">No items recorded yet.</td></tr>
-                    ) : viewProject.items.map(item => (
-                      <tr key={item.item_id}>
-                        <td>{item.product?.product_name || '—'}</td>
-                        <td>{item.quantity}</td>
-                        <td>{fmtCurrency(item.unit_price)}</td>
-                        <td>{fmtCurrency(Number(item.quantity) * Number(item.unit_price))}</td>
-                        <td>{item.note || '—'}</td>
-                        <td>{item.takenByUser ? `${item.takenByUser.first_name} ${item.takenByUser.last_name}` : '—'}</td>
-                        <td>{new Date(item.taken_at).toLocaleString('en-LK')}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="proj-items-action-bar">
+                <button
+                  type="button"
+                  className={`proj-items-toggle-btn ${showViewItems ? 'active' : ''}`}
+                  onClick={() => setShowViewItems(!showViewItems)}
+                >
+                  <Package size={16} />
+                  <span>Items Taken ({viewProject.items?.length || 0})</span>
+                  {showViewItems ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
               </div>
+
+              {showViewItems && (
+                <div className="proj-items-content-wrap">
+                  {(() => {
+                    const grouped = groupAndSortItemsByMonth(viewProject.items || []);
+                    if (grouped.length === 0) {
+                      return (
+                        <div className="proj-items-wrap">
+                          <div className="proj-items-empty">No items recorded yet.</div>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="proj-items-grouped-list">
+                        {grouped.map(g => (
+                          <div key={g.monthKey} className="proj-items-month-group">
+                            <div className="proj-items-month-header">
+                              <span className="proj-items-month-title">📅 {g.monthLabel}</span>
+                              <span className="proj-items-month-badge">{g.items.length} item(s)</span>
+                            </div>
+                            <div className="proj-items-wrap">
+                              <table className="proj-items-table">
+                                <thead>
+                                  <tr>
+                                    <th>Product</th><th>Qty</th><th>Unit Price</th><th>Note</th><th>Taken By</th><th>Date</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {g.items.map(item => (
+                                    <tr key={item.item_id}>
+                                      <td><strong>{item.product?.product_name || '—'}</strong></td>
+                                      <td>{item.quantity}</td>
+                                      <td>{fmtCurrency(item.unit_price)}</td>
+                                      <td>{item.note || '—'}</td>
+                                      <td>{item.receiver_name || (item.takenByUser ? `${item.takenByUser.first_name} ${item.takenByUser.last_name}` : '—')}</td>
+                                      <td className="proj-date-cell">{fmtDateTime(item.taken_at)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

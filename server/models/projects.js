@@ -10,6 +10,11 @@ module.exports = (sequelize) => {
       type: DataTypes.ENUM('Welding', 'Timber', 'Hardware', 'Other'),
       allowNull: false, defaultValue: 'Hardware'
     },
+    project_departments: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      defaultValue: '[]',
+    },
     description:  { type: DataTypes.TEXT, allowNull: true },
     status: {
       type: DataTypes.ENUM('Active', 'Completed', 'On Hold', 'Cancelled'),

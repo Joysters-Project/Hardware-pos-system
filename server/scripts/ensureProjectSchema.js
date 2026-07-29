@@ -42,6 +42,14 @@ async function ensureProjectSchema() {
       }));
     }
 
+    if (!table.project_departments) {
+      changes.push(queryInterface.addColumn('projects', 'project_departments', {
+        type: db.Sequelize.TEXT,
+        allowNull: true,
+        defaultValue: '[]',
+      }));
+    }
+
     if (!table.amount_paid) {
       changes.push(queryInterface.addColumn('projects', 'amount_paid', {
         type: db.Sequelize.DECIMAL(12, 2),
@@ -54,6 +62,29 @@ async function ensureProjectSchema() {
       changes.push(queryInterface.addColumn('projects', 'created_by', {
         type: db.Sequelize.INTEGER,
         allowNull: false,
+      }));
+    }
+
+    // Ensure receiver_name in project_items table
+    const itemTable = await queryInterface.describeTable('project_items');
+    if (!itemTable.receiver_name) {
+      changes.push(queryInterface.addColumn('project_items', 'receiver_name', {
+        type: db.Sequelize.STRING(150),
+        allowNull: true,
+      }));
+    }
+
+    if (!itemTable.receiver_phone) {
+      changes.push(queryInterface.addColumn('project_items', 'receiver_phone', {
+        type: db.Sequelize.STRING(30),
+        allowNull: true,
+      }));
+    }
+
+    if (!itemTable.transaction_ref) {
+      changes.push(queryInterface.addColumn('project_items', 'transaction_ref', {
+        type: db.Sequelize.STRING(64),
+        allowNull: true,
       }));
     }
 

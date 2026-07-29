@@ -1,3 +1,5 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Pencil, Trash2, Eye, Plus, RefreshCw, FileDown, Layers } from "lucide-react";
@@ -626,10 +628,7 @@ function ProductsPage() {
         </table>
       </div>
 
-      {/* ═══════════════════════════════════
-          EDIT MODAL
-      ═══════════════════════════════════ */}
-      {editModal && (
+      {editModal && createPortal(
         <div className="modal-overlay">
           <div className="modal-box edit-product-modal">
             <div className="modal-header">
@@ -797,13 +796,11 @@ function ProductsPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* ═══════════════════════════════════
-          VIEW MODAL
-      ═══════════════════════════════════ */}
-      {viewProduct && (
+      {viewProduct && createPortal(
         <div className="modal-overlay" onClick={() => setViewProduct(null)}>
           <div className="modal-box view-modal" style={{ maxWidth: 620 }} onClick={(e) => e.stopPropagation()} ref={printRef}>
             <div className="modal-header">
@@ -959,7 +956,8 @@ function ProductsPage() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ═══════════════════════════════════

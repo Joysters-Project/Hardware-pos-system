@@ -22,6 +22,7 @@ const getAllDepartments = async (req, res) => {
       const activeCost = (dept.assets || [])
         .filter(a => a.status !== 'Disposed')
         .reduce((sum, a) => sum + parseFloat(a.cost || 0), 0);
+
       return {
         ...dept,
         employee_count: (dept.employees || []).length,

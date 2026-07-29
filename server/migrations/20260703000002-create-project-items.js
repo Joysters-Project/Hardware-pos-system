@@ -17,6 +17,9 @@ module.exports = {
       quantity:   { type: Sequelize.DECIMAL(10, 2), allowNull: false },
       unit_price: { type: Sequelize.DECIMAL(10, 2), allowNull: false },
       note:       { type: Sequelize.STRING(255), allowNull: true },
+      receiver_name: { type: Sequelize.STRING(150), allowNull: true },
+      receiver_phone: { type: Sequelize.STRING(30), allowNull: true },
+      transaction_ref: { type: Sequelize.STRING(64), allowNull: true },
       taken_by: {
         type: Sequelize.INTEGER, allowNull: false,
         references: { model: 'users', key: 'user_id' },

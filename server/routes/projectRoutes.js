@@ -12,6 +12,7 @@ router.get('/active', ctrl.getActiveProjects);
 
 // ── Reports — admin and manager only ─────────────────────────────────────────
 router.get('/report/daily',   roleGuard(['Admin', 'Manager', 'Cashier']), ctrl.getDailyReport);
+router.delete('/report/daily/product/:productId', roleGuard(['Admin', 'Manager']), ctrl.deleteTodayProductSales);
 router.get('/report/monthly', roleGuard(['Admin', 'Manager']), ctrl.getMonthlyReport);
 router.get('/report/yearly',  roleGuard(['Admin', 'Manager']), ctrl.getYearlyReport);
 
@@ -25,6 +26,6 @@ router.delete('/:id', roleGuard(['Admin']), ctrl.deleteProject);
 // ── Project items — cashier adds, admin/manager can remove ───────────────────
 router.get('/:id/items',          ctrl.getProjectItems);
 router.post('/items',             ctrl.addProjectItem);
-router.delete('/items/:itemId',   roleGuard(['Admin', 'Manager']), ctrl.deleteProjectItem);
+router.delete('/items/:itemId',   roleGuard(['Admin', 'Manager', 'Cashier']), ctrl.deleteProjectItem);
 
 module.exports = router;
