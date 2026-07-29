@@ -34,7 +34,7 @@ const createPaymentRecord = async (poId, supplierId, invoiceNumber, invoiceAmoun
  */
 const processPayment = async (paymentId, amountPaid, paymentMethod, paidDate, notes = '', chequeDetails = {}) => {
   try {
-    const payment = await supplier_payments.findById(paymentId, {
+    const payment = await supplier_payments.findByPk(paymentId, {
       include: [
         { model: suppliers },
         { model: purchase_orders }

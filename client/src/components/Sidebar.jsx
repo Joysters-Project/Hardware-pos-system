@@ -24,6 +24,7 @@ import {
   UserCircle,
   Bell,
   Archive,
+  FolderOpen,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import "../styles/Sidebar.css";

@@ -7,7 +7,7 @@ const { products, bill_items, bills } = db;
  */
 const getProductForecast = async (productId) => {
   try {
-    const product = await products.findById(productId);
+    const product = await products.findByPk(productId);
     if (!product) {
       throw new Error(`Product with ID ${productId} not found`);
     }

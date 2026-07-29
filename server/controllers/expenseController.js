@@ -53,6 +53,10 @@ const createExpense = async (req, res) => {
       return res.status(400).json({ message: 'expense_type, amount, expense_date are required' });
     }
 
+    if (expense_type === 'Other' && (!description || !description.trim())) {
+      return res.status(400).json({ message: 'Description is required when expense type is "Other"' });
+    }
+
     const expense = await db.expenses.create({
       expense_type, amount, description: description || null,
       expense_date,
@@ -72,6 +76,9 @@ const updateExpense = async (req, res) => {
     if (!expense) return res.status(404).json({ message: 'Expense not found' });
 
     const { expense_type, amount, description, expense_date, department_id, asset_id } = req.body;
+    if (expense_type === 'Other' && (!description || !description.trim())) {
+      return res.status(400).json({ message: 'Description is required when expense type is "Other"' });
+    }
     await expense.update({ expense_type, amount, description, expense_date, department_id, asset_id });
 
     res.status(200).json({ message: 'Expense updated successfully', data: expense });

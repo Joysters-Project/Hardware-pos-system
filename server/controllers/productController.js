@@ -1,4 +1,4 @@
-const { products, category, brands, units, batch_inventory } = require('../models');
+const { products, category, brands, units, batch_inventory, product_units } = require('../models');
 const { Op } = require('sequelize');
 const { logActivity } = require('../services/auditService');
 const { syncAlertsForProduct } = require('../services/alertService');
@@ -80,7 +80,7 @@ exports.getProductById = async (req, res) => {
     const plain = product.toJSON();
     if (batch_inventory) {
       const batch = await batch_inventory.findOne({
-        where: { product_id: plain.product_id, remaining_quantity: { [Op.gt]: 0 }, status: 'Active' },
+        where: { product_id: plain.product_id, remaining_quantity: { $gt: 0 }, status: 'Active' },
         attributes: ['batch_number'],
         order: [['expiry_date', 'ASC']],
       });

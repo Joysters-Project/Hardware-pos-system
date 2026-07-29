@@ -58,6 +58,10 @@ function ExpensesPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.expense_type || !form.amount || !form.expense_date) { toast.error("Type, amount and date required"); return; }
+    if (form.expense_type === "Other" && (!form.description || !form.description.trim())) {
+      toast.error("Description is required when Expense Type is 'Other'");
+      return;
+    }
     setLoading(true);
     try {
       const payload = { ...form, department_id: form.department_id || null, asset_id: form.asset_id || null };
@@ -229,8 +233,16 @@ function ExpensesPage() {
                   <select value={form.asset_id} onChange={e => setForm({ ...form, asset_id: e.target.value })}>
                     <option value="">None</option>{assets.map(a => <option key={a.asset_id} value={a.asset_id}>{a.asset_name}</option>)}
                   </select></div>
-                <div className="exp-field exp-field-full"><label>Description</label>
-                  <textarea rows={3} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Optional notes..." /></div>
+                <div className="exp-field exp-field-full">
+                  <label>Description {form.expense_type === "Other" ? <span style={{ color: "#c62828" }}>*</span> : "(Optional)"}</label>
+                  <textarea
+                    rows={3}
+                    value={form.description}
+                    onChange={e => setForm({ ...form, description: e.target.value })}
+                    placeholder={form.expense_type === "Other" ? "Description is required when type is 'Other'..." : "Optional notes..."}
+                    required={form.expense_type === "Other"}
+                  />
+                </div>
               </div>
               <div className="exp-modal-footer">
                 <button type="button" className="exp-btn-cancel" onClick={closeModal}>Cancel</button>

@@ -12,31 +12,24 @@ router.get('/search', async (req, res) => {
       return res.json([]);
     }
 
-    const lowerQuery = query.toLowerCase();
-    const searchClauses = [
-      db.Sequelize.where(
-        db.Sequelize.fn('LOWER', db.Sequelize.col('product_name')),
-        { $like: `%${lowerQuery}%` }
-      ),
-      db.Sequelize.where(
-        db.Sequelize.fn('LOWER', db.Sequelize.col('type')),
-        { $like: `%${lowerQuery}%` }
-      ),
-      db.Sequelize.where(
-        db.Sequelize.fn('LOWER', db.Sequelize.col('batch_no')),
-        { $like: `%${lowerQuery}%` }
-      )
-    ];
+    const pattern = `%${query}%`;
 
-    const productId = parseInt(query, 10);
-    if (!Number.isNaN(productId)) {
-      searchClauses.push({ product_id: productId });
-    }
+    // Use raw query to find matching product IDs (avoids Sequelize v3 fn/like incompatibility)
+    const rows = await db.sequelize.query(
+      `SELECT product_id FROM products
+       WHERE product_name LIKE :pattern
+          OR type LIKE :pattern
+          OR batch_no LIKE :pattern
+          OR CAST(product_id AS CHAR) = :exact
+       LIMIT 50`,
+      { replacements: { pattern, exact: query }, type: db.Sequelize.QueryTypes.SELECT }
+    );
+
+    const ids = rows.map(r => r.product_id);
+    if (ids.length === 0) return res.json([]);
 
     const results = await db.products.findAll({
-      where: {
-        $or: searchClauses
-      },
+      where: { product_id: ids },
       include: [
         { model: db.units, attributes: ['unit_id', 'unit_name'] },
         {
@@ -47,7 +40,6 @@ router.get('/search', async (req, res) => {
           ]
         }
       ],
-      limit: 50,
       order: [['product_name', 'ASC']]
     });
 

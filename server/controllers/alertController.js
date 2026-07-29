@@ -1,4 +1,5 @@
 const { alerts, products, batch_inventory } = require('../models');
+const db = require('../models');
 const { Op } = require('sequelize');
 const { syncAlertsForProduct, generateAllAlerts } = require('../services/alertService');
 
@@ -67,8 +68,14 @@ exports.getAllAlerts = async (req, res) => {
 
     if (search) {
       where.$or = [
-        { alert_type: { $like: `%${search}%` } },
-        { '$product.product_name$': { $like: `%${search}%` } },
+        db.Sequelize.where(
+          db.Sequelize.fn('LOWER', db.Sequelize.col('alert_type')),
+          { like: `%${search.toLowerCase()}%` }
+        ),
+        db.Sequelize.where(
+          db.Sequelize.fn('LOWER', db.Sequelize.col('product.product_name')),
+          { like: `%${search.toLowerCase()}%` }
+        ),
       ];
     }
 
@@ -119,7 +126,7 @@ exports.getAllAlerts = async (req, res) => {
     const batchMap = {};
     if (batch_inventory && productIds.length) {
       const batches = await batch_inventory.findAll({
-        where: { product_id: productIds, remaining_quantity: { [Op.gt]: 0 }, status: 'Active' },
+        where: { product_id: productIds, remaining_quantity: { $gt: 0 }, status: 'Active' },
         attributes: ['product_id', 'batch_number', 'expiry_date'],
         order: [['expiry_date', 'ASC']],
       });
@@ -224,12 +231,12 @@ exports.getExpiryAlerts = async (req, res) => {
     const future = new Date(today.getTime() + days * 24 * 60 * 60 * 1000);
     const [expiring, expired] = await Promise.all([
       products.findAll({
-        where: { expiry_date: { $between: [today, future] }, status: 'active' },
+        where: { expiry_date: { between: [today, future] }, status: 'active' },
         attributes: ['product_id', 'product_name', 'expiry_date', 'stock_quantity', 'batch_no'],
         order: [['expiry_date', 'ASC']],
       }),
       products.findAll({
-        where: { expiry_date: { [Op.lte]: today }, status: 'active' },
+        where: { expiry_date: { $lte: today }, status: 'active' },
         attributes: ['product_id', 'product_name', 'expiry_date', 'stock_quantity', 'batch_no'],
         order: [['expiry_date', 'ASC']],
       }),

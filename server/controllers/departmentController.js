@@ -43,7 +43,7 @@ const getDepartmentById = async (req, res) => {
     console.error('Department Error:', 'GET department request');
     console.error('Department ID:', req.params.id);
 
-    const dept = await db.departments.findById(req.params.id, {
+    const dept = await db.departments.findByPk(req.params.id, {
       include: [
         {
           model: db.employees,
@@ -113,7 +113,7 @@ const updateDepartment = async (req, res) => {
     console.error('Department ID:', req.params.id);
     console.error('Request Body:', req.body);
 
-    const dept = await db.departments.findById(req.params.id);
+    const dept = await db.departments.findByPk(req.params.id);
     if (!dept) {
       return res.status(404).json({ success: false, message: 'Department not found' });
     }
@@ -146,7 +146,7 @@ const updateDepartment = async (req, res) => {
 
 const deleteDepartment = async (req, res) => {
   try {
-    const dept = await db.departments.findById(req.params.id);
+    const dept = await db.departments.findByPk(req.params.id);
     if (!dept) return res.status(404).json({ message: 'Department not found' });
 
     const empCount = await db.employees.count({ where: { department_id: req.params.id } });

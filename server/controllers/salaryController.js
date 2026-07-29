@@ -50,7 +50,7 @@ const getAllPayments = async (req, res) => {
 // GET /api/salary/:id
 const getPaymentById = async (req, res) => {
   try {
-    const record = await db.salary_payments.findById(req.params.id, { include: [empInclude] });
+    const record = await db.salary_payments.findByPk(req.params.id, { include: [empInclude] });
     if (!record) return res.status(404).json({ message: 'Salary record not found' });
     res.status(200).json(record);
   } catch (error) {
@@ -79,7 +79,7 @@ const getEmployeeSalarySummary = async (req, res) => {
     const empId = req.params.employee_id;
     const currentYear = new Date().getFullYear();
     const [emp, lastPaid, totalPaidYear] = await Promise.all([
-      db.employees.findById(empId, { include: [{ model: db.departments, attributes: ['department_name'] }] }),
+      db.employees.findByPk(empId, { include: [{ model: db.departments, attributes: ['department_name'] }] }),
       db.salary_payments.findOne({
         where: { employee_id: empId, payment_status: 'Paid' },
         order: [['created_at', 'DESC']]
@@ -113,7 +113,7 @@ const createPayment = async (req, res) => {
       payment_method, remarks
     } = req.body;
 
-    const employee = await db.employees.findById(employee_id);
+    const employee = await db.employees.findByPk(employee_id);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found.' });
 
     const resolvedCategory = (salary_category || employee.salary_category || 'monthly').toLowerCase();
@@ -174,7 +174,7 @@ const createPayment = async (req, res) => {
     await logActivity(req.user?.user_id, req.user?.role, 'SALARY_SLIP_CREATED',
       `Salary paid for Employee ID ${employee_id}. Category: ${salary_category}, Amount: ${final_salary}`, getIp(req));
 
-    const full = await db.salary_payments.findById(record.salary_payment_id, { include: [empInclude] });
+    const full = await db.salary_payments.findByPk(record.salary_payment_id, { include: [empInclude] });
 
     if (full.employee?.email) {
       sendPayslipEmail(full.employee.email, `${full.employee.first_name} ${full.employee.last_name}`, full.toJSON(), null)
@@ -191,7 +191,7 @@ const createPayment = async (req, res) => {
 // PUT /api/salary/:id/pay — kept for backward compat but simplified
 const paySalary = async (req, res) => {
   try {
-    const record = await db.salary_payments.findById(req.params.id, { include: [empInclude] });
+    const record = await db.salary_payments.findByPk(req.params.id, { include: [empInclude] });
     if (!record) return res.status(404).json({ message: 'Salary record not found' });
     if (record.payment_status === 'Paid') return res.status(400).json({ message: 'Already paid' });
 
@@ -215,7 +215,7 @@ const paySalary = async (req, res) => {
 // PUT /api/salary/:id
 const updatePayment = async (req, res) => {
   try {
-    const record = await db.salary_payments.findById(req.params.id);
+    const record = await db.salary_payments.findByPk(req.params.id);
     if (!record) return res.status(404).json({ message: 'Salary record not found' });
     const { basic_salary, bonus_amount, deduction_amount, payment_method, remarks } = req.body;
     const bs = parseFloat(basic_salary ?? record.basic_salary);
@@ -231,7 +231,7 @@ const updatePayment = async (req, res) => {
 // GET /api/salary/:id/download
 const downloadPayslip = async (req, res) => {
   try {
-    const record = await db.salary_payments.findById(req.params.id);
+    const record = await db.salary_payments.findByPk(req.params.id);
     if (!record) return res.status(404).json({ message: 'Record not found' });
     res.status(404).json({ message: 'Payslip downloads are disabled.' });
   } catch (error) {
@@ -271,7 +271,7 @@ const getDashboardStats = async (req, res) => {
 // POST /api/salary/:id/resend-email
 const resendPayslipEmail = async (req, res) => {
   try {
-    const record = await db.salary_payments.findById(req.params.id, { include: [empInclude] });
+    const record = await db.salary_payments.findByPk(req.params.id, { include: [empInclude] });
     if (!record) return res.status(404).json({ message: 'Salary record not found' });
     if (record.payment_status !== 'Paid') return res.status(400).json({ message: 'Can only resend for paid records' });
     if (!record.employee?.email) return res.status(400).json({ message: 'Employee has no email address on file' });

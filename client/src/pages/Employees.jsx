@@ -4,13 +4,13 @@ import { useLocation } from "react-router-dom";
 import { Eye, Pencil, Trash2, Plus, Search, RefreshCw, FileDown, X, ChevronLeft, ChevronRight, Users, AlertCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
-import { validateSriLankanPhone, formatSriLankanPhone, filterSriLankanPhoneInput } from "../utils/phoneValidation";
+import { validateSriLankanPhone, filterSriLankanPhoneInput } from "../utils/phoneValidation";
 import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
 import "../styles/Employees.css";
 
 const BASE_URL = "http://localhost:5000";
-const POSITIONS = ["Admin", "Manager", "Cashier", "Supervisor", "Sales", "Warehouse", "IT", "HR", "Accountant","Other"];
+const POSITIONS = ["Admin", "Manager", "Cashier", "Supervisor", "Sales", "Warehouse", "IT", "HR", "Accountant", "Other"];
 const EMPTY_FORM = { first_name: "", last_name: "", nic: "", phone_no: "", email: "", address: "", position: "", salary: "", salary_category: "monthly", join_date: "", status: "Active", department_id: "" };
 
 function EmployeesPage() {
@@ -75,7 +75,6 @@ function EmployeesPage() {
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
     if (!emailRegex.test(form.email.trim())) {
       toast.error("Please enter a valid email address");
       return;
@@ -111,7 +110,6 @@ function EmployeesPage() {
       return;
     }
 
-    // Validate phone number if provided
     if (form.phone_no) {
       const phoneValidation = validateSriLankanPhone(form.phone_no);
       if (!phoneValidation.isValid) {
@@ -119,10 +117,9 @@ function EmployeesPage() {
         toast.error(phoneValidation.message);
         return;
       }
-      // Use formatted phone number
       form.phone_no = phoneValidation.formatted;
     }
-    
+
     setLoading(true);
     try {
       const fd = new FormData();
@@ -339,18 +336,16 @@ function EmployeesPage() {
                 <div className="emp-field">
                   <label>Phone (Sri Lanka)</label>
                   <div style={{ position: "relative" }}>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       placeholder="e.g., 0712345678 (10 digits, numbers only)"
-                      value={form.phone_no} 
+                      value={form.phone_no}
                       maxLength="10"
                       onChange={e => {
-                        // Only allow valid Sri Lankan mobile patterns (070-078)
                         const filtered = filterSriLankanPhoneInput(e.target.value);
                         setForm({ ...form, phone_no: filtered });
-                        // Clear error on change
                         if (phoneError) setPhoneError("");
-                      }} 
+                      }}
                       style={phoneError ? { borderColor: "#ef4444", borderWidth: "2px" } : {}}
                     />
                     {form.phone_no && (
@@ -372,6 +367,11 @@ function EmployeesPage() {
                   </select></div>
                 <div className="emp-field"><label>Salary (LKR) *</label>
                   <input type="number" min="0" value={form.salary} onChange={e => setForm({ ...form, salary: e.target.value })} required /></div>
+                <div className="emp-field"><label>Salary Category *</label>
+                  <select value={form.salary_category} onChange={e => setForm({ ...form, salary_category: e.target.value })} required>
+                    <option value="monthly">Monthly Worker</option>
+                    <option value="daily">Daily Worker</option>
+                  </select></div>
                 <div className="emp-field"><label>Join Date</label>
                   <input type="date" value={form.join_date} max={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, join_date: e.target.value })} /></div>
                 <div className="emp-field"><label>Department *</label>
@@ -385,37 +385,15 @@ function EmployeesPage() {
                 <div className="emp-field emp-field-full"><label>Address</label>
                   <textarea rows={2} value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Full address..." /></div>
               </div>
-              <div className="emp-field"><label>Position *</label>
-                <select value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} required>
-                  <option value=""></option>{POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
-                </select></div>
-              <div className="emp-field"><label>Salary (LKR) *</label>
-                <input type="number" min="0" value={form.salary} onChange={e => setForm({ ...form, salary: e.target.value })} required /></div>
-              <div className="emp-field"><label>Salary Category *</label>
-                <select value={form.salary_category} onChange={e => setForm({ ...form, salary_category: e.target.value })} required>
-                  <option value="monthly">Monthly Worker</option>
-                  <option value="daily">Daily Worker</option>
-                </select></div>
-              <div className="emp-field"><label>Join Date</label>
-                <input type="date" value={form.join_date} max={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, join_date: e.target.value })} /></div>
-              <div className="emp-field"><label>Department *</label>
-                <select value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })} required>
-                  <option value=""></option>{departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
-                </select></div>
-              <div className="emp-field"><label>Status</label>
-                <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
-                  <option value="Active">Active</option><option value="Inactive">Inactive</option><option value="Resigned">Resigned</option>
-                </select></div>
-              <div className="emp-field emp-field-full"><label>Address</label>
-                <textarea rows={2} value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Full address..." /></div>
-            </div>
-            <div className="emp-modal-footer">
-              <button type="button" className="emp-btn-cancel" onClick={closeModal}>Cancel</button>
-              <button type="submit" className="emp-btn-submit" disabled={loading}>{loading ? "Saving..." : editId ? "Update" : "Create"}</button>
-            </div>
-          </form>
-        </div>
-      </div>}
+              <div className="emp-modal-footer">
+                <button type="button" className="emp-btn-cancel" onClick={closeModal}>Cancel</button>
+                <button type="submit" className="emp-btn-submit" disabled={loading}>{loading ? "Saving..." : editId ? "Update" : "Create"}</button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* View Modal */}
       {viewEmp && createPortal(

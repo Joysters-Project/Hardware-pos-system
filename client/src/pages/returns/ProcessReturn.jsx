@@ -248,13 +248,25 @@ function ReturnItemCard({ item, onToggle, onFieldChange, calcPayment }) {
 }
 
 // ─── Summary Panel ────────────────────────────────────────────────────────────
-function SummaryPanel({ selectedItems, globalDecision, onGlobalDecisionChange, suppliers, globalSupplierId, onSupplierChange, onSubmit, submitting }) {
+function SummaryPanel({ selectedItems, globalDecision, onGlobalDecisionChange, suppliers, globalSupplierId, onSupplierChange, onSubmit, submitting, bill }) {
   const total = selectedItems.length;
   const refundItems = selectedItems.filter(i => ['REFUND', 'PARTIAL_REFUND', 'STOCK'].includes(i.action));
   const supplierItems = selectedItems.filter(i => ['REPAIR', 'EXCHANGE', 'SUPPLIER_CLAIM'].includes(i.action));
-  const totalRefund = refundItems.reduce((s, i) => s + (i.price_per_unit * i.return_quantity), 0);
+  const grossRefund = refundItems.reduce((s, i) => s + (i.price_per_unit * i.return_quantity), 0);
   const totalRepair = selectedItems.reduce((s, i) => s + calcCustomerPayment(i), 0);
   const needsSupplier = supplierItems.length > 0;
+
+  // Compute paid amount and balance from bill payments
+  const billPayments = bill?.payments || [];
+  const amountPaid = billPayments
+    .filter(p => parseFloat(p.amount_paid) > 0)
+    .reduce((s, p) => s + parseFloat(p.amount_paid), 0);
+  const balanceDue = parseFloat(bill?.balance_due) || 0;
+  // Actual cash refund = min(grossRefund, what customer already paid)
+  // If balance_due > 0, the refund first offsets the balance, then cash is returned
+  const effectivePaid = Math.max(0, amountPaid - balanceDue);
+  const actualCashRefund = grossRefund > 0 ? Math.min(grossRefund, effectivePaid) : 0;
+  const deductedFromBalance = Math.min(grossRefund, balanceDue);
 
   return (
     <div className="ret-right">
@@ -295,25 +307,7 @@ function SummaryPanel({ selectedItems, globalDecision, onGlobalDecisionChange, s
             </div>
           ))}
 
-          <hr className="ret-divider" />
 
-          {/* Final Processing Decision */}
-          <div className="ret-summary-row">
-            <span>Final Processing Decision</span>
-          </div>
-          <select
-            value={globalDecision}
-            onChange={(e) => onGlobalDecisionChange(e.target.value)}
-            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '13px', marginBottom: '12px' }}
-          >
-            <option value="Defective">Defective Product</option>
-            <option value="Damaged">Physically Damaged</option>
-            <option value="Wrong Product">Wrong Product Delivered</option>
-            <option value="Warranty Claim">Warranty Claim</option>
-            <option value="Customer Request">Customer Request</option>
-            <option value="Quality Issue">Quality Issue</option>
-            <option value="Other">Other</option>
-          </select>
 
           {/* Supplier picker — only when supplier action exists */}
           {needsSupplier && (
@@ -340,14 +334,37 @@ function SummaryPanel({ selectedItems, globalDecision, onGlobalDecisionChange, s
             <span>Items to Process:</span>
             <span>{total}</span>
           </div>
-          <div className="ret-summary-row">
-            <span>Customer Refund:</span>
-            <span style={{ color: '#166534', fontWeight: 'bold' }}>LKR {totalRefund.toFixed(2)}</span>
-          </div>
-          <div className="ret-summary-row">
-            <span>Repair / Service Charge:</span>
-            <span style={{ color: '#800000', fontWeight: 'bold' }}>LKR {totalRepair.toFixed(2)}</span>
-          </div>
+
+          {grossRefund > 0 && (
+            <>
+              <div className="ret-summary-row">
+                <span>Gross Return Value:</span>
+                <span style={{ color: '#555', fontWeight: 500 }}>LKR {grossRefund.toFixed(2)}</span>
+              </div>
+              {balanceDue > 0 && (
+                <div className="ret-summary-row">
+                  <span>Applied to Balance Due:</span>
+                  <span style={{ color: '#b45309', fontWeight: 500 }}>- LKR {deductedFromBalance.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="ret-summary-row">
+                <span style={{ fontWeight: 'bold' }}>Actual Cash Refund:</span>
+                <span style={{ color: '#166534', fontWeight: 'bold' }}>LKR {actualCashRefund.toFixed(2)}</span>
+              </div>
+              {actualCashRefund === 0 && grossRefund > 0 && (
+                <div style={{ fontSize: '11px', color: '#b45309', background: '#fef9c3', border: '1px solid #fde68a', borderRadius: '6px', padding: '6px 10px', marginBottom: '6px' }}>
+                  ⚠️ No cash refund — full return value offsets the outstanding balance.
+                </div>
+              )}
+            </>
+          )}
+
+          {totalRepair > 0 && (
+            <div className="ret-summary-row">
+              <span>Repair / Service Charge:</span>
+              <span style={{ color: '#800000', fontWeight: 'bold' }}>LKR {totalRepair.toFixed(2)}</span>
+            </div>
+          )}
 
           <hr className="ret-divider" />
 
@@ -363,6 +380,9 @@ function SummaryPanel({ selectedItems, globalDecision, onGlobalDecisionChange, s
     </div>
   );
 }
+
+
+
 
 // ─── Success Screen ───────────────────────────────────────────────────────────
 function SuccessScreen({ result, bill, onReset, onGoToHistory, onGoToRepair }) {
@@ -386,11 +406,19 @@ function SuccessScreen({ result, bill, onReset, onGoToHistory, onGoToRepair }) {
             <span>Items Processed</span>
             <strong>{result.items_count} item{result.items_count !== 1 ? 's' : ''}</strong>
           </div>
-          {result.total_refund > 0 && (
-            <div className="ret-success-detail-row">
-              <span>Financial Adjustment</span>
-              <strong style={{ color: '#166534' }}>LKR {result.total_refund.toFixed(2)} Refund</strong>
-            </div>
+          {(result.total_refund > 0 || result.gross_refund > 0) && (
+            <>
+              {result.gross_refund > 0 && result.gross_refund !== result.total_refund && (
+                <div className="ret-success-detail-row">
+                  <span>Gross Return Value</span>
+                  <strong style={{ color: '#555' }}>LKR {result.gross_refund.toFixed(2)}</strong>
+                </div>
+              )}
+              <div className="ret-success-detail-row">
+                <span>Cash Refund to Customer</span>
+                <strong style={{ color: '#166534' }}>LKR {(result.total_refund || 0).toFixed(2)}</strong>
+              </div>
+            </>
           )}
           {result.customer_payment > 0 && (
             <div className="ret-success-detail-row">
@@ -597,13 +625,21 @@ export default function ProcessReturn() {
 
       if (data.success) {
         toast.success('Return processed successfully!');
-        const totalRefund = selectedList.reduce((s, i) =>
+        const grossRefund = selectedList.reduce((s, i) =>
           ['REFUND', 'PARTIAL_REFUND', 'STOCK'].includes(i.action)
             ? s + i.price_per_unit * i.return_quantity : s, 0);
+        const billPayments = selectedBill?.payments || [];
+        const amountPaid = billPayments
+          .filter(p => parseFloat(p.amount_paid) > 0)
+          .reduce((s, p) => s + parseFloat(p.amount_paid), 0);
+        const balanceDue = parseFloat(selectedBill?.balance_due) || 0;
+        const effectivePaid = Math.max(0, amountPaid - balanceDue);
+        const actualCashRefund = grossRefund > 0 ? Math.min(grossRefund, effectivePaid) : 0;
         const customerPayment = selectedList.reduce((s, i) => s + calcCustomerPayment(i), 0);
         setSuccessResult({
           return_id: data.data?.return_id,
-          total_refund: totalRefund,
+          gross_refund: grossRefund,
+          total_refund: actualCashRefund,
           customer_payment: customerPayment,
           items_count: selectedList.length,
           has_supplier_action: hasSupplierAction,
@@ -699,7 +735,7 @@ export default function ProcessReturn() {
         /* Steps 2-4 */
         <div>
           {/* Invoice bar */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <button className="ret-back-btn" onClick={() => setSelectedBill(null)}>
               ← Different Invoice
             </button>
@@ -713,6 +749,36 @@ export default function ProcessReturn() {
                 <> &mdash; {selectedBill.customer.customer_name}</>}
             </div>
           </div>
+
+          {/* Payment Info Bar */}
+          {(() => {
+            const bPayments = selectedBill?.payments || [];
+            const paid = bPayments.filter(p => parseFloat(p.amount_paid) > 0).reduce((s, p) => s + parseFloat(p.amount_paid), 0);
+            const balance = parseFloat(selectedBill?.balance_due) || 0;
+            const total = parseFloat(selectedBill?.total_amount) || 0;
+            return (
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                <div style={{ background: '#f5f5f5', border: '1px solid #ddd', borderRadius: '6px', padding: '6px 14px', fontSize: '12px' }}>
+                  <span style={{ color: '#888' }}>Bill Total: </span>
+                  <strong>LKR {total.toFixed(2)}</strong>
+                </div>
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '6px 14px', fontSize: '12px' }}>
+                  <span style={{ color: '#166534' }}>Paid: </span>
+                  <strong style={{ color: '#166534' }}>LKR {paid.toFixed(2)}</strong>
+                </div>
+                {balance > 0 ? (
+                  <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '6px', padding: '6px 14px', fontSize: '12px' }}>
+                    <span style={{ color: '#c2410c' }}>Balance Due: </span>
+                    <strong style={{ color: '#c2410c' }}>LKR {balance.toFixed(2)}</strong>
+                  </div>
+                ) : (
+                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '6px 14px', fontSize: '12px', color: '#166534' }}>
+                    ✓ Fully Paid
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           <div className="ret-content">
             {/* ── Left: item cards ── */}
@@ -745,6 +811,7 @@ export default function ProcessReturn() {
               onSupplierChange={setGlobalSupplierId}
               onSubmit={handleSubmit}
               submitting={submitting}
+              bill={selectedBill}
             />
           </div>
         </div>
