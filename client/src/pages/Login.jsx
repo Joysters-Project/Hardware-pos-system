@@ -1,96 +1,127 @@
 import React, { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import toast from "react-hot-toast";
+import { useAuth } from "../context/AuthContext";
 import "../styles/Login.css";
 import logo from "../assets/logo.png";
-import api from "../api";
 
 function Login() {
-
   const navigate = useNavigate();
   const { role } = useParams();
+  const { login } = useAuth();
 
-  const [userName,setUserName] = useState("");
-  const [password,setPassword] = useState("");
+  const [userName, setUserName] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
-  const handleSubmit = async (e) =>{
+  const roleParam = role || "User";  // fallback if undefined
+
+ const handleBack = () => {
+  navigate("/");
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-
-    if(!userName || !password){
-      setError("Enter username and password");
-      return;
-    }
-
     setLoading(true);
+
     try {
-      const response = await api.post('/auth/login', {
-        user_name: userName,
-        password: password
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          user_name: userName,
+          password: password,
+          role: roleParam
+        })
       });
-      
-      if(response.status === 200) {
-        alert("✅ Login successful!");
-        navigate("/dashboard/" + role);
+
+      const rawBody = await response.text();
+      let data = {};
+      try {
+        data = rawBody ? JSON.parse(rawBody) : {};
+      } catch (parseError) {
+        data = { message: rawBody || 'Unexpected server response' };
       }
-    } catch (err) {
-      setError("❌ " + (err.response?.data || "Login failed. Try again."));
+
+      if (response.ok) {
+        toast.success("Login successful!");
+
+        if (data.token && data.user) {
+          // Store all user information
+          localStorage.setItem('userId', data.user.user_id);
+          localStorage.setItem('userName', data.user.user_name);
+          localStorage.setItem('userFirstName', data.user.first_name);
+          localStorage.setItem('userLastName', data.user.last_name);
+          localStorage.setItem('userFullName', `${data.user.first_name} ${data.user.last_name}`);
+          
+          login(data.user.user_name, data.token, roleParam.toLowerCase());
+        }
+
+        setTimeout(() => navigate("/dashboard/" + roleParam.toLowerCase()), 1500);
+      } else {
+        toast.error(data.message || 'Login failed');
+      }
+    } catch (error) {
+      toast.error("Connection error: " + error.message);
+      console.error("Login error:", error);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   return (
-
     <div className="login-page">
-      <div className="login-left">
-        <img src={logo} alt="background"/>
-      </div>
+      {/* <div className="login-left">
+        <img src={logo} alt="background" />
+      </div> */}
 
       <div className="login-right">
         <div className="login-card">
-
-          <h1 className="title">{role} Login</h1>
+          <h1 className="title">{roleParam} Login</h1>
           <p className="subtitle">login with username</p>
 
-          <img src={logo} alt="logo" className="logo"/>
+          <img src={logo} alt="logo" className="logo" />
 
           <form onSubmit={handleSubmit}>
-
-            {error && <div className="error-message" style={{color: 'red', marginBottom: '10px'}}>{error}</div>}
-
             <div className="input-box">
               <input
-              type="text"
-              placeholder="Username"
-              value={userName}
-              onChange={(e)=>setUserName(e.target.value)}
-              required
+                type="text"
+                placeholder="Username"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                required
+                disabled={loading}
               />
             </div>
 
-            <div className="input-box">
+            <div className="input-box" style={{position:"relative"}}>
               <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e)=>setPassword(e.target.value)}
-              required
+                type={showPassword ? "text" : "password"}
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                disabled={loading}
               />
+              <span
+                onClick={() => setShowPassword(v => !v)}
+                style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",cursor:"pointer",userSelect:"none",fontSize:18}}
+              >{showPassword ? "🙈" : "👁️"}</span>
             </div>
 
             <button className="login-btn" type="submit" disabled={loading}>
-              {loading ? "LOGGING IN..." : "LOGIN"}
+              {loading ? "Logging in..." : "LOGIN"}
             </button>
 
             <div className="links">
               <Link to="/forgot-password">Forgot Password?</Link>
               <Link to="/signup">Signup</Link>
             </div>
-
           </form>
+          <button type="button" className="login-btn" onClick={handleBack}> Home</button>
         </div>
       </div>
     </div>

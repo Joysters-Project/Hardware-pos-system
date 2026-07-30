@@ -1,0 +1,126 @@
+/* =============================================
+   DASHBOARD LAYOUT — Admin Shell
+   ============================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+.admin-shell {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background: linear-gradient(135deg, #f5f5f5 0%, #fafafa 100%);
+  font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ---------- Main Content Area ---------- */
+.admin-content {
+  flex: 1;
+  margin-left: 292px; /* sidebar width(260) + left margin(16) + right gap(16) */
+  min-height: 100vh;
+  padding: 32px 36px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  transition: margin-left 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* ---------- Collapsed Content Margin ---------- */
+.admin-shell.sidebar-collapsed .admin-content {
+  margin-left: 112px; /* sidebar collapsed width(80) + left margin(16) + right gap(16) */
+}
+
+/* ---------- Notification Bell in Top-Right of Content ---------- */
+.admin-topbar-bell {
+  position: fixed;
+  top: 20px;
+  right: 28px;
+  z-index: 200;
+  min-width: 40px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 992px) {
+  .admin-topbar-bell {
+    top: 14px;
+    right: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-topbar-bell {
+    top: 10px;
+    right: 14px;
+  }
+}
+
+/* ---------- Page Header Pattern ---------- */
+.admin-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.admin-page-title {
+  font-size: 26px;
+  font-weight: 800;
+  color: #2c2c2c;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-page-subtitle {
+  font-size: 14px;
+  color: #666;
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+/* ---------- Scrollbar ---------- */
+.admin-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.admin-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
+}
+
+.admin-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* =============================================
+   RESPONSIVE
+   ============================================= */
+@media (max-width: 992px) {
+  .admin-content,
+  .admin-shell.sidebar-collapsed .admin-content {
+    margin-left: 0;
+    padding: 80px 20px 24px; /* extra top padding for hamburger */
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-content,
+  .admin-shell.sidebar-collapsed .admin-content {
+    padding: 72px 14px 20px;
+  }
+
+  .admin-page-title {
+    font-size: 22px;
+  }
+}

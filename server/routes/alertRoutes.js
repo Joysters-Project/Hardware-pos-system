@@ -1,20 +1,34 @@
 const express = require('express');
 const router = express.Router();
 const alertController = require('../controllers/alertController');
+const authMiddleware = require('../middleware/authMiddleware');
 
-// CREATE Alert
-router.post('/', alertController.createAlert);
+router.use(authMiddleware);
 
-// GET All Alerts
-router.get('/', alertController.getAllAlerts);
+// POST /api/alerts/generate
+// GET /api/alerts/summary
+// GET /api/alerts/count
+// GET /api/alerts/expiry-alerts
+// GET /api/alerts (list with filters)
+router.post('/generate', alertController.generateAlerts);
+router.get('/summary',  alertController.getAlertSummary);
+router.get('/count',    alertController.getAlertCount);
+router.get('/expiry-alerts', alertController.getExpiryAlerts);
+router.get('/',         alertController.getAllAlerts);
 
-// GET Alert by ID
+// GET /api/alerts/:id
 router.get('/:id', alertController.getAlertById);
 
-// UPDATE Alert
+// PUT /api/alerts/:id/resolve
+router.put('/:id/resolve', alertController.resolveAlert);
+
+// PUT /api/alerts/:id
 router.put('/:id', alertController.updateAlert);
 
-// DELETE Alert
+// POST /api/alerts
+router.post('/', alertController.createAlert);
+
+// DELETE /api/alerts/:id
 router.delete('/:id', alertController.deleteAlert);
 
 module.exports = router;

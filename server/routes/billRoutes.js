@@ -2,8 +2,12 @@ const express = require('express');
 const router = express.Router();
 const billController = require('../controllers/billController');
 
+
 // CREATE Bill
 router.post('/', billController.createBill);
+
+// SEARCH Bills
+router.get('/search', billController.searchBills);
 
 // GET All Bills
 router.get('/', billController.getAllBills);

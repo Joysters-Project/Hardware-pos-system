@@ -1,0 +1,829 @@
+/* ═══════════════════════════════════════════════════════════
+   Reports Page — mirrors DueCollection theme
+═══════════════════════════════════════════════════════════ */
+
+.rp-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #f4f6f9;
+  color: #333;
+  padding: 24px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  box-sizing: border-box;
+}
+
+/* ── Header ── */
+.rp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.rp-header h1 {
+  margin: 0;
+  font-size: 24px;
+  color: #800000;
+}
+
+.rp-header p {
+  margin: 5px 0 0;
+  color: #555;
+  font-size: 14px;
+}
+
+.rp-back-btn {
+  background: white;
+  color: #333;
+  border: 1px solid #ccc;
+  padding: 8px 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.rp-back-btn:hover {
+  background: #eee;
+}
+
+/* ── Tab Navigation ── */
+.rp-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.rp-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #777;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: -2px;
+}
+
+.rp-tab:hover {
+  color: #800000;
+}
+
+.rp-tab.active {
+  color: #800000;
+  border-bottom-color: #800000;
+}
+
+/* ── Section wrapper ── */
+.rp-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.chart-container {
+  width: 100%;
+  min-width: 0;
+}
+
+.rp-timeframe-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rp-timeframe-btn {
+  border: 1px solid #d0b3b3;
+  background: #fff;
+  color: #7a2f2f;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rp-timeframe-btn:hover {
+  border-color: #800000;
+  color: #800000;
+}
+
+.rp-timeframe-btn.active {
+  background: #800000;
+  color: #fff;
+  border-color: #800000;
+}
+
+/* ── Summary stat cards ── */
+.rp-stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+}
+
+.rp-stat-card {
+  background: white;
+  border-radius: 8px;
+  padding: 18px 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border-left: 4px solid #800000;
+}
+
+.rp-stat-label {
+  font-size: 12px;
+  color: #888;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.rp-stat-value {
+  font-size: 22px;
+  font-weight: bold;
+  color: #333;
+}
+
+.rp-stat-value.green {
+  color: #2e7d32;
+}
+
+.rp-stat-value.red {
+  color: #b71c1c;
+}
+
+.rp-stat-value.amber {
+  color: #e65100;
+}
+
+/* ── Filters ── */
+.rp-filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  background: white;
+  padding: 16px 18px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.rp-filters input,
+.rp-filters select {
+  padding: 9px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #333;
+  background: white;
+  outline: none;
+  transition: border-color 0.2s;
+  min-width: 160px;
+}
+
+.rp-filters input:focus,
+.rp-filters select:focus {
+  border-color: #800000;
+}
+
+.rp-date-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rp-date-group label {
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.rp-reset-btn {
+  background: white;
+  border: 1px solid #ccc;
+  color: #555;
+  padding: 9px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.rp-reset-btn:hover {
+  background: #800000;
+  color: white;
+  border-color: #800000;
+}
+
+/* ── Table ── */
+.rp-table-wrap {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.rp-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.rp-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+  font-weight: 700;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+
+.rp-table td {
+  padding: 12px 16px;
+  font-size: 14px;
+  color: #444;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.rp-table tr:last-child td {
+  border-bottom: none;
+}
+
+.rp-table tr:hover td {
+  background: rgba(128, 0, 0, 0.03);
+}
+
+.rp-table td.right,
+.rp-table th.right {
+  text-align: right;
+}
+
+.rp-table td.center,
+.rp-table th.center {
+  text-align: center;
+}
+
+.rp-table td.bold {
+  font-weight: 700;
+  color: #333;
+}
+
+.rp-table td.green {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+.rp-table td.red {
+  color: #b71c1c;
+  font-weight: 600;
+}
+
+.rp-empty {
+  text-align: center;
+  padding: 32px;
+  color: #999;
+  font-style: italic;
+}
+
+/* ── Badges ── */
+.rp-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.rp-badge.paid {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+}
+
+.rp-badge.partial {
+  background: #fff8e1;
+  color: #e65100;
+  border: 1px solid #ffcc02;
+}
+
+.rp-badge.completed {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+}
+
+.rp-badge.pending {
+  background: #fff8e1;
+  color: #e65100;
+  border: 1px solid #ffcc02;
+}
+
+.rp-badge.received {
+  background: #e3f2fd;
+  color: #1565c0;
+  border: 1px solid #90caf9;
+}
+
+.rp-badge.cancelled {
+  background: #fce4ec;
+  color: #b71c1c;
+  border: 1px solid #ef9a9a;
+}
+
+.rp-badge.pending_approval {
+  background: #fce4ec;
+  color: #b71c1c;
+  border: 1px solid #ef9a9a;
+}
+
+/* ── Destination badge ── */
+.rp-dest-badge {
+  background: #fdf2f2;
+  color: #800000;
+  border: 1px solid #e09090;
+  padding: 3px 9px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ── Pager ── */
+.rp-pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: #888;
+  border-top: 1px solid #f0f0f0;
+}
+
+.rp-pager-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.rp-pager-btns button {
+  background: white;
+  border: 1px solid #ccc;
+  color: #333;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.rp-pager-btns button:hover:not(:disabled) {
+  background: #800000;
+  color: white;
+  border-color: #800000;
+}
+
+.rp-pager-btns button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Status messages ── */
+.rp-status {
+  padding: 24px;
+  text-align: center;
+  color: #888;
+  font-size: 15px;
+}
+
+.rp-status.error {
+  color: #b71c1c;
+  background: #fff0f0;
+  border-radius: 6px;
+  border: 1px solid #e09090;
+}
+
+/* ══════════════════════════════════════
+   Returns Report – Card style
+══════════════════════════════════════ */
+.rp-returns-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.rp-empty-card {
+  background: white;
+  padding: 24px;
+  border-radius: 8px;
+  color: #999;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.rp-ret-card {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.rp-ret-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  background: #fdf2f2;
+  border-bottom: 1px solid #f0dada;
+}
+
+.rp-ret-meta {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.rp-ret-meta-item .meta-label,
+.rp-ret-refund .meta-label {
+  font-size: 11px;
+  color: #999;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 2px;
+  display: block;
+}
+
+.rp-ret-meta-item .meta-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+}
+
+.rp-ret-meta-item .meta-value.accent {
+  color: #800000;
+}
+
+.rp-ret-refund {
+  text-align: right;
+}
+
+.rp-ret-refund .meta-value {
+  font-size: 20px;
+  font-weight: bold;
+  color: #2e7d32;
+}
+
+/* Financial summary strip */
+.rp-fin-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+
+.rp-fin-item {
+  padding: 12px 18px;
+  border-right: 1px solid #f0f0f0;
+}
+
+.rp-fin-item:last-child {
+  border-right: none;
+}
+
+.rp-fin-item span {
+  display: block;
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.rp-fin-item strong {
+  font-size: 15px;
+  color: #333;
+}
+
+.rp-fin-item strong.green {
+  color: #2e7d32;
+}
+
+.rp-fin-item strong.red {
+  color: #b71c1c;
+}
+
+.rp-fin-item strong.amber {
+  color: #e65100;
+}
+
+.rp-ret-body {
+  padding: 14px 18px;
+  overflow-x: auto;
+}
+
+/* ── Expandable sub-table (Borrow Report items) ── */
+.rp-expanded-row > td {
+  padding: 0 16px 16px !important;
+  background: white !important;
+}
+
+.rp-sub-table {
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.rp-sub-table th {
+  background: #f5f0f0 !important;
+  font-size: 10px !important;
+  padding: 8px 14px !important;
+}
+
+.rp-sub-table td {
+  font-size: 13px !important;
+  padding: 8px 14px !important;
+  color: #555;
+}
+
+/* ── Export controls ── */
+.rp-export-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.rp-export-label {
+  font-size: 14px;
+  color: #555;
+  font-weight: 700;
+}
+
+.rp-export-btn {
+  border: none;
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s, opacity 0.2s, background 0.2s;
+}
+
+.rp-export-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.rp-export-btn.pdf {
+  background: #800000;
+}
+
+.rp-export-btn.csv {
+  background: #2e7d32;
+}
+
+.rp-export-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── Expanded vertical details ── */
+.rp-vertical-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  background: #fdf2f2;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 10px;
+  text-align: left;
+}
+
+.rp-details-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rp-details-col.span-all {
+  grid-column: span 3;
+  margin-top: 10px;
+  border-top: 1px solid #eee;
+  padding-top: 16px;
+}
+
+.rp-details-col h3,
+.rp-details-col h4 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  color: #800000;
+  border-bottom: 2px solid #f0dada;
+  padding-bottom: 6px;
+  text-transform: none;
+  font-weight: 700;
+}
+
+.rp-detail-line {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #555;
+  border-bottom: 1px dashed #e5cccc;
+  padding-bottom: 4px;
+}
+
+.rp-detail-line strong {
+  color: #333;
+}
+
+.rp-vertical-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rp-vertical-item-card {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.rp-item-row {
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.rp-item-row.bold {
+  font-weight: 600;
+  color: #333;
+}
+
+.rp-item-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  font-size: 13px;
+  color: #666;
+}
+
+.rp-item-vertical-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: #666;
+}
+
+.rp-item-notes {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #555;
+  background: #fdfaf3;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border-left: 3px solid #f0a500;
+}
+
+@media screen and (max-width: 992px) {
+  .rp-vertical-details {
+    grid-template-columns: 1fr;
+  }
+
+  .rp-details-col.span-all {
+    grid-column: span 1;
+  }
+
+  .rp-item-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Product Details Table — used in Return Logs & Borrow Report
+═══════════════════════════════════════════════════════════ */
+.rp-prod-table-wrap {
+  overflow-x: auto;
+  border-radius: 6px;
+  border: 1px solid #f0dada;
+  background: white;
+}
+
+.rp-prod-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.rp-prod-table thead tr {
+  background: #f5f0f0;
+}
+
+.rp-prod-table th {
+  text-align: left;
+  padding: 9px 12px;
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #800000;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  border-bottom: 2px solid #f0dada;
+}
+
+.rp-prod-table td {
+  padding: 9px 12px;
+  color: #444;
+  border-bottom: 1px solid #f0dada;
+  vertical-align: middle;
+}
+
+.rp-prod-table tbody tr {
+  transition: background 0.15s ease;
+  cursor: pointer;
+}
+
+.rp-prod-table tbody tr:hover td {
+  background: #fdf2f2;
+}
+
+.rp-prod-table tfoot tr {
+  background: #fdf2f2;
+  border-top: 2px solid #f0dada;
+}
+
+.rp-prod-table tfoot td {
+  padding: 9px 12px;
+  font-size: 13px;
+  color: #333;
+  border-bottom: none;
+}
+
+.rp-prod-table th.center,
+.rp-prod-table td.center {
+  text-align: center;
+}
+
+.rp-prod-table th.right,
+.rp-prod-table td.right {
+  text-align: right;
+}
+
+.rp-prod-table td.bold {
+  font-weight: 600;
+  color: #333;
+}
+
+.rp-prod-table td.green {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+.rp-prod-table td.muted {
+  color: #aaa;
+  font-size: 12px;
+}
+
+/* Wide modifier — product column takes more space */
+.rp-ret-col--wide,
+.rp-details-col--wide {
+  grid-column: 1 / -1;
+  min-width: 0;
+  /* prevents grid blowout */
+}
+
+.rp-details-col--wide {
+  border-top: 1px solid #f0dada;
+  padding-top: 16px;
+}
+
+/* Empty state inside product table column */
+.rp-no-items {
+  font-size: 13px;
+  color: #aaa;
+  font-style: italic;
+  padding: 10px 0;
+}
+
+@media screen and (max-width: 992px) {
+  .rp-prod-table-wrap {
+    font-size: 12px;
+  }
+
+  .rp-prod-table th,
+  .rp-prod-table td {
+    padding: 7px 8px;
+  }
+}

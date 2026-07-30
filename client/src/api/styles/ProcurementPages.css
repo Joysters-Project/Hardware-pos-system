@@ -1,0 +1,184 @@
+/* =============================================
+   PROCUREMENT PAGES — Shared CSS
+   Extends Procurement.css
+   ============================================= */
+
+/* ── KPI Cards ── */
+.pp-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+.pp-kpi-card {
+  background: linear-gradient(160deg, #ffffff 0%, #fffaf9 100%);
+  border-radius: 14px;
+  padding: 1rem 1.1rem;
+  box-shadow: 0 10px 24px rgba(139, 58, 58, 0.06);
+  border: 1px solid #efe2e2;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
+}
+.pp-kpi-card:hover { border-color: #e4c5c5; box-shadow: 0 14px 30px rgba(139, 58, 58, 0.12); }
+.pp-kpi-icon {
+  width: 44px; height: 44px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.pp-kpi-value { font-size: 1.3rem; font-weight: 800; line-height: 1.1; }
+.pp-kpi-label { font-size: 0.75rem; color: #888; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-top: 2px; }
+.pp-kpi-sub   { font-size: 0.75rem; color: #aaa; margin-top: 2px; }
+
+@media (max-width: 900px) { .pp-kpi-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 540px) { .pp-kpi-grid { grid-template-columns: 1fr; } }
+
+/* ── Charts Row ── */
+.pp-charts-row {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+.pp-charts-row .proc-card { flex: 1; min-width: 280px; }
+.pp-aging-chart   { flex: 2 !important; }
+.pp-aging-breakdown { flex: 1 !important; }
+
+/* ── Aging Breakdown ── */
+.pp-aging-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0.55rem 0; border-bottom: 1px solid #f8f8f8;
+}
+.pp-aging-row:last-child { border-bottom: none; }
+.pp-aging-dot   { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.pp-aging-range { font-size: 0.83rem; color: #555; flex: 1; }
+.pp-aging-amt   { font-size: 0.88rem; font-weight: 700; font-family: 'Courier New', monospace; }
+.pp-aging-total {
+  display: flex; justify-content: space-between; align-items: center;
+  padding-top: 0.75rem; margin-top: 0.5rem; border-top: 2px solid #f0e0e0;
+  font-size: 0.88rem; font-weight: 700; color: #2c2c2c;
+}
+.pp-aging-total strong { font-size: 1rem; color: #8b3a3a; }
+
+/* ── Table Toolbar ── */
+.pp-table-toolbar {
+  display: flex; gap: 0.75rem; padding: 0.75rem 1rem;
+  background: #fafafa; border-bottom: 1px solid #f0f0f0;
+  flex-wrap: wrap;
+}
+
+/* ── Payment modal ── */
+.pp-pay-supplier-info {
+  background: #fdf6f6; border-radius: 8px; padding: 0.85rem 1rem;
+  border: 1px solid #f0e0e0; margin-bottom: 0.75rem;
+}
+.pp-pay-supplier-name { font-weight: 700; font-size: 1rem; color: #2c2c2c; }
+.pp-pay-po { font-size: 0.82rem; color: #888; font-family: monospace; margin-top: 2px; }
+.pp-pay-balance-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.6rem 0; border-bottom: 1px solid #f0e0e0; margin-bottom: 0.5rem;
+  font-size: 0.9rem; color: #555;
+}
+.pp-pay-balance-row strong { font-size: 1.1rem; }
+
+/* ── Spotlight summary strip ── */
+.pp-spotlight-strip {
+  display: flex; gap: 0.75rem; flex-wrap: wrap;
+  margin-top: 0.2rem;
+}
+.pp-spotlight-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  border-radius: 999px; padding: 0.35rem 0.65rem;
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.25px;
+  border: 1px solid #efe2e2; background: #fff; color: #555;
+}
+
+/* ── Forecast severity badge ── */
+.pp-severity-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 0.2rem 0.6rem; border-radius: 999px;
+  font-size: 0.75rem; font-weight: 700; white-space: nowrap;
+}
+
+/* ── Notifications ── */
+.pp-notif-summary {
+  display: flex; gap: 0.75rem; flex-wrap: wrap;
+}
+.pp-notif-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0.4rem 0.85rem; border-radius: 999px;
+  font-size: 0.8rem; font-weight: 600;
+}
+.pp-notif-pill.unread-pill { background: #fdf6f6; color: #8b3a3a; border: 1px solid #f0e0e0; }
+.pp-notif-pill.expiry-pill { background: #fff3e0; color: #e65100; border: 1px solid #ffe0b2; }
+
+.pp-notif-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.pp-notif-list { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.pp-notif-item {
+  display: flex; align-items: flex-start; gap: 0.85rem;
+  background: #fff; border-radius: 10px; padding: 0.9rem 1rem;
+  border: 1px solid #f0f0f0; border-left: 3px solid #e0e0e0;
+  cursor: pointer; transition: box-shadow 0.18s, background 0.18s;
+  position: relative;
+}
+.pp-notif-item:hover { box-shadow: 0 3px 12px rgba(0,0,0,0.07); background: #fafafa; }
+.pp-notif-item.unread { background: #fffbfb; }
+.pp-notif-item.selected { background: #fdf0f0; outline: 2px solid #8b3a3a; }
+
+.pp-notif-icon {
+  width: 36px; height: 36px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.pp-notif-body { flex: 1; min-width: 0; }
+.pp-notif-title   { font-size: 0.9rem; font-weight: 700; color: #2c2c2c; }
+.pp-notif-message { font-size: 0.83rem; color: #555; margin-top: 2px; }
+.pp-notif-date    { font-size: 0.75rem; color: #aaa; margin-top: 4px; }
+.pp-notif-unread-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 6px;
+}
+.pp-notif-badge {
+  padding: 0.18rem 0.55rem; border-radius: 999px;
+  font-size: 0.72rem; font-weight: 700; white-space: nowrap; flex-shrink: 0;
+}
+
+.pp-notif-section-title {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.82rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.4px; padding: 0.5rem 0;
+  border-bottom: 2px solid #f0f0f0; margin-bottom: 0.5rem;
+}
+
+.pp-notif-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 3rem 1rem; color: #aaa; font-size: 0.95rem;
+}
+
+/* ── Supplier inline modal ── */
+.pp-supplier-slide {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 480px; max-width: 100vw;
+  background: #fff; box-shadow: -4px 0 32px rgba(0,0,0,0.15);
+  z-index: 500; display: flex; flex-direction: column; overflow: hidden;
+}
+.pp-supplier-slide-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.1rem 1.5rem;
+  background: linear-gradient(135deg, #8b3a3a, #a84545); color: #fff;
+}
+.pp-supplier-slide-header h2 { margin: 0; font-size: 1rem; font-weight: 700; }
+.pp-supplier-slide-body { flex: 1; overflow-y: auto; padding: 1.5rem; }
+.pp-supplier-slide-footer {
+  display: flex; justify-content: flex-end; gap: 0.65rem;
+  padding: 1rem 1.5rem; border-top: 1px solid #f0f0f0; background: #fafafa;
+}
+
+@media (max-width: 768px) {
+  .pp-charts-row { flex-direction: column; }
+  .pp-aging-chart, .pp-aging-breakdown { flex: unset !important; }
+  .pp-kpi-grid { grid-template-columns: 1fr 1fr; }
+  .pp-supplier-slide { width: 100vw; }
+}

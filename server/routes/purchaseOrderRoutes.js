@@ -8,6 +8,9 @@ router.post('/', purchaseOrderController.createPurchaseOrder);
 // GET All Purchase Orders
 router.get('/', purchaseOrderController.getAllPurchaseOrders);
 
+// GET Purchase Order for Product
+router.get('/product/:productId', purchaseOrderController.getPurchaseOrderByProduct);
+
 // GET Purchase Order by ID
 router.get('/:id', purchaseOrderController.getPurchaseOrderById);
 

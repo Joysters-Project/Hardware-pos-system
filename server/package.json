@@ -13,12 +13,24 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@getbrevo/brevo": "^5.0.4",
+    "axios": "^1.17.0",
     "bcrypt": "^6.0.0",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
-    "mysql2": "^3.18.2",
-    "sequelize": "^6.37.7"
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.1.1",
+    "mysql": "^2.18.1",
+    "mysql2": "^3.22.5",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^9.0.3",
+    "pdfkit": "^0.18.0",
+    "pg-connection-string": "^2.13.0",
+    "sequelize": "^3.30.0",
+    "socket.io": "^4.8.3",
+    "uuid": "^14.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14",
