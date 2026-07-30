@@ -127,7 +127,7 @@ export default function CreatePurchaseOrder() {
                 </div>
                 <div className="proc-field proc-field-full">
                   <label>Supplier <span className="req">*</span></label>
-                  <select className="proc-input" value={supplierId} onChange={e => setSupplierId(e.target.value)}>
+                  <select className="proc-input proc-select" value={supplierId} onChange={e => setSupplierId(e.target.value)}>
                     <option value="">-- Select Supplier --</option>
                     {suppliers.map(s => (
                       <option key={s.supplier_id} value={s.supplier_id}>
@@ -152,7 +152,7 @@ export default function CreatePurchaseOrder() {
               <div>
                 <h2>Line Items</h2>
                 <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>
-                  Only products with zero stock are shown here for reordering.
+                  Search and select any product from your inventory.
                 </p>
               </div>
               <motion.span className="proc-badge-count" key={items.length}
@@ -182,9 +182,8 @@ export default function CreatePurchaseOrder() {
                             products={products}
                             value={item.product_id}
                             onSelect={(productId, product) => handleProductChange(index, productId, product)}
-                            placeholder="Search zero-stock products..."
-                            emptyMessage="No zero-stock products are available right now."
-                            showOnlyZeroStock
+                            placeholder="Search products..."
+                            emptyMessage="No products found."
                           />
                         </td>
                         <td>

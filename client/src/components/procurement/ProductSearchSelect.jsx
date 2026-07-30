@@ -1,44 +1,35 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, ChevronDown, ChevronUp, Package, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Search, Package, X, ChevronDown } from 'lucide-react';
 
 export function ProductSearchSelect({
   products,
   value,
   onSelect,
   placeholder = 'Search product...',
-  emptyMessage = 'No products found for that search.',
-  showOnlyZeroStock = false,
+  emptyMessage = 'No products found.',
 }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen]       = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const containerRef = useRef(null);
-  const inputRef = useRef(null);
+  const inputRef     = useRef(null);
 
-  const selectedProduct = products.find(p => p.product_id === value);
-  const availableProducts = showOnlyZeroStock
-    ? products.filter(product => Number(product.stock_quantity) <= 0)
-    : products;
+  const selectedProduct = products.find(p => String(p.product_id) === String(value));
 
-  const filteredProducts = availableProducts.filter(product =>
-    product.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (product.batch_no && product.batch_no.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filtered = products.filter(p =>
+    p.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.batch_no && p.batch_no.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   useEffect(() => {
-    function handleClickOutside(event) {
-      if (containerRef.current && !containerRef.current.contains(event.target)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    const handler = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) setIsOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
   useEffect(() => {
-    if (isOpen && inputRef.current) {
-      inputRef.current.focus();
-    }
+    if (isOpen && inputRef.current) inputRef.current.focus();
   }, [isOpen]);
 
   const handleSelect = (product) => {
@@ -49,113 +40,160 @@ export function ProductSearchSelect({
 
   const handleClear = (e) => {
     e.stopPropagation();
-    onSelect(null, null);
+    onSelect('', null);
     setSearchTerm('');
   };
 
   return (
-    <div ref={containerRef} className="relative w-full min-w-[240px]">
-      <div
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          "flex min-h-[46px] w-full items-center justify-between rounded-xl border bg-white px-3 py-2.5 text-sm shadow-sm cursor-pointer transition-all",
-          "hover:border-blue-300 hover:shadow-md focus-within:ring-2 focus-within:ring-blue-500/20",
-          isOpen ? "border-blue-500 ring-2 ring-blue-500/20 shadow-md" : "border-slate-200"
-        )}
-      >
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <div className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-lg flex-shrink-0",
-            selectedProduct ? "bg-blue-50 text-blue-600" : "bg-slate-100 text-slate-500"
-          )}>
-            <Package className="h-4 w-4" />
-          </div>
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', minWidth: 220 }}>
 
-          <div className="min-w-0 flex-1">
-            {selectedProduct ? (
-              <>
-                <div className="truncate font-semibold text-slate-800">{selectedProduct.product_name}</div>
-                <div className="truncate text-[11px] text-slate-500">
-                  {selectedProduct.batch_no ? `Batch: ${selectedProduct.batch_no}` : 'Tap to change'}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="font-medium text-slate-700">{placeholder}</div>
-                <div className="text-[11px] text-slate-400"></div>
-              </>
-            )}
-          </div>
+      {/* Trigger */}
+      <div
+        onClick={() => setIsOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '8px 10px', borderRadius: 9, cursor: 'pointer',
+          border: isOpen ? '1.5px solid #8b3a3a' : '1.5px solid #ddd',
+          background: '#fff', minHeight: 42,
+          boxShadow: isOpen ? '0 0 0 3px rgba(139,58,58,0.1)' : 'none',
+          transition: 'border-color 0.2s, box-shadow 0.2s',
+        }}
+      >
+        <div style={{
+          width: 30, height: 30, borderRadius: 7, flexShrink: 0,
+          background: selectedProduct ? '#fdf0f0' : '#f5f5f5',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: selectedProduct ? '#8b3a3a' : '#999',
+        }}>
+          <Package size={15} />
         </div>
 
-        <div className="ml-2 flex items-center gap-1">
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {selectedProduct ? (
+            <>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#2c2c2c', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {selectedProduct.product_name}
+              </div>
+              <div style={{ fontSize: 11, color: '#888' }}>
+                Stock: {selectedProduct.stock_quantity ?? 0} &nbsp;|&nbsp; Cost: LKR {Number(selectedProduct.cost_price || 0).toFixed(2)}
+              </div>
+            </>
+          ) : (
+            <div style={{ fontSize: 13, color: '#aaa' }}>{placeholder}</div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
           {selectedProduct && (
             <button
               type="button"
               onClick={handleClear}
-              className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 3, color: '#aaa', display: 'flex', alignItems: 'center' }}
             >
-              <X className="h-3.5 w-3.5" />
+              <X size={13} />
             </button>
           )}
-          {isOpen ? (
-            <ChevronUp className="h-4 w-4 text-slate-400" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-slate-400" />
-          )}
+          <ChevronDown size={14} style={{ color: '#aaa', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
         </div>
       </div>
 
+      {/* Dropdown */}
       {isOpen && (
-        <div className="absolute z-[10000] mt-1 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl" style={{ boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}>
-          <div className="border-b border-slate-100 px-3 py-2.5">
-            <div className="mb-1 flex items-center justify-between">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Choose product</span>
-              <span className="text-[11px] text-slate-400">Type to filter</span>
-            </div>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
+          background: '#fff', border: '1.5px solid #e0e0e0', borderRadius: 10,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 9999,
+          overflow: 'hidden',
+        }}>
+          {/* Search input */}
+          <div style={{ padding: '8px 10px', borderBottom: '1px solid #f0f0f0' }}>
+            <div style={{ position: 'relative' }}>
+              <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: '#aaa' }} />
               <input
                 ref={inputRef}
                 type="text"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search products..."
-                className="w-full rounded-lg border border-slate-200 pl-8 pr-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                onClick={(e) => e.stopPropagation()}
+                onChange={e => setSearchTerm(e.target.value)}
+                onClick={e => e.stopPropagation()}
+                placeholder="Search by name or batch..."
+                style={{
+                  width: '100%', boxSizing: 'border-box',
+                  padding: '7px 10px 7px 28px',
+                  border: '1.5px solid #e0e0e0', borderRadius: 7,
+                  fontSize: 12, outline: 'none', fontFamily: 'inherit',
+                }}
               />
             </div>
+            <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>
+              {filtered.length} product{filtered.length !== 1 ? 's' : ''} found
+            </div>
           </div>
-          <div className="max-h-64 overflow-y-auto">
-            {filteredProducts.length === 0 ? (
-              <div className="p-4 text-center text-sm text-slate-500">
+
+          {/* List */}
+          <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+            {filtered.length === 0 ? (
+              <div style={{ padding: '16px', textAlign: 'center', fontSize: 13, color: '#999' }}>
                 {emptyMessage}
               </div>
             ) : (
-              filteredProducts.map((product) => (
-                <div
-                  key={product.product_id}
-                  onClick={() => handleSelect(product)}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors",
-                    "hover:bg-blue-50",
-                    value === product.product_id && "bg-blue-50"
-                  )}
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 flex-shrink-0">
-                    <Package className="h-4 w-4" />
+              filtered.map(product => {
+                const isSelected = String(value) === String(product.product_id);
+                const isLowStock = Number(product.stock_quantity) <= Number(product.min_stock_quantity || 0);
+                return (
+                  <div
+                    key={product.product_id}
+                    onClick={() => handleSelect(product)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '9px 12px', cursor: 'pointer',
+                      background: isSelected ? '#fdf0f0' : '#fff',
+                      borderBottom: '1px solid #f8f8f8',
+                      transition: 'background 0.15s',
+                    }}
+                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#fdf6f6'; }}
+                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = '#fff'; }}
+                  >
+                    <div style={{
+                      width: 32, height: 32, borderRadius: 7, flexShrink: 0,
+                      background: isSelected ? '#f5d5d5' : '#fdf0f0',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#8b3a3a',
+                    }}>
+                      <Package size={14} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#2c2c2c', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {product.product_name}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#888' }}>
+                        Cost: LKR {Number(product.cost_price || 0).toFixed(2)}
+                        &nbsp;|&nbsp;
+                        <span style={{ color: isLowStock ? '#c62828' : '#2e7d32', fontWeight: 600 }}>
+                          Stock: {product.stock_quantity ?? 0}
+                        </span>
+                      </div>
+                    </div>
+                    {product.batch_no && (
+                      <span style={{
+                        fontSize: 10, fontWeight: 600, padding: '2px 7px',
+                        borderRadius: 999, background: '#f0f0f0', color: '#666',
+                        flexShrink: 0,
+                      }}>
+                        {product.batch_no}
+                      </span>
+                    )}
+                    {isLowStock && (
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: '2px 7px',
+                        borderRadius: 999, background: '#fdecea', color: '#c62828',
+                        flexShrink: 0,
+                      }}>
+                        LOW
+                      </span>
+                    )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="truncate text-sm font-semibold text-slate-800">{product.product_name}</p>
-                    <p className="text-xs text-slate-500">
-                      Stock: {product.stock_quantity} | Cost: LKR{Number(product.cost_price).toFixed(2)}
-                    </p>
-                  </div>
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
-                    {product.batch_no || 'No batch'}
-                  </span>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

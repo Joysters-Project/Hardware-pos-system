@@ -57,7 +57,7 @@ export function useActiveSuppliers() {
     queryKey: ['procurement-suppliers-active'],
     queryFn:  async () => {
       const data = (await supplierApi.getAll()).data;
-      return data.filter((s) => s.status === 'Active');
+      return data.filter((s) => String(s.status).toLowerCase() === 'active');
     },
   });
 }
