@@ -506,7 +506,6 @@ function Catalog() {
                               title="Edit Item"
                             >
                               <Edit2 size={15} />
-                              <span>Edit</span>
                             </button>
                             <button
                               type="button"
@@ -516,7 +515,6 @@ function Catalog() {
                               title="Delete Item"
                             >
                               <Trash2 size={15} />
-                              <span>Delete</span>
                             </button>
                           </>
                         )}
