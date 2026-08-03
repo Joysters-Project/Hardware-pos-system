@@ -63,6 +63,8 @@
   border-radius: 18px;
   width: 100%;
   max-width: 820px;
+  padding: 2rem;
+  box-sizing: border-box;
   max-height: calc(100vh - 104px);
   display: flex;
   flex-direction: column;
