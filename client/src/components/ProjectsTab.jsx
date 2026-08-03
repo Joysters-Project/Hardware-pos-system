@@ -487,7 +487,7 @@ export default function ProjectsTab() {
               </button>
             </div>
 
-            <div className="pt-project-transaction-shell" onKeyDown={handleFormKeyDown}>
+            <div className="pt-project-transaction-shell">
               <div className="pt-billing-layout">
                 <div className="pt-billing-left">
                   <div className="pt-card-box pt-project-catalog-card">
