@@ -15,6 +15,8 @@ import {
   Printer,
   ShoppingCart,
   AlertCircle,
+  Grid3x3,
+  List,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
@@ -95,6 +97,7 @@ export default function ProjectsTab() {
   const [selectedProject, setSelectedProject] = useState(null);
   const [dailyReport, setDailyReport] = useState(null);
   const [loadingProjectData, setLoadingProjectData] = useState(false);
+  const [catalogView, setCatalogView] = useState('grid');
 
   const [products, setProducts] = useState([]);
   const [searchQ, setSearchQ] = useState('');
@@ -208,6 +211,18 @@ export default function ProjectsTab() {
   const cartItemCount = cart.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
   const summaryGroups = buildSummaryGroups(dailyReport?.items || []);
   const summaryTotalQty = summaryGroups.reduce((sum, group) => sum + Number(group.quantity || 0), 0);
+
+  const getStockClass = (qty) => {
+    if (qty <= 0) return 'out-of-stock';
+    if (qty <= 10) return 'low-stock';
+    return '';
+  };
+
+  const getStockLabel = (qty) => {
+    if (qty <= 0) return 'Out of Stock';
+    if (qty <= 10) return `Low: ${qty}`;
+    return `In Stock: ${qty}`;
+  };
 
   const addToCart = (product) => {
     setCart((current) => {
@@ -538,8 +553,25 @@ export default function ProjectsTab() {
                         <Package size={18} /> Product Catalog
                         <span className="pt-badge">{catalogProducts.length}</span>
                       </span>
-                      <div className="catalog-view-toggle pt-catalog-toolbar-note">
-                      
+                      <div className="pt-catalog-view-toggle">
+                        <button
+                          type="button"
+                          className={`pt-view-btn ${catalogView === 'grid' ? 'active' : ''}`}
+                          onClick={() => setCatalogView('grid')}
+                          title="Grid view"
+                          aria-label="Grid view"
+                        >
+                          <Grid3x3 size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className={`pt-view-btn ${catalogView === 'list' ? 'active' : ''}`}
+                          onClick={() => setCatalogView('list')}
+                          title="List view"
+                          aria-label="List view"
+                        >
+                          <List size={14} />
+                        </button>
                       </div>
                     </div>
 
@@ -589,27 +621,57 @@ export default function ProjectsTab() {
                     ) : catalogProducts.length === 0 ? (
                       <div className="pt-empty">No active products available.</div>
                     ) : (
-                      <div className="pt-catalog-grid">
-                        {catalogProducts.map((product) => (
-                          <button
-                            key={product.product_id}
-                            type="button"
-                            className={`pt-catalog-card ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
-                            onClick={() => product.stock_quantity > 0 && addToCart(product)}
-                            disabled={product.stock_quantity <= 0}
-                          >
-                            <div className="pt-catalog-card-icon">
-                              <Package size={20} />
-                            </div>
-                            <div className="pt-catalog-card-name">{product.product_name}</div>
-                            <div className="pt-catalog-card-code">{product.product_code || `ID: ${product.product_id}`}</div>
-                            <div className="pt-catalog-card-footer">
-                              <div className="pt-catalog-card-price">Rs.{Number(product.unit_price).toFixed(2)}</div>
-                              <div className="pt-catalog-card-stock">In Stock: {product.stock_quantity}</div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
+                      catalogView === 'grid' ? (
+                        <div className="pt-catalog-grid">
+                          {catalogProducts.map((product) => (
+                            <button
+                              key={product.product_id}
+                              type="button"
+                              className={`pt-catalog-card ${product.stock_quantity <= 0 ? 'disabled' : ''} ${getStockClass(product.stock_quantity)}`}
+                              onClick={() => product.stock_quantity > 0 && addToCart(product)}
+                              disabled={product.stock_quantity <= 0}
+                            >
+                              <div className="pt-catalog-card-icon">
+                                <Package size={20} />
+                              </div>
+                              <div className="pt-catalog-card-name">{product.product_name}</div>
+                              <div className="pt-catalog-card-code">{product.product_code || `ID: ${product.product_id}`}</div>
+                              <div className="pt-catalog-card-footer">
+                                <div className="pt-catalog-card-price">Rs.{Number(product.unit_price).toFixed(2)}</div>
+                                <div className={`pt-catalog-card-stock ${getStockClass(product.stock_quantity)}`}>
+                                  {getStockLabel(product.stock_quantity)}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="pt-catalog-list">
+                          {catalogProducts.map((product) => (
+                            <button
+                              key={product.product_id}
+                              type="button"
+                              className={`pt-catalog-list-item ${product.stock_quantity <= 0 ? 'disabled' : ''} ${getStockClass(product.stock_quantity)}`}
+                              onClick={() => product.stock_quantity > 0 && addToCart(product)}
+                              disabled={product.stock_quantity <= 0}
+                            >
+                              <div className="pt-catalog-card-icon pt-list-icon">
+                                <Package size={18} />
+                              </div>
+                              <div className="pt-list-item-info">
+                                <div className="pt-catalog-card-name">{product.product_name}</div>
+                                <div className="pt-catalog-card-code">{product.product_code || `ID: ${product.product_id}`}</div>
+                              </div>
+                              <div className="pt-list-item-right">
+                                <div className="pt-catalog-card-price">Rs.{Number(product.unit_price).toFixed(2)}</div>
+                                <div className={`pt-catalog-card-stock ${getStockClass(product.stock_quantity)}`}>
+                                  {getStockLabel(product.stock_quantity)}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )
                     )}
                   </div>
 
