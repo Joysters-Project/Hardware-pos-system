@@ -14,9 +14,11 @@ import {
   Phone,
   Printer,
   ShoppingCart,
+  AlertCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
+import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
 import '../styles/ProjectsTab.css';
 
 const currency = (value) => `LKR ${Number(value || 0).toLocaleString('en-LK', { minimumFractionDigits: 2 })}`;
@@ -101,6 +103,7 @@ export default function ProjectsTab() {
   const [cart, setCart] = useState([]);
   const [receiverName, setReceiverName] = useState('');
   const [receiverPhone, setReceiverPhone] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [loading, setLoading] = useState(false);
   const [summaryProduct, setSummaryProduct] = useState(null);
   const [deletingItem, setDeletingItem] = useState(null);
@@ -253,6 +256,7 @@ export default function ProjectsTab() {
     setCart([]);
     setReceiverName('');
     setReceiverPhone('');
+    setPhoneError('');
     setSearchQ('');
     setShowSearch(false);
     setSearchResults([]);
@@ -282,6 +286,15 @@ export default function ProjectsTab() {
       receiverPhoneRef.current?.focus();
       return;
     }
+
+    const phoneValidation = validateSriLankanPhone(receiverPhone);
+    if (!phoneValidation.isValid) {
+      setPhoneError(phoneValidation.message);
+      toast.error(phoneValidation.message);
+      receiverPhoneRef.current?.focus();
+      return;
+    }
+    setPhoneError('');
 
     if (cart.some((item) => Number(item.quantity) <= 0)) {
       toast.error('Enter a valid quantity for every selected product');
@@ -641,12 +654,29 @@ export default function ProjectsTab() {
                           <Phone size={15} className="pt-input-icon" />
                           <input
                             ref={receiverPhoneRef}
-                            placeholder="e.g. 077 123 4567"
+                            placeholder="e.g. 0712345678 (10 digits)"
                             value={receiverPhone}
-                            onChange={(event) => setReceiverPhone(event.target.value)}
+                            maxLength={10}
+                            onChange={(event) => {
+                              const filtered = filterSriLankanPhoneInput(event.target.value);
+                              setReceiverPhone(filtered);
+                              if (phoneError) setPhoneError('');
+                            }}
                             onKeyDown={handleFormKeyDown}
+                            style={phoneError ? { borderColor: '#ef4444', borderWidth: '2px' } : {}}
                           />
                         </div>
+                        {receiverPhone && (
+                          <span style={{ fontSize: '11px', color: '#888', marginTop: '2px', display: 'block' }}>
+                            {receiverPhone.length}/10 digits
+                          </span>
+                        )}
+                        {phoneError && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', color: '#ef4444', fontSize: '12px' }}>
+                            <AlertCircle size={14} />
+                            {phoneError}
+                          </div>
+                        )}
                       </div>
                     </div>
 
