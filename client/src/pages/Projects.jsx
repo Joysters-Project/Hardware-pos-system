@@ -144,6 +144,24 @@ function ProjectsPage() {
     if (activeTab === 'yearly') loadYearly(yearlyYear);
   }, [activeTab, yearlyYear]);
 
+  // When switching to monthly tab, snap year/month to valid values from projects
+  useEffect(() => {
+    if (activeTab !== 'monthly' || projectYears.length === 0) return;
+    if (!projectYears.includes(reportYear)) setReportYear(projectYears[projectYears.length - 1]);
+  }, [activeTab, projects]);
+
+  useEffect(() => {
+    if (activeTab !== 'monthly') return;
+    const months = availableMonthsForYear(reportYear);
+    if (months.length > 0 && !months.includes(reportMonth)) setReportMonth(months[months.length - 1]);
+  }, [reportYear, activeTab, projects]);
+
+  // When switching to yearly tab, snap year to valid values from projects
+  useEffect(() => {
+    if (activeTab !== 'yearly' || projectYears.length === 0) return;
+    if (!projectYears.includes(yearlyYear)) setYearlyYear(projectYears[projectYears.length - 1]);
+  }, [activeTab, projects]);
+
   const statusPillClass = (s) => ({ Active: 'active', Completed: 'completed', 'On Hold': 'on-hold', Cancelled: 'cancelled' }[s] || '');
   const typeIcon    = () => '📁';
   
@@ -206,6 +224,32 @@ function ProjectsPage() {
 
   const fmtCurrency = (n) => `LKR ${Number(n || 0).toLocaleString('en-LK', { minimumFractionDigits: 2 })}`;
   const f = (key) => (e) => setForm({ ...form, [key]: e.target.value });
+
+  // Derive years and months that are covered by at least one project's active span
+  const projectYears = (() => {
+    const yearSet = new Set();
+    projects.forEach(p => {
+      if (!p.start_date) return;
+      const start = new Date(p.start_date);
+      const end = p.end_date ? new Date(p.end_date) : (p.deadline ? new Date(p.deadline) : new Date());
+      for (let y = start.getFullYear(); y <= end.getFullYear(); y++) yearSet.add(y);
+    });
+    return Array.from(yearSet).sort((a, b) => a - b);
+  })();
+
+  const availableMonthsForYear = (year) => {
+    const monthSet = new Set();
+    projects.forEach(p => {
+      if (!p.start_date) return;
+      const start = new Date(p.start_date);
+      const end = p.end_date ? new Date(p.end_date) : (p.deadline ? new Date(p.deadline) : new Date());
+      const from = new Date(Math.max(start, new Date(year, 0, 1)));
+      const to   = new Date(Math.min(end,   new Date(year, 11, 31)));
+      if (from > to) return;
+      for (let m = from.getMonth(); m <= to.getMonth(); m++) monthSet.add(m + 1);
+    });
+    return Array.from(monthSet).sort((a, b) => a - b);
+  };
 
   return (
     <div className="proj-container">
@@ -299,10 +343,15 @@ function ProjectsPage() {
         <div className="proj-report-section">
           <div className="proj-report-controls">
             <select value={reportYear} onChange={e => setReportYear(Number(e.target.value))}>
-              {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
+              {projectYears.length > 0
+                ? projectYears.map(y => <option key={y} value={y}>{y}</option>)
+                : <option value={reportYear}>{reportYear}</option>}
             </select>
             <select value={reportMonth} onChange={e => setReportMonth(Number(e.target.value))}>
-              {MONTHS.map((m, i) => <option key={i} value={i+1}>{m}</option>)}
+              {(availableMonthsForYear(reportYear).length > 0
+                ? availableMonthsForYear(reportYear)
+                : [reportMonth]
+              ).map(m => <option key={m} value={m}>{MONTHS[m - 1]}</option>)}
             </select>
             {loading && <span style={{ fontSize: '0.85rem', color: '#888' }}>Loading…</span>}
           </div>
@@ -373,7 +422,9 @@ function ProjectsPage() {
         <div className="proj-report-section">
           <div className="proj-report-controls">
             <select value={yearlyYear} onChange={e => setYearlyYear(Number(e.target.value))}>
-              {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
+              {projectYears.length > 0
+                ? projectYears.map(y => <option key={y} value={y}>{y}</option>)
+                : <option value={yearlyYear}>{yearlyYear}</option>}
             </select>
             {loading && <span style={{ fontSize: '0.85rem', color: '#888' }}>Loading…</span>}
           </div>
