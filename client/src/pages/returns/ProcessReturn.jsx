@@ -5,6 +5,7 @@ import {
   ArrowRight, Printer, ClipboardList, RotateCcw
 } from 'lucide-react';
 import '../../styles/Returns.css';
+import { printWithTemplate } from '../../utils/printTemplate';
 import WarrantyHandlingSection from '../../components/returns/WarrantyHandlingSection';
 import {
   CONDITIONS,
@@ -386,6 +387,28 @@ function SummaryPanel({ selectedItems, globalDecision, onGlobalDecisionChange, s
 
 // ─── Success Screen ───────────────────────────────────────────────────────────
 function SuccessScreen({ result, bill, onReset, onGoToHistory, onGoToRepair }) {
+  const handlePrintReceipt = () => {
+    const contentHtml = `
+      <table class="tpl-table">
+        <tr><td>Return ID</td><td>RET-${result.return_id}</td></tr>
+        <tr><td>Invoice</td><td>${bill?.bill_no || `INV-${bill?.bill_id}`}</td></tr>
+        <tr><td>Items Processed</td><td>${result.items_count}</td></tr>
+        <tr><td>Gross Return Value</td><td>LKR ${(result.gross_refund || 0).toFixed(2)}</td></tr>
+        <tr><td>Customer Refund</td><td>LKR ${(result.total_refund || 0).toFixed(2)}</td></tr>
+        <tr><td>Repair Charge</td><td>LKR ${(result.customer_payment || 0).toFixed(2)}</td></tr>
+        <tr><td>Status</td><td>Completed</td></tr>
+      </table>
+    `;
+
+    const opened = printWithTemplate({
+      title: 'Return Receipt',
+      subtitle: 'Return Successfully Processed',
+      contentHtml,
+    });
+
+    if (!opened) toast.error('Allow pop-ups to print this receipt.');
+  };
+
   return (
     <div className="ret-success">
       <div className="ret-success-card">
@@ -441,7 +464,7 @@ function SuccessScreen({ result, bill, onReset, onGoToHistory, onGoToRepair }) {
               <Wrench size={16} /> Supplier Queue
             </button>
           )}
-          <button className="ret-success-btn secondary" onClick={() => window.print()}>
+          <button className="ret-success-btn secondary" onClick={handlePrintReceipt}>
             <Printer size={16} /> Print Receipt
           </button>
           <button className="ret-success-btn primary" onClick={onReset}>

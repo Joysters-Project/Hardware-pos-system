@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import DashboardLayout from "../components/DashboardLayout";
+import { buildTableHtml, escapeHtml, printWithTemplate } from "../utils/printTemplate";
 import "../styles/Catalog.css";
 
 const API_BASE = "http://localhost:5000/api";
@@ -252,7 +253,25 @@ function Catalog() {
   };
 
   const handleExportPDF = () => {
-    window.print();
+    const rows = filteredData.map((item) => ([
+      escapeHtml(item[fieldNames.id]),
+      escapeHtml(item[fieldNames.name]),
+      escapeHtml(item.status || "Active"),
+    ]));
+
+    const contentHtml = buildTableHtml({
+      columns: ["ID", "Name", "Status"],
+      rows,
+      emptyMessage: "No catalog records found"
+    });
+
+    const opened = printWithTemplate({
+      title: `${activeTab.charAt(0).toUpperCase()}${activeTab.slice(1)} Catalog`,
+      subtitle: `Total records: ${filteredData.length}`,
+      contentHtml,
+    });
+
+    if (!opened) toast.error("Allow pop-ups to export the report as PDF.");
   };
 
   // Process search and sorting

@@ -9,8 +9,7 @@ import {
 } from 'lucide-react';
 import api from '../api/axios';
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
+import { printWithTemplate } from '../utils/printTemplate';
 import SuccessAnim from './SuccessAnim';
 import DashboardLayout from './DashboardLayout';
 import toast from 'react-hot-toast';
@@ -247,57 +246,61 @@ const BillingSystem = () => {
   const handleDownloadPdf = async () => {
     if (!lastBill) return;
     try {
-      // Create a container and render the invoice HTML into it
-      const invoiceHtml = generateInvoiceHtml();
-      const container = document.createElement('div');
-      container.style.position = 'fixed';
-      container.style.left = '-9999px';
-      container.innerHTML = invoiceHtml;
-      document.body.appendChild(container);
+      const invoiceRows = (lastBill.items || []).map((item) => {
+        const qty = parseFloat(item.billed_quantity !== undefined ? item.billed_quantity : item.quantity || 0);
+        const unitPrice = parseFloat(item.price_per_unit || item.unit_price || 0);
+        const itemDiscount = parseFloat(item.discount || 0);
+        const lineTotal = (unitPrice * qty) - itemDiscount;
+        const unitName = item.selected_unit_name || item.billed_unit?.unit_name || item.product?.unit?.unit_name || 'Unit';
+        const productName = item.product_name || item.product?.product_name || 'Product';
+        return `
+          <tr>
+            <td>${productName}</td>
+            <td>${qty} ${unitName}</td>
+            <td>Rs. ${unitPrice.toFixed(2)}</td>
+            <td>${itemDiscount > 0 ? `Rs. ${itemDiscount.toFixed(2)}` : 'Rs. 0.00'}</td>
+            <td><strong>Rs. ${lineTotal.toFixed(2)}</strong></td>
+          </tr>
+        `;
+      }).join('');
 
-      // Use html2canvas to render
-      const canvas = await html2canvas(container, { scale: 2, useCORS: true, logging: false });
-      const imgData = canvas.toDataURL('image/png');
+      const contentHtml = `
+        <table class="tpl-table" style="margin-bottom:10px;">
+          <tr><td>Bill No</td><td>${lastBill.bill_no || '—'}</td></tr>
+          <tr><td>Date</td><td>${formatDateTime(lastBill.bill_date)}</td></tr>
+          <tr><td>Customer</td><td>${lastBill.customer?.name || 'Walk-in'}</td></tr>
+          <tr><td>Phone</td><td>${lastBill.customer?.phone || '—'}</td></tr>
+          <tr><td>Cashier</td><td>${lastBill.cashier_name || '—'} (${lastBill.cashier_id || '—'})</td></tr>
+        </table>
 
-      const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
+        <table class="tpl-table">
+          <thead>
+            <tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Discount</th><th>Total</th></tr>
+          </thead>
+          <tbody>
+            ${invoiceRows || '<tr><td colspan="5" class="tpl-empty">No items</td></tr>'}
+          </tbody>
+        </table>
 
-      // Calculate image dimensions to fit A4 width while keeping aspect ratio
-      const imgProps = pdf.getImageProperties(imgData);
-      const imgWidthMm = pageWidth;
-      const imgHeightMm = (imgProps.height * imgWidthMm) / imgProps.width;
+        <table class="tpl-table" style="margin-top:10px;">
+          <tr><td>Subtotal</td><td>Rs. ${(lastBill.subtotal ?? 0).toFixed(2)}</td></tr>
+          <tr><td>Discount</td><td>Rs. ${(lastBill.discount ?? 0).toFixed(2)}</td></tr>
+          <tr><td><strong>Total Amount</strong></td><td><strong>Rs. ${(lastBill.total_amount ?? 0).toFixed(2)}</strong></td></tr>
+          <tr><td>Amount Paid</td><td>Rs. ${(lastBill.amount_paid ?? 0).toFixed(2)}</td></tr>
+          <tr><td>Change Returned</td><td>Rs. ${(lastBill.change_returned ?? 0).toFixed(2)}</td></tr>
+          ${lastBill.due_amount > 0 ? `<tr><td>Due Balance</td><td>Rs. ${lastBill.due_amount.toFixed(2)}</td></tr>` : ''}
+        </table>
+      `;
 
-      let cursorY = 0;
-      // If content fits on one page just add it, otherwise slice the canvas vertically
-      const imgHeightPx = canvas.height;
-      const pxPerMm = imgHeightPx / imgHeightMm;
+      const opened = printWithTemplate({
+        title: `Invoice ${lastBill.bill_no || ''}`.trim(),
+        subtitle: 'Customer Bill',
+        contentHtml,
+      });
 
-      if (imgHeightMm <= pageHeight) {
-        pdf.addImage(imgData, 'PNG', 0, cursorY, imgWidthMm, imgHeightMm);
-      } else {
-        const sliceHeightMm = pageHeight;
-        const sliceHeightPx = Math.round(sliceHeightMm * pxPerMm);
-        let sliceY = 0;
-        let first = true;
-        while (sliceY < imgHeightPx) {
-          const thisSlicePx = Math.min(imgHeightPx - sliceY, sliceHeightPx);
-          const sliceCanvas = document.createElement('canvas');
-          sliceCanvas.width = canvas.width;
-          sliceCanvas.height = thisSlicePx;
-          const ctx = sliceCanvas.getContext('2d');
-          ctx.drawImage(canvas, 0, sliceY, canvas.width, thisSlicePx, 0, 0, sliceCanvas.width, sliceCanvas.height);
-          const sliceData = sliceCanvas.toDataURL('image/png');
-
-          if (!first) pdf.addPage();
-          pdf.addImage(sliceData, 'PNG', 0, 0, imgWidthMm, (thisSlicePx / pxPerMm));
-          first = false;
-          sliceY += thisSlicePx;
-        }
+      if (!opened) {
+        toast.error('Allow pop-ups to export the invoice as PDF.');
       }
-
-      pdf.save(`invoice-${lastBill.bill_no || 'receipt'}.pdf`);
-      document.body.removeChild(container);
     } catch (err) {
       console.error('PDF generation failed', err);
       alert('Failed to generate PDF. Try printing instead.');
@@ -1227,7 +1230,7 @@ const BillingSystem = () => {
             </div>
 
             <div className="receipt-actions">
-              <button className="receipt-btn print" onClick={() => window.print()}>
+              <button className="receipt-btn print" onClick={handleDownloadPdf}>
                 <Printer size={14} /> Print
               </button>
               <button className="receipt-btn download" onClick={handleDownloadPdf}>

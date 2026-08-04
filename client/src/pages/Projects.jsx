@@ -5,9 +5,10 @@ import toast from 'react-hot-toast';
 import {
   FolderOpen, Plus, X, Eye, Edit2, Trash2,
   BarChart2, TrendingUp, Package,
-  ChevronDown, ChevronUp, Calendar
+  ChevronDown, ChevronUp, Calendar, Printer
 } from 'lucide-react';
 import api from '../utils/axios';
+import { buildTableHtml, escapeHtml, printWithTemplate } from '../utils/printTemplate';
 import AdminDashboard from './AdminDashboard';
 import ManagerDashboard from './ManagerDashboard';
 import '../styles/Projects.css';
@@ -136,6 +137,78 @@ function ProjectsPage() {
     finally { setLoading(false); }
   };
 
+  const printMonthlyReport = () => {
+    if (!monthlyData) return;
+
+    const monthName = MONTHS[reportMonth - 1] || reportMonth;
+    const title = `Project Monthly Summary - ${monthName} ${reportYear}`;
+    const subtitle = `Total Items: ${monthlyData.totalItems} | Projects: ${monthlyData.byProject.length} | Project Income: ${fmtCurrency(monthlyData.totalProjectIncome || 0)}`;
+
+    const rows = [];
+    (monthlyData.byProject || []).forEach((pg) => {
+      const projName = pg.project?.project_name || 'Project';
+      (pg.items || []).forEach((item) => {
+        rows.push([
+          projName,
+          item.product?.product_name || '—',
+          Number(item.quantity || 0).toFixed(2),
+          fmtCurrency(item.unit_price),
+          fmtCurrency(Number(item.quantity || 0) * Number(item.unit_price || 0)),
+          item.receiver_name || (item.takenByUser ? `${item.takenByUser.first_name || ''} ${item.takenByUser.last_name || ''}`.trim() : '—'),
+          fmtDateTime(item.taken_at),
+        ]);
+      });
+    });
+
+    const columns = ['Project', 'Product', 'Qty', 'Unit Price', 'Total', 'Receiver / Taken By', 'Date & Time'];
+    const tableHtml = buildTableHtml({
+      columns,
+      rows: rows.map((row) => row.map((cell) => escapeHtml(cell))),
+      emptyMessage: 'No project items recorded for this month.',
+    });
+
+    const opened = printWithTemplate({
+      title,
+      subtitle,
+      contentHtml: tableHtml,
+    });
+
+    if (!opened) {
+      toast.error('Allow pop-ups to print the monthly summary');
+    }
+  };
+
+  const printYearlyReport = () => {
+    if (!yearlyData) return;
+
+    const title = `Project Yearly Summary - ${yearlyYear}`;
+    const subtitle = `Total Items: ${yearlyData.totalItems} | Project Income: ${fmtCurrency(yearlyData.totalProjectIncome || 0)}`;
+
+    const activeMonths = (yearlyData.byMonth || []).filter((m) => Number(m.totalItems || 0) > 0 || Number(m.totalValue || 0) > 0);
+    const rows = activeMonths.map((m) => [
+      MONTHS[m.month - 1] || `Month ${m.month}`,
+      m.totalItems,
+      fmtCurrency(m.projectIncome || 0),
+    ]);
+
+    const columns = ['Month', 'Items Taken', 'Project Income'];
+    const tableHtml = buildTableHtml({
+      columns,
+      rows: rows.map((row) => row.map((cell) => escapeHtml(cell))),
+      emptyMessage: 'No project activity recorded for this year.',
+    });
+
+    const opened = printWithTemplate({
+      title,
+      subtitle,
+      contentHtml: tableHtml,
+    });
+
+    if (!opened) {
+      toast.error('Allow pop-ups to print the yearly summary');
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'monthly') loadMonthly(reportYear, reportMonth);
   }, [activeTab, reportYear, reportMonth]);
@@ -182,7 +255,7 @@ function ProjectsPage() {
     const day = String(dateObj.getDate()).padStart(2, '0');
     const month = String(dateObj.getMonth() + 1).padStart(2, '0');
     const year = dateObj.getFullYear();
-    const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
     return `${day}/${month}/${year}, ${timeStr}`;
   };
 
@@ -341,7 +414,7 @@ function ProjectsPage() {
       {/* ══ MONTHLY REPORT ══ */}
       {activeTab === 'monthly' && (
         <div className="proj-report-section">
-          <div className="proj-report-controls">
+          <div className="proj-report-controls" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <select value={reportYear} onChange={e => setReportYear(Number(e.target.value))}>
               {projectYears.length > 0
                 ? projectYears.map(y => <option key={y} value={y}>{y}</option>)
@@ -354,6 +427,16 @@ function ProjectsPage() {
               ).map(m => <option key={m} value={m}>{MONTHS[m - 1]}</option>)}
             </select>
             {loading && <span style={{ fontSize: '0.85rem', color: '#888' }}>Loading…</span>}
+
+            <button
+              type="button"
+              className="proj-btn-primary"
+              style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              onClick={printMonthlyReport}
+              disabled={!monthlyData || !monthlyData.byProject || monthlyData.byProject.length === 0}
+            >
+              <Printer size={16} /> Print Monthly Summary
+            </button>
           </div>
 
           {monthlyData && (
@@ -420,13 +503,23 @@ function ProjectsPage() {
       {/* ══ YEARLY REPORT ══ */}
       {activeTab === 'yearly' && (
         <div className="proj-report-section">
-          <div className="proj-report-controls">
+          <div className="proj-report-controls" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <select value={yearlyYear} onChange={e => setYearlyYear(Number(e.target.value))}>
               {projectYears.length > 0
                 ? projectYears.map(y => <option key={y} value={y}>{y}</option>)
                 : <option value={yearlyYear}>{yearlyYear}</option>}
             </select>
             {loading && <span style={{ fontSize: '0.85rem', color: '#888' }}>Loading…</span>}
+
+            <button
+              type="button"
+              className="proj-btn-primary"
+              style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              onClick={printYearlyReport}
+              disabled={!yearlyData || !yearlyData.totalItems}
+            >
+              <Printer size={16} /> Print Yearly Summary
+            </button>
           </div>
 
           {yearlyData && (

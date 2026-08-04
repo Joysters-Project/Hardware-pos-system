@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
+import { buildTableHtml, escapeHtml, printWithTemplate } from "../utils/printTemplate";
 import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
 import "../styles/Salary.css";
@@ -135,12 +136,6 @@ function SalaryPage() {
   };
 
   const handleDownload = (payment) => {
-    const win = window.open("", "_blank", "width=1000,height=800");
-    if (!win) {
-      toast.error("Popup blocked. Please allow popups to view the payslip.");
-      return;
-    }
-
     const employeeName = payment?.employee
       ? `${payment.employee.first_name || ""} ${payment.employee.last_name || ""}`.trim()
       : `EMP-${payment?.employee_id || ""}`;
@@ -148,53 +143,29 @@ function SalaryPage() {
     const paymentDate = formatPaymentDate(payment);
     const periodLabel = formatPayPeriod(payment);
 
-    const html = `<!DOCTYPE html>
-      <html>
-        <head>
-          <title>Payslip</title>
-          <style>
-            body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: #f7f7f7; color: #222; padding: 24px; }
-            .page { background: #fff; max-width: 780px; margin: 0 auto; border: 1px solid #e0e0e0; box-shadow: 0 10px 30px rgba(0,0,0,.08); }
-            .header { background: linear-gradient(135deg, #8b3a3a, #a84545); color: #fff; padding: 24px 32px; }
-            .title { font-size: 24px; font-weight: 700; margin: 0; }
-            .sub { font-size: 12px; margin: 6px 0 0; opacity: 0.9; }
-            .body { padding: 24px 32px 32px; }
-            .row { display: flex; justify-content: space-between; gap: 18px; margin-bottom: 10px; font-size: 13px; }
-            .label { color: #777; font-weight: 600; min-width: 130px; }
-            .value { color: #222; }
-            .card { border: 1px solid #eee; border-radius: 10px; padding: 14px 16px; margin-top: 16px; }
-            .total { font-weight: 700; color: #1565c0; }
-            .footer { margin-top: 28px; text-align: center; color: #999; font-size: 11px; }
-          </style>
-        </head>
-        <body>
-          <div class="page">
-            <div class="header">
-              <h1 class="title">Mathumithan Hardware</h1>
-              <p class="sub">Salary Payment Confirmation</p>
-            </div>
-            <div class="body">
-              <div class="row"><span class="label">Employee</span><span class="value">${employeeName}</span></div>
-              <div class="row"><span class="label">Department</span><span class="value">${departmentName}</span></div>
-              <div class="row"><span class="label">Period</span><span class="value">${periodLabel}</span></div>
-              <div class="row"><span class="label">Payment Date</span><span class="value">${paymentDate}</span></div>
-              <div class="row"><span class="label">Payment Method</span><span class="value">${payment?.payment_method || "—"}</span></div>
-              <div class="card">
-                <div class="row"><span class="label">Basic Salary</span><span class="value">LKR ${Number(payment?.basic_salary || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}</span></div>
-                <div class="row"><span class="label">Bonus</span><span class="value">+LKR ${Number(payment?.bonus_amount || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}</span></div>
-                <div class="row"><span class="label">Deduction</span><span class="value">-LKR ${Number(payment?.deduction_amount || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}</span></div>
-                <div class="row"><span class="label">Net Salary</span><span class="value total">LKR ${Number(payment?.final_salary || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}</span></div>
-              </div>
-              <div class="footer">Generated in the browser • No backend PDF file is created</div>
-            </div>
-          </div>
-        </body>
-      </html>`;
+    const contentHtml = `
+      <table class="tpl-table">
+        <tr><td>Employee</td><td>${escapeHtml(employeeName)}</td></tr>
+        <tr><td>Department</td><td>${escapeHtml(departmentName)}</td></tr>
+        <tr><td>Period</td><td>${escapeHtml(periodLabel)}</td></tr>
+        <tr><td>Payment Date</td><td>${escapeHtml(paymentDate)}</td></tr>
+        <tr><td>Payment Method</td><td>${escapeHtml(payment?.payment_method || "—")}</td></tr>
+        <tr><td>Basic Salary</td><td>${escapeHtml(`LKR ${Number(payment?.basic_salary || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}`)}</td></tr>
+        <tr><td>Bonus</td><td>${escapeHtml(`+LKR ${Number(payment?.bonus_amount || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}`)}</td></tr>
+        <tr><td>Deduction</td><td>${escapeHtml(`-LKR ${Number(payment?.deduction_amount || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}`)}</td></tr>
+        <tr><td><strong>Net Salary</strong></td><td><strong>${escapeHtml(`LKR ${Number(payment?.final_salary || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}`)}</strong></td></tr>
+      </table>
+    `;
 
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 400);
+    const opened = printWithTemplate({
+      title: "Payslip",
+      subtitle: "Salary Payment Confirmation",
+      contentHtml,
+    });
+
+    if (!opened) {
+      toast.error("Popup blocked. Please allow popups to view the payslip.");
+    }
   };
 
   const handleMarkPaid = async (payment) => {
@@ -225,42 +196,32 @@ function SalaryPage() {
   };
 
   const exportTablePDF = () => {
-    const win = window.open("", "_blank", "width=1100,height=700");
-    const rows = payments.map((p, i) => {
-      return `
-        <tr style="background:${i % 2 === 0 ? "#fff" : "#fdf8f8"}">
-          <td>#${p.salary_payment_id}</td>
-          <td><strong>${p.employee ? `${p.employee.first_name} ${p.employee.last_name}` : `EMP-${p.employee_id}`}</strong></td>
-          <td>${formatPayPeriod(p)}</td>
-          <td>${formatPaymentDate(p)}</td>
-          <td style="color:#2e7d32">+LKR ${Number(p.bonus_amount||0).toLocaleString("en-US")}</td>
-          <td style="color:#c62828">-LKR ${Number(p.deduction_amount||0).toLocaleString("en-US")}</td>
-          <td><strong style="color:#1565c0">LKR ${Number(p.final_salary).toLocaleString("en-US")}</strong></td>
-          <td>${p.payment_method || "—"}</td>
-          <td><span style="padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;
-            background:${p.payment_status==="Paid"?"#e8f5e9":"#fff3e0"};
-            color:${p.payment_status==="Paid"?"#2e7d32":"#e65100"}">${p.payment_status}</span></td>
-        </tr>`;
-    }).join("");
+    const rows = payments.map((p) => ([
+      escapeHtml(`#${p.salary_payment_id}`),
+      `<strong>${escapeHtml(p.employee ? `${p.employee.first_name} ${p.employee.last_name}` : `EMP-${p.employee_id}`)}</strong>`,
+      escapeHtml(formatPayPeriod(p)),
+      escapeHtml(formatPaymentDate(p)),
+      escapeHtml(`LKR ${Number(p.basic_salary || 0).toLocaleString("en-US")}`),
+      `<span style="color:#2e7d32">${escapeHtml(`+LKR ${Number(p.bonus_amount || 0).toLocaleString("en-US")}`)}</span>`,
+      `<span style="color:#c62828">${escapeHtml(`-LKR ${Number(p.deduction_amount || 0).toLocaleString("en-US")}`)}</span>`,
+      `<strong style="color:#1565c0">${escapeHtml(`LKR ${Number(p.final_salary || 0).toLocaleString("en-US")}`)}</strong>`,
+      escapeHtml(p.payment_method || "—"),
+      `<span style="font-weight:700;color:${p.payment_status === "Paid" ? "#2e7d32" : "#e65100"}">${escapeHtml(p.payment_status || "—")}</span>`,
+    ]));
 
-    win.document.write(`<!DOCTYPE html><html><head><title>Salary Records</title>
-      <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',sans-serif;background:#fff;color:#222;padding:32px}
-      .hdr{display:flex;justify-content:space-between;border-bottom:3px solid #8b3a3a;padding-bottom:14px;margin-bottom:22px}
-      .hdr h1{font-size:20px;color:#8b3a3a;font-weight:700}.meta{font-size:11px;color:#888;text-align:right}
-      table{width:100%;border-collapse:collapse;font-size:12px}
-      th{background:linear-gradient(135deg,#8b3a3a,#a84545);color:#fff;padding:9px 10px;text-align:left;font-weight:600}
-      td{padding:8px 10px;border-bottom:1px solid #f0f0f0}
-      .footer{margin-top:24px;text-align:center;font-size:10px;color:#aaa;border-top:1px solid #eee;padding-top:10px}
-      </style></head><body>
-      <div class="hdr"><div><h1>Salary Records — Mathumithan Hardware</h1>
-      <p style="font-size:11px;color:#888;margin-top:3px">Total: ${payments.length} record(s)</p></div>
-      <div class="meta">Generated: ${new Date().toLocaleString()}</div></div>
-      <table><thead><tr><th>#</th><th>Employee</th><th>Pay Period</th><th>Payment Date</th><th>Basic</th><th>Bonus</th><th>Deduction</th><th>Final Salary</th><th>Method</th><th>Status</th></tr></thead>
-      <tbody>${rows}</tbody></table>
-      <div class="footer">Mathumithan Hardware POS System &bull; Salary Report &bull; Confidential</div>
-      </body></html>`);
-    win.document.close(); win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 400);
+    const contentHtml = buildTableHtml({
+      columns: ["#", "Employee", "Pay Period", "Payment Date", "Basic", "Bonus", "Deduction", "Final Salary", "Method", "Status"],
+      rows,
+      emptyMessage: "No salary records found"
+    });
+
+    const opened = printWithTemplate({
+      title: "Salary Records",
+      subtitle: `Total: ${payments.length} record(s)`,
+      contentHtml,
+    });
+
+    if (!opened) toast.error("Allow pop-ups to print the report");
   };
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);

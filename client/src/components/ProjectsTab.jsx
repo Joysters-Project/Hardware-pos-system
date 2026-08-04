@@ -21,6 +21,7 @@ import {
 import toast from 'react-hot-toast';
 import api from '../api/axios';
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
+import { buildTableHtml, escapeHtml, printWithTemplate } from '../utils/printTemplate';
 import '../styles/ProjectsTab.css';
 
 const currency = (value) => `LKR ${Number(value || 0).toLocaleString('en-LK', { minimumFractionDigits: 2 })}`;
@@ -54,41 +55,19 @@ const buildSummaryGroups = (items) => {
 };
 
 const printReport = (title, rows, columns) => {
-  const popup = window.open('', '_blank', 'width=1100,height=780');
-  if (!popup) {
+  const tableHtml = buildTableHtml({
+    columns,
+    rows: rows.map((row) => row.map((cell) => escapeHtml(cell))),
+  });
+
+  const opened = printWithTemplate({
+    title,
+    contentHtml: tableHtml,
+  });
+
+  if (!opened) {
     toast.error('Allow pop-ups to print the report');
-    return;
   }
-
-  const headerCells = columns.map((column) => `<th>${column}</th>`).join('');
-  const bodyRows = rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join('')}</tr>`).join('');
-
-  popup.document.write(`
-    <html>
-      <head>
-        <title>${title}</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 24px; color: #222; }
-          h1 { margin: 0 0 8px; font-size: 22px; }
-          p { margin: 0 0 18px; color: #666; }
-          table { width: 100%; border-collapse: collapse; }
-          th { background: #8b3a3a; color: #fff; text-align: left; padding: 10px 12px; font-size: 13px; }
-          td { border-bottom: 1px solid #e9e9e9; padding: 10px 12px; font-size: 13px; }
-        </style>
-      </head>
-      <body>
-        <h1>${title}</h1>
-        <p>Generated on ${new Date().toLocaleString()}</p>
-        <table>
-          <thead><tr>${headerCells}</tr></thead>
-          <tbody>${bodyRows}</tbody>
-        </table>
-      </body>
-    </html>
-  `);
-  popup.document.close();
-  popup.focus();
-  popup.print();
 };
 
 export default function ProjectsTab() {
@@ -477,8 +456,9 @@ export default function ProjectsTab() {
         Number(item.quantity || 0).toFixed(2),
         item.receiver_name || '—',
         item.receiver_phone || '—',
+        formatTime(item.taken_at),
       ]),
-      ['Product', 'Quantity', 'Receiver Name', 'Receiver Phone'],
+      ['Product', 'Quantity', 'Receiver Name', 'Receiver Phone', 'Purchase Time'],
     );
   };
 

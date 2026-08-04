@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import api from '../api/axios';
-import { jsPDF } from 'jspdf';
+import { buildTableHtml, escapeHtml, printWithTemplate } from '../utils/printTemplate';
 import { useAuth } from '../context/AuthContext';
 import '../styles/ReportsPage.css';
 import '../styles/Returns.css';
@@ -14,57 +14,18 @@ const fmt = (v) => `Rs. ${Number(v ?? 0).toFixed(2)}`;
 const fmtNum = (v) => Number(v ?? 0).toFixed(2);
 const csvEscape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 const dateStamp = () => new Date().toISOString().slice(0, 10);
-const textRowsToPdf = (pdf, headers, rows, left, top, widths, pageWidth, pageHeight) => {
-  const rowHeight = 18;
-  let y = top;
-  const totalWidth = widths.reduce((sum, w) => sum + w, 0);
-
-  const drawHeader = () => {
-    pdf.setFillColor(248, 228, 229);
-    pdf.rect(left, y - 14, totalWidth, rowHeight, 'F');
-    pdf.setFontSize(10);
-    pdf.setTextColor('#800000');
-    let x = left + 4;
-    headers.forEach((label, index) => {
-      pdf.text(String(label), x, y);
-      x += widths[index];
-    });
-    y += rowHeight;
-  };
-
-  drawHeader();
-
-  rows.forEach((row, index) => {
-    if (y + rowHeight > pageHeight - 40) {
-      pdf.addPage();
-      y = 40;
-      drawHeader();
-    }
-    pdf.setFontSize(9);
-    pdf.setTextColor('#333');
-    let x = left + 4;
-    row.forEach((cell, colIndex) => {
-      const text = String(cell ?? '–');
-      pdf.text(text, x, y);
-      x += widths[colIndex];
-    });
-    y += rowHeight;
+const printReportWithTemplate = (title, headers, rows, subtitle = '') => {
+  const tableHtml = buildTableHtml({
+    columns: headers,
+    rows: rows.map((row) => row.map((cell) => escapeHtml(cell))),
+    emptyMessage: 'No records found',
   });
-};
-const createReportPdf = (title, headers, rows) => {
-  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-  pdf.setFontSize(16);
-  pdf.setTextColor('#800000');
-  pdf.text(title, 40, 40);
-  pdf.setFontSize(10);
-  pdf.setTextColor('#555');
-  pdf.text(`Generated on ${new Date().toLocaleString()}`, 40, 58);
 
-  const widths = headers.map(() => Math.floor((pageWidth - 80) / headers.length));
-  textRowsToPdf(pdf, headers, rows, 40, 90, widths, pageWidth, pageHeight);
-  return pdf;
+  return printWithTemplate({
+    title,
+    subtitle,
+    contentHtml: tableHtml,
+  });
 };
 const downloadBlob = (filename, data, type) => {
   const blob = new Blob([data], { type });
@@ -361,8 +322,8 @@ function SalesReport() {
       b.status || '–',
       b.bill_items?.length || 0,
     ]);
-    const pdf = createReportPdf('Sales Report – All Bills', pdfHeaders, pdfRows);
-    pdf.save(`sales-report-${dateStamp()}.pdf`);
+    const opened = printReportWithTemplate('Sales Report - All Bills', pdfHeaders, pdfRows, `Export Date: ${dateStamp()}`);
+    if (!opened) window.alert('Allow pop-ups to export the report as PDF.');
   };
 
   return (
@@ -790,8 +751,8 @@ const filteredReturns = useMemo(() => {
       ];
     });
 
-    const pdf = createReportPdf('Returns Logs', pdfHeaders, pdfRows);
-    pdf.save(`returns-logs-${dateStamp()}.pdf`);
+    const opened = printReportWithTemplate('Returns Logs', pdfHeaders, pdfRows, `Export Date: ${dateStamp()}`);
+    if (!opened) window.alert('Allow pop-ups to export the report as PDF.');
   };
 
   // Helper for displaying time in return logs cards
@@ -1158,8 +1119,8 @@ function BorrowReport() {
   };
 
   const handleDownloadBorrowPdf = () => {
-    const pdf = createReportPdf('Borrow Report - Partially Paid Bills', borrowHeaders, borrowRows);
-    pdf.save(`borrow-report-${dateStamp()}.pdf`);
+    const opened = printReportWithTemplate('Borrow Report - Partially Paid Bills', borrowHeaders, borrowRows, `Export Date: ${dateStamp()}`);
+    if (!opened) window.alert('Allow pop-ups to export the report as PDF.');
   };
 
   return (

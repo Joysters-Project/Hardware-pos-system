@@ -5,6 +5,7 @@ import { Eye, Pencil, Trash2, Plus, Search, RefreshCw, FileDown, X, ChevronLeft,
 import toast from "react-hot-toast";
 import api from "../utils/axios";
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from "../utils/phoneValidation";
+import { buildTableHtml, escapeHtml, printWithTemplate } from "../utils/printTemplate";
 import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
 import "../styles/Employees.css";
@@ -147,75 +148,58 @@ function EmployeesPage() {
   const getDeptName = (id) => departments.find(d => d.department_id === id)?.department_name || "N/A";
 
   const exportPDF = () => {
-    const win = window.open("", "_blank", "width=1000,height=700");
-    const rows = filtered.map((e, i) => `
-      <tr style="background:${i % 2 === 0 ? "#fff" : "#fdf8f8"}">
-        <td>#${e.employee_id}</td>
-        <td><strong>${e.first_name} ${e.last_name}</strong></td>
-        <td>${e.position || "—"}</td>
-        <td>${getDeptName(e.department_id)}</td>
-        <td>${e.phone_no || "—"}</td>
-        <td>${e.email || "—"}</td>
-        <td>LKR ${Number(e.salary || 0).toLocaleString("en-US")}</td>
-        <td><span style="padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;
-          background:${e.status === "Active" ? "#e8f5e9" : e.status === "Resigned" ? "#fce4e4" : "#fff3e0"};
-          color:${e.status === "Active" ? "#2e7d32" : e.status === "Resigned" ? "#c62828" : "#e65100"}">${e.status}</span></td>
-      </tr>`).join("");
-    win.document.write(`<!DOCTYPE html><html><head><title>Employees Report</title>
-      <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',sans-serif;padding:32px;color:#222}
-      .hdr{display:flex;justify-content:space-between;border-bottom:3px solid #8b3a3a;padding-bottom:14px;margin-bottom:20px}
-      h1{font-size:20px;color:#8b3a3a;font-weight:700}.meta{font-size:11px;color:#888;text-align:right}
-      table{width:100%;border-collapse:collapse;font-size:12px}
-      th{background:linear-gradient(135deg,#8b3a3a,#a84545);color:#fff;padding:9px 10px;text-align:left;font-weight:600}
-      td{padding:8px 10px;border-bottom:1px solid #f0f0f0}
-      .footer{margin-top:20px;text-align:center;font-size:10px;color:#aaa;border-top:1px solid #eee;padding-top:10px}
-      </style></head><body>
-      <div class="hdr"><div><h1>Employees Report — Mathumithan Hardware</h1>
-      <p style="font-size:11px;color:#888;margin-top:3px">Total: ${filtered.length} employee(s)</p></div>
-      <div class="meta">Generated: ${new Date().toLocaleString()}</div></div>
-      <table><thead><tr><th>#</th><th>Name</th><th>Position</th><th>Department</th><th>Phone</th><th>Email</th><th>Salary</th><th>Status</th></tr></thead>
-      <tbody>${rows}</tbody></table>
-      <div class="footer">Mathumithan Hardware POS System &bull; Employees Report &bull; Confidential</div>
-      </body></html>`);
-    win.document.close(); win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 400);
+    const rows = filtered.map((e) => ([
+      escapeHtml(`#${e.employee_id}`),
+      `<strong>${escapeHtml(`${e.first_name} ${e.last_name}`.trim())}</strong>`,
+      escapeHtml(e.position || "—"),
+      escapeHtml(getDeptName(e.department_id)),
+      escapeHtml(e.phone_no || "—"),
+      escapeHtml(e.email || "—"),
+      escapeHtml(`LKR ${Number(e.salary || 0).toLocaleString("en-US")}`),
+      `<span style="font-weight:700;color:${e.status === "Active" ? "#2e7d32" : e.status === "Resigned" ? "#c62828" : "#e65100"}">${escapeHtml(e.status || "—")}</span>`,
+    ]));
+
+    const contentHtml = buildTableHtml({
+      columns: ["#", "Name", "Position", "Department", "Phone", "Email", "Salary", "Status"],
+      rows,
+      emptyMessage: "No employees found"
+    });
+
+    const opened = printWithTemplate({
+      title: "Employees Report",
+      subtitle: `Total: ${filtered.length} employee(s)`,
+      contentHtml,
+    });
+
+    if (!opened) toast.error("Allow pop-ups to print the report");
   };
 
   const exportViewPDF = (emp) => {
-    const win = window.open("", "_blank", "width=800,height=600");
-    win.document.write(`<!DOCTYPE html><html><head><title>Employee — ${emp.first_name} ${emp.last_name}</title>
-      <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',sans-serif;padding:36px;color:#222}
-      .hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #8b3a3a;padding-bottom:16px;margin-bottom:24px}
-      h1{font-size:20px;color:#8b3a3a;font-weight:700}.meta{font-size:11px;color:#888;text-align:right}
-      .sec{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#8b3a3a;margin:18px 0 8px;border-bottom:1px solid #f0e0e0;padding-bottom:4px}
-      table{width:100%;border-collapse:collapse}
-      tr:nth-child(even) td{background:#fdf8f8}td{padding:9px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
-      td:first-child{color:#777;font-weight:600;width:40%}
-      .footer{margin-top:28px;text-align:center;font-size:10px;color:#aaa;border-top:1px solid #eee;padding-top:10px}
-      </style></head><body>
-      <div class="hdr"><div><h1>${emp.first_name} ${emp.last_name}</h1><p style="font-size:12px;color:#888;margin-top:3px">Employee Profile</p></div>
-      <div class="meta">Generated: ${new Date().toLocaleString()}</div></div>
-      <div class="sec">Personal Information</div>
-      <table>
-        <tr><td>Employee ID</td><td>#${emp.employee_id}</td></tr>
-        <tr><td>Full Name</td><td>${emp.first_name} ${emp.last_name}</td></tr>
-        <tr><td>NIC</td><td>${emp.nic || "—"}</td></tr>
-        <tr><td>Phone</td><td>${emp.phone_no || "—"}</td></tr>
-        <tr><td>Email</td><td>${emp.email || "—"}</td></tr>
-        <tr><td>Address</td><td>${emp.address || "—"}</td></tr>
+    const detailsHtml = `
+      <table class="tpl-table">
+        <tbody>
+          <tr><td>Employee ID</td><td>#${escapeHtml(emp.employee_id)}</td></tr>
+          <tr><td>Full Name</td><td>${escapeHtml(`${emp.first_name} ${emp.last_name}`.trim())}</td></tr>
+          <tr><td>NIC</td><td>${escapeHtml(emp.nic || "—")}</td></tr>
+          <tr><td>Phone</td><td>${escapeHtml(emp.phone_no || "—")}</td></tr>
+          <tr><td>Email</td><td>${escapeHtml(emp.email || "—")}</td></tr>
+          <tr><td>Address</td><td>${escapeHtml(emp.address || "—")}</td></tr>
+          <tr><td>Position</td><td>${escapeHtml(emp.position || "—")}</td></tr>
+          <tr><td>Department</td><td>${escapeHtml(emp.department?.department_name || getDeptName(emp.department_id))}</td></tr>
+          <tr><td>Salary</td><td>${escapeHtml(`LKR ${Number(emp.salary || 0).toLocaleString("en-US")}`)}</td></tr>
+          <tr><td>Join Date</td><td>${escapeHtml(emp.join_date ? new Date(emp.join_date).toLocaleDateString() : "—")}</td></tr>
+          <tr><td>Status</td><td>${escapeHtml(emp.status || "Active")}</td></tr>
+        </tbody>
       </table>
-      <div class="sec">Employment Details</div>
-      <table>
-        <tr><td>Position</td><td>${emp.position || "—"}</td></tr>
-        <tr><td>Department</td><td>${emp.department?.department_name || getDeptName(emp.department_id)}</td></tr>
-        <tr><td>Salary</td><td>LKR ${Number(emp.salary || 0).toLocaleString("en-US")}</td></tr>
-        <tr><td>Join Date</td><td>${emp.join_date ? new Date(emp.join_date).toLocaleDateString() : "—"}</td></tr>
-        <tr><td>Status</td><td>${emp.status || "Active"}</td></tr>
-      </table>
-      <div class="footer">Mathumithan Hardware POS System &bull; Employee Profile &bull; Confidential</div>
-      </body></html>`);
-    win.document.close(); win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 400);
+    `;
+
+    const opened = printWithTemplate({
+      title: `${emp.first_name} ${emp.last_name}`,
+      subtitle: "Employee Profile",
+      contentHtml: detailsHtml,
+    });
+
+    if (!opened) toast.error("Allow pop-ups to print the report");
   };
 
   const filtered = employees.filter(e => {
