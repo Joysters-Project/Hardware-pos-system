@@ -38,28 +38,28 @@ exports.getDashboardStats = async (req, res) => {
       purchase_orders.count({ where: { status: 'Received' } }),
       purchase_orders.count({
         where: {
-          status: { $in: ['Pending', 'Approved', 'Shipped'] },
-          expected_delivery: { $lt: today },
+          status: { [Sequelize.Op.in]: ['Pending', 'Approved', 'Shipped'] },
+          expected_delivery: { [Sequelize.Op.lt]: today },
         },
       }),
       // Outstanding Payables
       supplier_payments.sum('balance_amount', {
         where: {
-          payment_status: { $in: ['Pending', 'Partially Paid', 'Overdue'] }
+          payment_status: { [Sequelize.Op.in]: ['Pending', 'Partially Paid', 'Overdue'] }
         }
       }),
       // Payments due this week
       supplier_payments.sum('balance_amount', {
         where: {
-          payment_status: { $in: ['Pending', 'Partially Paid', 'Overdue'] },
-          due_date: { $between: [today, sevenDaysLater] }
+          payment_status: { [Sequelize.Op.in]: ['Pending', 'Partially Paid', 'Overdue'] },
+          due_date: { [Sequelize.Op.between]: [today, sevenDaysLater] }
         }
       }),
       // Monthly purchase value (this month)
       purchase_orders.sum('total_amount', {
         where: {
-          po_date: { $gte: currentMonthStart },
-          status: { $ne: 'Cancelled' }
+          po_date: { [Sequelize.Op.gte]: currentMonthStart },
+          status: { [Sequelize.Op.ne]: 'Cancelled' }
         }
       }),
       // Auto-reorder suggestions count
@@ -70,7 +70,7 @@ exports.getDashboardStats = async (req, res) => {
         attributes: ['po_date', 'actual_delivery_date'],
         where: {
           status: 'Received',
-          actual_delivery_date: { $ne: null }
+          actual_delivery_date: { [Sequelize.Op.ne]: null }
         },
         raw: true
       }),
@@ -91,8 +91,8 @@ exports.getDashboardStats = async (req, res) => {
           [fn('COUNT', col('po_id')), 'count'],
         ],
         where: {
-          po_date: { $gte: literal('DATE_SUB(CURDATE(), INTERVAL 6 MONTH)') },
-          status: { $ne: 'Cancelled' }
+          po_date: { [Sequelize.Op.gte]: literal('DATE_SUB(CURDATE(), INTERVAL 6 MONTH)') },
+          status: { [Sequelize.Op.ne]: 'Cancelled' }
         },
         group: [fn('DATE_FORMAT', col('po_date'), '%Y-%m')],
         order: [[fn('DATE_FORMAT', col('po_date'), '%Y-%m'), 'ASC']],
