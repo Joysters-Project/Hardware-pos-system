@@ -41,6 +41,7 @@ import ReturnSystem from "./components/ReturnSystem";
 import Receipts from "./pages/Receipts";
 import ReportsPage from "./pages/ReportsPage";
 import CashierPanelPage from "./pages/CashierPanelPage";
+import CustomerChequeExchange from "./pages/CustomerChequeExchange";
 
 import ProcurementWorkspace from "./components/procurement/ProcurementWorkspace";
 import SupplierList from "./pages/suppliers/SupplierList";
@@ -110,6 +111,8 @@ function AppRoutes() {
       </Route>
       {/* <Route path="/return-logs"    element={<ProtectedRoute><ReturnLogsPage /></ProtectedRoute>} /> */}
       <Route path="/reports"        element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
+      <Route path="/customer-cheque-exchange" element={<ProtectedRoute requiredRole="admin"><DashboardLayout active="customer-cheque-exchange"><CustomerChequeExchange /></DashboardLayout></ProtectedRoute>} />
+      <Route path="/manager/customer-cheque-exchange" element={<ProtectedRoute requiredRole="manager"><DashboardLayout active="customer-cheque-exchange"><CustomerChequeExchange /></DashboardLayout></ProtectedRoute>} />
       <Route path="/receipts"       element={<ProtectedRoute><Receipts /></ProtectedRoute>} />
       <Route path="/cashier-panel"  element={<ProtectedRoute><CashierPanelPage /></ProtectedRoute>} />
       <Route path="/assets"         element={<ProtectedRoute><Assets /></ProtectedRoute>} />

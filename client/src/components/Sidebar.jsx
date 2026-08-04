@@ -25,6 +25,7 @@ import {
   Bell,
   Archive,
   FolderOpen,
+  Banknote,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import "../styles/Sidebar.css";
@@ -126,6 +127,12 @@ const getNavItems = (role) => {
       label: "Reports",
       icon: TrendingUp,
       path: "/reports",
+    },
+    {
+      key: "customer-cheque-exchange",
+      label: "Cheque Exchange",
+      icon: Banknote,
+      path: `${prefix}/customer-cheque-exchange`,
     },
     {
       key: "expenses",
