@@ -131,7 +131,30 @@ const updateDepartment = async (req, res) => {
     if (department_name !== undefined) updatePayload.department_name = department_name;
     if (budget !== undefined) updatePayload.budget = budget;
     if (description !== undefined) updatePayload.description = description;
-    if (status !== undefined) updatePayload.status = status;
+    if (status !== undefined) {
+      const normalizedStatus = String(status).trim();
+      const isInactiveStatus = normalizedStatus.toLowerCase() === 'inactive';
+
+      if (isInactiveStatus) {
+        const employees = await db.employees.findAll({
+          where: { department_id: req.params.id },
+          attributes: ['status']
+        });
+
+        const hasActiveEmployee = employees.some(employee =>
+          String(employee.status || '').toLowerCase() === 'active'
+        );
+
+        if (hasActiveEmployee) {
+          return res.status(400).json({
+            success: false,
+            message: 'Cannot make department inactive while it has active employees.'
+          });
+        }
+      }
+
+      updatePayload.status = normalizedStatus;
+    }
 
     await dept.update(updatePayload);
     return res.status(200).json({ success: true, message: 'Department updated successfully', data: dept });

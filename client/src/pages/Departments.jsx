@@ -80,6 +80,25 @@ function DepartmentsPage() {
     if (!form.department_name.trim()) { toast.error("Department name is required"); return; }
     const budgetValue = form.budget === "" ? 0 : Number(form.budget);
     if (Number.isNaN(budgetValue) || budgetValue < 0) { toast.error("Budget must be a valid number"); return; }
+
+    if (String(form.status).toLowerCase() === "inactive" && editId) {
+      try {
+        const res = await api.get(`/departments/${editId}`);
+        const payload = res.data?.data || res.data;
+        const hasActiveEmployee = (payload.employees || []).some(e =>
+          String(e.status || "").toLowerCase() === "active"
+        );
+
+        if (hasActiveEmployee) {
+          toast.error("Cannot make department inactive while it has active employees.");
+          return;
+        }
+      } catch {
+        toast.error("Unable to verify employee status right now.");
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const payload = { ...form, budget: budgetValue };
