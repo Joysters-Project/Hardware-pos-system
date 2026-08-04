@@ -16,6 +16,7 @@ const ensureMultiUnitSchema = require('./scripts/ensureMultiUnitSchema');
 const ensureReturnSchema = require('./scripts/ensureReturnSchema');
 const ensureEmployeeSchema = require('./scripts/ensureEmployeeSchema');
 const ensureAlertSchema = require('./scripts/ensureAlertSchema');
+const ensureChequeExchangeSchema = require('./scripts/ensureChequeExchangeSchema');
 const { startNearExpiryCron } = require('./cron/nearExpiryCron');
 
 const app    = express();
@@ -47,6 +48,7 @@ db.sequelize.sync({ force: false })
     await ensureReturnSchema();
     await ensureEmployeeSchema();
     await ensureAlertSchema();
+    await ensureChequeExchangeSchema();
     await seedDefaultAdmin();
     startNearExpiryCron();
   })
@@ -91,7 +93,8 @@ const autoReorderRoutes             = require('./routes/autoReorderRoutes');
 const forecastRoutes                = require('./routes/forecastRoutes');
 const procurementNotificationRoutes = require('./routes/procurementNotificationRoutes');
 const supplierPerformanceRoutes     = require('./routes/supplierPerformanceRoutes');
-const batchRoutes                   = require('./routes/batchRoutes');
+const batchRoutes = require('./routes/batchRoutes');
+const chequeExchangeRoutes = require('./routes/chequeExchangeRoutes');
 
 app.use('/api/departments',   departmentRoutes);
 app.use('/api/employees',     employeeRoutes);
@@ -132,6 +135,7 @@ app.use('/api/procurement/performance',   supplierPerformanceRoutes);
 app.use('/api/RR_suppliers',              RR_supplierRoutes);
 app.use('/api/RR_purchase_orders',        RR_purchaseOrderRoutes);
 app.use('/api/batch-inventory',           batchRoutes);
+app.use('/api/cheque-exchange',            chequeExchangeRoutes);
 
 // ── Cron Jobs ─────────────────────────────────────────────────────────────────
 
