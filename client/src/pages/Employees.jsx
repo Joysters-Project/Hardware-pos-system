@@ -11,6 +11,7 @@ import "../styles/Employees.css";
 
 const BASE_URL = "http://localhost:5000";
 const POSITIONS = ["Admin", "Manager", "Cashier", "Supervisor", "Sales", "Warehouse", "IT", "HR", "Accountant", "Other"];
+const MAX_PHOTO_SIZE = 1 * 1024 * 1024; // 1 MB
 const EMPTY_FORM = { first_name: "", last_name: "", nic: "", phone_no: "", email: "", address: "", position: "", salary: "", salary_category: "monthly", join_date: "", status: "Active", department_id: "" };
 
 function EmployeesPage() {
@@ -44,7 +45,14 @@ function EmployeesPage() {
     finally { setPageLoading(false); }
   };
 
-  const openAdd = () => { setForm(EMPTY_FORM); setEditId(null); setPhotoFile(null); setPhotoPreview(null); setShowModal(true); };
+  const openAdd = () => {
+    const today = new Date().toISOString().split("T")[0];
+    setForm({ ...EMPTY_FORM, join_date: today });
+    setEditId(null);
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    setShowModal(true);
+  };
   const openEdit = (e) => {
     setForm({
       first_name: e.first_name || "", last_name: e.last_name || "", nic: e.nic || "", phone_no: e.phone_no || "",
@@ -62,6 +70,11 @@ function EmployeesPage() {
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    if (file.size > MAX_PHOTO_SIZE) {
+      toast.error("Photo must be 1 MB or smaller");
+      if (fileRef.current) fileRef.current.value = null;
+      return;
+    }
     setPhotoFile(file);
     setPhotoPreview(URL.createObjectURL(file));
   };
@@ -69,14 +82,42 @@ function EmployeesPage() {
   const handleSubmit = async (evt) => {
     evt.preventDefault();
     if (!form.first_name || !form.last_name) { toast.error("First and last name required"); return; }
+    const nameRegex = /^[A-Za-z ]+$/;
+    if (!nameRegex.test(form.first_name.trim()) || !nameRegex.test(form.last_name.trim())) {
+      toast.error("Names may only contain letters and spaces");
+      return;
+    }
+    if (!form.nic) {
+      toast.error("NIC is required");
+      return;
+    }
+    // Validate Sri Lankan NIC formats: old (9 digits + V/X) or new (12 digits)
+    const nicVal = form.nic?.trim();
+    const nicOld = /^\d{9}[vVxX]$/;
+    const nicNew = /^\d{12}$/;
+    if (!(nicOld.test(nicVal) || nicNew.test(nicVal))) {
+      toast.error("Please enter a valid NIC (9 digits + V/X or 12 digits)");
+      return;
+    }
+    form.nic = nicVal;
     if (!form.email) {
       toast.error("Email is required");
+      return;
+    }
+    if (!form.join_date) {
+      toast.error("Join date is required");
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(form.email.trim())) {
       toast.error("Please enter a valid email address");
+      return;
+    }
+
+    const salaryNum = Number(form.salary);
+    if (!form.salary || isNaN(salaryNum) || salaryNum <= 0) {
+      toast.error("Salary must be greater than zero");
       return;
     }
 
@@ -110,18 +151,21 @@ function EmployeesPage() {
       return;
     }
 
-    if (form.phone_no) {
-      const phoneValidation = validateSriLankanPhone(form.phone_no);
-      if (!phoneValidation.isValid) {
-        setPhoneError(phoneValidation.message);
-        toast.error(phoneValidation.message);
-        return;
-      }
-      form.phone_no = phoneValidation.formatted;
+    if (!form.phone_no) {
+      toast.error("Phone is required");
+      return;
     }
+    const phoneValidation = validateSriLankanPhone(form.phone_no);
+    if (!phoneValidation.isValid) {
+      setPhoneError(phoneValidation.message);
+      toast.error(phoneValidation.message);
+      return;
+    }
+    form.phone_no = phoneValidation.formatted;
 
     setLoading(true);
     try {
+      if (photoFile && photoFile.size > MAX_PHOTO_SIZE) { toast.error("Photo must be 1 MB or smaller"); setLoading(false); return; }
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => { if (v !== "") fd.append(k, v); });
       if (photoFile) fd.append("profile_photo", photoFile);
@@ -152,8 +196,11 @@ function EmployeesPage() {
       <tr style="background:${i % 2 === 0 ? "#fff" : "#fdf8f8"}">
         <td>#${e.employee_id}</td>
         <td><strong>${e.first_name} ${e.last_name}</strong></td>
+        <td>${e.nic || "—"}</td>
         <td>${e.position || "—"}</td>
         <td>${getDeptName(e.department_id)}</td>
+        <td>${e.salary_category === "daily" ? "Daily Worker" : "Monthly Worker"}</td>
+        <td>${e.join_date ? new Date(e.join_date).toLocaleDateString() : "—"}</td>
         <td>${e.phone_no || "—"}</td>
         <td>${e.email || "—"}</td>
         <td>LKR ${Number(e.salary || 0).toLocaleString("en-US")}</td>
@@ -173,7 +220,7 @@ function EmployeesPage() {
       <div class="hdr"><div><h1>Employees Report — Mathumithan Hardware</h1>
       <p style="font-size:11px;color:#888;margin-top:3px">Total: ${filtered.length} employee(s)</p></div>
       <div class="meta">Generated: ${new Date().toLocaleString()}</div></div>
-      <table><thead><tr><th>#</th><th>Name</th><th>Position</th><th>Department</th><th>Phone</th><th>Email</th><th>Salary</th><th>Status</th></tr></thead>
+      <table><thead><tr><th>#</th><th>Name</th><th>NIC</th><th>Position</th><th>Department</th><th>Salary Category</th><th>Join Date</th><th>Phone</th><th>Email</th><th>Salary</th><th>Status</th></tr></thead>
       <tbody>${rows}</tbody></table>
       <div class="footer">Mathumithan Hardware POS System &bull; Employees Report &bull; Confidential</div>
       </body></html>`);
@@ -271,12 +318,12 @@ function EmployeesPage() {
       <div className="emp-table-wrap">
         <table className="emp-table">
           <thead><tr>
-            <th>Photo</th><th>#</th><th>Name</th><th>Position</th><th>Department</th><th>Salary Category</th>
+            <th>Photo</th><th>#</th><th>Name</th><th>NIC</th><th>Position</th><th>Department</th><th>Salary Category</th><th>Join Date</th>
             <th>Phone</th><th>Salary (LKR)</th><th>Status</th><th>Actions</th>
           </tr></thead>
           <tbody>
-            {pageLoading ? <tr><td colSpan="10" className="emp-empty">Loading...</td></tr>
-              : paginated.length === 0 ? <tr><td colSpan="10" className="emp-empty">No employees found</td></tr>
+            {pageLoading ? <tr><td colSpan="12" className="emp-empty">Loading...</td></tr>
+              : paginated.length === 0 ? <tr><td colSpan="12" className="emp-empty">No employees found</td></tr>
                 : paginated.map(e => (
                   <tr key={e.employee_id}>
                     <td>{e.profile_photo
@@ -286,9 +333,11 @@ function EmployeesPage() {
                     <td><span className="emp-id-badge">#{e.employee_id}</span></td>
                     <td className="emp-name-cell"><div className="emp-fullname">{e.first_name} {e.last_name}</div>
                       <div className="emp-email-sub">{e.email}</div></td>
+                    <td>{e.nic || "—"}</td>
                     <td>{e.position}</td>
                     <td>{getDeptName(e.department_id)}</td>
                     <td>{e.salary_category === "daily" ? "Daily Worker" : "Monthly Worker"}</td>
+                    <td>{e.join_date ? new Date(e.join_date).toLocaleDateString() : "—"}</td>
                     <td>{e.phone_no || "—"}</td>
                     <td className="emp-salary-cell">LKR {Number(e.salary || 0).toLocaleString("en-US")}</td>
                     <td><span className={`emp-status-pill ${e.status?.toLowerCase()}`}>{e.status}</span></td>
@@ -326,21 +375,29 @@ function EmployeesPage() {
               </div>
               <div className="emp-form-grid">
                 {[["First Name *", "text", "first_name", true], ["Last Name *", "text", "last_name", true],
-                ["NIC", "text", "nic"], ["Email *", "email", "email", true]].map(([label, type, key, req]) => (
+                ["NIC *", "text", "nic", true], ["Email *", "email", "email", true]].map(([label, type, key, req]) => (
                   <div className="emp-field" key={key}>
                     <label>{label}</label>
-                    <input type={type} value={form[key]} onChange={e => setForm({ ...form, [key]: e.target.value })} required={!!req} />
+                    <input
+                      type={type}
+                      value={form[key]}
+                      onChange={e => setForm({ ...form, [key]: e.target.value })}
+                      required={!!req}
+                      pattern={key === "nic" ? "(^\\d{9}[vVxX]$|^\\d{12}$)" : key === "first_name" || key === "last_name" ? "^[A-Za-z ]+$" : undefined}
+                      title={key === "nic" ? "NIC must be 9 digits + V/X or 12 digits" : key === "first_name" || key === "last_name" ? "Name may only contain letters and spaces" : undefined}
+                    />
                   </div>
                 ))}
                 {/* Phone Field with Validation */}
                 <div className="emp-field">
-                  <label>Phone (Sri Lanka)</label>
+                  <label>Phone (Sri Lanka) *</label>
                   <div style={{ position: "relative" }}>
                     <input
                       type="text"
                       placeholder="e.g., 0712345678 (10 digits, numbers only)"
                       value={form.phone_no}
                       maxLength="10"
+                      required
                       onChange={e => {
                         const filtered = filterSriLankanPhoneInput(e.target.value);
                         setForm({ ...form, phone_no: filtered });
@@ -366,7 +423,7 @@ function EmployeesPage() {
                     <option value=""></option>{POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
                   </select></div>
                 <div className="emp-field"><label>Salary (LKR) *</label>
-                  <input type="number" min="0" value={form.salary} onChange={e => setForm({ ...form, salary: e.target.value })} required /></div>
+                  <input type="number" min="1" value={form.salary} onChange={e => setForm({ ...form, salary: e.target.value })} required /></div>
                 <div className="emp-field"><label>Salary Category *</label>
                   <select value={form.salary_category} onChange={e => setForm({ ...form, salary_category: e.target.value })} required>
                     <option value="monthly">Monthly Worker</option>
@@ -376,7 +433,7 @@ function EmployeesPage() {
                   <input type="date" value={form.join_date} max={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, join_date: e.target.value })} /></div>
                 <div className="emp-field"><label>Department *</label>
                   <select value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })} required>
-                    <option value=""></option>{departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
+                    <option value=""></option>{departments.filter(d => d.status === "Active").map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
                   </select></div>
                 <div className="emp-field"><label>Status</label>
                   <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
