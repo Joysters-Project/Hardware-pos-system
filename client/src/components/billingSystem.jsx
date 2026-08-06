@@ -476,6 +476,7 @@ const BillingSystem = () => {
         product_name: product.product_name,
         unit_price: parseFloat(product.unit_price),
         price: parseFloat(product.unit_price),
+        cost_price: parseFloat(product.cost_price || 0),
         quantity: 1,
         selected_unit_id: parseInt(product.unit_id),
         selected_unit_name: baseUnitName,
@@ -521,9 +522,26 @@ const BillingSystem = () => {
     ));
   };
 
+  const handleUpdateDiscount = (index, value) => {
+    const discountValue = parseFloat(value);
+    if (!Number.isFinite(discountValue) || discountValue < 0) {
+      return;
+    }
+    setCart(cart.map((item, i) => {
+      if (i !== index) return item;
+      return { ...item, discount: discountValue };
+    }));
+  };
+
+  const cartHasInvalidDiscount = cart.some((item) => {
+    const finalSellingPrice = (item.unit_price * item.quantity) - (item.discount || 0);
+    return finalSellingPrice < (item.cost_price || 0) * item.quantity;
+  });
+
   // Totals Calculation
   const subtotal = cart.reduce((acc, i) => acc + (i.unit_price * i.quantity), 0);
-  const total = subtotal;
+  const totalDiscount = cart.reduce((acc, i) => acc + (i.discount || 0), 0);
+  const total = subtotal - totalDiscount;
   const amountPaid = Number(payData.amountPaid);
   const amountPaidValue = Number.isFinite(amountPaid) ? amountPaid : 0;
   const balance = amountPaidValue - total;
@@ -536,6 +554,9 @@ const BillingSystem = () => {
 
   const handleCheckout = async () => {
     if (cart.length === 0) return alert("Cart is empty!");
+    if (cartHasInvalidDiscount) {
+      return alert("One or more items have a discount that makes final price lower than cost price. Please adjust discount.");
+    }
     if (amountPaidValue <= 0) return alert("Enter the amount received before completing transaction!");
     // Validate phone number if provided
     if (payData.customerPhone.trim()) {
@@ -567,7 +588,7 @@ const BillingSystem = () => {
         })),
         subtotal,
         total_amount: total,
-        discount: 0,
+        discount: totalDiscount,
         amount_paid: amountPaidValue,
         balance_due: isPartial ? Math.abs(balance) : 0,
         customer: (saveCustomer || customerExists || isPartial) && payData.customerPhone ? { name: payData.customerName, phone: payData.customerPhone, address: payData.customerAddress } : null,
@@ -582,6 +603,7 @@ const BillingSystem = () => {
 
       setLastBill({
         ...res.data.data,
+        discount: totalDiscount,
         items: cart.map(item => ({
           ...item,
           billed_quantity: item.quantity,
@@ -875,7 +897,8 @@ const BillingSystem = () => {
                         <th style={{ minWidth: '90px' }}>Product</th>
                         <th style={{ width: '100px', textAlign: 'center' }}>Unit</th>
                         <th style={{ width: '75px', textAlign: 'center' }}>Qty</th>
-                        <th style={{ width: '85px', textAlign: 'right' }}>Subtotal</th>
+                        <th style={{ width: '95px', textAlign: 'center' }}>Discount</th>
+                        <th style={{ width: '105px', textAlign: 'right' }}>Total</th>
                         <th style={{ width: '32px' }}></th>
                       </tr>
                     </thead>
@@ -913,8 +936,21 @@ const BillingSystem = () => {
                               step="0.01"
                             />
                           </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <input
+                              type="number"
+                              className="discount-input-table"
+                              value={item.discount || 0}
+                              onChange={(e) => handleUpdateDiscount(idx, e.target.value)}
+                              min="0"
+                              step="0.01"
+                            />
+                          </td>
                           <td style={{ textAlign: 'right' }}>
-                            <strong>Rs.{(item.unit_price * item.quantity).toFixed(2)}</strong>
+                            <strong>Rs.{((item.unit_price * item.quantity) - (item.discount || 0)).toFixed(2)}</strong>
+                            {((item.unit_price * item.quantity) - (item.discount || 0)) < (item.cost_price || 0) * item.quantity && (
+                              <div className="discount-warning">Final price below cost</div>
+                            )}
                           </td>
                           <td>
                             <button className="table-remove-btn" onClick={() => handleRemoveFromCart(idx)}>
@@ -963,6 +999,11 @@ const BillingSystem = () => {
                 <div className="summary-row">
                   <span className="summary-label">Subtotal ({cartItemCount} items)</span>
                   <span className="summary-value">Rs.{subtotal.toFixed(2)}</span>
+                </div>
+
+                <div className="summary-row">
+                  <span className="summary-label">Discount</span>
+                  <span className="summary-value">Rs.{totalDiscount.toFixed(2)}</span>
                 </div>
 
                 <div className="summary-total-row">

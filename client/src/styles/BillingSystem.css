@@ -1557,6 +1557,32 @@ body {
   transition: all 0.2s;
 }
 
+.discount-input-table {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: right;
+  background: var(--white);
+  color: var(--gray-900);
+  outline: none;
+  transition: all 0.2s;
+}
+
+.discount-input-table:focus {
+  border-color: var(--primary-dark);
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+.discount-warning {
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  color: #b91c1c;
+  font-weight: 600;
+}
+
 .qty-input-table:focus {
   border-color: var(--primary-dark);
   box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
