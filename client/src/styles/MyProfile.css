@@ -1,12 +1,12 @@
 /* ===== My Profile ===== */
 
 .pf-page {
-  max-width: 660px;
+  max-width: 700px;
   margin: 0 auto;
-  padding: 1rem 1.5rem 2rem;
+  padding: 1.5rem 1.5rem 2.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 1.1rem;
   animation: page-fade-up 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -18,34 +18,34 @@
 /* ── Page header ── */
 .pf-header {
   text-align: center;
-  padding-bottom: 0.5rem;
+  padding-bottom: 0.6rem;
   border-bottom: 3px solid #8b3a3a;
 }
 
 .pf-header h1 {
-  margin: 0 0 2px;
-  font-size: 1.6rem;
+  margin: 0 0 3px;
+  font-size: 1.85rem;
   font-weight: 800;
   color: #1a1a1a;
 }
 
 .pf-header p {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.92rem;
   color: #888;
 }
 
 /* ── Overview card ── */
 .pf-overview-card {
   background: #fff;
-  border-radius: 18px;
+  border-radius: 20px;
   border: 1px solid #efefef;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.07);
-  padding: 1.1rem 1.5rem 1rem;
+  box-shadow: 0 4px 28px rgba(0,0,0,0.08);
+  padding: 1.6rem 2rem 1.4rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.7rem;
+  gap: 1rem;
 }
 
 /* ── Photo block ── */
@@ -53,17 +53,17 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.4rem;
 }
 
 .pf-photo-ring {
   position: relative;
-  width: 82px;
-  height: 82px;
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
   overflow: hidden;
   border: 3px solid #8b3a3a;
-  box-shadow: 0 3px 12px rgba(139,58,58,0.2);
+  box-shadow: 0 4px 16px rgba(139,58,58,0.22);
   cursor: pointer;
 }
 
@@ -79,7 +79,7 @@
   height: 100%;
   background: linear-gradient(135deg, #8b3a3a, #a84545);
   color: #fff;
-  font-size: 1.6rem;
+  font-size: 1.9rem;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -98,7 +98,7 @@
   align-items: center;
   justify-content: center;
   gap: 3px;
-  font-size: 0.65rem;
+  font-size: 0.68rem;
   font-weight: 600;
   opacity: 0;
   transition: opacity 0.2s;
@@ -112,11 +112,11 @@
   background: none;
   border: none;
   color: #c62828;
-  font-size: 0.73rem;
+  font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
-  padding: 0.15rem 0.4rem;
-  border-radius: 5px;
+  padding: 0.18rem 0.5rem;
+  border-radius: 6px;
   transition: background 0.15s;
 }
 .pf-photo-delete:hover { background: #fdecea; }
@@ -124,12 +124,12 @@
 /* ── Identity ── */
 .pf-identity {
   text-align: center;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 .pf-identity h2 {
-  margin: 0 0 4px;
-  font-size: 1.15rem;
+  margin: 0 0 5px;
+  font-size: 1.3rem;
   font-weight: 700;
   color: #1a1a1a;
 }
@@ -138,11 +138,11 @@
   display: inline-block;
   background: linear-gradient(135deg, #8b3a3a, #a84545);
   color: #fff;
-  font-size: 0.7rem;
+  font-size: 0.73rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  padding: 0.18rem 0.75rem;
+  padding: 0.22rem 0.85rem;
   border-radius: 999px;
 }
 
@@ -153,7 +153,7 @@
   flex-direction: column;
   gap: 0;
   border: 1px solid #f0f0f0;
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
 }
 
@@ -161,22 +161,22 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.38rem 0.85rem;
-  border-bottom: 1px solid #f8f8f8;
+  padding: 0.48rem 1rem;
+  border-bottom: 1px solid #f5f5f5;
   gap: 1rem;
 }
 .pf-info-row:last-child { border-bottom: none; }
 .pf-info-row:nth-child(even) { background: #fdf8f8; }
 
 .pf-info-label {
-  font-size: 0.77rem;
+  font-size: 0.83rem;
   color: #888;
   font-weight: 600;
   white-space: nowrap;
 }
 
 .pf-info-val {
-  font-size: 0.82rem;
+  font-size: 0.88rem;
   color: #1a1a1a;
   font-weight: 500;
   text-align: right;
@@ -184,50 +184,68 @@
   max-width: 65%;
 }
 
-/* ── Action buttons ── */
+/* ── Action buttons row ── */
 .pf-action-row {
   display: flex;
-  gap: 0.55rem;
+  gap: 0.65rem;
   flex-wrap: wrap;
   justify-content: center;
-  padding-top: 0.1rem;
+  padding-top: 0.2rem;
+  width: 100%;
 }
 
+/* Base button */
 .pf-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 0.5rem 1rem;
-  border-radius: 9px;
-  font-size: 0.84rem;
+  gap: 7px;
+  padding: 0.55rem 1.15rem;
+  border-radius: 10px;
+  font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
-  border: none;
   transition: all 0.2s;
   white-space: nowrap;
 }
-.pf-btn:hover { transform: translateY(-1px); }
-.pf-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+.pf-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
+/* ── Unified overview action button ──
+   Transparent bg, maroon border + text at rest.
+   On hover: fills solid maroon, text turns white. */
+.pf-btn--action {
+  background: transparent;
+  color: #8b3a3a;
+  border: 2px solid #8b3a3a;
+  flex: 1;
+  justify-content: center;
+  min-width: 130px;
+}
+.pf-btn--action:hover {
+  background: #8b3a3a;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(139,58,58,0.3);
+  transform: translateY(-1px);
+}
+.pf-btn--action:active {
+  background: #6e2c2c;
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* ── Primary (used in forms / panels) ── */
 .pf-btn--primary {
   background: linear-gradient(135deg, #8b3a3a, #a84545);
   color: #fff;
+  border: none;
   box-shadow: 0 3px 10px rgba(139,58,58,0.25);
 }
-.pf-btn--primary:hover { box-shadow: 0 5px 16px rgba(139,58,58,0.35); }
-.pf-btn--primary.active {
-  background: linear-gradient(135deg, #5a1f1f, #8b3a3a);
-  box-shadow: 0 2px 8px rgba(139,58,58,0.4);
+.pf-btn--primary:hover {
+  background: linear-gradient(135deg, #7a2e2e, #963c3c);
+  box-shadow: 0 5px 16px rgba(139,58,58,0.35);
+  transform: translateY(-1px);
 }
 
-.pf-btn--outline {
-  background: #fff;
-  color: #8b3a3a;
-  border: 2px solid #8b3a3a;
-}
-.pf-btn--outline:hover { background: #8b3a3a; color: #fff; }
-.pf-btn--outline.active { background: #8b3a3a; color: #fff; }
-
+/* ── Ghost (cancel buttons in forms) ── */
 .pf-btn--ghost {
   background: #f5f5f5;
   color: #555;
@@ -254,21 +272,21 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 1rem 1.5rem 0.85rem;
+  padding: 1.1rem 1.5rem 0.9rem;
   border-bottom: 1.5px solid #f0f0f0;
   background: #fdf8f8;
 }
 
 .pf-panel__head h3 {
   margin: 0 0 2px;
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 700;
   color: #1a1a1a;
 }
 
 .pf-panel__head p {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   color: #888;
 }
 
@@ -286,36 +304,36 @@
 .pf-panel__close:hover { background: #fdecea; color: #c62828; }
 
 /* ── Form inside panel ── */
-.pf-form { padding: 1rem 1.5rem; }
+.pf-form { padding: 1.1rem 1.5rem; }
 
 .pf-form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.8rem;
-  margin-bottom: 1rem;
+  gap: 0.85rem;
+  margin-bottom: 1.1rem;
 }
 
 .pf-field {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.32rem;
   position: relative;
 }
 
 .pf-field--full { grid-column: 1 / -1; }
 
 .pf-field label {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: #555;
 }
 
 .pf-field input,
 .pf-field textarea {
-  padding: 0.58rem 0.8rem;
+  padding: 0.6rem 0.85rem;
   border: 1.5px solid #e0e0e0;
   border-radius: 8px;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   color: #222;
   background: #fff;
   font-family: inherit;
@@ -332,12 +350,12 @@
   box-shadow: 0 0 0 3px rgba(139,58,58,0.1);
 }
 
-.pf-field--icon input { padding-left: 2.1rem; }
+.pf-field--icon input { padding-left: 2.15rem; }
 
 .pf-field-icon {
   position: absolute;
-  left: 0.65rem;
-  bottom: 0.68rem;
+  left: 0.68rem;
+  bottom: 0.7rem;
   color: #aaa;
   pointer-events: none;
 }
@@ -346,12 +364,12 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
 }
 
 .pf-photo-upload {
-  width: 100px;
-  height: 100px;
+  width: 110px;
+  height: 110px;
   border-radius: 50%;
   overflow: hidden;
   border: 3px solid #8b3a3a;
@@ -380,24 +398,24 @@
   justify-content: center;
   gap: 5px;
   color: #fff;
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   font-weight: 700;
   text-align: center;
 }
 
 .pf-hint {
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   color: #aaa;
-  margin-top: 1px;
+  margin-top: 2px;
   text-align: center;
 }
 
 .pf-form-footer {
   display: flex;
-  gap: 0.6rem;
+  gap: 0.65rem;
   flex-wrap: wrap;
   border-top: 1px solid #f5f5f5;
-  padding-top: 0.85rem;
+  padding-top: 0.9rem;
 }
 
 /* ── Loading ── */
@@ -412,16 +430,19 @@
 
 /* ── Responsive ── */
 @media (max-width: 600px) {
-  .pf-page { padding: 0.75rem; }
-  .pf-overview-card { padding: 1rem 0.85rem; }
+  .pf-page { padding: 0.85rem; }
+  .pf-overview-card { padding: 1.2rem 1rem; }
   .pf-form-grid { grid-template-columns: 1fr; }
   .pf-action-row { flex-direction: column; align-items: stretch; }
   .pf-btn { justify-content: center; }
+  .pf-btn--action { min-width: unset; }
 }
 
-/* ═══════════════════════════════════════════════
-   Crop Modal  —  Alerts-style blurred backdrop
-   ═══════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════
+   Crop Modal
+   position: fixed on <body> level — blurs the ENTIRE
+   screen (sidebar + content) not just the page div
+   ═══════════════════════════════════════════════════════ */
 
 .pf-crop-overlay {
   position: fixed;
@@ -431,10 +452,9 @@
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  /* same blur style as Alerts dispose-overlay */
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .pf-crop-modal {
@@ -447,8 +467,8 @@
   gap: 0.9rem;
   width: 100%;
   max-width: 440px;
-  box-shadow: 0 28px 72px rgba(0, 0, 0, 0.65);
-  border: 1px solid rgba(139, 58, 58, 0.3);
+  box-shadow: 0 28px 72px rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(139, 58, 58, 0.35);
   animation: pf-crop-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -457,7 +477,6 @@
   to   { opacity: 1; transform: scale(1)    translateY(0); }
 }
 
-/* Header row inside modal */
 .pf-crop-header {
   display: flex;
   align-items: center;
@@ -469,9 +488,7 @@
   align-self: flex-start;
 }
 
-.pf-crop-header-icon {
-  color: #c0504d;
-}
+.pf-crop-header-icon { color: #c0504d; }
 
 .pf-crop-hint {
   margin: -0.4rem 0 0;
@@ -481,7 +498,6 @@
   align-self: center;
 }
 
-/* Stage — fixed size, clips overflow, black bg */
 .pf-crop-stage {
   position: relative;
   border-radius: 12px;
@@ -493,7 +509,6 @@
   border: 1px solid rgba(139, 58, 58, 0.25);
 }
 
-/* Zoom slider row */
 .pf-crop-zoom-row {
   display: flex;
   align-items: center;
@@ -535,7 +550,6 @@
   cursor: pointer;
 }
 
-/* Action buttons — distinct from page buttons */
 .pf-crop-actions {
   display: flex;
   gap: 0.65rem;
@@ -573,10 +587,10 @@
 .pf-crop-btn--cancel {
   background: rgba(255, 255, 255, 0.07);
   color: #bbb;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.14);
 }
 .pf-crop-btn--cancel:hover {
-  background: rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.14);
   color: #fff;
   transform: translateY(-1px);
 }

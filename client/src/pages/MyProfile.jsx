@@ -324,9 +324,8 @@ export default function MyProfile() {
 
   return (
     <DashboardLayout active="profile">
-      <div className="pf-page">
 
-      {/* ── Crop Modal ── */}
+      {/* ── Crop Modal — rendered outside pf-page so fixed overlay covers full screen ── */}
       {cropSrc && (() => {
         const rendered = getRenderedSize();
         const imgStyle = {
@@ -408,6 +407,8 @@ export default function MyProfile() {
         );
       })()}
 
+      <div className="pf-page">
+
         {/* ── Top header ── */}
         <div className="pf-header">
           <h1>Account Overview</h1>
@@ -482,21 +483,13 @@ export default function MyProfile() {
 
           {/* Action buttons */}
           <div className="pf-action-row">
-            <button
-              type="button"
-              className={`pf-btn pf-btn--primary ${activePanel === "edit" ? "active" : ""}`}
-              onClick={openEdit}
-            >
+            <button type="button" className="pf-btn pf-btn--action" onClick={openEdit}>
               <Edit3 size={15} /> Edit Profile
             </button>
-            <button
-              type="button"
-              className={`pf-btn pf-btn--outline ${activePanel === "password" ? "active" : ""}`}
-              onClick={openPwd}
-            >
+            <button type="button" className="pf-btn pf-btn--action" onClick={openPwd}>
               <Lock size={15} /> Change Password
             </button>
-            <button type="button" className="pf-btn pf-btn--ghost" onClick={() => setShowLogoutModal(true)}>
+            <button type="button" className="pf-btn pf-btn--action" onClick={() => setShowLogoutModal(true)}>
               <LogOut size={15} /> Logout
             </button>
           </div>
@@ -626,7 +619,7 @@ export default function MyProfile() {
           </div>
         )}
 
-      </div>
+      </div>{/* end pf-page */}
 
       <LogoutConfirmModal
         isOpen={showLogoutModal}
