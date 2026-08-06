@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Eye, Pencil, Trash2, Plus, Search, RefreshCw, FileDown, X, ChevronLeft, ChevronRight, Receipt } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
@@ -203,59 +204,65 @@ function ExpensesPage() {
       </div>}
 
       {/* Add/Edit Modal */}
-      {showModal && <div className="exp-overlay" onClick={closeModal}>
-        <div className="exp-modal" onClick={e => e.stopPropagation()}>
-          <div className="exp-modal-header">
-            <h2>{editId ? "Edit Expense" : "Add Expense"}</h2>
-            <button className="exp-modal-close" onClick={closeModal}><X size={18} /></button>
+      {showModal && createPortal(
+        <div className="exp-overlay" onClick={closeModal}>
+          <div className="exp-modal" onClick={e => e.stopPropagation()}>
+            <div className="exp-modal-header">
+              <h2>{editId ? "Edit Expense" : "Add Expense"}</h2>
+              <button className="exp-modal-close" onClick={closeModal}><X size={18} /></button>
+            </div>
+            <form onSubmit={handleSubmit} className="exp-modal-form">
+              <div className="exp-form-grid">
+                <div className="exp-field"><label>Expense Type *</label>
+                  <select value={form.expense_type} onChange={e => setForm({ ...form, expense_type: e.target.value })} required>
+                    <option value="">Select Type</option>{EXPENSE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select></div>
+                <div className="exp-field"><label>Amount (LKR) *</label>
+                  <input type="number" min="0" step="0.01" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} required /></div>
+                <div className="exp-field"><label>Expense Date *</label>
+                  <input type="date" value={form.expense_date} onChange={e => setForm({ ...form, expense_date: e.target.value })} required /></div>
+                <div className="exp-field"><label>Department</label>
+                  <select value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })}>
+                    <option value="">None</option>{departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
+                  </select></div>
+                <div className="exp-field"><label>Linked Asset</label>
+                  <select value={form.asset_id} onChange={e => setForm({ ...form, asset_id: e.target.value })}>
+                    <option value="">None</option>{assets.map(a => <option key={a.asset_id} value={a.asset_id}>{a.asset_name}</option>)}
+                  </select></div>
+                <div className="exp-field exp-field-full"><label>Description</label>
+                  <textarea rows={3} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Optional notes..." /></div>
+              </div>
+              <div className="exp-modal-footer">
+                <button type="button" className="exp-btn-cancel" onClick={closeModal}>Cancel</button>
+                <button type="submit" className="exp-btn-submit" disabled={loading}>{loading ? "Saving..." : editId ? "Update" : "Create"}</button>
+              </div>
+            </form>
           </div>
-          <form onSubmit={handleSubmit} className="exp-modal-form">
-            <div className="exp-form-grid">
-              <div className="exp-field"><label>Expense Type *</label>
-                <select value={form.expense_type} onChange={e => setForm({ ...form, expense_type: e.target.value })} required>
-                  <option value="">Select Type</option>{EXPENSE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select></div>
-              <div className="exp-field"><label>Amount (LKR) *</label>
-                <input type="number" min="0" step="0.01" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} required /></div>
-              <div className="exp-field"><label>Expense Date *</label>
-                <input type="date" value={form.expense_date} onChange={e => setForm({ ...form, expense_date: e.target.value })} required /></div>
-              <div className="exp-field"><label>Department</label>
-                <select value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })}>
-                  <option value="">None</option>{departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
-                </select></div>
-              <div className="exp-field"><label>Linked Asset</label>
-                <select value={form.asset_id} onChange={e => setForm({ ...form, asset_id: e.target.value })}>
-                  <option value="">None</option>{assets.map(a => <option key={a.asset_id} value={a.asset_id}>{a.asset_name}</option>)}
-                </select></div>
-              <div className="exp-field exp-field-full"><label>Description</label>
-                <textarea rows={3} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Optional notes..." /></div>
-            </div>
-            <div className="exp-modal-footer">
-              <button type="button" className="exp-btn-cancel" onClick={closeModal}>Cancel</button>
-              <button type="submit" className="exp-btn-submit" disabled={loading}>{loading ? "Saving..." : editId ? "Update" : "Create"}</button>
-            </div>
-          </form>
-        </div>
-      </div>}
+        </div>,
+        document.body
+      )}
 
       {/* View Modal */}
-      {viewExpense && <div className="exp-overlay" onClick={() => setViewExpense(null)}>
-        <div className="exp-modal" onClick={e => e.stopPropagation()}>
-          <div className="exp-modal-header">
-            <h2>Expense Details</h2>
-            <button className="exp-modal-close" onClick={() => setViewExpense(null)}><X size={18} /></button>
+      {viewExpense && createPortal(
+        <div className="exp-overlay" onClick={() => setViewExpense(null)}>
+          <div className="exp-modal" onClick={e => e.stopPropagation()}>
+            <div className="exp-modal-header">
+              <h2>Expense Details</h2>
+              <button className="exp-modal-close" onClick={() => setViewExpense(null)}><X size={18} /></button>
+            </div>
+            <div className="exp-view-grid">
+              {[["Type", <span className="exp-type-pill" style={{ background: (TYPE_COLORS[viewExpense.expense_type] || "#8b3a3a") + "18", color: TYPE_COLORS[viewExpense.expense_type] || "#8b3a3a" }}>{viewExpense.expense_type}</span>],
+              ["Amount", `LKR ${Number(viewExpense.amount).toLocaleString("en-US")}`],
+              ["Date", viewExpense.expense_date ? new Date(viewExpense.expense_date).toLocaleDateString() : "—"],
+              ["Department", viewExpense.department?.department_name || getDeptName(viewExpense.department_id)],
+              ["Linked Asset", viewExpense.asset?.asset_name || (viewExpense.asset_id ? getAssetName(viewExpense.asset_id) : "—")],
+              ["Description", viewExpense.description || "—"]
+              ].map(([l, v]) => <div className="exp-view-row" key={l}><span className="exp-view-label">{l}</span><span className="exp-view-value">{v}</span></div>)}
+            </div>
           </div>
-          <div className="exp-view-grid">
-            {[["Type", <span className="exp-type-pill" style={{ background: (TYPE_COLORS[viewExpense.expense_type] || "#8b3a3a") + "18", color: TYPE_COLORS[viewExpense.expense_type] || "#8b3a3a" }}>{viewExpense.expense_type}</span>],
-            ["Amount", `LKR ${Number(viewExpense.amount).toLocaleString("en-US")}`],
-            ["Date", viewExpense.expense_date ? new Date(viewExpense.expense_date).toLocaleDateString() : "—"],
-            ["Department", viewExpense.department?.department_name || getDeptName(viewExpense.department_id)],
-            ["Linked Asset", viewExpense.asset?.asset_name || (viewExpense.asset_id ? getAssetName(viewExpense.asset_id) : "—")],
-            ["Description", viewExpense.description || "—"]
-            ].map(([l, v]) => <div className="exp-view-row" key={l}><span className="exp-view-label">{l}</span><span className="exp-view-value">{v}</span></div>)}
-          </div>
-        </div>
-      </div>}
+        </div>,
+        document.body
+      )}
     </div>
     </DashboardLayout>
   );

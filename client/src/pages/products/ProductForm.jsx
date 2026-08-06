@@ -28,6 +28,25 @@ export default function ProductForm() {
   const [loading,    setLoading]    = useState(false);
   const [fetching,   setFetching]   = useState(isEdit);
   const [error,      setError]      = useState(null);
+  const [alternativeUnits, setAlternativeUnits] = useState([]);
+
+  const addAlternativeUnitRow = () => {
+    setAlternativeUnits((prev) => [
+      ...prev,
+      { unit_id: '', conversion_factor: '', unit_price: '', cost_price: '', barcode: '' },
+    ]);
+  };
+
+  const removeAlternativeUnitRow = (index) => {
+    setAlternativeUnits((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAltUnitChange = (index, field, value) => {
+    setAlternativeUnits((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
+    );
+  };
+
 
   useEffect(() => {
     fetchReferenceData();
@@ -65,6 +84,15 @@ export default function ProductForm() {
         brand_id:           p.brand_id?.toString()   || '',
         unit_id:            p.unit_id?.toString()    || '',
       });
+      if (p.alternative_units && Array.isArray(p.alternative_units)) {
+        setAlternativeUnits(p.alternative_units.map(au => ({
+          unit_id: au.unit_id.toString(),
+          conversion_factor: au.conversion_factor.toString(),
+          unit_price: au.unit_price?.toString() || '',
+          cost_price: au.cost_price?.toString() || '',
+          barcode: au.barcode || ''
+        })));
+      }
     } catch {
       setError('Failed to fetch product');
       toast.error('Failed to fetch product');
@@ -86,20 +114,36 @@ export default function ProductForm() {
       return;
     }
     try {
+      const altUnitsPayload = alternativeUnits.map(au => ({
+        unit_id: parseInt(au.unit_id),
+        conversion_factor: parseFloat(au.conversion_factor),
+        unit_price: au.unit_price ? parseFloat(au.unit_price) : null,
+        cost_price: au.cost_price ? parseFloat(au.cost_price) : null,
+        barcode: au.barcode ? au.barcode.trim() : null
+      }));
+
+      for (const au of altUnitsPayload) {
+        if (isNaN(au.unit_id) || isNaN(au.conversion_factor) || au.conversion_factor <= 0) {
+          setError('Please select a unit and enter a positive conversion factor for all alternative packaging units.');
+          return;
+        }
+      }
+
       setLoading(true);
       const data = {
         product_name:       formData.product_name,
         unit_price:         parseFloat(formData.unit_price),
         cost_price:         parseFloat(formData.cost_price),
-        stock_quantity:     parseInt(formData.stock_quantity)     || 0,
-        min_stock_quantity: parseInt(formData.min_stock_quantity) || 0,
-        reorder_level:      parseInt(formData.reorder_level)      || 0,
+        stock_quantity:     parseFloat(formData.stock_quantity)     || 0,
+        min_stock_quantity: parseFloat(formData.min_stock_quantity) || 0,
+        reorder_level:      parseFloat(formData.reorder_level)      || 0,
         type:               formData.type,
         batch_no:           formData.batch_no    || null,
         expiry_date:        formData.expiry_date || null,
         category_id:        parseInt(formData.category_id),
         brand_id:           formData.brand_id ? parseInt(formData.brand_id) : null,
         unit_id:            parseInt(formData.unit_id),
+        alternative_units:  altUnitsPayload
       };
       if (isEdit) {
         await productService.update(id, data);
@@ -269,6 +313,58 @@ export default function ProductForm() {
                   value={formData.reorder_level} onChange={handleChange} />
               </div>
             </motion.div>
+
+            <motion.div className="pf-section-header" style={{ marginTop: '24px' }} variants={fieldVariants} initial="hidden" animate="visible" transition={{ delay: 0.30 }}>
+              <h3 className="pf-label" style={{ fontSize: '16px', fontWeight: '600' }}>Alternative Packaging Units</h3>
+            </motion.div>
+            
+            <p style={{ fontSize: '13px', color: '#666', marginBottom: '16px' }}>
+              Define alternative measurements (e.g., Box, Roll, Packet) and how many base units they contain.
+            </p>
+
+            {alternativeUnits.map((item, idx) => (
+              <motion.div key={idx} className="alt-unit-row" style={{ border: '1px solid #eef2f6', padding: '16px', borderRadius: '12px', marginBottom: '16px', backgroundColor: '#fcfcfd', position: 'relative' }} variants={fieldVariants} initial="hidden" animate="visible">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                  <div className="pf-field">
+                    <label className="pf-label">Alternative Unit <span className="pf-req">*</span></label>
+                    <select className="pf-select" value={item.unit_id} onChange={(e) => handleAltUnitChange(idx, "unit_id", e.target.value)}>
+                      <option value="">Select Unit</option>
+                      {units.map(u => (
+                        <option key={u.unit_id} value={u.unit_id} disabled={parseInt(u.unit_id) === parseInt(formData.unit_id)}>{u.unit_name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="pf-field">
+                    <label className="pf-label">Conversion Factor <span className="pf-req">*</span></label>
+                    <input className="pf-input" type="number" min="0.0001" step="0.0001" placeholder="e.g. 50" value={item.conversion_factor} onChange={(e) => handleAltUnitChange(idx, "conversion_factor", e.target.value)} />
+                  </div>
+
+                  <div className="pf-field">
+                    <label className="pf-label">Custom Price (Optional)</label>
+                    <input className="pf-input" type="number" min="0" step="0.01" placeholder="Defaults to Base * Factor" value={item.unit_price} onChange={(e) => handleAltUnitChange(idx, "unit_price", e.target.value)} />
+                  </div>
+
+                  <div className="pf-field">
+                    <label className="pf-label">Custom Cost (Optional)</label>
+                    <input className="pf-input" type="number" min="0" step="0.01" placeholder="Defaults to Base * Factor" value={item.cost_price} onChange={(e) => handleAltUnitChange(idx, "cost_price", e.target.value)} />
+                  </div>
+
+                  <div className="pf-field">
+                    <label className="pf-label">Barcode (Optional)</label>
+                    <input className="pf-input" type="text" placeholder="e.g. 123456789" value={item.barcode} onChange={(e) => handleAltUnitChange(idx, "barcode", e.target.value)} />
+                  </div>
+                </div>
+
+                <button type="button" onClick={() => removeAlternativeUnitRow(idx)} style={{ position: 'absolute', right: '12px', top: '12px', background: 'none', border: 'none', color: '#dc2626', fontWeight: '600', cursor: 'pointer', fontSize: '12px' }}>
+                  Remove
+                </button>
+              </motion.div>
+            ))}
+
+            <button type="button" onClick={addAlternativeUnitRow} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', color: '#475569', fontWeight: '500', cursor: 'pointer', fontSize: '13px', marginBottom: '24px' }}>
+              + Add Alternative Unit
+            </button>
 
             <hr className="pf-divider" />
 

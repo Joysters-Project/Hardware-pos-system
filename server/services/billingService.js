@@ -1,5 +1,7 @@
 const { bills, bill_items, products, audit_log, customers, payments, users, alerts, sequelize } = require('../models');
 const { logActivity } = require('./auditService');
+const { syncAlertsForProduct } = require('./alertService');
+const { deductStockFEFO } = require('./batchService');
 const { validateSriLankanPhone } = require('../utils/phoneValidation');
 
 class BillingService {
@@ -9,9 +11,11 @@ class BillingService {
             defaults: {
                 first_name: 'System',
                 last_name: 'User',
-                password: 'system',
-                role: 'ADMIN',
-                status: 'Active'
+                password: 'system_placeholder',
+                role: 'Admin',
+                status: 'Active',
+                failed_attempts: 0,
+                is_locked: false
             },
             transaction
         });
@@ -51,7 +55,8 @@ class BillingService {
                 const product = await products.findByPk(item.product_id, { transaction: t });
                 const isActiveStatus = [0, '0', 'active', 'Active', 'ACTIVE'].includes(product?.status);
                 if (!product || !isActiveStatus) throw new Error(`Product ${item.product_id} is unavailable.`);
-                if (product.stock_quantity < item.quantity) throw new Error(`Low stock for ${product.product_name}.`);
+                const baseQuantity = Number(item.quantity) * Number(item.conversion_factor || 1);
+                if (product.stock_quantity < baseQuantity) throw new Error(`Low stock for ${product.product_name}.`);
             }
 
             // 3. Generate Sequential Bill No (INV-YYYY-NNNN)
@@ -74,6 +79,8 @@ class BillingService {
             const lowStockAlerts = [];
             for (const item of saleData.items) {
                 const quantity = Number(item.quantity) || 0;
+                const factor = Number(item.conversion_factor) || 1;
+                const baseQuantityDeducted = quantity * factor;
                 const pricePerUnit = parseFloat(item.price) || 0;
                 const discount = parseFloat(item.discount) || 0;
                 const totalPrice = (quantity * pricePerUnit) - discount;
@@ -81,41 +88,24 @@ class BillingService {
                 await bill_items.create({
                     bill_id: bill.bill_id,
                     product_id: item.product_id,
-                    quantity,
+                    quantity: baseQuantityDeducted,
+                    billed_quantity: quantity,
+                    billed_unit_id: item.selected_unit_id || null,
                     price_per_unit: pricePerUnit,
                     discount,
                     total_price: totalPrice
                 }, { transaction: t });
 
-                // Decrement stock and get the updated product record
+                // Decrement stock atomically inside the transaction to prevent oversell.
+                // Batch FEFO deduction + full sync runs after commit (see process.nextTick below).
                 await products.decrement('stock_quantity', {
-                    by: quantity,
+                    by: baseQuantityDeducted,
                     where: { product_id: item.product_id },
                     transaction: t
                 });
 
                 const updatedProduct = await products.findByPk(item.product_id, { transaction: t });
-                if (updatedProduct.stock_quantity <= updatedProduct.min_stock_quantity) {
-                    lowStockAlerts.push(updatedProduct.product_name);
-                    
-                    // Create an unresolved low stock alert if it doesn't exist
-                    const existingAlert = await alerts.findOne({
-                        where: {
-                            product_id: item.product_id,
-                            alert_type: 'LOW_STOCK',
-                            is_resolved: false
-                        },
-                        transaction: t
-                    });
-
-                    if (!existingAlert) {
-                        await alerts.create({
-                            product_id: item.product_id,
-                            alert_type: 'LOW_STOCK',
-                            is_resolved: false
-                        }, { transaction: t });
-                    }
-                }
+                if (updatedProduct) lowStockAlerts.push(updatedProduct.product_name);
             }
 
             // 6. Record Payment
@@ -125,27 +115,33 @@ class BillingService {
                 payment_method: saleData.payment_method || 'CASH'
             }, { transaction: t });
 
-            // 7. Final Audit Log and Inventory Sync (outside transaction so it never blocks checkout)
+            // 7. Final Audit Log, FEFO Batch Deduction, and Inventory Sync (after transaction commits)
             process.nextTick(async () => {
                 try {
                     await logActivity(userId, null, 'INVOICE_CREATED',
                       `Invoice ${bill_no} created. Total: ${saleData.total_amount}, Paid: ${saleData.amount_paid}, Due: ${saleData.balance_due || 0}`
                     );
 
-                    // Import services dynamically to avoid circular dependencies
                     const autoReorderService = require('./autoReorderService');
                     const forecastService = require('./forecastService');
 
                     for (const item of saleData.items) {
+                        const factor = Number(item.conversion_factor) || 1;
+                        const baseQty = Number(item.quantity) * factor;
                         // Record inventory movement
                         await logActivity(userId, null, 'INVENTORY_MOVEMENT',
-                          `Sales checkout: reduced stock of product_id=${item.product_id} by ${item.quantity} units for Invoice ${bill_no}`
+                          `Sales checkout: reduced stock of product_id=${item.product_id} by ${baseQty} units for Invoice ${bill_no}`
                         );
 
-                        // Check reorder level and update suggestions / notifications
-                        await autoReorderService.checkProductReorder(item.product_id);
+                        // Steps 1-4: Deduct batches FEFO, mark zero-qty batches Expired,
+                        // sync product stock_quantity + expiry_date + status from active batches.
+                        await deductStockFEFO(item.product_id, item.quantity);
 
-                        // Update forecast calculations
+                        // Step 5: Sync expiry alerts using the now-updated product + active batches.
+                        const soldProduct = await products.findByPk(item.product_id);
+                        if (soldProduct) await syncAlertsForProduct(soldProduct);
+
+                        await autoReorderService.checkProductReorder(item.product_id);
                         await forecastService.getProductForecast(item.product_id);
                     }
                 } catch (err) {

@@ -1,0 +1,255 @@
+/* ── Workspace shell ── */
+.procurement-workspace {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 64px);
+  background: #f5f5f5;
+  margin: -32px -36px;
+}
+
+/* ── Header bar ── */
+.procurement-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #fff;
+  border-bottom: 3px solid #8b3a3a;
+  padding: 14px 24px 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.procurement-title-block {
+  padding-bottom: 12px;
+}
+.procurement-title-block h1 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  margin: 0;
+  color: #8b3a3a;
+  letter-spacing: 0.3px;
+}
+.procurement-title-block p {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  color: #888;
+}
+
+.procurement-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  padding-bottom: 0;
+}
+
+/* ── Top nav tabs ── */
+.procurement-top-nav {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.procurement-top-nav::-webkit-scrollbar { display: none; }
+
+.procurement-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: #777;
+  border-radius: 8px 8px 0 0;
+  text-decoration: none;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+  border-bottom: none;
+  white-space: nowrap;
+}
+.procurement-nav-item:hover {
+  color: #8b3a3a;
+  background: #fdf6f6;
+}
+.procurement-nav-item.active {
+  color: #8b3a3a;
+  background: #f5f5f5;
+  border-color: #e8e0e0;
+  border-bottom-color: #f5f5f5;
+  font-weight: 700;
+}
+
+/* ── Bell button ── */
+.procurement-bell-btn {
+  position: relative;
+  background: transparent;
+  border: 1.5px solid #e0e0e0;
+  color: #666;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 2px;
+  flex-shrink: 0;
+}
+.procurement-bell-btn:hover {
+  border-color: #8b3a3a;
+  color: #8b3a3a;
+  background: #fdf6f6;
+}
+
+.procurement-bell-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  background: #c62828;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 2px solid #fff;
+}
+
+@keyframes pulse-badge {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.15); }
+}
+
+/* ── Content area ── */
+.procurement-workspace-content {
+  flex: 1;
+  background: #f5f5f5;
+  animation: fade-in-workspace 0.3s ease-out;
+}
+
+@keyframes fade-in-workspace {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ════════════════════════════════════════
+   PROCUREMENT DASHBOARD STYLES
+   ════════════════════════════════════════ */
+
+/* KPI strip */
+.pd-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.85rem;
+}
+.pd-kpi {
+  background: #fff;
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  border: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+.pd-kpi-icon {
+  width: 40px; height: 40px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.pd-kpi-value  { font-size: 1.35rem; font-weight: 800; line-height: 1; }
+.pd-kpi-label  { font-size: 0.72rem; color: #888; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-top: 2px; }
+.pd-kpi-sub    { font-size: 0.7rem; color: #aaa; margin-top: 2px; }
+
+/* Charts row */
+.pd-charts-row {
+  display: flex;
+  gap: 1.1rem;
+}
+.pd-chart-main { flex: 2; }
+.pd-chart-side { flex: 1; min-width: 220px; }
+
+/* Main 2-col grid */
+.pd-main-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 1.1rem;
+  align-items: flex-start;
+}
+.pd-col-left  { display: flex; flex-direction: column; gap: 1.1rem; }
+.pd-col-right { display: flex; flex-direction: column; gap: 1.1rem; }
+
+/* Empty state inside card */
+.pd-empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 1.5rem; gap: 8px; color: #bbb;
+}
+.pd-empty-state p { margin: 0; font-size: 0.875rem; color: #aaa; }
+
+/* Forecast rows */
+.pd-forecast-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.55rem 0; border-bottom: 1px solid #f8f8f8; gap: 0.75rem;
+}
+.pd-forecast-row:last-child { border-bottom: none; }
+.pd-forecast-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.pd-forecast-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.pd-sev-badge {
+  padding: 0.15rem 0.5rem; border-radius: 999px;
+  font-size: 0.72rem; font-weight: 700; white-space: nowrap;
+}
+
+/* Leaderboard rows */
+.pd-leader-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0.6rem 0; border-bottom: 1px solid #f8f8f8;
+  cursor: pointer; transition: background 0.15s; border-radius: 6px;
+}
+.pd-leader-row:last-child { border-bottom: none; }
+.pd-leader-row:hover { background: #fdf6f6; padding-left: 4px; }
+.pd-leader-rank { font-size: 1rem; flex-shrink: 0; min-width: 28px; text-align: center; }
+.pd-leader-info { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.pd-leader-name  { font-size: 0.875rem; font-weight: 700; color: #2c2c2c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pd-leader-score { font-size: 0.72rem; color: #888; }
+.pd-tier-badge {
+  padding: 0.15rem 0.55rem; border-radius: 999px;
+  font-size: 0.72rem; font-weight: 700; flex-shrink: 0;
+}
+
+/* Quick actions */
+.pd-quick-actions { display: flex; flex-direction: column; gap: 0.5rem; }
+.pd-quick-btn {
+  display: flex; align-items: center; gap: 10px;
+  background: #fff; border: 1px solid #f0f0f0; border-radius: 9px;
+  padding: 0.65rem 0.9rem; cursor: pointer; font-size: 0.85rem;
+  font-weight: 600; color: #333; width: 100%; text-align: left;
+  transition: all 0.18s;
+}
+.pd-quick-btn:hover { border-color: #e0d0d0; background: #fdfafa; }
+.pd-quick-icon {
+  width: 30px; height: 30px; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+
+/* ── Responsive ── */
+@media (max-width: 1280px) {
+  .pd-kpi-grid { grid-template-columns: repeat(3, 1fr); }
+  .pd-main-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .pd-charts-row { flex-direction: column; }
+  .pd-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .procurement-header { padding: 10px 16px 0; }
+}
+@media (max-width: 540px) {
+  .pd-kpi-grid { grid-template-columns: 1fr; }
+}

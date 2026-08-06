@@ -18,22 +18,26 @@ function CashierDashboard() {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
   const [userName] = useState(user?.name || "Cashier User");
-
+  
   const [stats, setStats] = useState({
     salesToday: 0,
     itemsSold: 0,
     returnsCount: 0,
-    transactionsCount: 0,
-    recentTransactions: []
+    transactionsCount: 0
   });
 
   const [shiftTime, setShiftTime] = useState("0h 0m");
 
   useEffect(() => {
+    // Prevent back button after logout
     window.history.pushState(null, null, window.location.href);
-    const handleBackButton = () => window.history.pushState(null, null, window.location.href);
+    const handleBackButton = () => {
+      window.history.pushState(null, null, window.location.href);
+    };
+    
     window.addEventListener("popstate", handleBackButton);
 
+    // Fetch Stats
     const fetchStats = async () => {
       try {
         const userId = localStorage.getItem('userId') || '';
@@ -43,19 +47,23 @@ function CashierDashboard() {
         console.error("Failed to fetch dashboard stats", err);
       }
     };
+    
     fetchStats();
 
+    // Shift time tracker based on login time
     let startTime = localStorage.getItem('loginTime');
     if (!startTime) {
       startTime = Date.now().toString();
       localStorage.setItem('loginTime', startTime);
     }
+    
     const updateShiftTime = () => {
-      const elapsed = Date.now() - parseInt(startTime, 10);
-      const h = Math.floor(elapsed / 3600000);
-      const m = Math.floor((elapsed % 3600000) / 60000);
-      setShiftTime(`${h}h ${m}m`);
+      const elapsedMs = Date.now() - parseInt(startTime, 10);
+      const hours = Math.floor(elapsedMs / (1000 * 60 * 60));
+      const minutes = Math.floor((elapsedMs % (1000 * 60 * 60)) / (1000 * 60));
+      setShiftTime(`${hours}h ${minutes}m`);
     };
+
     updateShiftTime();
     const interval = setInterval(updateShiftTime, 60000);
 
@@ -66,6 +74,11 @@ function CashierDashboard() {
   }, []);
 
   const handleLogout = () => {
+    window.history.pushState(null, null, window.location.href);
+    window.addEventListener("popstate", () => {
+      window.history.pushState(null, null, window.location.href);
+    });
+
     logout();
     toast.success("Logged out successfully!");
     navigate("/", { replace: true });

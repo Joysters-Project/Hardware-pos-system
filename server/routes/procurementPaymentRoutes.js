@@ -11,5 +11,6 @@ router.get('/:id/pdf', ctrl.downloadPaymentReceipt);
 router.get('/:id', ctrl.getPaymentById);
 router.get('/', ctrl.getAllPayments);
 router.post('/', ctrl.recordPayment);
+router.patch('/:id/cheque-status', ctrl.updateChequeStatus);
 
 module.exports = router;

@@ -11,8 +11,9 @@ const getAllAssets = async (req, res) => {
 
     const list = await db.assets.findAll({
       where,
+      subQuery: false,
       include: [{ model: db.departments, attributes: ['department_name'] }],
-      order: [['created_at', 'DESC']]
+      order: [[db.sequelize.col('assets.created_at'), 'DESC']]
     });
 
     res.status(200).json(list);
@@ -23,7 +24,7 @@ const getAllAssets = async (req, res) => {
 
 const getAssetById = async (req, res) => {
   try {
-    const asset = await db.assets.findByPk(req.params.id, {
+    const asset = await db.assets.findById(req.params.id, {
       include: [
         { model: db.departments, attributes: ['department_name'] },
         { model: db.expenses, attributes: ['expense_id', 'expense_type', 'amount', 'expense_date'] }
@@ -38,6 +39,8 @@ const getAssetById = async (req, res) => {
 
 const createAsset = async (req, res) => {
   try {
+    console.log('Asset Create Request Body:', req.body);
+
     const {
       asset_name, department_id, cost, purchase_date, expiration_date,
       status, condition_type, custom_condition,
@@ -48,30 +51,37 @@ const createAsset = async (req, res) => {
       return res.status(400).json({ message: 'asset_name, department_id, purchase_date are required' });
     }
 
-    const dept = await db.departments.findByPk(department_id);
+    const parsedDepartmentId = parseInt(department_id, 10);
+    if (!Number.isInteger(parsedDepartmentId)) {
+      return res.status(400).json({ message: 'department_id must be an integer' });
+    }
+
+    const dept = await db.departments.findById(parsedDepartmentId);
     if (!dept) return res.status(400).json({ message: 'Department not found' });
 
-    // Budget check (only for non-disposed)
     const assetCost = parseFloat(cost || 0);
+    const deptBudget = parseFloat(dept.budget || 0);
     const activeCost = await db.assets.sum('cost', {
-      where: { department_id, status: { [Op.ne]: 'Disposed' } }
+      where: { department_id: parsedDepartmentId, status: { $ne: 'Disposed' } }
     }) || 0;
 
-    if (activeCost + assetCost > parseFloat(dept.budget)) {
+    if (deptBudget > 0 && activeCost + assetCost > deptBudget) {
       return res.status(400).json({
-        message: `Insufficient budget. Available: ${parseFloat(dept.budget) - activeCost}, Required: ${assetCost}`
+        message: `Insufficient budget. Available: ${deptBudget - activeCost}, Required: ${assetCost}`
       });
     }
 
     const asset = await db.assets.create({
-      asset_name, department_id, cost: assetCost, purchase_date,
+      asset_name,
+      department_id: parsedDepartmentId,
+      cost: assetCost,
+      purchase_date,
       expiration_date: expiration_date || null,
       status: status || 'Active',
       condition_type: condition_type || 'Good',
       custom_condition: condition_type === 'Other' ? (custom_condition || null) : null
     });
 
-    // Update department used_budget
     await dept.update({ used_budget: activeCost + assetCost });
 
     let expense = null;
@@ -81,7 +91,7 @@ const createAsset = async (req, res) => {
         amount: expense_amount || assetCost,
         description: expense_description || `Asset purchase: ${asset_name}`,
         expense_date: purchase_date,
-        department_id,
+        department_id: parsedDepartmentId,
         asset_id: asset.asset_id
       });
     }
@@ -92,13 +102,16 @@ const createAsset = async (req, res) => {
       expense: expense || null
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Asset Create Error:', error);
+    return res.status(500).json({ success: false, message: error.message, stack: error.stack });
   }
 };
 
 const updateAsset = async (req, res) => {
   try {
-    const asset = await db.assets.findByPk(req.params.id);
+    console.log('Asset Update Request Body:', req.body);
+
+    const asset = await db.assets.findById(req.params.id);
     if (!asset) return res.status(404).json({ message: 'Asset not found' });
 
     const oldCost   = parseFloat(asset.cost || 0);
@@ -111,21 +124,30 @@ const updateAsset = async (req, res) => {
 
     const newCost   = parseFloat(cost !== undefined ? cost : oldCost);
     const newStatus = status || asset.status;
-    const newDeptId = parseInt(department_id || oldDeptId);
+    const newDeptId = parseInt(department_id || oldDeptId, 10);
+
+    if (!Number.isInteger(newDeptId)) {
+      return res.status(400).json({ message: 'department_id must be an integer' });
+    }
+
+    const dept = await db.departments.findById(newDeptId);
+    if (!dept) return res.status(400).json({ message: 'Department not found' });
 
     await asset.update({
-      asset_name, department_id: newDeptId, cost: newCost,
-      purchase_date, expiration_date: expiration_date || null,
+      asset_name: asset_name || asset.asset_name,
+      department_id: newDeptId,
+      cost: newCost,
+      purchase_date: purchase_date || asset.purchase_date,
+      expiration_date: expiration_date || null,
       status: newStatus,
-      condition_type,
-      custom_condition: condition_type === 'Other' ? custom_condition : null
+      condition_type: condition_type || asset.condition_type,
+      custom_condition: condition_type === 'Other' ? (custom_condition || null) : null
     });
 
-    // Sync the linked expense row (if one exists for this asset)
     const linkedExpense = await db.expenses.findOne({ where: { asset_id: asset.asset_id } });
     if (linkedExpense) {
       const syncDate = (purchase_date && purchase_date !== '') ? purchase_date : linkedExpense.expense_date;
-      const syncName = (asset_name   && asset_name   !== '') ? asset_name   : asset.asset_name;
+      const syncName = (asset_name && asset_name !== '') ? asset_name : asset.asset_name;
       await linkedExpense.update({
         amount:        newCost,
         expense_date:  syncDate,
@@ -134,19 +156,19 @@ const updateAsset = async (req, res) => {
       });
     }
 
-    // Recalculate budget for affected department(s)
     await recalcDeptBudget(oldDeptId);
     if (newDeptId !== oldDeptId) await recalcDeptBudget(newDeptId);
 
     res.status(200).json({ message: 'Asset updated successfully', data: asset });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Asset Update Error:', error);
+    return res.status(500).json({ success: false, message: error.message, stack: error.stack });
   }
 };
 
 const disposeAsset = async (req, res) => {
   try {
-    const asset = await db.assets.findByPk(req.params.id);
+    const asset = await db.assets.findById(req.params.id);
     if (!asset) return res.status(404).json({ message: 'Asset not found' });
 
     await asset.update({ status: 'Disposed' });
@@ -160,7 +182,7 @@ const disposeAsset = async (req, res) => {
 
 const deleteAsset = async (req, res) => {
   try {
-    const asset = await db.assets.findByPk(req.params.id);
+    const asset = await db.assets.findById(req.params.id);
     if (!asset) return res.status(404).json({ message: 'Asset not found' });
 
     if (asset.status !== 'Disposed') {

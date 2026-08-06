@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { Building2, Users, Package, Plus, Search, Pencil, Trash2, Eye, X, ChevronLeft, ChevronRight, DollarSign } from "lucide-react";
+import { Building2, Users, Package, FolderOpen, Plus, Search, Pencil, Trash2, Eye, X, ChevronLeft, ChevronRight, DollarSign } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
 import AdminDashboard from "./AdminDashboard";
@@ -20,7 +20,13 @@ const DEPT_COLORS = [
   { bg: "linear-gradient(135deg,#ad1457,#e91e63)", light: "#fce4ec", accent: "#ad1457" },
 ];
 
-const getColor = (id) => DEPT_COLORS[(id - 1) % DEPT_COLORS.length];
+const getColor = (id) => {
+  const numericId = Number(id);
+  const safeIndex = Number.isFinite(numericId) && numericId > 0
+    ? (numericId - 1) % DEPT_COLORS.length
+    : 0;
+  return DEPT_COLORS[safeIndex] || DEPT_COLORS[0];
+};
 const initials = (name) => name?.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() || "?";
 
 function DepartmentsPage() {
@@ -39,11 +45,18 @@ function DepartmentsPage() {
 
   useEffect(() => { loadDepartments(); }, []);
 
+  const normalizeDepartments = (payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (payload && Array.isArray(payload.data)) return payload.data;
+    if (payload && Array.isArray(payload.value)) return payload.value;
+    return [];
+  };
+
   const loadDepartments = async () => {
     setPageLoading(true);
     try {
       const res = await api.get("/departments");
-      setDepartments(res.data);
+      setDepartments(normalizeDepartments(res.data));
     } catch { toast.error("Failed to load departments"); }
     finally { setPageLoading(false); }
   };
@@ -97,7 +110,8 @@ function DepartmentsPage() {
   const handleView = async (d) => {
     try {
       const res = await api.get(`/departments/${d.department_id}`);
-      setViewDept(res.data);
+      const payload = res.data?.data || res.data;
+      setViewDept(payload);
     } catch { toast.error("Failed to load details"); }
   };
 

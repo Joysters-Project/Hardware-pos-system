@@ -342,10 +342,56 @@
   pointer-events: none;
 }
 
+.pf-photo-upload-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.pf-photo-upload {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid #8b3a3a;
+  box-shadow: 0 4px 16px rgba(139,58,58,0.2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #8b3a3a, #a84545);
+  position: relative;
+}
+
+.pf-photo-upload-input {
+  display: none;
+}
+
+.pf-photo-upload-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.pf-photo-upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+}
+
 .pf-hint {
   font-size: 0.75rem;
   color: #aaa;
   margin-top: 2px;
+  text-align: center;
 }
 
 .pf-form-footer {

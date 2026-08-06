@@ -6,6 +6,8 @@ module.exports = (sequelize) => {
     product_id: { type: DataTypes.INTEGER, allowNull: false },
     alert_type: { type: DataTypes.STRING(100), allowNull: false },
     is_resolved: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
-    resolved_date: { type: DataTypes.DATE, allowNull: true }
+    resolved_date: { type: DataTypes.DATE, allowNull: true },
+    status: { type: DataTypes.STRING(50), allowNull: false, defaultValue: 'Active' },
+    purchase_order_id: { type: DataTypes.INTEGER, allowNull: true }
   }, { tableName: 'alerts', timestamps: false });
 };

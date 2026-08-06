@@ -1,5 +1,4 @@
 const db = require('../models');
-const { Op } = require('sequelize');
 const PDFDocument = require('pdfkit');
 
 exports.getCashierStats = async (req, res) => {
@@ -13,7 +12,7 @@ exports.getCashierStats = async (req, res) => {
     endOfDay.setHours(23, 59, 59, 999);
 
     const dateFilter = {
-      [Op.between]: [startOfDay, endOfDay]
+      $between: [startOfDay, endOfDay]
     };
 
     const whereClause = { bill_date: dateFilter };
@@ -37,7 +36,7 @@ exports.getCashierStats = async (req, res) => {
     if (billIds.length > 0) {
       const items = await db.bill_items.findAll({
         where: {
-          bill_id: { [Op.in]: billIds }
+          bill_id: { $in: billIds }
         }
       });
       items.forEach(item => {
@@ -49,7 +48,7 @@ exports.getCashierStats = async (req, res) => {
     if (billIds.length > 0) {
       returnsCount = await db.returns.count({
         where: {
-          bill_id: { [Op.in]: billIds },
+          bill_id: { $in: billIds },
           return_date: dateFilter
         }
       });
@@ -91,6 +90,7 @@ exports.getCashierStats = async (req, res) => {
 
 exports.getAnalyticalStats = async (req, res) => {
   try {
+    if (!db.bills) return res.status(503).json({ error: 'Database not ready yet, please retry.' });
     // 1. Fetch KPI Core Aggregations from real bills
     const totalAmountSum = await db.bills.sum('total_amount') || 0;
     const totalOrdersCount = await db.bills.count() || 0;
@@ -103,6 +103,7 @@ exports.getAnalyticalStats = async (req, res) => {
 
     // 2. Fetch Recent Ledger (real bills + customer associations)
     const recentBills = await db.bills.findAll({
+      attributes: ['bill_id', 'bill_date', 'total_amount', 'customer_id'],
       order: [['bill_date', 'DESC']],
       limit: 10,
       include: [{
@@ -135,8 +136,9 @@ exports.getAnalyticalStats = async (req, res) => {
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
     const todayBillsList = await db.bills.findAll({
+      attributes: ['bill_id', 'bill_date', 'total_amount'],
       where: {
-        bill_date: { [Op.gte]: startOfToday }
+        bill_date: { $gte: startOfToday }
       },
       order: [['bill_date', 'ASC']]
     });
@@ -174,8 +176,9 @@ exports.getAnalyticalStats = async (req, res) => {
     startOf7Days.setHours(0,0,0,0);
 
     const weeklyBills = await db.bills.findAll({
+      attributes: ['bill_id', 'bill_date', 'total_amount'],
       where: {
-        bill_date: { [Op.gte]: startOf7Days }
+        bill_date: { $gte: startOf7Days }
       }
     });
 
@@ -209,8 +212,9 @@ exports.getAnalyticalStats = async (req, res) => {
     startOf6Months.setHours(0,0,0,0);
 
     const monthlyBills = await db.bills.findAll({
+      attributes: ['bill_id', 'bill_date', 'total_amount'],
       where: {
-        bill_date: { [Op.gte]: startOf6Months }
+        bill_date: { $gte: startOf6Months }
       }
     });
 
@@ -245,28 +249,17 @@ exports.getAnalyticalStats = async (req, res) => {
     };
 
     // Category Sales share from database
-    const categorySales = await db.bill_items.findAll({
-      attributes: [
-        [db.sequelize.fn('SUM', db.sequelize.col('quantity')), 'totalSales']
-      ],
-      include: [{
-        model: db.products,
-        attributes: ['product_id'],
-        include: [{
-          model: db.category,
-          attributes: ['category_name']
-        }]
-      }],
-      group: ['product.category.category_id']
-    });
+    const categorySales = await db.sequelize.query(`
+      SELECT c.category_name, SUM(bi.quantity) as totalSales
+      FROM bill_items bi
+      JOIN products p ON bi.product_id = p.product_id
+      JOIN category c ON p.category_id = c.category_id
+      GROUP BY c.category_id, c.category_name
+    `, { type: db.Sequelize.QueryTypes.SELECT });
 
     const categoriesMap = {};
     categorySales.forEach(item => {
-      if (item.product && item.product.category) {
-        const name = item.product.category.category_name;
-        const count = parseInt(item.getDataValue('totalSales')) || 0;
-        categoriesMap[name] = (categoriesMap[name] || 0) + count;
-      }
+      categoriesMap[item.category_name] = parseInt(item.totalSales) || 0;
     });
 
     let formattedCategories = Object.keys(categoriesMap).map(name => ({
