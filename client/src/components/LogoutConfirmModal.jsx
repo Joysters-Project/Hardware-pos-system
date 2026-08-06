@@ -38,11 +38,8 @@ export default function LogoutConfirmModal({ isOpen, onCancel, onLogout }) {
         </div>
         <h2 className="lcm-title">Confirm Logout</h2>
         <p className="lcm-message">
-          Are you sure you want to log out of the system?
-          <br />
-          <span style={{ fontSize: "12px", color: "#888", display: "inline-block", marginTop: "6px" }}>
-            (Press <strong>Enter</strong> to confirm logout)
-          </span>
+          Are you sure you want to logout of the system?
+          
         </p>
         <div className="lcm-actions">
           <button type="button" className="lcm-btn lcm-btn-cancel" onClick={onCancel}>

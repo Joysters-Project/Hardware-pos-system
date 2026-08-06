@@ -477,6 +477,10 @@ function Catalog() {
                             type="text"
                             value={editingName}
                             onChange={(e) => setEditingName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleSaveEdit(itemId);
+                              if (e.key === "Escape") handleCancelEdit();
+                            }}
                             className="edit-input-inline"
                             autoFocus
                           />
@@ -502,7 +506,6 @@ function Catalog() {
                               title="Save Changes"
                             >
                               <Check size={16} />
-                              <span>Save</span>
                             </button>
                             <button
                               type="button"
@@ -512,7 +515,6 @@ function Catalog() {
                               title="Cancel Editing"
                             >
                               <X size={16} />
-                              <span>Cancel</span>
                             </button>
                           </>
                         ) : (
