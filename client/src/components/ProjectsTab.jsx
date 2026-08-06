@@ -14,9 +14,13 @@ import {
   Phone,
   Printer,
   ShoppingCart,
+  AlertCircle,
+  Grid3x3,
+  List,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
+import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
 import '../styles/ProjectsTab.css';
 
 const currency = (value) => `LKR ${Number(value || 0).toLocaleString('en-LK', { minimumFractionDigits: 2 })}`;
@@ -93,6 +97,7 @@ export default function ProjectsTab() {
   const [selectedProject, setSelectedProject] = useState(null);
   const [dailyReport, setDailyReport] = useState(null);
   const [loadingProjectData, setLoadingProjectData] = useState(false);
+  const [catalogView, setCatalogView] = useState('grid');
 
   const [products, setProducts] = useState([]);
   const [searchQ, setSearchQ] = useState('');
@@ -101,11 +106,13 @@ export default function ProjectsTab() {
   const [cart, setCart] = useState([]);
   const [receiverName, setReceiverName] = useState('');
   const [receiverPhone, setReceiverPhone] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [loading, setLoading] = useState(false);
   const [summaryProduct, setSummaryProduct] = useState(null);
   const [deletingItem, setDeletingItem] = useState(null);
   const [deleteReason, setDeleteReason] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [quantityErrors, setQuantityErrors] = useState({});
 
   const searchInputRef = useRef(null);
   const receiverNameRef = useRef(null);
@@ -205,6 +212,18 @@ export default function ProjectsTab() {
   const summaryGroups = buildSummaryGroups(dailyReport?.items || []);
   const summaryTotalQty = summaryGroups.reduce((sum, group) => sum + Number(group.quantity || 0), 0);
 
+  const getStockClass = (qty) => {
+    if (qty <= 0) return 'out-of-stock';
+    if (qty <= 10) return 'low-stock';
+    return '';
+  };
+
+  const getStockLabel = (qty) => {
+    if (qty <= 0) return 'Out of Stock';
+    if (qty <= 10) return `Low: ${qty}`;
+    return `In Stock: ${qty}`;
+  };
+
   const addToCart = (product) => {
     setCart((current) => {
       const existing = current.find((item) => item.product_id === product.product_id);
@@ -239,10 +258,29 @@ export default function ProjectsTab() {
   };
 
   const updateCartQuantity = (productId, quantity) => {
+    const nextQuantity = Number(quantity);
+
     setCart((current) => current.map((item) => {
       if (item.product_id !== productId) return item;
-      return { ...item, quantity: Math.max(0.01, Number(quantity) || 0) };
+      return { ...item, quantity: Math.max(0.01, nextQuantity || 0) };
     }));
+
+    setQuantityErrors((current) => {
+      const currentItem = cart.find((item) => item.product_id === productId);
+      if (!currentItem) return current;
+
+      if (!nextQuantity || Number.isNaN(nextQuantity) || nextQuantity <= currentItem.stock_quantity) {
+        const updated = { ...current };
+        delete updated[productId];
+        return updated;
+      }
+
+      toast.error(`Insufficient stock. Available: ${currentItem.stock_quantity}`);
+      return {
+        ...current,
+        [productId]: `Insufficient stock. Available: ${currentItem.stock_quantity}`,
+      };
+    });
   };
 
   const removeFromCart = (productId) => {
@@ -253,6 +291,8 @@ export default function ProjectsTab() {
     setCart([]);
     setReceiverName('');
     setReceiverPhone('');
+    setPhoneError('');
+    setQuantityErrors({});
     setSearchQ('');
     setShowSearch(false);
     setSearchResults([]);
@@ -283,8 +323,23 @@ export default function ProjectsTab() {
       return;
     }
 
+    const phoneValidation = validateSriLankanPhone(receiverPhone);
+    if (!phoneValidation.isValid) {
+      setPhoneError(phoneValidation.message);
+      toast.error(phoneValidation.message);
+      receiverPhoneRef.current?.focus();
+      return;
+    }
+    setPhoneError('');
+
     if (cart.some((item) => Number(item.quantity) <= 0)) {
       toast.error('Enter a valid quantity for every selected product');
+      return;
+    }
+
+    const stockIssue = cart.find((item) => Number(item.quantity) > Number(item.stock_quantity || 0));
+    if (stockIssue) {
+      toast.error(`Insufficient stock for ${stockIssue.product_name}. Available: ${stockIssue.stock_quantity}`);
       return;
     }
 
@@ -325,6 +380,21 @@ export default function ProjectsTab() {
 
     event.preventDefault();
     createTransaction();
+  };
+
+  const handleSelectProject = (project) => {
+    if (selectedProject?.project_id === project.project_id) {
+      return;
+    }
+
+    setLoadingProjectData(true);
+    setDailyReport(null);
+    setSummaryProduct(null);
+    setDeletingItem(null);
+    setDeleteReason('');
+    setQuantityErrors({});
+    resetTransactionForm();
+    setSelectedProject(project);
   };
 
   const removeTodayProductSales = async (productId, productName) => {
@@ -448,7 +518,7 @@ export default function ProjectsTab() {
                 key={project.project_id}
                 type="button"
                 className={`pt-project-card ${selectedProject?.project_id === project.project_id ? 'selected' : ''}`}
-                onClick={() => setSelectedProject(project)}
+                onClick={() => handleSelectProject(project)}
               >
                 <div className="pt-project-card-top">
                   <span className="pt-project-icon">📁</span>
@@ -463,7 +533,7 @@ export default function ProjectsTab() {
       </div>
 
       {selectedProject && (
-        <div className="pt-project-details-container">
+        <div className="pt-project-details-container" key={selectedProject.project_id}>
           <div className="pt-modal-top-bar">
               <div className="pt-modal-top-title">
                 <span className="pt-display-badge">Active Project</span>
@@ -474,7 +544,7 @@ export default function ProjectsTab() {
               </button>
             </div>
 
-            <div className="pt-project-transaction-shell" onKeyDown={handleFormKeyDown}>
+            <div className="pt-project-transaction-shell">
               <div className="pt-billing-layout">
                 <div className="pt-billing-left">
                   <div className="pt-card-box pt-project-catalog-card">
@@ -483,8 +553,25 @@ export default function ProjectsTab() {
                         <Package size={18} /> Product Catalog
                         <span className="pt-badge">{catalogProducts.length}</span>
                       </span>
-                      <div className="catalog-view-toggle pt-catalog-toolbar-note">
-                      
+                      <div className="pt-catalog-view-toggle">
+                        <button
+                          type="button"
+                          className={`pt-view-btn ${catalogView === 'grid' ? 'active' : ''}`}
+                          onClick={() => setCatalogView('grid')}
+                          title="Grid view"
+                          aria-label="Grid view"
+                        >
+                          <Grid3x3 size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className={`pt-view-btn ${catalogView === 'list' ? 'active' : ''}`}
+                          onClick={() => setCatalogView('list')}
+                          title="List view"
+                          aria-label="List view"
+                        >
+                          <List size={14} />
+                        </button>
                       </div>
                     </div>
 
@@ -534,27 +621,57 @@ export default function ProjectsTab() {
                     ) : catalogProducts.length === 0 ? (
                       <div className="pt-empty">No active products available.</div>
                     ) : (
-                      <div className="pt-catalog-grid">
-                        {catalogProducts.map((product) => (
-                          <button
-                            key={product.product_id}
-                            type="button"
-                            className={`pt-catalog-card ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
-                            onClick={() => product.stock_quantity > 0 && addToCart(product)}
-                            disabled={product.stock_quantity <= 0}
-                          >
-                            <div className="pt-catalog-card-icon">
-                              <Package size={20} />
-                            </div>
-                            <div className="pt-catalog-card-name">{product.product_name}</div>
-                            <div className="pt-catalog-card-code">{product.product_code || `ID: ${product.product_id}`}</div>
-                            <div className="pt-catalog-card-footer">
-                              <div className="pt-catalog-card-price">Rs.{Number(product.unit_price).toFixed(2)}</div>
-                              <div className="pt-catalog-card-stock">In Stock: {product.stock_quantity}</div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
+                      catalogView === 'grid' ? (
+                        <div className="pt-catalog-grid">
+                          {catalogProducts.map((product) => (
+                            <button
+                              key={product.product_id}
+                              type="button"
+                              className={`pt-catalog-card ${product.stock_quantity <= 0 ? 'disabled' : ''} ${getStockClass(product.stock_quantity)}`}
+                              onClick={() => product.stock_quantity > 0 && addToCart(product)}
+                              disabled={product.stock_quantity <= 0}
+                            >
+                              <div className="pt-catalog-card-icon">
+                                <Package size={20} />
+                              </div>
+                              <div className="pt-catalog-card-name">{product.product_name}</div>
+                              <div className="pt-catalog-card-code">{product.product_code || `ID: ${product.product_id}`}</div>
+                              <div className="pt-catalog-card-footer">
+                                <div className="pt-catalog-card-price">Rs.{Number(product.unit_price).toFixed(2)}</div>
+                                <div className={`pt-catalog-card-stock ${getStockClass(product.stock_quantity)}`}>
+                                  {getStockLabel(product.stock_quantity)}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="pt-catalog-list">
+                          {catalogProducts.map((product) => (
+                            <button
+                              key={product.product_id}
+                              type="button"
+                              className={`pt-catalog-list-item ${product.stock_quantity <= 0 ? 'disabled' : ''} ${getStockClass(product.stock_quantity)}`}
+                              onClick={() => product.stock_quantity > 0 && addToCart(product)}
+                              disabled={product.stock_quantity <= 0}
+                            >
+                              <div className="pt-catalog-card-icon pt-list-icon">
+                                <Package size={18} />
+                              </div>
+                              <div className="pt-list-item-info">
+                                <div className="pt-catalog-card-name">{product.product_name}</div>
+                                <div className="pt-catalog-card-code">{product.product_code || `ID: ${product.product_id}`}</div>
+                              </div>
+                              <div className="pt-list-item-right">
+                                <div className="pt-catalog-card-price">Rs.{Number(product.unit_price).toFixed(2)}</div>
+                                <div className={`pt-catalog-card-stock ${getStockClass(product.stock_quantity)}`}>
+                                  {getStockLabel(product.stock_quantity)}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )
                     )}
                   </div>
 
@@ -597,6 +714,11 @@ export default function ProjectsTab() {
                                     onChange={(event) => updateCartQuantity(item.product_id, event.target.value)}
                                     onKeyDown={handleFormKeyDown}
                                   />
+                                  {quantityErrors[item.product_id] && (
+                                    <div className="pt-cart-stock-error">
+                                      {quantityErrors[item.product_id]}
+                                    </div>
+                                  )}
                                 </td>
                                 <td style={{ textAlign: 'center' }}>
                                   <button type="button" className="pt-cart-remove-btn" onClick={() => removeFromCart(item.product_id)} title="Remove item">
@@ -641,12 +763,29 @@ export default function ProjectsTab() {
                           <Phone size={15} className="pt-input-icon" />
                           <input
                             ref={receiverPhoneRef}
-                            placeholder="e.g. 077 123 4567"
+                            placeholder="e.g. 0712345678 (10 digits)"
                             value={receiverPhone}
-                            onChange={(event) => setReceiverPhone(event.target.value)}
+                            maxLength={10}
+                            onChange={(event) => {
+                              const filtered = filterSriLankanPhoneInput(event.target.value);
+                              setReceiverPhone(filtered);
+                              if (phoneError) setPhoneError('');
+                            }}
                             onKeyDown={handleFormKeyDown}
+                            style={phoneError ? { borderColor: '#ef4444', borderWidth: '2px' } : {}}
                           />
                         </div>
+                        {receiverPhone && (
+                          <span style={{ fontSize: '11px', color: '#888', marginTop: '2px', display: 'block' }}>
+                            {receiverPhone.length}/10 digits
+                          </span>
+                        )}
+                        {phoneError && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', color: '#ef4444', fontSize: '12px' }}>
+                            <AlertCircle size={14} />
+                            {phoneError}
+                          </div>
+                        )}
                       </div>
                     </div>
 
