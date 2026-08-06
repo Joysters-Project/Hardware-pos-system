@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -175,10 +175,29 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
   const { user, role, profilePhoto } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const navRef = useRef(null);
 
   const userName = user?.name || "User";
   const displayRole = role || "admin";
   const navItems = getNavItems(displayRole);
+
+  /* Restore sidebar scroll position on mount and location changes */
+  useLayoutEffect(() => {
+    const savedPos = sessionStorage.getItem("sidebar_scroll_top");
+    if (savedPos && navRef.current) {
+      navRef.current.scrollTop = parseInt(savedPos, 10);
+    }
+  }, [location.pathname]);
+
+  const handleNavScroll = (e) => {
+    sessionStorage.setItem("sidebar_scroll_top", e.target.scrollTop.toString());
+  };
+
+  const handleLinkClick = () => {
+    if (navRef.current) {
+      sessionStorage.setItem("sidebar_scroll_top", navRef.current.scrollTop.toString());
+    }
+  };
 
   /* Close drawer on route change */
   useEffect(() => {
@@ -260,7 +279,11 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
         </div>
 
         {/* Navigation */}
-        <nav className="sidebar-float__nav">
+        <nav
+          className="sidebar-float__nav"
+          ref={navRef}
+          onScroll={handleNavScroll}
+        >
           {!isCollapsed ? (
             <div className="sidebar-float__nav-label">Main Menu</div>
           ) : (
@@ -273,6 +296,7 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
               <Link
                 key={item.key}
                 to={item.path}
+                onClick={handleLinkClick}
                 className={`sidebar-float__nav-item ${isActive ? "active" : ""}`}
                 id={`nav-${item.key}`}
                 title={isCollapsed ? item.label : undefined}
@@ -285,6 +309,7 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
             );
           })}
         </nav>
+
 
         {/* Footer */}
         <div className="sidebar-float__footer">

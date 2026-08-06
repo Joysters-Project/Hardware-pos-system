@@ -73,7 +73,8 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("userFullName");
     localStorage.removeItem("loginTime");
 
-    // Set flag to prevent back button
+    sessionStorage.removeItem("sidebar_scroll_top");
+    sessionStorage.removeItem("pos_session_history");
     sessionStorage.setItem("loggedOut", "true");
 
     // Clear state
@@ -82,6 +83,15 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setProfilePhoto(null);
   };
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      logout();
+    };
+    window.addEventListener("unauthorized", handleUnauthorized);
+    return () => window.removeEventListener("unauthorized", handleUnauthorized);
+  }, []);
+
 
   // Called by MyProfile after photo save or delete
   const updateProfilePhoto = (url) => setProfilePhoto(url || null);

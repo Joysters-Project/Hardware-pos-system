@@ -29,14 +29,6 @@ function CashierDashboard() {
   const [shiftTime, setShiftTime] = useState("0h 0m");
 
   useEffect(() => {
-    // Prevent back button after logout
-    window.history.pushState(null, null, window.location.href);
-    const handleBackButton = () => {
-      window.history.pushState(null, null, window.location.href);
-    };
-    
-    window.addEventListener("popstate", handleBackButton);
-
     // Fetch Stats
     const fetchStats = async () => {
       try {
@@ -68,7 +60,6 @@ function CashierDashboard() {
     const interval = setInterval(updateShiftTime, 60000);
 
     return () => {
-      window.removeEventListener("popstate", handleBackButton);
       clearInterval(interval);
     };
   }, []);

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, Navigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 import "../styles/Login.css";
@@ -8,7 +8,14 @@ import logo from "../assets/logo.png";
 function Login() {
   const navigate = useNavigate();
   const { role } = useParams();
-  const { login } = useAuth();
+  const { login, isAuthenticated, role: userRole } = useAuth();
+
+  // If already authenticated, redirect to dashboard
+  if (isAuthenticated) {
+    const normRole = (userRole || "admin").toLowerCase();
+    const dashPath = normRole === "manager" ? "/dashboard/manager" : normRole === "cashier" ? "/dashboard/cashier" : "/dashboard/admin";
+    return <Navigate to={dashPath} replace />;
+  }
 
   const [userName, setUserName] = useState("");
   const [password, setPassword] = useState("");
