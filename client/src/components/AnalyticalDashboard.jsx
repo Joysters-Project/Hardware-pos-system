@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import api from "../api/axios";
+import { printWithTemplate, buildTableHtml } from "../utils/printTemplate";
 import {
   TrendingUp,
   TrendingDown,
@@ -93,8 +94,23 @@ export default function AnalyticalDashboard() {
   }, [transactions, searchQuery]);
 
   const handleExportPDF = () => {
-    window.open(`/api/dashboard/analytical/export-pdf`, "_blank");
-    toast.success("Downloading analytical report PDF...");
+    const rows = filteredTransactions.map((txn) => [
+      txn.id,
+      txn.customer,
+      txn.time,
+      `LKR ${Number(txn.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      txn.status?.toUpperCase(),
+    ]);
+    const tableHtml = buildTableHtml({
+      columns: ["Transaction ID", "Customer", "Date & Time", "Amount", "Status"],
+      rows,
+      emptyMessage: "No transactions found.",
+    });
+    printWithTemplate({
+      title: "Recent Sales Ledger",
+      subtitle: `Total: ${filteredTransactions.length} transaction${filteredTransactions.length !== 1 ? "s" : ""}`,
+      contentHtml: tableHtml,
+    });
   };
 
   // Map dynamic icon to KPI block
