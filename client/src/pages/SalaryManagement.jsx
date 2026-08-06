@@ -3,7 +3,8 @@ import { useLocation, Link } from "react-router-dom";
 import {
   RefreshCw, Plus, FileDown, History,
   CheckCircle, Clock, AlertCircle,
-  Download, X, ChevronLeft, ChevronRight, Search, Mail
+  Download, X, ChevronLeft, ChevronRight, Search, Mail,
+  Edit2, Trash2
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
@@ -13,25 +14,33 @@ import ManagerDashboard from "./ManagerDashboard";
 import "../styles/Salary.css";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-const METHODS = ["Cash", "Bank Transfer", "Cheque"];
+const METHODS = ["Cash", "Bank Transfer", "Cheque", "Online"];
 
-const EMPTY_FORM = {
+const TODAY = new Date();
+const CURRENT_YEAR = TODAY.getFullYear();
+const CURRENT_MONTH_START = new Date(CURRENT_YEAR, TODAY.getMonth(), 1);
+const CURRENT_MONTH_END = new Date(CURRENT_YEAR, TODAY.getMonth() + 1, 0);
+const CURRENT_MONTH_MIN = CURRENT_MONTH_START.toISOString().slice(0, 10);
+const CURRENT_MONTH_MAX = CURRENT_MONTH_END.toISOString().slice(0, 10);
+
+const getDefaultForm = () => ({
   employee_id: "", salary_category: "",
   basic_salary: "", bonus_amount: "0", deduction_amount: "0",
-  payment_month: "", payment_year: "",
-  payment_date: "", payment_method: "Bank Transfer", remarks: ""
-};
+  payment_month: "", payment_year: String(CURRENT_YEAR),
+  payment_date: TODAY.toISOString().slice(0, 10), payment_method: "Bank Transfer", remarks: ""
+});
 
 function SalaryPage() {
   const [payments, setPayments]       = useState([]);
   const [employees, setEmployees]     = useState([]);
   const [stats, setStats]             = useState({ pending: 0, paid: 0, upcoming: 0 });
-  const [form, setForm]               = useState(EMPTY_FORM);
+  const [form, setForm]               = useState(getDefaultForm());
   const [showModal, setShowModal]     = useState(false);
   const [loading, setLoading]         = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
+  const [editingId, setEditingId]     = useState(null);
   const [filterMonth, setFilterMonth] = useState("");
-  const [filterYear, setFilterYear]   = useState(new Date().getFullYear());
+  const [filterYear, setFilterYear]   = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterCat, setFilterCat]     = useState("");
   const [search, setSearch]           = useState("");
@@ -46,7 +55,7 @@ function SalaryPage() {
       const params = {};
       if (filterMonth)  params.payment_month   = filterMonth;
       if (filterYear)   params.payment_year    = filterYear;
-      if (filterStatus) params.payment_status  = filterStatus;
+      if (filterStatus) params.status         = filterStatus;
       if (filterCat)    params.salary_category = filterCat;
       if (search)       params.search          = search;
 
@@ -84,7 +93,7 @@ function SalaryPage() {
   };
 
   const getSalaryCategory = (payment) => {
-    return payment?.employee?.salary_category || payment?.salary_category;
+    return payment?.salary_category || payment?.employee?.salary_category || "monthly";
   };
 
   const getSalaryCategoryLabel = (payment) => {
@@ -119,19 +128,32 @@ function SalaryPage() {
 
   const handleCreate = async (evt) => {
     evt.preventDefault();
+    const bonus = parseFloat(form.bonus_amount) || 0;
+    const deduction = parseFloat(form.deduction_amount) || 0;
+
+    if (bonus < 0 || deduction < 0) {
+      toast.error("Bonus and deduction must be zero or greater.");
+      return;
+    }
     if (parseFloat(finalSalary()) < 0) {
       toast.error("Final salary cannot be negative.");
       return;
     }
     setLoading(true);
     try {
-      await api.post("/salary", { ...form });
-      toast.success("Salary paid successfully!");
+      if (editingId) {
+        await api.put(`/salary/${editingId}`, { ...form });
+        toast.success("Salary record updated successfully!");
+      } else {
+        await api.post("/salary", { ...form });
+        toast.success("Salary recorded as pending!");
+      }
       setShowModal(false);
-      setForm(EMPTY_FORM);
+      setEditingId(null);
+      setForm(getDefaultForm());
       loadAll();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to create salary record");
+      toast.error(err.response?.data?.message || "Failed to save salary record");
     } finally { setLoading(false); }
   };
 
@@ -195,6 +217,34 @@ function SalaryPage() {
     } finally { setSendingEmail(null); }
   };
 
+  const handleEdit = (payment) => {
+    setEditingId(payment.salary_payment_id);
+    setForm({
+      employee_id: payment.employee_id,
+      salary_category: payment.salary_category,
+      basic_salary: payment.basic_salary?.toString() || "",
+      bonus_amount: payment.bonus_amount?.toString() || "0",
+      deduction_amount: payment.deduction_amount?.toString() || "0",
+      payment_month: payment.payment_month || "",
+      payment_year: payment.payment_year?.toString() || String(CURRENT_YEAR),
+      payment_date: payment.payment_date || TODAY.toISOString().slice(0, 10),
+      payment_method: payment.payment_method || "Bank Transfer",
+      remarks: payment.remarks || ""
+    });
+    setShowModal(true);
+  };
+
+  const handleDelete = async (payment) => {
+    if (!window.confirm('Delete this salary record?')) return;
+    try {
+      await api.delete(`/salary/${payment.salary_payment_id}`);
+      toast.success('Salary record deleted');
+      loadAll();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete salary record');
+    }
+  };
+
   const exportTablePDF = () => {
     const rows = payments.map((p) => ([
       escapeHtml(`#${p.salary_payment_id}`),
@@ -244,7 +294,7 @@ function SalaryPage() {
         <div className="salary-header-actions">
           <button className="sal-btn-outline" onClick={exportTablePDF}><FileDown size={15} /> Export PDF</button>
           <Link to="/salary/history" className="sal-btn-outline"><History size={15} /> History</Link>
-          <button className="sal-btn-primary" onClick={() => { setForm(EMPTY_FORM); setShowModal(true); }}>
+          <button className="sal-btn-primary" onClick={() => { setForm(getDefaultForm()); setShowModal(true); }}>
             <Plus size={15} /> New Record
           </button>
         </div>
@@ -284,6 +334,7 @@ function SalaryPage() {
           {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
         </select>
         <select className="sal-select" value={filterYear} onChange={e => { setFilterYear(e.target.value); setPage(1); }}>
+          <option value="">All Years</option>
           {years.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
         <select className="sal-select" value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }}>
@@ -342,6 +393,14 @@ function SalaryPage() {
                 </td>
                 <td>
                   <div className="sal-action-btns">
+                    <button className="sal-icon-btn btn-edit" title="Edit Salary"
+                      onClick={() => handleEdit(p)}>
+                      <Edit2 size={14} />
+                    </button>
+                    <button className="sal-icon-btn btn-delete" title="Delete Salary"
+                      onClick={() => handleDelete(p)}>
+                      <Trash2 size={14} />
+                    </button>
                     {String(p.payment_status).toLowerCase() === "paid" ? (<>
                       <button className="sal-icon-btn btn-download" title="View Payslip"
                         onClick={() => handleDownload(p)}>
@@ -443,6 +502,8 @@ function SalaryPage() {
                   <div className="sal-field">
                     <label>Payment Date *</label>
                     <input type="date" value={form.payment_date}
+                      min={CURRENT_MONTH_MIN}
+                      max={CURRENT_MONTH_MAX}
                       onChange={e => setForm({ ...form, payment_date: e.target.value })} required />
                   </div>
                 )}

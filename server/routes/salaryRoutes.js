@@ -6,6 +6,7 @@ router.get('/stats/dashboard',                c.getDashboardStats);
 router.get('/employee/:employee_id/summary',  c.getEmployeeSalarySummary);
 router.get('/employee/:employee_id',          c.getEmployeeSalaryHistory);
 router.get('/:id/download',                   c.downloadPayslip);
+router.delete('/:id',                          c.deletePayment);
 router.get('/:id',                            c.getPaymentById);
 router.get('/',                               c.getAllPayments);
 router.post('/:id/resend-email',              c.resendPayslipEmail);
