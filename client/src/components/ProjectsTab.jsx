@@ -204,6 +204,25 @@ export default function ProjectsTab() {
   };
 
   const addToCart = (product) => {
+    const baseUnitName = product.unit?.unit_name || product.unit_name || 'number';
+    const baseUnitId = product.unit_id ? parseInt(product.unit_id) : 0;
+
+    const baseUnit = {
+      unit_id: baseUnitId,
+      unit_name: baseUnitName,
+      conversion_factor: 1.0,
+      unit_price: Number(product.unit_price)
+    };
+
+    const altUnits = (product.alternative_units || []).map(au => ({
+      unit_id: parseInt(au.unit_id),
+      unit_name: au.unit_details?.unit_name || au.unit?.unit_name || au.unit_name || 'Alt Unit',
+      conversion_factor: parseFloat(au.conversion_factor),
+      unit_price: parseFloat(au.unit_price || (product.unit_price * au.conversion_factor))
+    }));
+
+    const availableUnits = [baseUnit, ...altUnits];
+
     setCart((current) => {
       const existing = current.find((item) => item.product_id === product.product_id);
       if (existing) {
@@ -219,9 +238,13 @@ export default function ProjectsTab() {
         {
           product_id: product.product_id,
           product_name: product.product_name,
+          base_unit_price: Number(product.unit_price),
           unit_price: Number(product.unit_price),
           stock_quantity: Number(product.stock_quantity || 0),
           quantity: 1,
+          selected_unit_id: baseUnitId,
+          selected_unit_name: baseUnitName,
+          available_units: availableUnits,
         },
       ];
     });
@@ -230,6 +253,21 @@ export default function ProjectsTab() {
     setShowSearch(false);
     setSearchResults([]);
     window.requestAnimationFrame(() => receiverNameRef.current?.focus());
+  };
+
+  const handleUnitChange = (productId, unitIdVal) => {
+    const unitId = parseInt(unitIdVal);
+    setCart((current) => current.map((item) => {
+      if (item.product_id !== productId) return item;
+      const selectedUnit = (item.available_units || []).find(u => u.unit_id === unitId);
+      if (!selectedUnit) return item;
+      return {
+        ...item,
+        selected_unit_id: unitId,
+        selected_unit_name: selectedUnit.unit_name,
+        unit_price: Number(selectedUnit.unit_price),
+      };
+    }));
   };
 
   const selectSearchResult = (product) => {
@@ -671,6 +709,7 @@ export default function ProjectsTab() {
                           <thead>
                             <tr>
                               <th style={{ minWidth: '100px' }}>Product</th>
+                              <th style={{ width: '90px', textAlign: 'center' }}>Unit</th>
                               <th style={{ width: '90px', textAlign: 'center' }}>Unit Price</th>
                               <th style={{ width: '75px', textAlign: 'center' }}>Qty</th>
                               <th style={{ width: '36px', textAlign: 'center' }}></th>
@@ -681,7 +720,25 @@ export default function ProjectsTab() {
                               <tr key={item.product_id}>
                                 <td className="pt-cart-product-cell">
                                   <div className="pt-cart-product-name" title={item.product_name}>{item.product_name}</div>
-                                  <div className="pt-cart-product-meta">Stock: {item.stock_quantity}</div>
+                                  <div className="pt-cart-product-meta">
+                                    Rs.{item.unit_price.toFixed(2)} per {item.selected_unit_name || 'unit'}
+                                  </div>
+                                </td>
+                                <td style={{ textAlign: 'center' }}>
+                                  <select
+                                    className={`unit-select-table ${item.available_units && item.available_units.length > 1 ? 'multi' : 'single'}`}
+                                    value={item.selected_unit_id || ''}
+                                    onChange={(e) => handleUnitChange(item.product_id, e.target.value)}
+                                    disabled={!item.available_units || item.available_units.length <= 1}
+                                  >
+                                    {(item.available_units && item.available_units.length > 0 ? item.available_units : [
+                                      { unit_id: item.selected_unit_id || 0, unit_name: item.selected_unit_name || 'number' }
+                                    ]).map((au) => (
+                                      <option key={au.unit_id} value={au.unit_id}>
+                                        {au.unit_name}
+                                      </option>
+                                    ))}
+                                  </select>
                                 </td>
                                 <td className="pt-cart-price-cell" style={{ textAlign: 'center' }}>{currency(item.unit_price)}</td>
                                 <td style={{ textAlign: 'center' }}>
