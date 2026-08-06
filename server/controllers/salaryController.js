@@ -24,12 +24,13 @@ const getAllPayments = async (req, res) => {
 
     const empWhere = {};
     if (search) {
+      const { Op } = require('sequelize');
       const searchPattern = `%${search}%`;
-      empWhere.$or = [
-        { first_name: { $like: searchPattern } },
-        { last_name:  { $like: searchPattern } },
-        { email:      { $like: searchPattern } },
-        { phone_no:   { $like: searchPattern } }
+      empWhere[Op.or] = [
+        { first_name: { [Op.like]: searchPattern } },
+        { last_name:  { [Op.like]: searchPattern } },
+        { email:      { [Op.like]: searchPattern } },
+        { phone_no:   { [Op.like]: searchPattern } }
       ];
     }
 

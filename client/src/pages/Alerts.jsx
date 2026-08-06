@@ -119,7 +119,6 @@ function AlertCenterPage() {
   useEffect(() => {
     fetchSummary();
     if (searchParams.get("poCreated") === "1") {
-      toast.success("Purchase Order created successfully.");
       searchParams.delete("poCreated");
       setSearchParams(searchParams, { replace: true });
     }

@@ -61,11 +61,20 @@ exports.createPurchaseOrder = async (req, res) => {
 
     await transaction.commit();
 
+    const STOCK_ALERT_TYPES = ['Out of Stock', 'Low Stock', 'Reorder'];
     for (const item of items) {
-      await alerts.update(
-        { status: 'Purchase Ordered', purchase_order_id: po.po_id },
-        { where: { product_id: item.product_id, status: 'Active' } }
-      ).catch(err => console.error(`[PO Controller] Alert update failed for product ${item.product_id}: ${err.message}`));
+      const existing = await alerts.findOne({
+        where: { product_id: item.product_id, alert_type: { [Op.in]: STOCK_ALERT_TYPES }, status: 'Purchase Ordered', is_resolved: false }
+      }).catch(() => null);
+      if (existing) {
+        await existing.update({ purchase_order_id: po.po_id })
+          .catch(err => console.error(`[PO Controller] Alert update failed for product ${item.product_id}: ${err.message}`));
+      } else {
+        await alerts.update(
+          { status: 'Purchase Ordered', purchase_order_id: po.po_id },
+          { where: { product_id: item.product_id, alert_type: { [Op.in]: STOCK_ALERT_TYPES }, status: 'Active', is_resolved: false } }
+        ).catch(err => console.error(`[PO Controller] Alert update failed for product ${item.product_id}: ${err.message}`));
+      }
     }
 
     // 1. Auto-create pending payment record
@@ -252,6 +261,11 @@ exports.updateStatus = async (req, res) => {
     await po.update(updateData, { transaction });
     await transaction.commit();
 
+    if (status === 'Received') {
+      const io = req.app.get('io');
+      if (io) io.emit('products:updated');
+    }
+
     // ─── Post-Commit Hooks (Asynchronous) ──────────────────────────────────
     try {
       const fullPO = await purchase_orders.findByPk(po.po_id, {
@@ -387,7 +401,7 @@ exports.sendItemCommentEmail = async (req, res) => {
     if (!po) return res.status(404).json({ message: 'Purchase Order not found' });
     if (!po.supplier?.email) return res.status(400).json({ error: 'Supplier has no email configured' });
 
-    const item = po.po_items?.find(i => i.id === parseInt(req.params.itemId));
+    const item = po.po_items?.find(i => i.product_id === parseInt(req.params.itemId));
     if (!item) return res.status(404).json({ message: 'Line item not found' });
     if (!item.comment?.trim()) return res.status(400).json({ error: 'No comment to send for this item' });
 
@@ -406,11 +420,11 @@ exports.sendItemCommentEmail = async (req, res) => {
   }
 };
 
-// PATCH /api/procurement/purchase-orders/:poId/items/:itemId/comment
+// PATCH /api/procurement/purchase-orders/:poId/items/:productId/comment
 exports.updateItemComment = async (req, res) => {
   try {
     const item = await po_items.findOne({
-      where: { id: req.params.itemId, po_id: req.params.poId },
+      where: { product_id: req.params.itemId, po_id: req.params.poId },
     });
     if (!item) return res.status(404).json({ message: 'Line item not found' });
     await item.update({ comment: req.body.comment || null });

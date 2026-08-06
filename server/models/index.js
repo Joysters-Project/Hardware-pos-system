@@ -95,6 +95,7 @@ const product_units = require('./product_units');
 const inventory_statuses = require('./inventory_statuses');
 const product_warranties = require('./product_warranties');
 const supplier_services = require('./supplier_services');
+const supplier_payment_transactions = require('./supplier_payment_transactions');
 
 // 3. Initialize the DB object
 const db = {
@@ -134,6 +135,7 @@ const db = {
   inventory_statuses: inventory_statuses(sequelize),
   product_warranties: product_warranties(sequelize),
   supplier_services:  supplier_services(sequelize),
+  supplier_payment_transactions: supplier_payment_transactions(sequelize),
 };
 
 // 4. Define Relationships

@@ -16,6 +16,7 @@ const ensureMultiUnitSchema = require('./scripts/ensureMultiUnitSchema');
 const ensureReturnSchema = require('./scripts/ensureReturnSchema');
 const ensureEmployeeSchema = require('./scripts/ensureEmployeeSchema');
 const ensureAlertSchema = require('./scripts/ensureAlertSchema');
+const ensureUserSchema  = require('./scripts/ensureUserSchema');
 const { startNearExpiryCron } = require('./cron/nearExpiryCron');
 
 const app    = express();
@@ -47,6 +48,7 @@ db.sequelize.sync({ force: false })
     await ensureReturnSchema();
     await ensureEmployeeSchema();
     await ensureAlertSchema();
+    await ensureUserSchema();
     await seedDefaultAdmin();
     startNearExpiryCron();
   })

@@ -38,14 +38,14 @@ function ItemCommentCell({ item, poId, supplierHasEmail }) {
   const sendCommentEmail   = useSendItemCommentEmail();
 
   const save = () => {
-    updateComment.mutate({ poId, itemId: item.id, comment: draft.trim() || null });
+    updateComment.mutate({ poId, itemId: item.product_id, comment: draft.trim() || null });
     setEditing(false);
   };
 
   const handleSendEmail = (e) => {
     e.stopPropagation();
     if (!item.comment?.trim()) return;
-    sendCommentEmail.mutate({ poId, itemId: item.id });
+    sendCommentEmail.mutate({ poId, itemId: item.product_id });
   };
 
   if (editing) {
@@ -147,7 +147,6 @@ function ReceiveItemModal({ item, po, onClose }) {
     try {
       await receiveMutation.mutateAsync({
         po_id:                 po.po_id,
-        po_item_id:            item.id,
         product_id:            item.product_id,
         supplier_batch_number: form.supplier_batch_number.trim(),
         expiry_date:           form.expiry_date,

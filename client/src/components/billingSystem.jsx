@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import api from '../api/axios';
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
+import { subscribeToEvent } from '../services/socketSingleton';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import SuccessAnim from './SuccessAnim';
@@ -61,7 +62,7 @@ const BillingSystem = () => {
     try {
       const res = await api.get('/products');
       const products = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-      setCatalogProducts(products.filter((product) => isProductActive(product)));
+      setCatalogProducts(products);
     } catch (err) {
       console.error('Failed to load catalog:', err);
     }
@@ -88,6 +89,24 @@ const BillingSystem = () => {
       } catch (e) { }
     }
   }, []);
+
+  // Re-fetch catalog whenever another module changes stock
+  useEffect(() => {
+    return subscribeToEvent('products:updated', refreshCatalog);
+  }, []);
+
+  // Sync searchResults and cart stock quantities whenever catalogProducts refreshes
+  useEffect(() => {
+    if (catalogProducts.length === 0) return;
+    const stockMap = {};
+    catalogProducts.forEach(p => { stockMap[p.product_id] = p.stock_quantity; });
+    setSearchResults(prev =>
+      prev.map(p => p.product_id in stockMap ? { ...p, stock_quantity: stockMap[p.product_id] } : p)
+    );
+    setCart(prev =>
+      prev.map(item => item.product_id in stockMap ? { ...item, stock_quantity: stockMap[item.product_id] } : item)
+    );
+  }, [catalogProducts]);
 
   // Save recent items to localStorage when cart changes
   useEffect(() => {
