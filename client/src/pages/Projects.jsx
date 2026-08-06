@@ -5,9 +5,10 @@ import toast from 'react-hot-toast';
 import {
   FolderOpen, Plus, X, Eye, Edit2, Trash2,
   BarChart2, TrendingUp, Package,
-  ChevronDown, ChevronUp, Calendar
+  ChevronDown, ChevronUp, Calendar, Printer
 } from 'lucide-react';
 import api from '../utils/axios';
+import { buildTableHtml, escapeHtml, printWithTemplate } from '../utils/printTemplate';
 import AdminDashboard from './AdminDashboard';
 import ManagerDashboard from './ManagerDashboard';
 import '../styles/Projects.css';
@@ -27,6 +28,7 @@ function ProjectsPage() {
   const [showModal, setShowModal]             = useState(false);
   const [viewProject, setViewProject]         = useState(null);
   const [showViewItems, setShowViewItems]     = useState(false);
+  const [expandedViewMonth, setExpandedViewMonth] = useState(null);
   const [activeTab, setActiveTab]             = useState('projects');
   const [loading, setLoading]                 = useState(false);
   const [monthlyData, setMonthlyData]         = useState(null);
@@ -116,23 +118,122 @@ function ProjectsPage() {
       const res = await api.get(`/projects/${p.project_id}`);
       setViewProject(res.data);
       setShowViewItems(false);
+      setExpandedViewMonth(null);
     }
     catch { toast.error('Failed to load project details'); }
   };
 
-  const loadMonthly = async () => {
+  const loadMonthly = async (year, month) => {
     setLoading(true);
-    try { const res = await api.get('/projects/report/monthly', { params: { year: reportYear, month: reportMonth } }); setMonthlyData(res.data); }
+    try { const res = await api.get('/projects/report/monthly', { params: { year, month } }); setMonthlyData(res.data); }
     catch { toast.error('Failed to load monthly report'); }
     finally { setLoading(false); }
   };
 
-  const loadYearly = async () => {
+  const loadYearly = async (year) => {
     setLoading(true);
-    try { const res = await api.get('/projects/report/yearly', { params: { year: yearlyYear } }); setYearlyData(res.data); }
+    try { const res = await api.get('/projects/report/yearly', { params: { year } }); setYearlyData(res.data); }
     catch { toast.error('Failed to load yearly report'); }
     finally { setLoading(false); }
   };
+
+  const printMonthlyReport = () => {
+    if (!monthlyData) return;
+
+    const monthName = MONTHS[reportMonth - 1] || reportMonth;
+    const title = `Project Monthly Summary - ${monthName} ${reportYear}`;
+    const subtitle = `Total Items: ${monthlyData.totalItems} | Projects: ${monthlyData.byProject.length} | Project Income: ${fmtCurrency(monthlyData.totalProjectIncome || 0)}`;
+
+    const rows = [];
+    (monthlyData.byProject || []).forEach((pg) => {
+      const projName = pg.project?.project_name || 'Project';
+      (pg.items || []).forEach((item) => {
+        rows.push([
+          projName,
+          item.product?.product_name || '—',
+          Number(item.quantity || 0).toFixed(2),
+          fmtCurrency(item.unit_price),
+          fmtCurrency(Number(item.quantity || 0) * Number(item.unit_price || 0)),
+          item.receiver_name || (item.takenByUser ? `${item.takenByUser.first_name || ''} ${item.takenByUser.last_name || ''}`.trim() : '—'),
+          fmtDateTime(item.taken_at),
+        ]);
+      });
+    });
+
+    const columns = ['Project', 'Product', 'Qty', 'Unit Price', 'Total', 'Receiver / Taken By', 'Date & Time'];
+    const tableHtml = buildTableHtml({
+      columns,
+      rows: rows.map((row) => row.map((cell) => escapeHtml(cell))),
+      emptyMessage: 'No project items recorded for this month.',
+    });
+
+    const opened = printWithTemplate({
+      title,
+      subtitle,
+      contentHtml: tableHtml,
+    });
+
+    if (!opened) {
+      toast.error('Allow pop-ups to print the monthly summary');
+    }
+  };
+
+  const printYearlyReport = () => {
+    if (!yearlyData) return;
+
+    const title = `Project Yearly Summary - ${yearlyYear}`;
+    const subtitle = `Total Items: ${yearlyData.totalItems} | Project Income: ${fmtCurrency(yearlyData.totalProjectIncome || 0)}`;
+
+    const activeMonths = (yearlyData.byMonth || []).filter((m) => Number(m.totalItems || 0) > 0 || Number(m.totalValue || 0) > 0);
+    const rows = activeMonths.map((m) => [
+      MONTHS[m.month - 1] || `Month ${m.month}`,
+      m.totalItems,
+      fmtCurrency(m.projectIncome || 0),
+    ]);
+
+    const columns = ['Month', 'Items Taken', 'Project Income'];
+    const tableHtml = buildTableHtml({
+      columns,
+      rows: rows.map((row) => row.map((cell) => escapeHtml(cell))),
+      emptyMessage: 'No project activity recorded for this year.',
+    });
+
+    const opened = printWithTemplate({
+      title,
+      subtitle,
+      contentHtml: tableHtml,
+    });
+
+    if (!opened) {
+      toast.error('Allow pop-ups to print the yearly summary');
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'monthly') loadMonthly(reportYear, reportMonth);
+  }, [activeTab, reportYear, reportMonth]);
+
+  useEffect(() => {
+    if (activeTab === 'yearly') loadYearly(yearlyYear);
+  }, [activeTab, yearlyYear]);
+
+  // When switching to monthly tab, snap year/month to valid values from projects
+  useEffect(() => {
+    if (activeTab !== 'monthly' || projectYears.length === 0) return;
+    if (!projectYears.includes(reportYear)) setReportYear(projectYears[projectYears.length - 1]);
+  }, [activeTab, projects]);
+
+  useEffect(() => {
+    if (activeTab !== 'monthly') return;
+    const months = availableMonthsForYear(reportYear);
+    if (months.length > 0 && !months.includes(reportMonth)) setReportMonth(months[months.length - 1]);
+  }, [reportYear, activeTab, projects]);
+
+  // When switching to yearly tab, snap year to valid values from projects
+  useEffect(() => {
+    if (activeTab !== 'yearly' || projectYears.length === 0) return;
+    if (!projectYears.includes(yearlyYear)) setYearlyYear(projectYears[projectYears.length - 1]);
+  }, [activeTab, projects]);
 
   const statusPillClass = (s) => ({ Active: 'active', Completed: 'completed', 'On Hold': 'on-hold', Cancelled: 'cancelled' }[s] || '');
   const typeIcon    = () => '📁';
@@ -154,7 +255,7 @@ function ProjectsPage() {
     const day = String(dateObj.getDate()).padStart(2, '0');
     const month = String(dateObj.getMonth() + 1).padStart(2, '0');
     const year = dateObj.getFullYear();
-    const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
     return `${day}/${month}/${year}, ${timeStr}`;
   };
 
@@ -196,6 +297,32 @@ function ProjectsPage() {
 
   const fmtCurrency = (n) => `LKR ${Number(n || 0).toLocaleString('en-LK', { minimumFractionDigits: 2 })}`;
   const f = (key) => (e) => setForm({ ...form, [key]: e.target.value });
+
+  // Derive years and months that are covered by at least one project's active span
+  const projectYears = (() => {
+    const yearSet = new Set();
+    projects.forEach(p => {
+      if (!p.start_date) return;
+      const start = new Date(p.start_date);
+      const end = p.end_date ? new Date(p.end_date) : (p.deadline ? new Date(p.deadline) : new Date());
+      for (let y = start.getFullYear(); y <= end.getFullYear(); y++) yearSet.add(y);
+    });
+    return Array.from(yearSet).sort((a, b) => a - b);
+  })();
+
+  const availableMonthsForYear = (year) => {
+    const monthSet = new Set();
+    projects.forEach(p => {
+      if (!p.start_date) return;
+      const start = new Date(p.start_date);
+      const end = p.end_date ? new Date(p.end_date) : (p.deadline ? new Date(p.deadline) : new Date());
+      const from = new Date(Math.max(start, new Date(year, 0, 1)));
+      const to   = new Date(Math.min(end,   new Date(year, 11, 31)));
+      if (from > to) return;
+      for (let m = from.getMonth(); m <= to.getMonth(); m++) monthSet.add(m + 1);
+    });
+    return Array.from(monthSet).sort((a, b) => a - b);
+  };
 
   return (
     <div className="proj-container">
@@ -287,15 +414,28 @@ function ProjectsPage() {
       {/* ══ MONTHLY REPORT ══ */}
       {activeTab === 'monthly' && (
         <div className="proj-report-section">
-          <div className="proj-report-controls">
+          <div className="proj-report-controls" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <select value={reportYear} onChange={e => setReportYear(Number(e.target.value))}>
-              {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
+              {projectYears.length > 0
+                ? projectYears.map(y => <option key={y} value={y}>{y}</option>)
+                : <option value={reportYear}>{reportYear}</option>}
             </select>
             <select value={reportMonth} onChange={e => setReportMonth(Number(e.target.value))}>
-              {MONTHS.map((m, i) => <option key={i} value={i+1}>{m}</option>)}
+              {(availableMonthsForYear(reportYear).length > 0
+                ? availableMonthsForYear(reportYear)
+                : [reportMonth]
+              ).map(m => <option key={m} value={m}>{MONTHS[m - 1]}</option>)}
             </select>
-            <button className="proj-btn-primary" onClick={loadMonthly} disabled={loading}>
-              <BarChart2 size={15} /> {loading ? 'Loading…' : 'Generate Report'}
+            {loading && <span style={{ fontSize: '0.85rem', color: '#888' }}>Loading…</span>}
+
+            <button
+              type="button"
+              className="proj-btn-primary"
+              style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              onClick={printMonthlyReport}
+              disabled={!monthlyData || !monthlyData.byProject || monthlyData.byProject.length === 0}
+            >
+              <Printer size={16} /> Print Monthly Summary
             </button>
           </div>
 
@@ -363,12 +503,22 @@ function ProjectsPage() {
       {/* ══ YEARLY REPORT ══ */}
       {activeTab === 'yearly' && (
         <div className="proj-report-section">
-          <div className="proj-report-controls">
+          <div className="proj-report-controls" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <select value={yearlyYear} onChange={e => setYearlyYear(Number(e.target.value))}>
-              {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
+              {projectYears.length > 0
+                ? projectYears.map(y => <option key={y} value={y}>{y}</option>)
+                : <option value={yearlyYear}>{yearlyYear}</option>}
             </select>
-            <button className="proj-btn-primary" onClick={loadYearly} disabled={loading}>
-              <TrendingUp size={15} /> {loading ? 'Loading…' : 'Generate Report'}
+            {loading && <span style={{ fontSize: '0.85rem', color: '#888' }}>Loading…</span>}
+
+            <button
+              type="button"
+              className="proj-btn-primary"
+              style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              onClick={printYearlyReport}
+              disabled={!yearlyData || !yearlyData.totalItems}
+            >
+              <Printer size={16} /> Print Yearly Summary
             </button>
           </div>
 
@@ -389,20 +539,24 @@ function ProjectsPage() {
                 </div>
               </div>
 
-              <div className="proj-yearly-grid">
-                {yearlyData.byMonth.map(m => (
-                  <div key={m.month} className={`proj-month-card ${m.totalItems > 0 ? 'has-data' : ''}`}>
-                    <div className="proj-month-name">{MONTHS[m.month - 1]}</div>
-                    <div className="proj-month-value">{fmtCurrency(m.totalValue)}</div>
-                    <div className="proj-month-items">{m.totalItems} items</div>
-                    <div className="proj-month-items">Income {fmtCurrency(m.projectIncome || 0)}</div>
-                    <div className="proj-month-bar">
-                      <div className="proj-month-bar-fill"
-                        style={{ width: yearlyData.totalValue > 0 ? `${(m.totalValue / yearlyData.totalValue) * 100}%` : '0%' }} />
+              {yearlyData.byMonth.filter(m => m.totalItems > 0).length === 0 ? (
+                <div className="proj-report-empty">No items taken in {yearlyYear}.</div>
+              ) : (
+                <div className="proj-yearly-grid">
+                  {yearlyData.byMonth.filter(m => m.totalItems > 0).map(m => (
+                    <div key={m.month} className="proj-month-card has-data">
+                      <div className="proj-month-name">{MONTHS[m.month - 1]}</div>
+                      <div className="proj-month-value">{fmtCurrency(m.totalValue)}</div>
+                      <div className="proj-month-items">{m.totalItems} items</div>
+                      <div className="proj-month-items">Income {fmtCurrency(m.projectIncome || 0)}</div>
+                      <div className="proj-month-bar">
+                        <div className="proj-month-bar-fill"
+                          style={{ width: yearlyData.totalValue > 0 ? `${(m.totalValue / yearlyData.totalValue) * 100}%` : '0%' }} />
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -542,41 +696,46 @@ function ProjectsPage() {
                   {(() => {
                     const grouped = groupAndSortItemsByMonth(viewProject.items || []);
                     if (grouped.length === 0) {
-                      return (
-                        <div className="proj-items-wrap">
-                          <div className="proj-items-empty">No items recorded yet.</div>
-                        </div>
-                      );
+                      return <div className="proj-items-empty">No items recorded yet.</div>;
                     }
                     return (
                       <div className="proj-items-grouped-list">
                         {grouped.map(g => (
                           <div key={g.monthKey} className="proj-items-month-group">
-                            <div className="proj-items-month-header">
+                            <div
+                              className="proj-items-month-header"
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => setExpandedViewMonth(expandedViewMonth === g.monthKey ? null : g.monthKey)}
+                            >
                               <span className="proj-items-month-title">📅 {g.monthLabel}</span>
-                              <span className="proj-items-month-badge">{g.items.length} item(s)</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span className="proj-items-month-badge">{g.items.length} item(s)</span>
+                                {expandedViewMonth === g.monthKey ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                              </div>
                             </div>
-                            <div className="proj-items-wrap">
-                              <table className="proj-items-table">
-                                <thead>
-                                  <tr>
-                                    <th>Product</th><th>Qty</th><th>Unit Price</th><th>Note</th><th>Taken By</th><th>Date</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {g.items.map(item => (
-                                    <tr key={item.item_id}>
-                                      <td><strong>{item.product?.product_name || '—'}</strong></td>
-                                      <td>{item.quantity}</td>
-                                      <td>{fmtCurrency(item.unit_price)}</td>
-                                      <td>{item.note || '—'}</td>
-                                      <td>{item.receiver_name || (item.takenByUser ? `${item.takenByUser.first_name} ${item.takenByUser.last_name}` : '—')}</td>
-                                      <td className="proj-date-cell">{fmtDateTime(item.taken_at)}</td>
+                            {expandedViewMonth === g.monthKey && (
+                              <div className="proj-items-wrap">
+                                <table className="proj-items-table">
+                                  <thead>
+                                    <tr>
+                                      <th>Product</th><th>Qty</th><th>Unit Price</th><th>Note</th><th>Taken By</th><th>Date</th>
                                     </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
+                                  </thead>
+                                  <tbody>
+                                    {g.items.map(item => (
+                                      <tr key={item.item_id}>
+                                        <td><strong>{item.product?.product_name || '—'}</strong></td>
+                                        <td>{item.quantity}</td>
+                                        <td>{fmtCurrency(item.unit_price)}</td>
+                                        <td>{item.note || '—'}</td>
+                                        <td>{item.receiver_name || (item.takenByUser ? `${item.takenByUser.first_name} ${item.takenByUser.last_name}` : '—')}</td>
+                                        <td className="proj-date-cell">{fmtDateTime(item.taken_at)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

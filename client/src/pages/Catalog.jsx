@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import DashboardLayout from "../components/DashboardLayout";
+import { buildTableHtml, escapeHtml, printWithTemplate } from "../utils/printTemplate";
 import "../styles/Catalog.css";
 
 const API_BASE = "http://localhost:5000/api";
@@ -252,7 +253,25 @@ function Catalog() {
   };
 
   const handleExportPDF = () => {
-    window.print();
+    const rows = filteredData.map((item) => ([
+      escapeHtml(item[fieldNames.id]),
+      escapeHtml(item[fieldNames.name]),
+      escapeHtml(item.status || "Active"),
+    ]));
+
+    const contentHtml = buildTableHtml({
+      columns: ["ID", "Name", "Status"],
+      rows,
+      emptyMessage: "No catalog records found"
+    });
+
+    const opened = printWithTemplate({
+      title: `${activeTab.charAt(0).toUpperCase()}${activeTab.slice(1)} Catalog`,
+      subtitle: `Total records: ${filteredData.length}`,
+      contentHtml,
+    });
+
+    if (!opened) toast.error("Allow pop-ups to export the report as PDF.");
   };
 
   // Process search and sorting
@@ -458,6 +477,10 @@ function Catalog() {
                             type="text"
                             value={editingName}
                             onChange={(e) => setEditingName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleSaveEdit(itemId);
+                              if (e.key === "Escape") handleCancelEdit();
+                            }}
                             className="edit-input-inline"
                             autoFocus
                           />
@@ -483,7 +506,6 @@ function Catalog() {
                               title="Save Changes"
                             >
                               <Check size={16} />
-                              <span>Save</span>
                             </button>
                             <button
                               type="button"
@@ -493,7 +515,6 @@ function Catalog() {
                               title="Cancel Editing"
                             >
                               <X size={16} />
-                              <span>Cancel</span>
                             </button>
                           </>
                         ) : (
@@ -506,7 +527,6 @@ function Catalog() {
                               title="Edit Item"
                             >
                               <Edit2 size={15} />
-                              <span>Edit</span>
                             </button>
                             <button
                               type="button"
@@ -516,7 +536,6 @@ function Catalog() {
                               title="Delete Item"
                             >
                               <Trash2 size={15} />
-                              <span>Delete</span>
                             </button>
                           </>
                         )}

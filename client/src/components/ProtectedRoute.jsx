@@ -6,17 +6,25 @@ const ProtectedRoute = ({ children, requiredRole = null, blockedRoles = [] }) =>
 
   // Show loading state or redirect
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div style={{
+        display: "flex", justifyContent: "center", alignItems: "center",
+        height: "100vh", backgroundColor: "#f5f5f5", fontSize: "18px", color: "#333",
+      }}>
+        Loading...
+      </div>
+    );
   }
 
-  // ❌ Not logged in → go to home (NOT login/admin)
+  // ❌ Not logged in → go to login page
   if (!isAuthenticated) {
-    return <Navigate to="/" replace />;
+    const loginRole = requiredRole || role || "admin";
+    return <Navigate to={`/login/${loginRole.toLowerCase()}`} replace />;
   }
 
-  // ❌ Wrong role → go to home
+  // ❌ Wrong role → go to login page for required role
   if (requiredRole && !hasRole(requiredRole)) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={`/login/${requiredRole.toLowerCase()}`} replace />;
   }
 
   // ❌ Blocked role → redirect to their dashboard
@@ -27,4 +35,4 @@ const ProtectedRoute = ({ children, requiredRole = null, blockedRoles = [] }) =>
   return children;
 };
 
-export default ProtectedRoute;
+export default ProtectedRoute;

@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Eye, Pencil, Trash2, Plus, Search, RefreshCw, FileDown, X, ChevronLeft, ChevronRight, Receipt } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
+import { buildTableHtml, escapeHtml, printWithTemplate } from "../utils/printTemplate";
 import DashboardLayout from "../components/DashboardLayout";
 import "../styles/Expenses.css";
 
@@ -82,41 +83,38 @@ function ExpensesPage() {
   const getAssetName = (id) => assets.find(a => a.asset_id === id)?.asset_name || "—";
 
   const exportPDF = () => {
-    const win = window.open("", "_blank", "width=1000,height=700");
-    const rows = filtered.map((exp, i) => `
-      <tr style="background:${i % 2 === 0 ? "#fff" : "#fdf8f8"}">
-        <td>#${exp.expense_id}</td>
-        <td><span style="padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;background:${(TYPE_COLORS[exp.expense_type] || "#8b3a3a") + "18"};color:${TYPE_COLORS[exp.expense_type] || "#8b3a3a"}">${exp.expense_type}</span></td>
-        <td><strong>LKR ${Number(exp.amount || 0).toLocaleString("en-US")}</strong></td>
-        <td>${exp.expense_date ? new Date(exp.expense_date).toLocaleDateString() : "—"}</td>
-        <td>${exp.department?.department_name || getDeptName(exp.department_id)}</td>
-        <td>${exp.asset?.asset_name || (exp.asset_id ? getAssetName(exp.asset_id) : "—")}</td>
-        <td style="color:#888">${exp.description || "—"}</td>
-      </tr>`).join("");
-    win.document.write(`<!DOCTYPE html><html><head><title>Expenses Report</title>
-      <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',sans-serif;padding:32px;color:#222}
-      .hdr{display:flex;justify-content:space-between;border-bottom:3px solid #8b3a3a;padding-bottom:14px;margin-bottom:20px}
-      h1{font-size:20px;color:#8b3a3a;font-weight:700}.meta{font-size:11px;color:#888;text-align:right}
-      .summary{display:flex;gap:12px;margin-bottom:18px}.s-box{background:#fdf5f5;border:1px solid #f0dede;border-radius:8px;padding:10px 16px;font-size:12px;color:#555}
-      .s-box strong{display:block;font-size:16px;color:#8b3a3a;font-weight:700}
-      table{width:100%;border-collapse:collapse;font-size:12px}
-      th{background:linear-gradient(135deg,#8b3a3a,#a84545);color:#fff;padding:9px 10px;text-align:left;font-weight:600}
-      td{padding:8px 10px;border-bottom:1px solid #f0f0f0}
-      .footer{margin-top:20px;text-align:center;font-size:10px;color:#aaa;border-top:1px solid #eee;padding-top:10px}
-      </style></head><body>
-      <div class="hdr"><div><h1>Expenses Report — Mathumithan Hardware</h1>
-      <p style="font-size:11px;color:#888;margin-top:3px">Total records: ${filtered.length}</p></div>
-      <div class="meta">Generated: ${new Date().toLocaleString()}</div></div>
-      <div class="summary">
-        <div class="s-box"><strong>LKR ${Number(summary.total || 0).toLocaleString("en-US")}</strong>Total Expenses</div>
-        ${(summary.by_type || []).slice(0, 3).map(t => `<div class="s-box"><strong>LKR ${Number(t.total || 0).toLocaleString("en-US")}</strong>${t.expense_type}</div>`).join("")}
-      </div>
-      <table><thead><tr><th>#</th><th>Type</th><th>Amount</th><th>Date</th><th>Department</th><th>Linked Asset</th><th>Description</th></tr></thead>
-      <tbody>${rows}</tbody></table>
-      <div class="footer">Mathumithan Hardware POS System &bull; Expenses Report &bull; Confidential</div>
-      </body></html>`);
-    win.document.close(); win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 400);
+    const rows = filtered.map((exp) => ([
+      escapeHtml(`#${exp.expense_id}`),
+      `<span style="font-weight:700;color:${TYPE_COLORS[exp.expense_type] || "#8b3a3a"}">${escapeHtml(exp.expense_type || "—")}</span>`,
+      `<strong>${escapeHtml(`LKR ${Number(exp.amount || 0).toLocaleString("en-US")}`)}</strong>`,
+      escapeHtml(exp.expense_date ? new Date(exp.expense_date).toLocaleDateString() : "—"),
+      escapeHtml(exp.department?.department_name || getDeptName(exp.department_id)),
+      escapeHtml(exp.asset?.asset_name || (exp.asset_id ? getAssetName(exp.asset_id) : "—")),
+      escapeHtml(exp.description || "—"),
+    ]));
+
+    const summaryHtml = `
+      <p style="margin:0 0 10px;font-size:12px;color:#555;">
+        Total Expenses: <strong>LKR ${escapeHtml(Number(summary.total || 0).toLocaleString("en-US"))}</strong>
+      </p>
+      <p style="margin:0 0 12px;font-size:12px;color:#555;">
+        ${escapeHtml((summary.by_type || []).slice(0, 3).map((t) => `${t.expense_type}: LKR ${Number(t.total || 0).toLocaleString("en-US")}`).join(" | "))}
+      </p>
+    `;
+
+    const tableHtml = buildTableHtml({
+      columns: ["#", "Type", "Amount", "Date", "Department", "Linked Asset", "Description"],
+      rows,
+      emptyMessage: "No expenses found"
+    });
+
+    const opened = printWithTemplate({
+      title: "Expenses Report",
+      subtitle: `Total records: ${filtered.length}`,
+      contentHtml: `${summaryHtml}${tableHtml}`,
+    });
+
+    if (!opened) toast.error("Allow pop-ups to print the report");
   };
 
   const filtered = expenses.filter(exp => {

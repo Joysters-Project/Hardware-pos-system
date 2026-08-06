@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Package, Wrench, Truck, AlertTriangle, Eye, FileDown } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../../api/axios";
+import { escapeHtml, printWithTemplate } from "../../utils/printTemplate";
 import "../../styles/Products.css";
 
 const DESTINATION_META = {
@@ -250,31 +251,31 @@ export default function ReturnInventory() {
 
     const returnHistoryHTML = productReturnDetails.length > 0 ? `
       <div class="section-title">Return Details & History</div>
-      <table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
+      <table class="tpl-table" style="margin-top: 8px;">
         <thead>
-          <tr style="background: #8b3a3a; color: white;">
-            <th style="padding: 8px; font-size: 11px; text-align: left; font-weight: 700; width: 18%;">Date</th>
-            <th style="padding: 8px; font-size: 11px; text-align: left; font-weight: 700; width: 17%;">Bill No</th>
-            <th style="padding: 8px; font-size: 11px; text-align: left; font-weight: 700; width: 20%;">Destination</th>
-            <th style="padding: 8px; font-size: 11px; text-align: left; font-weight: 700; width: 10%;">Qty</th>
-            <th style="padding: 8px; font-size: 11px; text-align: left; font-weight: 700; width: 15%;">Refund</th>
-            <th style="padding: 8px; font-size: 11px; text-align: left; font-weight: 700; width: 20%;">Reason</th>
+          <tr>
+            <th style="width: 18%;">Date</th>
+            <th style="width: 17%;">Bill No</th>
+            <th style="width: 20%;">Destination</th>
+            <th style="width: 10%;">Qty</th>
+            <th style="width: 15%;">Refund</th>
+            <th style="width: 20%;">Reason</th>
           </tr>
         </thead>
         <tbody>
           ${productReturnDetails.map(det => `
             <tr>
-              <td style="padding: 8px; font-size: 11px; border-bottom: 1px solid #eee;">${new Date(det.return_date).toLocaleDateString()}</td>
-              <td style="padding: 8px; font-size: 11px; border-bottom: 1px solid #eee;">${det.bill_no}</td>
-              <td style="padding: 8px; font-size: 11px; border-bottom: 1px solid #eee; font-weight: bold; color: ${DESTINATION_META[det.destination]?.accent || '#333'}">${DESTINATION_META[det.destination]?.label || det.destination}</td>
-              <td style="padding: 8px; font-size: 11px; border-bottom: 1px solid #eee;">${det.quantity}</td>
-              <td style="padding: 8px; font-size: 11px; border-bottom: 1px solid #eee;">Rs. ${Number(det.refund_amount || 0).toFixed(2)}</td>
-              <td style="padding: 8px; font-size: 11px; border-bottom: 1px solid #eee;">${det.reason}</td>
+              <td>${new Date(det.return_date).toLocaleDateString()}</td>
+              <td>${escapeHtml(det.bill_no)}</td>
+              <td style="font-weight: bold; color: ${DESTINATION_META[det.destination]?.accent || '#333'}">${escapeHtml(DESTINATION_META[det.destination]?.label || det.destination)}</td>
+              <td>${escapeHtml(det.quantity)}</td>
+              <td>${escapeHtml(`Rs. ${Number(det.refund_amount || 0).toFixed(2)}`)}</td>
+              <td>${escapeHtml(det.reason)}</td>
             </tr>
             ${det.destination_note ? `
               <tr>
-                <td colspan="6" style="padding: 6px 8px; font-size: 10px; background: #fafafa; border-bottom: 1px solid #eee; color: #555;">
-                  <strong>Notes:</strong> ${det.destination_note}
+                <td colspan="6" style="padding: 6px 8px; font-size: 10px; color: #555; background: #fff9f9;">
+                  <strong>Notes:</strong> ${escapeHtml(det.destination_note)}
                 </td>
               </tr>
             ` : ""}
@@ -283,46 +284,28 @@ export default function ReturnInventory() {
       </table>
     ` : "";
 
-    const win = window.open("", "_blank", "width=800,height=700");
-    win.document.write(`
-			<!DOCTYPE html><html><head><title>Product Details — #${viewProduct.product_id}</title>
-			<style>
-				* { margin: 0; padding: 0; box-sizing: border-box; }
-				body { font-family: 'Segoe UI', sans-serif; background: #fff; color: #222; padding: 36px; }
-				.pdf-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #8b3a3a; padding-bottom: 16px; margin-bottom: 24px; }
-				.pdf-header h1 { font-size: 22px; color: #8b3a3a; font-weight: 700; }
-				.pdf-header p { font-size: 12px; color: #888; margin-top: 4px; }
-				.pdf-meta { text-align: right; font-size: 12px; color: #888; }
-				.section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #8b3a3a; margin: 20px 0 8px; border-bottom: 1px solid #f0e0e0; padding-bottom: 4px; }
-				table { width: 100%; border-collapse: collapse; }
-				tr:nth-child(even) td { background: #fdf8f8; }
-				td { padding: 9px 14px; font-size: 13px; border-bottom: 1px solid #f0f0f0; }
-				td:first-child { color: #777; font-weight: 600; width: 42%; }
-				td:last-child { color: #222; font-weight: 500; }
-				.badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; }
-				.badge.active { background: #e5f7eb; color: #1d7e42; }
-				.badge.inactive { background: #f8e7e7; color: #a13232; }
-				.footer { margin-top: 32px; text-align: center; font-size: 11px; color: #aaa; border-top: 1px solid #f0f0f0; padding-top: 12px; }
-			</style></head><body>
-			<div class="pdf-header">
-				<div><h1>Product Details</h1><p>Hardware POS System</p></div>
-				<div class="pdf-meta">Generated: ${new Date().toLocaleString()}</div>
-			</div>
-			<div class="section-title">Basic Information</div>
-			<table>
-				<tr><td>Product ID</td><td>#${viewProduct.product_id}</td></tr>
-				<tr><td>Product Name</td><td>${viewProduct.product_name || "—"}</td></tr>
-				<tr><td>Type</td><td>${viewProduct.type || "—"}</td></tr>
-				<tr><td>Batch No</td><td>${viewProduct.batch_no || "—"}</td></tr>
-				<tr><td>Status</td><td><span class="badge ${String(viewProduct.status).toLowerCase()}">${viewProduct.status || "active"}</span></td></tr>
-			</table>
-			${returnHistoryHTML}
-			<div class="footer">This document was generated from Hardware POS System &bull; Product #${viewProduct.product_id}</div>
-			</body></html>
-		`);
-    win.document.close();
-    win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 400);
+    const contentHtml = `
+      <style>
+        .section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #8b3a3a; margin: 14px 0 6px; }
+      </style>
+      <div class="section-title">Basic Information</div>
+      <table class="tpl-table">
+        <tr><td>Product ID</td><td>#${escapeHtml(viewProduct.product_id)}</td></tr>
+        <tr><td>Product Name</td><td>${escapeHtml(viewProduct.product_name || "—")}</td></tr>
+        <tr><td>Type</td><td>${escapeHtml(viewProduct.type || "—")}</td></tr>
+        <tr><td>Batch No</td><td>${escapeHtml(viewProduct.batch_no || "—")}</td></tr>
+        <tr><td>Status</td><td>${escapeHtml(viewProduct.status || "active")}</td></tr>
+      </table>
+      ${returnHistoryHTML}
+    `;
+
+    const opened = printWithTemplate({
+      title: "Returned Product Details",
+      subtitle: `Product #${viewProduct.product_id}`,
+      contentHtml,
+    });
+
+    if (!opened) toast.error("Allow pop-ups to print the report");
   };
 
   if (loading && returns.length === 0) {
