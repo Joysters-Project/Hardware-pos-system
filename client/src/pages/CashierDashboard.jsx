@@ -83,11 +83,11 @@ function CashierDashboard() {
       renderValue: () => (
         <div className="kpi-value-wrapper">
           <span className="kpi-currency">Rs</span>
-          <span className="kpi-number">{stats.salesToday.toFixed(2)}</span>
+          <span className="kpi-number">{(stats?.salesToday || 0).toFixed(2)}</span>
         </div>
       ),
       trend: "+Today",
-      label: `${stats.transactionsCount} transactions`
+      label: `${stats?.transactionsCount || 0} transactions`
     },
     {
       id: 2,

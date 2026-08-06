@@ -14,9 +14,9 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const validateAuth = () => {
       try {
-        const token    = localStorage.getItem("token");
-        const storedRole = localStorage.getItem("role");
-        const userName = localStorage.getItem("userName");
+        const token      = sessionStorage.getItem("token");
+        const storedRole = sessionStorage.getItem("role");
+        const userName   = sessionStorage.getItem("userName");
 
         if (token && storedRole && userName) {
           setIsAuthenticated(true);
@@ -46,10 +46,10 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = (userData, token, userRole) => {
-    localStorage.setItem("token",     token);
-    localStorage.setItem("role",      userRole);
-    localStorage.setItem("userName",  userData);
-    localStorage.setItem("loginTime", Date.now().toString());
+    sessionStorage.setItem("token",     token);
+    sessionStorage.setItem("role",      userRole);
+    sessionStorage.setItem("userName",  userData);
+    sessionStorage.setItem("loginTime", Date.now().toString());
 
     setIsAuthenticated(true);
     setRole(userRole);
@@ -64,6 +64,23 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    const userId = sessionStorage.getItem("userId") || localStorage.getItem("userId");
+    if (userId) {
+      api.post("/auth/logout", { user_id: userId }).catch(() => {});
+    }
+
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("role");
+    sessionStorage.removeItem("userName");
+    sessionStorage.removeItem("userId");
+    sessionStorage.removeItem("userFirstName");
+    sessionStorage.removeItem("userLastName");
+    sessionStorage.removeItem("userFullName");
+    sessionStorage.removeItem("loginTime");
+    sessionStorage.removeItem("sidebar_scroll_top");
+    sessionStorage.removeItem("pos_session_history");
+    sessionStorage.setItem("loggedOut", "true");
+
     localStorage.removeItem("token");
     localStorage.removeItem("role");
     localStorage.removeItem("userName");
@@ -72,10 +89,6 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("userLastName");
     localStorage.removeItem("userFullName");
     localStorage.removeItem("loginTime");
-
-    sessionStorage.removeItem("sidebar_scroll_top");
-    sessionStorage.removeItem("pos_session_history");
-    sessionStorage.setItem("loggedOut", "true");
 
     // Clear state
     setIsAuthenticated(false);

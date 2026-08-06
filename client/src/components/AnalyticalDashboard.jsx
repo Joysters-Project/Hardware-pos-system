@@ -107,6 +107,9 @@ export default function AnalyticalDashboard() {
 
   // Helper to render KPI value with small currency text
   const renderKPIValue = (value) => {
+    if (!value || typeof value !== "string") {
+      return <div className="kpi-value">{value ?? "0"}</div>;
+    }
     if (value.startsWith("LKR")) {
       const numPart = value.replace("LKR", "").trim();
       return (
@@ -128,10 +131,10 @@ export default function AnalyticalDashboard() {
   }
 
   const kpiList = [
-    { id: 1, title: "Total Revenue", value: kpis.totalRevenue, trend: "+12.4%", isPositive: true, label: "vs last period" },
-    { id: 2, title: "Sales Volume", value: kpis.salesVolume, trend: "+8.2%", isPositive: true, label: "vs last period" },
-    { id: 3, title: "Average Order Value", value: kpis.aov, trend: "+3.1%", isPositive: true, label: "vs last period" },
-    { id: 4, title: "Conversion Rate", value: kpis.conversionRate, trend: "+0.45%", isPositive: true, label: "vs last period" }
+    { id: 1, title: "Total Revenue", value: kpis?.totalRevenue || "LKR 0.00", trend: "+12.4%", isPositive: true, label: "vs last period" },
+    { id: 2, title: "Sales Volume", value: kpis?.salesVolume || "0 orders", trend: "+8.2%", isPositive: true, label: "vs last period" },
+    { id: 3, title: "Average Order Value", value: kpis?.aov || "LKR 0.00", trend: "+3.1%", isPositive: true, label: "vs last period" },
+    { id: 4, title: "Conversion Rate", value: kpis?.conversionRate || "0.00%", trend: "+0.45%", isPositive: true, label: "vs last period" }
   ];
 
   return (

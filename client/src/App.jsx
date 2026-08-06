@@ -128,6 +128,7 @@ function AppRoutes() {
       <Route path="/manager/products/add"   element={<ProtectedRoute requiredRole="manager"><AddProduct /></ProtectedRoute>} />
       <Route path="/manager/products/edit/:id" element={<ProtectedRoute requiredRole="manager"><ProductForm /></ProtectedRoute>} />
       <Route path="/manager/employees"      element={<ProtectedRoute requiredRole="manager"><Employees /></ProtectedRoute>} />
+      <Route path="/manager/catalog"        element={<ProtectedRoute requiredRole="manager"><Catalog /></ProtectedRoute>} />
       <Route path="/manager/assets"         element={<ProtectedRoute requiredRole="manager"><Assets /></ProtectedRoute>} />
       <Route path="/manager/expenses"       element={<ProtectedRoute requiredRole="manager"><Expenses /></ProtectedRoute>} />
       <Route path="/manager/salary"         element={<ProtectedRoute requiredRole="manager"><SalaryManagement /></ProtectedRoute>} />
