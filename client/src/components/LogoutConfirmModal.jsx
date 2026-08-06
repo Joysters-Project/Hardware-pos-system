@@ -30,9 +30,7 @@ export default function LogoutConfirmModal({ isOpen, onCancel, onLogout }) {
   return (
     <div className="lcm-overlay" onClick={onCancel}>
       <div className="lcm-card" onClick={(e) => e.stopPropagation()}>
-        <button className="lcm-close" onClick={onCancel} aria-label="Close">
-          <X size={18} />
-        </button>
+        
         <div className="lcm-icon-wrapper">
           <LogOut size={28} />
         </div>
