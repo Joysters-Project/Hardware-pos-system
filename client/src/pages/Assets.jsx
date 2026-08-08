@@ -60,6 +60,16 @@ function AssetsPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.asset_name || !form.department_id || !form.purchase_date) { toast.error("Name, department and date required"); return; }
+
+    const selectedDept = departments.find(d => String(d.department_id) === String(form.department_id));
+    const budgetValue = Number(form.cost || 0);
+    const remainingBudget = Number(selectedDept?.remaining_budget ?? selectedDept?.remaining_balance ?? selectedDept?.budget ?? 0);
+
+    if (selectedDept && budgetValue > remainingBudget) {
+      toast.error(`Asset cost exceeds the remaining budget for ${selectedDept.department_name}.`);
+      return;
+    }
+
     setLoading(true);
     try {
       if (editId) { await api.put(`/assets/${editId}`, form); toast.success("Asset updated"); }
@@ -88,6 +98,10 @@ function AssetsPage() {
   };
 
   const getDeptName = (id) => departments.find(d => d.department_id === id)?.department_name || "N/A";
+  const getDeptLabel = (dept) => {
+    const remaining = Math.max(0, Number(dept?.remaining_budget ?? dept?.remaining_balance ?? dept?.budget ?? 0));
+    return `${dept?.department_name || "Department"} (Remaining: LKR ${remaining.toLocaleString("en-LK")})`;
+  };
 
   const exportPDF = () => {
     const rows = filtered.map((a) => ([
@@ -143,12 +157,18 @@ function AssetsPage() {
       </div>
 
       <div className="asset-stats">
-        {[["Total", assets.length, "#8b3a3a"], ["Active", assets.filter(a => a.status === "Active").length, "#2e7d32"],
-        ["Disposed", assets.filter(a => a.status === "Disposed").length, "#616161"],
-        [`LKR ${totalCost.toLocaleString("en-US")}`, null, "#1565c0", "Active Value"]].map(([v, _, c, l], i) => (
-          <div className="asset-stat-card" key={i}>
-            <div className="asset-stat-value" style={{ color: c }}>{v}</div>
-            <div className="asset-stat-label">{l || ["Total", "Active", "Disposed", "Active Value"][i]}</div>
+        {[
+          [assets.length, "#8b3a3a", "Total"],
+          [assets.filter(a => a.status === "Active").length, "#2e7d32", "Active"],
+          [assets.filter(a => a.status === "Maintenance").length, "#e65100", "Maintenance"],
+          [assets.filter(a => a.status === "Damaged").length, "#c62828", "Damaged"],
+          [assets.filter(a => a.status === "Lost").length, "#6a1b9a", "Lost"],
+          [assets.filter(a => a.status === "Disposed").length, "#616161", "Disposed Count"],
+          [`LKR ${totalCost.toLocaleString("en-US")}`, "#1565c0", "Active Value"],
+        ].map(([value, color, label], index) => (
+          <div className="asset-stat-card" key={index}>
+            <div className="asset-stat-value" style={{ color }}>{value}</div>
+            <div className="asset-stat-label">{label}</div>
           </div>
         ))}
       </div>
@@ -219,7 +239,7 @@ function AssetsPage() {
                   <input value={form.asset_name} onChange={e => setForm({ ...form, asset_name: e.target.value })} required /></div>
                 <div className="asset-field"><label>Department *</label>
                   <select value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })} required>
-                    <option value="">Select</option>{departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
+                    <option value="">Select</option>{departments.filter(d => String(d.status || "").toLowerCase() === "active").map(d => <option key={d.department_id} value={d.department_id}>{getDeptLabel(d)}</option>)}
                   </select></div>
                 <div className="asset-field"><label>Cost (LKR) *</label>
                   <input type="number" min="0" step="0.01" value={form.cost}
