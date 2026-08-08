@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useLocation, Link } from "react-router-dom";
 import {
   RefreshCw, Plus, FileDown, History,
@@ -24,7 +25,7 @@ const CURRENT_MONTH_MIN = CURRENT_MONTH_START.toISOString().slice(0, 10);
 const CURRENT_MONTH_MAX = CURRENT_MONTH_END.toISOString().slice(0, 10);
 
 const getDefaultForm = () => ({
-  employee_id: "", salary_category: "",
+  employee_id: "", salary_category: "monthly",
   basic_salary: "", bonus_amount: "0", deduction_amount: "0",
   payment_month: "", payment_year: String(CURRENT_YEAR),
   payment_date: TODAY.toISOString().slice(0, 10), payment_method: "Bank Transfer", remarks: ""
@@ -47,6 +48,10 @@ function SalaryPage() {
   const [page, setPage]               = useState(1);
   const [sendingEmail, setSendingEmail] = useState(null);
   const [payingId, setPayingId]       = useState(null);
+  const [employeeSearchDisplay, setEmployeeSearchDisplay] = useState("");
+  const [showEmployeeSuggestions, setShowEmployeeSuggestions] = useState(false);
+  const [filteredEmployees, setFilteredEmployees] = useState([]);
+  const [highlightedEmployeeIndex, setHighlightedEmployeeIndex] = useState(-1);
   const PER_PAGE = 10;
 
   const loadAll = useCallback(async () => {
@@ -83,6 +88,65 @@ function SalaryPage() {
       basic_salary: emp?.salary || "",
       payment_method: emp?.salary_category === "daily" ? "Cash" : "Bank Transfer"
     }));
+  };
+
+  const handleEmployeeInputChange = (event) => {
+    const value = event.target.value || "";
+    setEmployeeSearchDisplay(value);
+
+    const needle = value.trim().toLowerCase();
+    if (!needle) {
+      setFilteredEmployees([]);
+      setShowEmployeeSuggestions(false);
+      setHighlightedEmployeeIndex(-1);
+      setForm((prev) => ({ ...prev, employee_id: "" }));
+      return;
+    }
+
+    const matches = employees.filter((emp) => {
+      const name = `${emp.first_name || ""} ${emp.last_name || ""}`.trim().toLowerCase();
+      const position = (emp.position || "").toLowerCase();
+      return name.includes(needle) || position.includes(needle);
+    }).slice(0, 10);
+
+    setFilteredEmployees(matches);
+    setShowEmployeeSuggestions(matches.length > 0);
+    setHighlightedEmployeeIndex(-1);
+    setForm((prev) => ({ ...prev, employee_id: "" }));
+  };
+
+  const selectEmployee = (emp) => {
+    setForm((prev) => ({
+      ...prev,
+      employee_id: String(emp.employee_id),
+      salary_category: emp.salary_category || "monthly",
+      basic_salary: emp.salary || "",
+      payment_method: emp.salary_category === "daily" ? "Cash" : "Bank Transfer"
+    }));
+    setEmployeeSearchDisplay(`${emp.first_name || ""} ${emp.last_name || ""}`.trim());
+    setShowEmployeeSuggestions(false);
+    setFilteredEmployees([]);
+    setHighlightedEmployeeIndex(-1);
+  };
+
+  const handleEmployeeKeyDown = (event) => {
+    if (!showEmployeeSuggestions || filteredEmployees.length === 0) return;
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setHighlightedEmployeeIndex((index) => Math.min(index + 1, filteredEmployees.length - 1));
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setHighlightedEmployeeIndex((index) => Math.max(index - 1, 0));
+    } else if (event.key === "Enter") {
+      if (highlightedEmployeeIndex >= 0) {
+        event.preventDefault();
+        const selected = filteredEmployees[highlightedEmployeeIndex];
+        if (selected) selectEmployee(selected);
+      }
+    } else if (event.key === "Escape") {
+      setShowEmployeeSuggestions(false);
+    }
   };
 
   const finalSalary = () => {
@@ -219,6 +283,8 @@ function SalaryPage() {
 
   const handleEdit = (payment) => {
     setEditingId(payment.salary_payment_id);
+    const employeeName = payment.employee ? `${payment.employee.first_name || ""} ${payment.employee.last_name || ""}`.trim() : "";
+    setEmployeeSearchDisplay(employeeName);
     setForm({
       employee_id: payment.employee_id,
       salary_category: payment.salary_category,
@@ -243,6 +309,15 @@ function SalaryPage() {
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to delete salary record');
     }
+  };
+
+  const resetSalaryModal = () => {
+    setForm(getDefaultForm());
+    setEmployeeSearchDisplay("");
+    setShowEmployeeSuggestions(false);
+    setFilteredEmployees([]);
+    setHighlightedEmployeeIndex(-1);
+    setEditingId(null);
   };
 
   const exportTablePDF = () => {
@@ -294,7 +369,7 @@ function SalaryPage() {
         <div className="salary-header-actions">
           <button className="sal-btn-outline" onClick={exportTablePDF}><FileDown size={15} /> Export PDF</button>
           <Link to="/salary/history" className="sal-btn-outline"><History size={15} /> History</Link>
-          <button className="sal-btn-primary" onClick={() => { setForm(getDefaultForm()); setShowModal(true); }}>
+          <button className="sal-btn-primary" onClick={() => { resetSalaryModal(); setShowModal(true); }}>
             <Plus size={15} /> New Record
           </button>
         </div>
@@ -444,12 +519,12 @@ function SalaryPage() {
       )}
 
       {/* Create Modal */}
-      {showModal && (
-        <div className="sal-overlay" onClick={() => setShowModal(false)}>
+      {showModal && createPortal(
+        <div className="sal-overlay" onClick={() => { resetSalaryModal(); setShowModal(false); }}>
           <div className="sal-modal sal-modal-lg" onClick={e => e.stopPropagation()}>
             <div className="sal-modal-header">
               <h2>New Salary Payment</h2>
-              <button className="sal-modal-close" onClick={() => setShowModal(false)}><X size={18} /></button>
+              <button className="sal-modal-close" onClick={() => { resetSalaryModal(); setShowModal(false); }}><X size={18} /></button>
             </div>
             <form onSubmit={handleCreate} className="sal-modal-form">
               <div className="sal-form-grid">
@@ -457,28 +532,46 @@ function SalaryPage() {
                 {/* Employee */}
                 <div className="sal-field full">
                   <label>Employee *</label>
-                  <select value={form.employee_id} onChange={handleEmpChange} required>
-                    <option value="">Select Employee</option>
-                    {employees.map(e => (
-                      <option key={e.employee_id} value={e.employee_id}>
-                        {e.first_name} {e.last_name} — {e.position}
-                      </option>
-                    ))}
-                  </select>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      value={employeeSearchDisplay}
+                      onChange={handleEmployeeInputChange}
+                      onKeyDown={handleEmployeeKeyDown}
+                      onFocus={() => { if (filteredEmployees.length > 0) setShowEmployeeSuggestions(true); }}
+                      onBlur={() => setTimeout(() => setShowEmployeeSuggestions(false), 150)}
+                      placeholder="Type employee name and select"
+                      style={{ width: '100%' }}
+                      required
+                    />
+                    {showEmployeeSuggestions && filteredEmployees.length > 0 && (
+                      <ul style={{ position: 'absolute', zIndex: 1100, left: 0, right: 0, background: '#fff', border: '1px solid #ddd', maxHeight: 220, overflowY: 'auto', margin: 0, padding: 0, listStyle: 'none', boxShadow: '0 6px 18px rgba(0,0,0,0.08)' }}>
+                        {filteredEmployees.map((emp, idx) => (
+                          <li
+                            key={emp.employee_id}
+                            title={`${emp.first_name || ""} ${emp.last_name || ""}`.trim()}
+                            onMouseDown={(e) => { e.preventDefault(); selectEmployee(emp); }}
+                            onMouseEnter={() => setHighlightedEmployeeIndex(idx)}
+                            style={{ padding: '8px 10px', cursor: 'pointer', background: idx === highlightedEmployeeIndex ? '#eef' : '#fff', whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip' }}
+                          >
+                            <div style={{ fontWeight: 600 }}>{`${emp.first_name || ""} ${emp.last_name || ""}`.trim()}</div>
+                            <div style={{ fontSize: '0.74rem', color: '#666' }}>{emp.position || 'Employee'}</div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
 
                 {/* Salary Category — read from employee's salary_category */}
-                {form.employee_id && (
-                  <div className="sal-field full">
-                    <label>Salary Category</label>
-                    <div className="sal-category-display">
-                      {isMonthly ? "Monthly Worker" : "Daily Worker"}
-                    </div>
+                <div className="sal-field full">
+                  <label>Salary Category</label>
+                  <div className="sal-category-display">
+                    {isMonthly ? "Monthly Worker" : "Daily Worker"}
                   </div>
-                )}
+                </div>
 
                 {/* Monthly-only: Month + Year */}
-                {isMonthly && (<>
+                {isMonthly && (<> 
                   <div className="sal-field">
                     <label>Month *</label>
                     <select value={form.payment_month}
@@ -498,26 +591,22 @@ function SalaryPage() {
                 </>)}
 
                 {/* Payment Date */}
-                {form.employee_id && (
-                  <div className="sal-field">
-                    <label>Payment Date *</label>
-                    <input type="date" value={form.payment_date}
-                      min={CURRENT_MONTH_MIN}
-                      max={CURRENT_MONTH_MAX}
-                      onChange={e => setForm({ ...form, payment_date: e.target.value })} required />
-                  </div>
-                )}
+                <div className="sal-field">
+                  <label>Payment Date *</label>
+                  <input type="date" value={form.payment_date}
+                    min={CURRENT_MONTH_MIN}
+                    max={CURRENT_MONTH_MAX}
+                    onChange={e => setForm({ ...form, payment_date: e.target.value })} required />
+                </div>
 
                 {/* Basic Salary label differs by category */}
-                {form.employee_id && (
-                  <div className="sal-field">
-                    <label>{isDaily ? "Daily Salary (LKR) *" : "Basic Salary (LKR) *"}</label>
-                    <input type="number" min="0" step="0.01" value={form.basic_salary}
-                      onChange={e => setForm({ ...form, basic_salary: e.target.value })} required />
-                  </div>
-                )}
+                <div className="sal-field">
+                  <label>{isDaily ? "Daily Salary (LKR) *" : "Basic Salary (LKR) *"}</label>
+                  <input type="number" min="0" step="0.01" value={form.basic_salary}
+                    onChange={e => setForm({ ...form, basic_salary: e.target.value })} required />
+                </div>
 
-                {form.employee_id && (<>
+                <> 
                   <div className="sal-field">
                     <label>Bonus (LKR)</label>
                     <input type="number" min="0" step="0.01" value={form.bonus_amount}
@@ -552,18 +641,19 @@ function SalaryPage() {
                       onChange={e => setForm({ ...form, remarks: e.target.value })}
                       placeholder="Optional notes..." />
                   </div>
-                </>)}
+                </>
               </div>
 
               <div className="sal-modal-footer">
-                <button type="button" className="sal-btn-cancel" onClick={() => setShowModal(false)}>Cancel</button>
+                <button type="button" className="sal-btn-cancel" onClick={() => { resetSalaryModal(); setShowModal(false); }}>Cancel</button>
                 <button type="submit" className="sal-btn-submit" disabled={loading || !form.employee_id}>
                   {loading ? "Saving..." : "Pay Salary"}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
