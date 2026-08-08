@@ -101,6 +101,15 @@ function EmployeesPage() {
       return;
     }
     form.nic = nicVal;
+    if (!form.position || !form.position.trim()) {
+      toast.error("Position is required");
+      return;
+    }
+    const positionRegex = /^[A-Za-z ]+$/;
+    if (!positionRegex.test(form.position.trim())) {
+      toast.error("Position may only contain letters and spaces");
+      return;
+    }
     if (!form.email) {
       toast.error("Email is required");
       return;
@@ -411,9 +420,16 @@ function EmployeesPage() {
                   </div>
                 </div>
                 <div className="emp-field"><label>Position *</label>
-                  <select value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} required>
-                    <option value=""></option>{POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
-                  </select></div>
+                  <input
+                    type="text"
+                    value={form.position}
+                    onChange={e => setForm({ ...form, position: e.target.value })}
+                    required
+                    pattern="^[A-Za-z ]+$"
+                    title="Position may only contain letters and spaces"
+                    placeholder="e.g. Manager"
+                  />
+                </div>
                 <div className="emp-field"><label>Salary (LKR) *</label>
                   <input type="number" min="1" value={form.salary} onChange={e => setForm({ ...form, salary: e.target.value })} required /></div>
                 <div className="emp-field"><label>Salary Category *</label>
