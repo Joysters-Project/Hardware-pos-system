@@ -27,6 +27,15 @@ async function ensureMultiUnitSchema() {
     const billItemsTable = await queryInterface.describeTable('bill_items');
     const productsTable  = await queryInterface.describeTable('products');
 
+    // Add barcode to products if missing
+    if (!productsTable.barcode) {
+      console.log('Adding products.barcode');
+      await queryInterface.addColumn('products', 'barcode', {
+        type: db.Sequelize.STRING(100),
+        allowNull: true,
+      });
+    }
+
     // Add billed_unit_id if missing
     if (!billItemsTable.billed_unit_id) {
       console.log('Adding bill_items.billed_unit_id');
