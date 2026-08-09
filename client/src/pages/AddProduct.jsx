@@ -15,6 +15,7 @@ const INITIAL_FORM = {
 	reorder_level: "",
 	type: "",
 	batch_no: "",
+	barcode: "",
 	expiry_date: "",
 	status: "active",
 	category_id: "",
@@ -124,6 +125,7 @@ function AddProductPage() {
 				reorder_level: toNumberOrNull(form.reorder_level, parseFloat),
 				type: form.type.trim(),
 				batch_no: form.batch_no.trim() || null,
+				barcode: form.barcode.trim() || null,
 				expiry_date: form.expiry_date || null,
 				status: form.status || "active",
 				category_id: toNumberOrNull(form.category_id, parseInt),
@@ -170,6 +172,10 @@ function AddProductPage() {
 						<div className="field-group">
 							<label>Batch No</label>
 							<input name="batch_no" placeholder="Optional" value={form.batch_no} onChange={handleChange} />
+						</div>
+						<div className="field-group">
+							<label>Barcode (Optional)</label>
+							<input name="barcode" placeholder="Optional" value={form.barcode} onChange={handleChange} />
 						</div>
 						<div className="field-group">
 							<label>Expiry Date</label>

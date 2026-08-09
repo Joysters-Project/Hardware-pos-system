@@ -24,6 +24,7 @@ const buildPayload = (form) => ({
   reorder_level: toNumberOrNull(form.reorder_level, parseFloat),
   type: form.type.trim(),
   batch_no: form.batch_no.trim() || null,
+  barcode: form.barcode.trim() || null,
   expiry_date: form.expiry_date || null,
   status: form.status || "active",
   category_id: toNumberOrNull(form.category_id, parseInt),
@@ -37,6 +38,7 @@ const EDIT_FIELDS = [
   { name: "product_name", placeholder: "Product Name *", type: "text" },
   { name: "type",         placeholder: "Type *",         type: "text" },
   { name: "batch_no",     placeholder: "Batch No",        type: "text" },
+  { name: "barcode",      placeholder: "Barcode (Optional)", type: "text" },
   { name: "expiry_date",  placeholder: "Expiry Date",     type: "date" },
   { name: "unit_price",   placeholder: "Unit Price *",    type: "number", step: "0.01" },
   { name: "cost_price",   placeholder: "Cost Price *",    type: "number", step: "0.01" },
@@ -304,7 +306,8 @@ function ProductsPage() {
         String(p.product_id).includes(q) ||
         String(p.product_name || "").toLowerCase().includes(q) ||
         String(p.type || "").toLowerCase().includes(q) ||
-        String(p.batch_no || "").toLowerCase().includes(q)
+        String(p.batch_no || "").toLowerCase().includes(q) ||
+        String(p.barcode || "").toLowerCase().includes(q)
       ));
   }, [products, search]);
 
@@ -319,6 +322,7 @@ function ProductsPage() {
       reorder_level:      p.reorder_level       ?? "",
       type:               p.type               || "",
       batch_no:           p.batch_no           || "",
+      barcode:            p.barcode            || "",
       expiry_date:        p.expiry_date ? String(p.expiry_date).slice(0, 10) : "",
       status:             p.status             || "active",
       category_id:        p.category_id         ?? "",
@@ -433,6 +437,7 @@ function ProductsPage() {
         <tr><td>Product Name</td><td>${escapeHtml(viewProduct.product_name || "—")}</td></tr>
         <tr><td>Type</td><td>${escapeHtml(viewProduct.type || "—")}</td></tr>
         <tr><td>Batch No</td><td>${escapeHtml(viewProduct.batch_no || "—")}</td></tr>
+        <tr><td>Barcode</td><td>${escapeHtml(viewProduct.barcode || "—")}</td></tr>
         <tr><td>Status</td><td>${escapeHtml(viewProduct.status || "active")}</td></tr>
       </table>
       <div class="section-title">Classification</div>
@@ -495,7 +500,7 @@ function ProductsPage() {
       <div className="search-bar-wrap">
         <input
           className="search"
-          placeholder="Search by ID, name, type, or batch…"
+          placeholder="Search by ID, name, type, batch, or barcode…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -508,6 +513,8 @@ function ProductsPage() {
             <tr>
               <th>ID</th>
               <th>Name</th>
+              <th>Batch No</th>
+              <th>Barcode</th>
               <th>Category</th>
               <th>Brand</th>
               <th>Unit</th>
@@ -528,6 +535,8 @@ function ProductsPage() {
               <tr key={p.product_id}>
                 <td><span className="id-badge">#{p.product_id}</span></td>
                 <td className="name-cell">{p.product_name}</td>
+                <td>{p.batch_no || "—"}</td>
+                <td>{p.barcode || "—"}</td>
                 <td>{categoryMap.get(Number(p.category_id)) || "—"}</td>
                 <td>{brandMap.get(Number(p.brand_id)) || "—"}</td>
                 <td>{unitMap.get(Number(p.unit_id)) || "—"}</td>
@@ -761,6 +770,7 @@ function ProductsPage() {
                   ["Base Unit", unitMap.get(Number(viewProduct.unit_id)) || viewProduct.unit?.unit_name || "—"],
                   ["Type", viewProduct.type || "—"],
                   ["Batch No", viewProduct.batch_no || "—"],
+                  ["Barcode", viewProduct.barcode || "—"],
                   ["Stock Qty", viewProduct.stock_quantity ?? "0"],
                   ["Min Stock Qty", viewProduct.min_stock_quantity ?? "0"],
                   ["Reorder Level", viewProduct.reorder_level ?? "0"],
