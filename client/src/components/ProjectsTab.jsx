@@ -513,7 +513,7 @@ export default function ProjectsTab() {
 
         <div className="pt-project-search-bar">
           <Search size={16} className="pt-search-icon" />
-          <input
+          <input id="projectSearchQ" name="projectSearchQ"
             placeholder="Type to search active project by name, owner, or location..."
             value={projectSearchQ}
             onChange={(event) => setProjectSearchQ(event.target.value)}
@@ -596,7 +596,7 @@ export default function ProjectsTab() {
                     <div className="pt-search-wrap">
                       <div className="pt-search-bar">
                         <Search size={15} className="pt-search-icon" />
-                        <input
+                        <input id="searchQ" name="searchQ"
                           ref={searchInputRef}
                           placeholder="Search product by name, barcode, SKU, or ID..."
                           value={searchQ}
@@ -725,7 +725,7 @@ export default function ProjectsTab() {
                                   </div>
                                 </td>
                                 <td style={{ textAlign: 'center' }}>
-                                  <select
+                                  <select id="select_field" name="select_field"
                                     className={`unit-select-table ${item.available_units && item.available_units.length > 1 ? 'multi' : 'single'}`}
                                     value={item.selected_unit_id || ''}
                                     onChange={(e) => handleUnitChange(item.product_id, e.target.value)}
@@ -742,7 +742,7 @@ export default function ProjectsTab() {
                                 </td>
                                 <td className="pt-cart-price-cell" style={{ textAlign: 'center' }}>{currency(item.unit_price)}</td>
                                 <td style={{ textAlign: 'center' }}>
-                                  <input
+                                  <input id="quantity" name="quantity"
                                     type="number"
                                     className="pt-cart-qty-input"
                                     value={item.quantity}
@@ -784,7 +784,7 @@ export default function ProjectsTab() {
                         <label>Receiver Name *</label>
                         <div className="pt-input-with-icon">
                           <User size={15} className="pt-input-icon" />
-                          <input
+                          <input id="receiverName" name="receiverName"
                             ref={receiverNameRef}
                             placeholder="e.g. John Silva"
                             value={receiverName}
@@ -798,7 +798,7 @@ export default function ProjectsTab() {
                         <label>Receiver Phone Number *</label>
                         <div className="pt-input-with-icon">
                           <Phone size={15} className="pt-input-icon" />
-                          <input
+                          <input id="receiverPhone" name="receiverPhone"
                             ref={receiverPhoneRef}
                             placeholder="e.g. 0712345678 (10 digits)"
                             value={receiverPhone}
@@ -978,7 +978,7 @@ export default function ProjectsTab() {
 
             <div className="pt-delete-reason-field">
               <label>Reason for Deletion *</label>
-              <textarea
+              <textarea id="deleteReason" name="deleteReason"
                 rows={3}
                 value={deleteReason}
                 onChange={(e) => setDeleteReason(e.target.value)}

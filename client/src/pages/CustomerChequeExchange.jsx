@@ -471,7 +471,7 @@ export default function CustomerChequeExchange() {
       <div className="cce-filters">
         <div className="cce-search-wrap">
           <Search size={15} className="cce-search-icon" />
-          <input className="cce-search" placeholder="Search by customer ID, name, NIC or phone" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <input id="search" name="search" className="cce-search" placeholder="Search by customer ID, name, NIC or phone" value={search} onChange={(event) => setSearch(event.target.value)} />
         </div>
         <button className="cce-refresh-btn" onClick={resetFilters}>
           <RefreshCw size={14} /> Reset
@@ -549,26 +549,26 @@ export default function CustomerChequeExchange() {
       <div className="cce-filters">
         <div className="cce-search-wrap">
           <Search size={15} className="cce-search-icon" />
-          <input className="cce-search" placeholder="Search by customer, cheque, bank or account holder" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <input id="search" name="search" className="cce-search" placeholder="Search by customer, cheque, bank or account holder" value={search} onChange={(event) => setSearch(event.target.value)} />
         </div>
-        <select className="cce-select" value={chequeFilter} onChange={(event) => setChequeFilter(event.target.value)}>
+        <select id="chequeFilter" name="chequeFilter" className="cce-select" value={chequeFilter} onChange={(event) => setChequeFilter(event.target.value)}>
           <option value="all">All statuses</option>
           <option value="pending">Pending</option>
           <option value="cleared">Cleared</option>
           <option value="bounced">Bounced</option>
           <option value="cancelled">Cancelled</option>
         </select>
-        <select className="cce-select" value={repaymentFilter} onChange={(event) => setRepaymentFilter(event.target.value)}>
+        <select id="repaymentFilter" name="repaymentFilter" className="cce-select" value={repaymentFilter} onChange={(event) => setRepaymentFilter(event.target.value)}>
           <option value="all">All repayment</option>
           <option value="pending">Pending</option>
           <option value="paid">Paid</option>
           <option value="not required">Not Required</option>
         </select>
-        <select className="cce-select" value={bankFilter} onChange={(event) => setBankFilter(event.target.value)}>
+        <select id="bankFilter" name="bankFilter" className="cce-select" value={bankFilter} onChange={(event) => setBankFilter(event.target.value)}>
           <option value="all">All banks</option>
           {banks.map((bank) => (<option key={bank} value={bank}>{bank}</option>))}
         </select>
-        <select className="cce-select" value={customerIdFilter} onChange={(event) => setCustomerIdFilter(event.target.value)}>
+        <select id="customerIdFilter" name="customerIdFilter" className="cce-select" value={customerIdFilter} onChange={(event) => setCustomerIdFilter(event.target.value)}>
           <option value="all">All customers</option>
           {customers.map((customer) => (<option key={customer.customer_id} value={customer.customer_id}>{customer.customer_name}</option>))}
         </select>
@@ -577,11 +577,11 @@ export default function CustomerChequeExchange() {
       <div className="cce-filters">
         <label className="cce-field" style={{ minWidth: 180 }}>
           <span style={{ fontSize: '0.72rem', color: '#888' }}>From</span>
-          <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
+          <input id="dateFrom" name="dateFrom" type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
         </label>
         <label className="cce-field" style={{ minWidth: 180 }}>
           <span style={{ fontSize: '0.72rem', color: '#888' }}>To</span>
-          <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
+          <input id="dateTo" name="dateTo" type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
         </label>
         <button className="cce-refresh-btn" onClick={resetFilters}>
           <RefreshCw size={14} /> Clear filters
@@ -631,7 +631,7 @@ export default function CustomerChequeExchange() {
                   <td><span className={`cce-badge ${repaymentBadgeClass(cheque.repayment_status)}`}>{cheque.repayment_status || 'Not Required'}</span></td>
                   <td>
                     <div className="cce-action-btns">
-                      <select className="cce-select" value={cheque.cheque_status} onChange={(event) => updateChequeStatus(cheque.cheque_id, event.target.value)}>
+                      <select id="cheque_status" name="cheque_status" className="cce-select" value={cheque.cheque_status} onChange={(event) => updateChequeStatus(cheque.cheque_id, event.target.value)}>
                         <option value="Pending">Pending</option>
                         <option value="Cleared">Cleared</option>
                         <option value="Bounced">Bounced</option>
@@ -890,19 +890,19 @@ export default function CustomerChequeExchange() {
               <div className="cce-form-grid">
                 <div className="cce-field">
                   <label>Customer name</label>
-                  <input value={customerForm.customer_name} onChange={(event) => setCustomerForm((prev) => ({ ...prev, customer_name: event.target.value }))} placeholder="e.g. Ayesha Jayasekara" required />
+                  <input id="customer_name" name="customer_name" value={customerForm.customer_name} onChange={(event) => setCustomerForm((prev) => ({ ...prev, customer_name: event.target.value }))} placeholder="e.g. Ayesha Jayasekara" required />
                 </div>
                 <div className="cce-field">
                   <label>NIC number</label>
-                  <input value={customerForm.nic_number} onChange={(event) => setCustomerForm((prev) => ({ ...prev, nic_number: event.target.value }))} placeholder="200012345678" required />
+                  <input id="nic_number" name="nic_number" value={customerForm.nic_number} onChange={(event) => setCustomerForm((prev) => ({ ...prev, nic_number: event.target.value }))} placeholder="200012345678" required />
                 </div>
                 <div className="cce-field">
                   <label>Phone number</label>
-                  <input value={customerForm.phone_number} onChange={(event) => setCustomerForm((prev) => ({ ...prev, phone_number: event.target.value }))} placeholder="077 000 0000" required />
+                  <input id="phone_number" name="phone_number" value={customerForm.phone_number} onChange={(event) => setCustomerForm((prev) => ({ ...prev, phone_number: event.target.value }))} placeholder="077 000 0000" required />
                 </div>
                 <div className="cce-field cce-field-full">
                   <label>Address</label>
-                  <textarea value={customerForm.address} onChange={(event) => setCustomerForm((prev) => ({ ...prev, address: event.target.value }))} placeholder="Customer address" required />
+                  <textarea id="address" name="address" value={customerForm.address} onChange={(event) => setCustomerForm((prev) => ({ ...prev, address: event.target.value }))} placeholder="Customer address" required />
                 </div>
               </div>
               <div className="cce-modal-footer">
@@ -930,46 +930,46 @@ export default function CustomerChequeExchange() {
               <div className="cce-form-grid">
                 <div className="cce-field">
                   <label>Customer</label>
-                  <select value={chequeForm.customer_id} onChange={(event) => setChequeForm((prev) => ({ ...prev, customer_id: event.target.value }))} required>
+                  <select id="customer_id" name="customer_id" value={chequeForm.customer_id} onChange={(event) => setChequeForm((prev) => ({ ...prev, customer_id: event.target.value }))} required>
                     <option value="">Select customer</option>
                     {customers.map((customer) => (<option key={customer.customer_id} value={customer.customer_id}>{customer.customer_name}</option>))}
                   </select>
                 </div>
                 <div className="cce-field">
                   <label>Cheque number</label>
-                  <input value={chequeForm.cheque_number} onChange={(event) => setChequeForm((prev) => ({ ...prev, cheque_number: event.target.value }))} placeholder="CHQ-1001" required />
+                  <input id="cheque_number" name="cheque_number" value={chequeForm.cheque_number} onChange={(event) => setChequeForm((prev) => ({ ...prev, cheque_number: event.target.value }))} placeholder="CHQ-1001" required />
                 </div>
                 <div className="cce-field">
                   <label>Bank name</label>
-                  <input value={chequeForm.bank_name} onChange={(event) => setChequeForm((prev) => ({ ...prev, bank_name: event.target.value }))} placeholder="Sampath Bank" required />
+                  <input id="bank_name" name="bank_name" value={chequeForm.bank_name} onChange={(event) => setChequeForm((prev) => ({ ...prev, bank_name: event.target.value }))} placeholder="Sampath Bank" required />
                 </div>
                 <div className="cce-field">
                   <label>Account holder name</label>
-                  <input value={chequeForm.account_holder_name} onChange={(event) => setChequeForm((prev) => ({ ...prev, account_holder_name: event.target.value }))} placeholder="John Doe" required />
+                  <input id="account_holder_name" name="account_holder_name" value={chequeForm.account_holder_name} onChange={(event) => setChequeForm((prev) => ({ ...prev, account_holder_name: event.target.value }))} placeholder="John Doe" required />
                 </div>
                 <div className="cce-field">
                   <label>Cheque amount</label>
-                  <input type="number" value={chequeForm.cheque_amount} onChange={(event) => setChequeForm((prev) => ({ ...prev, cheque_amount: event.target.value }))} placeholder="100000" required />
+                  <input id="cheque_amount" name="cheque_amount" type="number" value={chequeForm.cheque_amount} onChange={(event) => setChequeForm((prev) => ({ ...prev, cheque_amount: event.target.value }))} placeholder="100000" required />
                 </div>
                 <div className="cce-field">
                   <label>Discount %</label>
-                  <input type="number" value={chequeForm.discount_percentage} onChange={(event) => setChequeForm((prev) => ({ ...prev, discount_percentage: event.target.value }))} placeholder="5" />
+                  <input id="discount_percentage" name="discount_percentage" type="number" value={chequeForm.discount_percentage} onChange={(event) => setChequeForm((prev) => ({ ...prev, discount_percentage: event.target.value }))} placeholder="5" />
                 </div>
                 <div className="cce-field">
                   <label>Cheque date</label>
-                  <input type="date" value={chequeForm.cheque_date} onChange={(event) => setChequeForm((prev) => ({ ...prev, cheque_date: event.target.value }))} required />
+                  <input id="cheque_date" name="cheque_date" type="date" value={chequeForm.cheque_date} onChange={(event) => setChequeForm((prev) => ({ ...prev, cheque_date: event.target.value }))} required />
                 </div>
                 <div className="cce-field">
                   <label>Expected clearance date</label>
-                  <input type="date" value={chequeForm.expected_clearance_date} onChange={(event) => setChequeForm((prev) => ({ ...prev, expected_clearance_date: event.target.value }))} required />
+                  <input id="expected_clearance_date" name="expected_clearance_date" type="date" value={chequeForm.expected_clearance_date} onChange={(event) => setChequeForm((prev) => ({ ...prev, expected_clearance_date: event.target.value }))} required />
                 </div>
                 <div className="cce-field">
                   <label>Received date</label>
-                  <input type="date" value={chequeForm.received_date} onChange={(event) => setChequeForm((prev) => ({ ...prev, received_date: event.target.value }))} required />
+                  <input id="received_date" name="received_date" type="date" value={chequeForm.received_date} onChange={(event) => setChequeForm((prev) => ({ ...prev, received_date: event.target.value }))} required />
                 </div>
                 <div className="cce-field cce-field-full">
                   <label>Remarks</label>
-                  <textarea value={chequeForm.remarks} onChange={(event) => setChequeForm((prev) => ({ ...prev, remarks: event.target.value }))} placeholder="Optional remarks" />
+                  <textarea id="remarks" name="remarks" value={chequeForm.remarks} onChange={(event) => setChequeForm((prev) => ({ ...prev, remarks: event.target.value }))} placeholder="Optional remarks" />
                 </div>
               </div>
               <div className="cce-modal-footer">

@@ -663,7 +663,7 @@ export default function SupplierDetail() {
                   <form onSubmit={handleUploadDocument} className="proc-form-body p-20">
                     <div className="proc-field mb-12">
                       <label>Document Type <span className="req">*</span></label>
-                      <select 
+                      <select id="uploadType" name="uploadType" 
                         className="proc-input"
                         value={uploadType}
                         onChange={e => setUploadType(e.target.value)}
@@ -677,7 +677,7 @@ export default function SupplierDetail() {
                     </div>
                     <div className="proc-field mb-12">
                       <label>Select File <span className="req">*</span></label>
-                      <input 
+                      <input id="file_field" name="file_field" 
                         type="file" 
                         className="proc-input" 
                         onChange={handleFileChange}
@@ -749,7 +749,7 @@ export default function SupplierDetail() {
                 <div className="date-filter-row">
                   <div className="date-input-wrap">
                     <Calendar size={14} className="color-grey" />
-                    <input 
+                    <input id="statementStart" name="statementStart" 
                       type="date" 
                       className="inline-date" 
                       value={statementStart} 
@@ -762,7 +762,7 @@ export default function SupplierDetail() {
                   <span className="color-grey">to</span>
                   <div className="date-input-wrap">
                     <Calendar size={14} className="color-grey" />
-                    <input 
+                    <input id="statementEnd" name="statementEnd" 
                       type="date" 
                       className="inline-date" 
                       value={statementEnd} 

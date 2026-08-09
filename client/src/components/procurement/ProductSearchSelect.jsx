@@ -90,7 +90,7 @@ export function ProductSearchSelect({ products, value, onSelect, placeholder = '
           <div className="p-2 border-b border-slate-100">
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <input
+              <input id="searchTerm" name="searchTerm"
                 ref={inputRef}
                 type="text"
                 value={searchTerm}

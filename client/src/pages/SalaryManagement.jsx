@@ -271,22 +271,22 @@ function SalaryPage() {
       <div className="salary-filters">
         <div className="sal-search-wrap">
           <Search size={14} className="sal-search-icon" />
-          <input className="sal-search" placeholder="Search employee..." value={search}
+          <input id="search" name="search" className="sal-search" placeholder="Search employee..." value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
-        <select className="sal-select" value={filterCat} onChange={e => { setFilterCat(e.target.value); setPage(1); }}>
+        <select id="filterCat" name="filterCat" className="sal-select" value={filterCat} onChange={e => { setFilterCat(e.target.value); setPage(1); }}>
           <option value="">All Categories</option>
           <option value="monthly">Monthly Worker</option>
           <option value="daily">Daily Worker</option>
         </select>
-        <select className="sal-select" value={filterMonth} onChange={e => { setFilterMonth(e.target.value); setPage(1); }}>
+        <select id="filterMonth" name="filterMonth" className="sal-select" value={filterMonth} onChange={e => { setFilterMonth(e.target.value); setPage(1); }}>
           <option value="">All Months</option>
           {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
         </select>
-        <select className="sal-select" value={filterYear} onChange={e => { setFilterYear(e.target.value); setPage(1); }}>
+        <select id="filterYear" name="filterYear" className="sal-select" value={filterYear} onChange={e => { setFilterYear(e.target.value); setPage(1); }}>
           {years.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
-        <select className="sal-select" value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }}>
+        <select id="filterStatus" name="filterStatus" className="sal-select" value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }}>
           <option value="">All Status</option>
           <option value="Pending">Pending</option>
           <option value="Paid">Paid</option>
@@ -398,7 +398,7 @@ function SalaryPage() {
                 {/* Employee */}
                 <div className="sal-field full">
                   <label>Employee *</label>
-                  <select value={form.employee_id} onChange={handleEmpChange} required>
+                  <select id="employee_id" name="employee_id" value={form.employee_id} onChange={handleEmpChange} required>
                     <option value="">Select Employee</option>
                     {employees.map(e => (
                       <option key={e.employee_id} value={e.employee_id}>
@@ -422,7 +422,7 @@ function SalaryPage() {
                 {isMonthly && (<>
                   <div className="sal-field">
                     <label>Month *</label>
-                    <select value={form.payment_month}
+                    <select id="payment_month" name="payment_month" value={form.payment_month}
                       onChange={e => setForm({ ...form, payment_month: e.target.value })} required>
                       <option value="">Select Month</option>
                       {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
@@ -430,7 +430,7 @@ function SalaryPage() {
                   </div>
                   <div className="sal-field">
                     <label>Year *</label>
-                    <select value={form.payment_year}
+                    <select id="payment_year" name="payment_year" value={form.payment_year}
                       onChange={e => setForm({ ...form, payment_year: e.target.value })} required>
                       <option value="">Select Year</option>
                       {years.map(y => <option key={y} value={y}>{y}</option>)}
@@ -442,7 +442,7 @@ function SalaryPage() {
                 {form.employee_id && (
                   <div className="sal-field">
                     <label>Payment Date *</label>
-                    <input type="date" value={form.payment_date}
+                    <input id="payment_date" name="payment_date" type="date" value={form.payment_date}
                       onChange={e => setForm({ ...form, payment_date: e.target.value })} required />
                   </div>
                 )}
@@ -451,7 +451,7 @@ function SalaryPage() {
                 {form.employee_id && (
                   <div className="sal-field">
                     <label>{isDaily ? "Daily Salary (LKR) *" : "Basic Salary (LKR) *"}</label>
-                    <input type="number" min="0" step="0.01" value={form.basic_salary}
+                    <input id="basic_salary" name="basic_salary" type="number" min="0" step="0.01" value={form.basic_salary}
                       onChange={e => setForm({ ...form, basic_salary: e.target.value })} required />
                   </div>
                 )}
@@ -459,17 +459,17 @@ function SalaryPage() {
                 {form.employee_id && (<>
                   <div className="sal-field">
                     <label>Bonus (LKR)</label>
-                    <input type="number" min="0" step="0.01" value={form.bonus_amount}
+                    <input id="bonus_amount" name="bonus_amount" type="number" min="0" step="0.01" value={form.bonus_amount}
                       onChange={e => setForm({ ...form, bonus_amount: e.target.value })} />
                   </div>
                   <div className="sal-field">
                     <label>Deductions (LKR)</label>
-                    <input type="number" min="0" step="0.01" value={form.deduction_amount}
+                    <input id="deduction_amount" name="deduction_amount" type="number" min="0" step="0.01" value={form.deduction_amount}
                       onChange={e => setForm({ ...form, deduction_amount: e.target.value })} />
                   </div>
                   <div className="sal-field">
                     <label>Payment Method *</label>
-                    <select value={form.payment_method}
+                    <select id="payment_method" name="payment_method" value={form.payment_method}
                       onChange={e => setForm({ ...form, payment_method: e.target.value })} required>
                       {METHODS.map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
@@ -487,7 +487,7 @@ function SalaryPage() {
                   )}
                   <div className="sal-field full">
                     <label>Remarks</label>
-                    <textarea rows={2} value={form.remarks}
+                    <textarea id="remarks" name="remarks" rows={2} value={form.remarks}
                       onChange={e => setForm({ ...form, remarks: e.target.value })}
                       placeholder="Optional notes..." />
                   </div>

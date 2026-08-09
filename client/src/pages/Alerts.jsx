@@ -308,7 +308,7 @@ function AlertCenterPage() {
       </div>
 
       <div className="alerts-controls">
-        <input
+        <input id="search" name="search"
           type="search"
           className="alerts-search"
           placeholder="Search by product, batch or alert type"

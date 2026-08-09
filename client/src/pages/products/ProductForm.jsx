@@ -327,7 +327,7 @@ export default function ProductForm() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                   <div className="pf-field">
                     <label className="pf-label">Alternative Unit <span className="pf-req">*</span></label>
-                    <select className="pf-select" value={item.unit_id} onChange={(e) => handleAltUnitChange(idx, "unit_id", e.target.value)}>
+                    <select id="unit_id" name="unit_id" className="pf-select" value={item.unit_id} onChange={(e) => handleAltUnitChange(idx, "unit_id", e.target.value)}>
                       <option value="">Select Unit</option>
                       {units.map(u => (
                         <option key={u.unit_id} value={u.unit_id} disabled={parseInt(u.unit_id) === parseInt(formData.unit_id)}>{u.unit_name}</option>
@@ -337,22 +337,22 @@ export default function ProductForm() {
 
                   <div className="pf-field">
                     <label className="pf-label">Conversion Factor <span className="pf-req">*</span></label>
-                    <input className="pf-input" type="number" min="0.0001" step="0.0001" placeholder="e.g. 50" value={item.conversion_factor} onChange={(e) => handleAltUnitChange(idx, "conversion_factor", e.target.value)} />
+                    <input id="conversion_factor" name="conversion_factor" className="pf-input" type="number" min="0.0001" step="0.0001" placeholder="e.g. 50" value={item.conversion_factor} onChange={(e) => handleAltUnitChange(idx, "conversion_factor", e.target.value)} />
                   </div>
 
                   <div className="pf-field">
                     <label className="pf-label">Custom Price (Optional)</label>
-                    <input className="pf-input" type="number" min="0" step="0.01" placeholder="Defaults to Base * Factor" value={item.unit_price} onChange={(e) => handleAltUnitChange(idx, "unit_price", e.target.value)} />
+                    <input id="unit_price" name="unit_price" className="pf-input" type="number" min="0" step="0.01" placeholder="Defaults to Base * Factor" value={item.unit_price} onChange={(e) => handleAltUnitChange(idx, "unit_price", e.target.value)} />
                   </div>
 
                   <div className="pf-field">
                     <label className="pf-label">Custom Cost (Optional)</label>
-                    <input className="pf-input" type="number" min="0" step="0.01" placeholder="Defaults to Base * Factor" value={item.cost_price} onChange={(e) => handleAltUnitChange(idx, "cost_price", e.target.value)} />
+                    <input id="cost_price" name="cost_price" className="pf-input" type="number" min="0" step="0.01" placeholder="Defaults to Base * Factor" value={item.cost_price} onChange={(e) => handleAltUnitChange(idx, "cost_price", e.target.value)} />
                   </div>
 
                   <div className="pf-field">
                     <label className="pf-label">Barcode (Optional)</label>
-                    <input className="pf-input" type="text" placeholder="e.g. 123456789" value={item.barcode} onChange={(e) => handleAltUnitChange(idx, "barcode", e.target.value)} />
+                    <input id="barcode" name="barcode" className="pf-input" type="text" placeholder="e.g. 123456789" value={item.barcode} onChange={(e) => handleAltUnitChange(idx, "barcode", e.target.value)} />
                   </div>
                 </div>
 

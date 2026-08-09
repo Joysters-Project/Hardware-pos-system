@@ -34,7 +34,7 @@ export function LineItemRow({
       </td>
 
       <td className="py-3 px-6 text-center">
-        <Input
+        <Input id="number_field" name="number_field"
           type="number"
           min="1"
           value={field.quantity || ''}

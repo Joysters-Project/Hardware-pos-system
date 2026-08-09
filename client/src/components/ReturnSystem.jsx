@@ -160,7 +160,7 @@ const ReturnSystem = () => {
         <div className="search-section card">
           <h2>Find Bill</h2>
           <div className="search-box">
-            <select 
+            <select id="searchType" name="searchType" 
               value={searchType}
               onChange={(e) => setSearchType(e.target.value)}
               className="search-type-select"
@@ -169,7 +169,7 @@ const ReturnSystem = () => {
               <option value="customer_name">Customer Name</option>
               <option value="phone_no">Phone Number</option>
             </select>
-            <input 
+            <input id="searchQuery" name="searchQuery" 
               type="text" 
               placeholder={searchType === 'bill_no' ? 'e.g. INV-2026-0001' : searchType === 'customer_name' ? 'e.g. John Doe' : 'e.g. 9876543210'} 
               value={searchQuery}
@@ -236,7 +236,7 @@ const ReturnSystem = () => {
                   (() => {
                     const item = billData.bill_items.find(i => i.product_id === parseInt(selectedProduct));
                     return item ? (
-                      <input 
+                      <input id="returnQuantity" name="returnQuantity" 
                         type="number" 
                         min="1" 
                         max={item.quantity}
@@ -253,7 +253,7 @@ const ReturnSystem = () => {
                 <label>Condition / Destination</label>
                 <div className="radio-group">
                   <label>
-                    <input 
+                    <input id="radio_field" name="radio_field" 
                       type="radio" 
                       value="STOCK" 
                       checked={destination === "STOCK"}
@@ -262,7 +262,7 @@ const ReturnSystem = () => {
                     📦 Back to Stock (Good Condition)
                   </label>
                   <label>
-                    <input 
+                    <input id="radio_field" name="radio_field" 
                       type="radio" 
                       value="SUPPLIER" 
                       checked={destination === "SUPPLIER"}
@@ -275,7 +275,7 @@ const ReturnSystem = () => {
 
               <div className="form-group">
                 <label>Reason for Return</label>
-                <textarea 
+                <textarea id="reason" name="reason" 
                   value={reason} 
                   onChange={(e) => setReason(e.target.value)} 
                   placeholder="E.g. Wrong item, damaged box..."
@@ -287,7 +287,7 @@ const ReturnSystem = () => {
                 <div className="supplier-fields">
                   <div className="form-group">
                     <label>Purchase Order ID (Optional)</label>
-                    <input 
+                    <input id="poId" name="poId" 
                       type="number" 
                       value={poId} 
                       onChange={(e) => setPoId(e.target.value)} 
@@ -296,7 +296,7 @@ const ReturnSystem = () => {
                   </div>
                   <div className="form-group">
                     <label>Supplier ID (Optional)</label>
-                    <input 
+                    <input id="supplierId" name="supplierId" 
                       type="number" 
                       value={supplierId} 
                       onChange={(e) => setSupplierId(e.target.value)} 

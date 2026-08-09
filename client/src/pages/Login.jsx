@@ -102,7 +102,7 @@ function Login() {
 
           <form onSubmit={handleSubmit}>
             <div className="input-box">
-              <input
+              <input id="userName" name="userName"
                 type="text"
                 placeholder="Username"
                 value={userName}
@@ -113,7 +113,7 @@ function Login() {
             </div>
 
             <div className="input-box" style={{position:"relative"}}>
-              <input
+              <input id="password" name="password"
                 type={showPassword ? "text" : "password"}
                 placeholder="Password"
                 value={password}

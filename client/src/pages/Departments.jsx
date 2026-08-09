@@ -235,7 +235,7 @@ function DepartmentsPage() {
       <div className="dept-toolbar">
         <div className="dept-search-wrap">
           <Search size={15} className="dept-search-icon" />
-          <input
+          <input id="search" name="search"
             className="dept-search"
             placeholder="Search departments..."
             value={search}
@@ -365,7 +365,7 @@ function DepartmentsPage() {
             <form onSubmit={handleSubmit} className="dept-modal-form">
               <div className="dept-field">
                 <label>Department Name <span className="req">*</span></label>
-                <input
+                <input id="department_name" name="department_name"
                   value={form.department_name}
                   onChange={e => setForm({ ...form, department_name: e.target.value })}
                   placeholder="e.g. Sales, IT, Warehouse"
@@ -374,7 +374,7 @@ function DepartmentsPage() {
               </div>
               <div className="dept-field">
                 <label>Budget <span className="req">*</span></label>
-                <input
+                <input id="budget" name="budget"
                   type="number"
                   min="0"
                   step="0.01"
@@ -385,7 +385,7 @@ function DepartmentsPage() {
               </div>
               <div className="dept-field">
                 <label>Description</label>
-                <textarea
+                <textarea id="description" name="description"
                   rows={3}
                   value={form.description}
                   onChange={e => setForm({ ...form, description: e.target.value })}
@@ -394,7 +394,7 @@ function DepartmentsPage() {
               </div>
               <div className="dept-field">
                 <label>Status</label>
-                <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+                <select id="status" name="status" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
                 </select>

@@ -293,10 +293,10 @@ export default function PaymentDashboard() {
           <span className="proc-badge-count">{filtered.length} records</span>
         </div>
         <div className="pp-table-toolbar">
-          <input className="proc-search" style={{ flex: 1 }}
+          <input id="search" name="search" className="proc-search" style={{ flex: 1 }}
             placeholder="Search by supplier or PO number..."
             value={search} onChange={e => setSearch(e.target.value)} />
-          <select className="proc-select" value={filterStatus} onChange={e => setFilter(e.target.value)}>
+          <select id="filterStatus" name="filterStatus" className="proc-select" value={filterStatus} onChange={e => setFilter(e.target.value)}>
             <option value="">All Status</option>
             <option value="Unpaid">Unpaid</option>
             <option value="Partial">Partial</option>
@@ -375,7 +375,7 @@ export default function PaymentDashboard() {
                 <CheckCircle size={16} color="#1d7e42" /> Cheque Payments
               </h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <select className="proc-select" value={filterChequeStatus} onChange={e => setFilterChequeStatus(e.target.value)}>
+                <select id="filterChequeStatus" name="filterChequeStatus" className="proc-select" value={filterChequeStatus} onChange={e => setFilterChequeStatus(e.target.value)}>
                   <option value="">All Cheque Status</option>
                   <option value="Pending">Pending</option>
                   <option value="Cleared">Cleared</option>
@@ -434,7 +434,7 @@ export default function PaymentDashboard() {
                         </td>
                         <td>
                           {cs === 'Pending' ? (
-                            <select
+                            <select id="select_field" name="select_field"
                               className="proc-select"
                               defaultValue=""
                               onChange={e => { if (e.target.value) updateChequeMutation.mutate({ id: p.payment_id, cheque_status: e.target.value }); }}
@@ -515,7 +515,7 @@ export default function PaymentDashboard() {
 
                 <div className="proc-field" style={{ marginTop: '1rem' }}>
                   <label>{repayMode ? 'Amount to Repay (LKR)' : 'Amount Paying (LKR)'} {repayMode ? null : <span className="req">*</span>}</label>
-                  <input type="number" className="proc-input" min="0.01"
+                  <input id="payAmount" name="payAmount" type="number" className="proc-input" min="0.01"
                     max={repayMode ? (selectedPay.paid_amount ?? selectedPay.balance_amount) : selectedPay.balance_amount}
                     step="0.01"
                     value={payAmount}
@@ -526,7 +526,7 @@ export default function PaymentDashboard() {
                 </div>
                 <div className="proc-field" style={{ marginTop: '0.75rem' }}>
                   <label>Payment Method</label>
-                  <select className="proc-input" value={payMethod} onChange={e => setPayMethod(e.target.value)}>
+                  <select id="payMethod" name="payMethod" className="proc-input" value={payMethod} onChange={e => setPayMethod(e.target.value)}>
                     {['Bank Transfer', 'Cash', 'Cheque', 'Online'].map(m => (
                       <option key={m} value={m}>{m}</option>
                     ))}
@@ -536,15 +536,15 @@ export default function PaymentDashboard() {
                   <>
                     <div className="proc-field" style={{ marginTop: '0.75rem' }}>
                       <label>Cheque Number</label>
-                      <input className="proc-input" value={chequeNumber} onChange={e => setChequeNumber(e.target.value)} placeholder="e.g. CHQ-1001" />
+                      <input id="chequeNumber" name="chequeNumber" className="proc-input" value={chequeNumber} onChange={e => setChequeNumber(e.target.value)} placeholder="e.g. CHQ-1001" />
                     </div>
                     <div className="proc-field" style={{ marginTop: '0.75rem' }}>
                       <label>Bank Name</label>
-                      <input className="proc-input" value={bankName} onChange={e => setBankName(e.target.value)} placeholder="e.g. Sampath Bank" />
+                      <input id="bankName" name="bankName" className="proc-input" value={bankName} onChange={e => setBankName(e.target.value)} placeholder="e.g. Sampath Bank" />
                     </div>
                     <div className="proc-field" style={{ marginTop: '0.75rem' }}>
                       <label>Cheque Date</label>
-                      <input type="date" className="proc-input" value={chequeDate} onChange={e => setChequeDate(e.target.value)} />
+                      <input id="chequeDate" name="chequeDate" type="date" className="proc-input" value={chequeDate} onChange={e => setChequeDate(e.target.value)} />
                     </div>
                   </>
                 )}
@@ -630,7 +630,7 @@ export default function PaymentDashboard() {
 
                 <div className="proc-field" style={{ marginTop: '0.75rem' }}>
                   <label>Notes</label>
-                  <textarea className="proc-input proc-textarea" rows={2} value={payNote}
+                  <textarea id="payNote" name="payNote" className="proc-input proc-textarea" rows={2} value={payNote}
                     onChange={e => setPayNote(e.target.value)} placeholder="Reference number, remarks..." />
                 </div>
               </div>

@@ -415,12 +415,12 @@ function ProjectsPage() {
       {activeTab === 'monthly' && (
         <div className="proj-report-section">
           <div className="proj-report-controls" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <select value={reportYear} onChange={e => setReportYear(Number(e.target.value))}>
+            <select id="reportYear" name="reportYear" value={reportYear} onChange={e => setReportYear(Number(e.target.value))}>
               {projectYears.length > 0
                 ? projectYears.map(y => <option key={y} value={y}>{y}</option>)
                 : <option value={reportYear}>{reportYear}</option>}
             </select>
-            <select value={reportMonth} onChange={e => setReportMonth(Number(e.target.value))}>
+            <select id="reportMonth" name="reportMonth" value={reportMonth} onChange={e => setReportMonth(Number(e.target.value))}>
               {(availableMonthsForYear(reportYear).length > 0
                 ? availableMonthsForYear(reportYear)
                 : [reportMonth]
@@ -504,7 +504,7 @@ function ProjectsPage() {
       {activeTab === 'yearly' && (
         <div className="proj-report-section">
           <div className="proj-report-controls" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <select value={yearlyYear} onChange={e => setYearlyYear(Number(e.target.value))}>
+            <select id="yearlyYear" name="yearlyYear" value={yearlyYear} onChange={e => setYearlyYear(Number(e.target.value))}>
               {projectYears.length > 0
                 ? projectYears.map(y => <option key={y} value={y}>{y}</option>)
                 : <option value={yearlyYear}>{yearlyYear}</option>}
@@ -574,41 +574,41 @@ function ProjectsPage() {
               <div className="proj-form-grid">
                 <div className="proj-field proj-field-full">
                   <label>Project Name *</label>
-                  <input value={form.project_name} onChange={f('project_name')}
+                  <input id="project_name" name="project_name" value={form.project_name} onChange={f('project_name')}
                     required placeholder="e.g. Welding Gate Project" />
                 </div>
                 <div className="proj-field">
                   <label>Project Owner</label>
-                  <input value={form.project_owner} onChange={f('project_owner')}
+                  <input id="project_owner" name="project_owner" value={form.project_owner} onChange={f('project_owner')}
                     placeholder="e.g. John Silva" />
                 </div>
                 <div className="proj-field">
                   <label>Location</label>
-                  <input value={form.location} onChange={f('location')}
+                  <input id="location" name="location" value={form.location} onChange={f('location')}
                     placeholder="e.g. Colombo, Site A" />
                 </div>
                 <div className="proj-field">
                   <label>Status</label>
-                  <select value={form.status} onChange={f('status')}>
+                  <select id="status" name="status" value={form.status} onChange={f('status')}>
                     {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div className="proj-field">
                   <label>Start Date *</label>
-                  <input type="date" value={form.start_date} onChange={f('start_date')} required />
+                  <input id="start_date" name="start_date" type="date" value={form.start_date} onChange={f('start_date')} required />
                 </div>
                 <div className="proj-field">
                   <label>Deadline</label>
-                  <input type="date" value={form.deadline} onChange={f('deadline')} />
+                  <input id="deadline" name="deadline" type="date" value={form.deadline} onChange={f('deadline')} />
                 </div>
                 <div className="proj-field">
                   <label>End Date (Actual)</label>
-                  <input type="date" value={form.end_date} onChange={f('end_date')} />
+                  <input id="end_date" name="end_date" type="date" value={form.end_date} onChange={f('end_date')} />
                 </div>
                 {editId && ['Completed', 'Cancelled'].includes(form.status) && (
                   <div className="proj-field proj-field-full">
                     <label>Final Payment (Real Amount) *</label>
-                    <input type="number" min="0" step="0.01" value={form.final_payment} onChange={f('final_payment')}
+                    <input id="final_payment" name="final_payment" type="number" min="0" step="0.01" value={form.final_payment} onChange={f('final_payment')}
                       placeholder="e.g. 250000" />
                     <div style={{ marginTop: 6, color: '#6b7280', fontSize: '0.9rem' }}>
                       Estimated project cost: <strong>{fmtCurrency(projectEstimate ?? 0)}</strong>
@@ -617,7 +617,7 @@ function ProjectsPage() {
                 )}
                 <div className="proj-field proj-field-full">
                   <label>Description</label>
-                  <textarea rows={3} value={form.description} onChange={f('description')}
+                  <textarea id="description" name="description" rows={3} value={form.description} onChange={f('description')}
                     placeholder="Optional project notes…" />
                 </div>
               </div>

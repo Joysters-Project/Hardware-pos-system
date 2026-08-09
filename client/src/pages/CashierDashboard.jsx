@@ -65,11 +65,6 @@ function CashierDashboard() {
   }, []);
 
   const handleLogout = () => {
-    window.history.pushState(null, null, window.location.href);
-    window.addEventListener("popstate", () => {
-      window.history.pushState(null, null, window.location.href);
-    });
-
     logout();
     toast.success("Logged out successfully!");
     navigate("/", { replace: true });

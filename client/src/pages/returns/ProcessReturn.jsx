@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import api from '../../api/axios';
 import {
   Search, CheckCircle, Package, Wrench, AlertTriangle,
   ArrowRight, Printer, ClipboardList, RotateCcw
@@ -121,7 +122,7 @@ function ReturnItemCard({ item, onToggle, onFieldChange, calcPayment }) {
     <div className={`ret-item-card ${item.selected ? 'selected' : ''}`}>
       {/* ── Header row ── */}
       <div className="ret-item-header" onClick={onToggle}>
-        <input
+        <input id="checkbox_field" name="checkbox_field"
           type="checkbox"
           checked={item.selected}
           onChange={onToggle}
@@ -147,7 +148,7 @@ function ReturnItemCard({ item, onToggle, onFieldChange, calcPayment }) {
           {/* Step 2: Quantity */}
           <div>
             <label>Return Quantity</label>
-            <input
+            <input id="return_quantity" name="return_quantity"
               type="number"
               min="1"
               max={item.max_quantity}
@@ -166,7 +167,7 @@ function ReturnItemCard({ item, onToggle, onFieldChange, calcPayment }) {
           {/* Return Reason */}
           <div className="span-full">
             <label>Return Reason <span style={{ color: '#c00' }}>*</span></label>
-            <select
+            <select id="select_field" name="select_field"
               value={item.return_reason || ''}
               onChange={(e) => {
                 onFieldChange('return_reason', e.target.value);
@@ -194,7 +195,7 @@ function ReturnItemCard({ item, onToggle, onFieldChange, calcPayment }) {
           {item.return_reason === 'Other' && (
             <div className="span-full">
               <label>Please Describe the Reason <span style={{ color: '#c00' }}>*</span></label>
-              <input
+              <input id="describe_the_specific_reason_for_return" name="describe_the_specific_reason_for_return"
                 type="text"
                 placeholder="Describe the specific reason for return…"
                 value={item.inspection_notes || ''}
@@ -210,7 +211,7 @@ function ReturnItemCard({ item, onToggle, onFieldChange, calcPayment }) {
           {/* Step 3: Product Condition */}
           <div>
             <label>Product Condition</label>
-            <select value={item.condition} onChange={(e) => handleConditionChange(e.target.value)}>
+            <select id="condition" name="condition" value={item.condition} onChange={(e) => handleConditionChange(e.target.value)}>
               {CONDITIONS.map(c => (
                 <option key={c.value} value={c.value}>{c.icon} {c.label}</option>
               ))}
@@ -220,7 +221,7 @@ function ReturnItemCard({ item, onToggle, onFieldChange, calcPayment }) {
           {/* Step 4: Requested Return Action */}
           <div className="span-full">
             <label>Requested Return Action</label>
-            <select value={item.action} onChange={(e) => handleActionChange(e.target.value)}>
+            <select id="action" name="action" value={item.action} onChange={(e) => handleActionChange(e.target.value)}>
               {validActions.map(key => (
                 <option key={key} value={key}>{getActionLabel(key)}</option>
               ))}
@@ -316,7 +317,7 @@ function SummaryPanel({ selectedItems, globalDecision, onGlobalDecisionChange, s
               <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#555', display: 'block', marginBottom: '4px' }}>
                 Preferred Supplier for Service:
               </label>
-              <select
+              <select id="globalSupplierId" name="globalSupplierId"
                 value={globalSupplierId}
                 onChange={(e) => onSupplierChange(e.target.value)}
                 style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '13px' }}
@@ -497,10 +498,11 @@ export default function ProcessReturn() {
   const currentStep = !selectedBill ? 1 : selectedList.length === 0 ? 2 : 3;
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    fetch('/api/suppliers', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(data => setSuppliers(Array.isArray(data) ? data : (data.data || [])))
+    api.get('/suppliers')
+      .then(res => {
+        const data = res.data;
+        setSuppliers(Array.isArray(data) ? data : (data.data || []));
+      })
       .catch(() => {});
   }, []);
 
@@ -513,14 +515,11 @@ export default function ProcessReturn() {
       setLoading(true);
       setSelectedBill(null);
       setSuccessResult(null);
-      const token = localStorage.getItem('token');
-      const param = searchType === 'bill'
-        ? `bill_no=${encodeURIComponent(searchTerm)}`
-        : `phone=${encodeURIComponent(searchTerm)}`;
-      const res = await fetch(`/api/returns/lookup-bill?${param}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
+      const params = searchType === 'bill'
+        ? { bill_no: searchTerm.trim() }
+        : { phone: searchTerm.trim() };
+      const res = await api.get('/returns/lookup-bill', { params });
+      const data = res.data;
       if (data.success && data.data?.length > 0) {
         setBillsList(data.data);
         if (data.data.length === 1) selectBill(data.data[0]);
@@ -528,8 +527,8 @@ export default function ProcessReturn() {
         toast.error(data.error || 'No matching bill found');
         setBillsList([]);
       }
-    } catch {
-      toast.error('Failed to lookup bill');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to lookup bill');
     } finally {
       setLoading(false);
     }
@@ -538,7 +537,6 @@ export default function ProcessReturn() {
   // ── Bill selection ──
   const selectBill = async (bill) => {
     setSelectedBill(bill);
-    const token = localStorage.getItem('token');
     const init = {};
     for (const item of bill.bill_items || []) {
       const prodId = item.product_id;
@@ -598,8 +596,6 @@ export default function ProcessReturn() {
 
     try {
       setSubmitting(true);
-      const token = localStorage.getItem('token');
-
       const hasSupplierAction = selectedList.some(i => ['REPAIR', 'EXCHANGE', 'SUPPLIER_CLAIM'].includes(i.action));
 
       const payload = {
@@ -639,12 +635,8 @@ export default function ProcessReturn() {
         }),
       };
 
-      const res = await fetch('/api/returns', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
+      const res = await api.post('/returns', payload);
+      const data = res.data;
 
       if (data.success) {
         toast.success('Return processed successfully!');
@@ -670,8 +662,8 @@ export default function ProcessReturn() {
       } else {
         toast.error(data.error || 'Failed to process return');
       }
-    } catch {
-      toast.error('Error processing return');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Error processing return');
     } finally {
       setSubmitting(false);
     }
@@ -725,7 +717,7 @@ export default function ProcessReturn() {
           </div>
 
           <form onSubmit={handleSearch} className="ret-search-box">
-            <input
+            <input id="searchTerm" name="searchTerm"
               type="text"
               placeholder={searchType === 'bill' ? 'Enter Invoice / Bill No…' : 'Enter Customer Phone Number…'}
               value={searchTerm}
