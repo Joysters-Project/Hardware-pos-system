@@ -60,7 +60,8 @@ class ReturnService {
         if (['SCRAP', 'SUPPLIER_RETURN', 'OTHER'].includes(action) && !['Manager', 'Admin'].includes(userRole)) {
           throw new Error('Action requires Manager or Admin role');
         }
-        if (['SUPPLIER_RETURN', 'REPAIR', 'EXCHANGE'].includes(action)) {
+        const rawDest = String(item.destination || item.stock_movement_override || '').toUpperCase();
+        if (['SUPPLIER_RETURN', 'REPAIR', 'EXCHANGE'].includes(action) || ['SUPPLIER', 'REPAIR', 'SUPPLIER_CLAIM', 'SUPPLIER_EXCHANGE', 'SUPPLIER_REPAIR'].includes(rawDest)) {
           hasSupplierAction = true;
         }
 
@@ -82,6 +83,10 @@ class ReturnService {
         } else {
           item.calculated_refund = 0;
         }
+      }
+
+      if (hasSupplierAction && !supplier_id) {
+        throw new Error('Selecting a supplier is mandatory when returning products to a supplier');
       }
 
       // Calculate cash refund to customer
@@ -122,7 +127,17 @@ class ReturnService {
         const action = String(item.action || 'REFUND').toUpperCase();
         const condition = String(item.condition || 'DEFECTIVE').toUpperCase();
         const itemReason = item.return_reason || reason || 'Customer Return';
-        const destination = action === 'REFUND' ? 'STOCK' : (action === 'SCRAP' ? 'WRITEOFF' : 'REPAIR');
+        const rawDest = String(item.destination || item.stock_movement_override || '').toUpperCase();
+        let destination = 'REPAIR';
+        if (['SUPPLIER', 'SUPPLIER_CLAIM', 'SUPPLIER_EXCHANGE'].includes(rawDest) || action === 'SUPPLIER_RETURN') {
+          destination = 'SUPPLIER';
+        } else if (['STOCK', 'INCREASE_STOCK'].includes(rawDest) || action === 'REFUND') {
+          destination = 'STOCK';
+        } else if (['DAMAGED_STOCK', 'SCRAP', 'WRITEOFF'].includes(rawDest) || action === 'SCRAP') {
+          destination = 'DAMAGED_STOCK';
+        } else if (['REPAIR', 'SUPPLIER_REPAIR'].includes(rawDest) || action === 'REPAIR' || action === 'EXCHANGE') {
+          destination = 'REPAIR';
+        }
 
         // Create return_item
         const createdReturnItem = await return_items.create({
@@ -149,7 +164,7 @@ class ReturnService {
             const perUnitDiscount = Number(billItem.discount || 0) / Number(billItem.quantity || 1);
             const remainingDiscount = perUnitDiscount * remainingQty;
             const remainingTotal = Math.max(0, remainingQty * Number(billItem.price_per_unit) - remainingDiscount);
-            
+
             await billItem.update({
               quantity: remainingQty,
               discount: remainingDiscount,
@@ -173,7 +188,7 @@ class ReturnService {
           if (product) {
             await product.increment('stock_quantity', { by: return_quantity, transaction: t });
           }
-        } else if (['REPAIR', 'EXCHANGE', 'SUPPLIER_RETURN'].includes(action)) {
+        } else if (['REPAIR', 'EXCHANGE', 'SUPPLIER_RETURN'].includes(action) || ['REPAIR', 'SUPPLIER'].includes(destination)) {
           // Move item to repair_qty in separate table
           await invStatus.increment('repair_qty', { by: return_quantity, transaction: t });
 
@@ -199,6 +214,15 @@ class ReturnService {
             customer_payment: parseFloat(customerPayment.toFixed(2)),
             status: 'PENDING'
           }, { transaction: t });
+
+          // Create entry in supplier_returns for sent to supplier inventory tracking
+          await supplier_returns.create({
+            return_id: newReturn.return_id,
+            supplier_id: targetSupplierId,
+            product_id,
+            quantity: return_quantity,
+            status: 'SENT_TO_SUPPLIER'
+          }, { transaction: t });
         } else if (action === 'SCRAP' || action === 'OTHER') {
           // Move item to damaged_qty in separate table
           await invStatus.increment('damaged_qty', { by: return_quantity, transaction: t });
@@ -218,7 +242,7 @@ class ReturnService {
       if (total_refund_amount > 0) {
         const newTotalAmount = Math.max(0, parseFloat(bill.total_amount) - total_refund_amount);
         const newSubtotal = Math.max(0, parseFloat(bill.subtotal) - total_refund_amount);
-        
+
         const newPaymentSum = await payments.sum('amount_paid', { where: { bill_id }, transaction: t }) || 0;
         let newBalanceDue = newTotalAmount - newPaymentSum;
         if (Number.isNaN(newBalanceDue) || newBalanceDue < 0) newBalanceDue = 0;
@@ -251,8 +275,8 @@ class ReturnService {
     return await returns.findAll({
       where: { bill_id: billId },
       include: [
-        { 
-          model: return_items, 
+        {
+          model: return_items,
           as: 'items',
           include: [
             { model: products, attributes: ['product_name'] },

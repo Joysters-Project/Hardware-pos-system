@@ -1897,3 +1897,44 @@ body {
   color: #c5a9a7;
   font-size: inherit;
 }
+
+/* ── POS Tab Switcher (Billing Counter | Projects) ── */
+.pos-tab-switcher {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  background: rgba(250, 248, 248, 0.95);
+  padding: 0.4rem;
+  border-radius: 12px;
+  border: 1px solid rgba(139, 58, 58, 0.15);
+  width: fit-content;
+  box-shadow: 0 2px 8px rgba(61, 38, 38, 0.08);
+}
+
+.pos-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.25rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #6f5f5c;
+  background: transparent;
+  white-space: nowrap;
+}
+
+.pos-tab-btn:hover {
+  color: #8b3a3a;
+  background: rgba(139, 58, 58, 0.06);
+}
+
+.pos-tab-btn.active {
+  color: #ffffff;
+  background: linear-gradient(135deg, #8b3a3a 0%, #a54b4b 100%);
+  box-shadow: 0 4px 12px rgba(139, 58, 58, 0.25);
+}
+

@@ -25,7 +25,7 @@ export const ACTIONS = {
   STOCK:            { label: 'Return to Stock',           backend: 'REFUND',          destination: 'STOCK'    },
   REPAIR:           { label: 'Supplier Repair',           backend: 'REPAIR',          destination: 'REPAIR'   },
   EXCHANGE:         { label: 'Supplier Exchange',         backend: 'EXCHANGE',        destination: 'REPAIR'   },
-  SUPPLIER_CLAIM:   { label: 'Supplier Claim',            backend: 'SUPPLIER_RETURN', destination: 'REPAIR'   },
+  SUPPLIER_CLAIM:   { label: 'Supplier Claim',            backend: 'SUPPLIER_RETURN', destination: 'SUPPLIER' },
   SCRAP:            { label: 'Scrap / Write-off',         backend: 'SCRAP',           destination: 'WRITEOFF' },
   REJECT:           { label: 'Reject Return',             backend: 'SCRAP',           destination: 'WRITEOFF' },
   PARTIAL_REFUND:   { label: 'Partial Refund',            backend: 'REFUND',          destination: 'STOCK'    },
@@ -97,7 +97,7 @@ const VALIDATION_HINTS = {
 
 // ─── Stock Movement Descriptions ──────────────────────────────────────────
 
-const STOCK_MOVEMENT = {
+export const STOCK_MOVEMENT = {
   REFUND:         '📈 Increase Sellable Stock',
   STOCK:          '📈 Increase Sellable Stock',
   PARTIAL_REFUND: '📈 Increase Sellable Stock',
@@ -107,6 +107,31 @@ const STOCK_MOVEMENT = {
   SCRAP:          '🗑️ Move to Scrap / Write-off Inventory',
   REJECT:         '🚫 No Stock Change (Return Rejected)',
 };
+
+// All selectable stock movement options for the UI override dropdown
+export const STOCK_MOVEMENT_OPTIONS = [
+  { value: 'INCREASE_STOCK',    label: '📈 Increase Sellable Stock' },
+  { value: 'SUPPLIER_REPAIR',   label: '🔨 Move to Supplier Repair Queue' },
+  { value: 'SUPPLIER_EXCHANGE', label: '🔄 Move to Supplier Exchange Queue' },
+  { value: 'SUPPLIER_CLAIM',    label: '📋 Move to Supplier Claim Queue' },
+  { value: 'SCRAP',             label: '🗑️ Move to Scrap / Write-off Inventory' },
+  { value: 'NO_CHANGE',         label: '🚫 No Stock Change' },
+];
+
+/** Returns the default stock movement key for a given action. */
+export function getDefaultStockMovementKey(action) {
+  const map = {
+    REFUND:         'INCREASE_STOCK',
+    STOCK:          'INCREASE_STOCK',
+    PARTIAL_REFUND: 'INCREASE_STOCK',
+    REPAIR:         'SUPPLIER_REPAIR',
+    EXCHANGE:       'SUPPLIER_EXCHANGE',
+    SUPPLIER_CLAIM: 'SUPPLIER_CLAIM',
+    SCRAP:          'SCRAP',
+    REJECT:         'NO_CHANGE',
+  };
+  return map[action] || 'INCREASE_STOCK';
+}
 
 // ─── Public API ────────────────────────────────────────────────────────────
 

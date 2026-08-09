@@ -4,13 +4,14 @@ import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   FolderOpen, Plus, X, Eye, Edit2, Trash2,
-  BarChart2, TrendingUp, Package,
+  BarChart2, TrendingUp, Package, ShoppingCart,
   ChevronDown, ChevronUp, Calendar, Printer
 } from 'lucide-react';
 import api from '../utils/axios';
 import { buildTableHtml, escapeHtml, printWithTemplate } from '../utils/printTemplate';
 import AdminDashboard from './AdminDashboard';
 import ManagerDashboard from './ManagerDashboard';
+import ProjectsTab from '../components/ProjectsTab';
 import '../styles/Projects.css';
 
 const STATUSES = ['Active', 'Completed', 'On Hold', 'Cancelled'];
@@ -344,9 +345,10 @@ function ProjectsPage() {
       {/* ── Tabs ── */}
       <div className="proj-tabs">
         {[
-          { key: 'projects', label: 'Projects',       icon: <FolderOpen size={15} /> },
-          { key: 'monthly',  label: 'Monthly Report', icon: <BarChart2 size={15} /> },
-          { key: 'yearly',   label: 'Yearly Report',  icon: <TrendingUp size={15} /> },
+          { key: 'projects',        label: 'Projects',               icon: <FolderOpen size={15} /> },
+          { key: 'billing-counter', label: 'Project Billing Counter',icon: <ShoppingCart size={15} /> },
+          { key: 'monthly',         label: 'Monthly Report',         icon: <BarChart2 size={15} /> },
+          { key: 'yearly',          label: 'Yearly Report',          icon: <TrendingUp size={15} /> },
         ].map(t => (
           <button key={t.key} className={`proj-tab ${activeTab === t.key ? 'active' : ''}`}
             onClick={() => setActiveTab(t.key)}>
@@ -354,6 +356,11 @@ function ProjectsPage() {
           </button>
         ))}
       </div>
+
+      {/* ══ PROJECT BILLING COUNTER ══ */}
+      {activeTab === 'billing-counter' && (
+        <ProjectsTab />
+      )}
 
       {/* ══ PROJECTS LIST ══ */}
       {activeTab === 'projects' && (

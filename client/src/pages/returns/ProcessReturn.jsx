@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../../api/axios';
 import {
@@ -11,10 +12,12 @@ import WarrantyHandlingSection from '../../components/returns/WarrantyHandlingSe
 import {
   CONDITIONS,
   ACTIONS,
+  STOCK_MOVEMENT_OPTIONS,
   getValidActions,
   getRecommendation,
   getValidationHint,
   getStockMovement,
+  getDefaultStockMovementKey,
   getConditionLabel,
   getActionLabel,
   mapActionToBackend,
@@ -99,8 +102,10 @@ function ReturnItemCard({ item, onToggle, onFieldChange, calcPayment }) {
     onFieldChange('condition', newCondition);
     const newValid = getValidActions(newCondition);
     const rec = getRecommendation(newCondition);
+    const newAction = newValid.includes(item.action) ? item.action : rec.recommended;
     if (!newValid.includes(item.action)) {
-      onFieldChange('action', rec.recommended);
+      onFieldChange('action', newAction);
+      onFieldChange('stock_movement', getDefaultStockMovementKey(newAction));
     }
     // Reset warranty on condition change
     onFieldChange('has_warranty_answer', null);
@@ -110,6 +115,8 @@ function ReturnItemCard({ item, onToggle, onFieldChange, calcPayment }) {
 
   const handleActionChange = (newAction) => {
     onFieldChange('action', newAction);
+    // Auto-update stock movement to the new action's default
+    onFieldChange('stock_movement', getDefaultStockMovementKey(newAction));
     // Reset warranty fields if action is no longer repair/exchange
     if (!requiresWarranty(newAction)) {
       onFieldChange('has_warranty_answer', null);
@@ -228,6 +235,41 @@ function ReturnItemCard({ item, onToggle, onFieldChange, calcPayment }) {
             </select>
           </div>
 
+          {/* Step 4b: Stock Movement Override */}
+          <div className="span-full">
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              Stock Movement
+              <span style={{ fontSize: '11px', color: '#888', fontWeight: 'normal' }}>
+                (auto-set from action — override if needed)
+              </span>
+            </label>
+            <select
+              id={`stock_movement_${item.product_id}`}
+              name="stock_movement"
+              value={item.stock_movement || getDefaultStockMovementKey(item.action)}
+              onChange={(e) => onFieldChange('stock_movement', e.target.value)}
+              style={{
+                borderColor:
+                  item.stock_movement && item.stock_movement !== getDefaultStockMovementKey(item.action)
+                    ? '#b45309'
+                    : undefined,
+              }}
+            >
+              {STOCK_MOVEMENT_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            {item.stock_movement && item.stock_movement !== getDefaultStockMovementKey(item.action) && (
+              <div style={{
+                fontSize: '11px', color: '#b45309',
+                background: '#fef9c3', border: '1px solid #fde68a',
+                borderRadius: '5px', padding: '4px 8px', marginTop: '4px'
+              }}>
+                ⚠️ Stock movement overridden from the default for this action.
+              </div>
+            )}
+          </div>
+
           {/* Validation hint */}
           {(hint || needsApproval) && (
             <div className="span-full">
@@ -294,7 +336,17 @@ function SummaryPanel({ selectedItems, globalDecision, onGlobalDecisionChange, s
               </div>
               <div className="ret-summary-item-row">
                 <span>Stock Movement</span>
-                <span style={{ fontSize: '12px' }}>{getStockMovement(item.action)}</span>
+                <span style={{
+                  fontSize: '12px',
+                  color: item.stock_movement && item.stock_movement !== getDefaultStockMovementKey(item.action)
+                    ? '#b45309' : undefined,
+                }}>
+                  {STOCK_MOVEMENT_OPTIONS.find(o => o.value === (item.stock_movement || getDefaultStockMovementKey(item.action)))?.label
+                    || getStockMovement(item.action)}
+                  {item.stock_movement && item.stock_movement !== getDefaultStockMovementKey(item.action) && (
+                    <span style={{ marginLeft: '4px', fontSize: '10px', background: '#fef3c7', padding: '1px 4px', borderRadius: '3px' }}>overridden</span>
+                  )}
+                </span>
               </div>
               {requiresWarranty(item.action) && item.has_warranty_answer && (
                 <div className="ret-summary-item-row">
@@ -314,19 +366,32 @@ function SummaryPanel({ selectedItems, globalDecision, onGlobalDecisionChange, s
           {/* Supplier picker — only when supplier action exists */}
           {needsSupplier && (
             <div style={{ marginBottom: '14px' }}>
-              <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#555', display: 'block', marginBottom: '4px' }}>
-                Preferred Supplier for Service:
+              <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#333', display: 'block', marginBottom: '4px' }}>
+                Preferred Supplier for Service <span style={{ color: '#dc2626' }}>* (Mandatory)</span>:
               </label>
               <select id="globalSupplierId" name="globalSupplierId"
                 value={globalSupplierId}
                 onChange={(e) => onSupplierChange(e.target.value)}
-                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '13px' }}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  border: !globalSupplierId ? '1.5px solid #dc2626' : '1px solid #ccc',
+                  fontSize: '13px',
+                  backgroundColor: !globalSupplierId ? '#fef2f2' : '#fff'
+                }}
+                required
               >
-                <option value="">Select Supplier…</option>
+                <option value="">— Select Supplier (Required) —</option>
                 {suppliers.map(s => (
                   <option key={s.supplier_id} value={s.supplier_id}>{s.supplier_name}</option>
                 ))}
               </select>
+              {!globalSupplierId && (
+                <div style={{ fontSize: '11px', color: '#dc2626', marginTop: '4px', fontWeight: 500 }}>
+                  ⚠️ Selecting a supplier is mandatory for this return.
+                </div>
+              )}
             </div>
           )}
 
@@ -479,6 +544,7 @@ function SuccessScreen({ result, bill, onReset, onGoToHistory, onGoToRepair }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ProcessReturn() {
+  const navigate = useNavigate();
   const [searchType, setSearchType] = useState('bill');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -551,6 +617,7 @@ export default function ProcessReturn() {
         return_quantity: 1,
         condition: defaultCondition,
         action: defaultAction,
+        stock_movement: getDefaultStockMovementKey(defaultAction),
         return_reason: '',
         inspection_notes: '',
         has_warranty_answer: null,
@@ -596,7 +663,16 @@ export default function ProcessReturn() {
 
     try {
       setSubmitting(true);
-      const hasSupplierAction = selectedList.some(i => ['REPAIR', 'EXCHANGE', 'SUPPLIER_CLAIM'].includes(i.action));
+      const hasSupplierAction = selectedList.some(i =>
+        ['REPAIR', 'EXCHANGE', 'SUPPLIER_CLAIM'].includes(i.action) ||
+        ['SUPPLIER_REPAIR', 'SUPPLIER_EXCHANGE', 'SUPPLIER_CLAIM'].includes(i.stock_movement)
+      );
+
+      if (hasSupplierAction && !globalSupplierId) {
+        toast.error('Selecting a supplier is mandatory when returning products to supplier');
+        setSubmitting(false);
+        return;
+      }
 
       const payload = {
         bill_id: selectedBill.bill_id,
@@ -605,7 +681,19 @@ export default function ProcessReturn() {
         reason: globalDecision,
         supplier_id: globalSupplierId || null,
         items: selectedList.map(item => {
-          const { backend, destination } = mapActionToBackend(item.action);
+          const { backend, destination: defaultDest } = mapActionToBackend(item.action);
+          const movementKey = item.stock_movement || getDefaultStockMovementKey(item.action);
+          let finalDestination = defaultDest;
+          if (['SUPPLIER_CLAIM', 'SUPPLIER_EXCHANGE'].includes(movementKey)) {
+            finalDestination = 'SUPPLIER';
+          } else if (movementKey === 'SUPPLIER_REPAIR') {
+            finalDestination = 'REPAIR';
+          } else if (movementKey === 'INCREASE_STOCK') {
+            finalDestination = 'STOCK';
+          } else if (movementKey === 'SCRAP') {
+            finalDestination = 'DAMAGED_STOCK';
+          }
+
           const isValidWarranty = item.has_warranty_answer === 'YES' && item.warranty_status === 'VALID';
           return {
             product_id: item.product_id,
@@ -621,7 +709,8 @@ export default function ProcessReturn() {
               return map[item.condition] || 'DEFECTIVE';
             })(),
             action: backend,
-            destination,
+            destination: finalDestination,
+            stock_movement_override: movementKey,
             return_reason: item.return_reason === 'Other'
                 ? (item.inspection_notes || globalDecision)
                 : (item.return_reason || globalDecision),
@@ -686,8 +775,8 @@ export default function ProcessReturn() {
         result={successResult}
         bill={selectedBill}
         onReset={handleReset}
-        onGoToHistory={() => window.location.hash = '#/returns/history'}
-        onGoToRepair={() => window.location.hash = '#/returns/supplier-service'}
+        onGoToHistory={() => navigate('/returns/history')}
+        onGoToRepair={() => navigate('/returns/supplier-services')}
       />
     );
   }

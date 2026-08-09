@@ -119,11 +119,15 @@ export default function ProjectsTab() {
 
     const query = searchQ.toLowerCase();
     const results = products.filter((product) => {
+      const altBarcodeMatch = (product.alternative_units || []).some(au =>
+        String(au.barcode || '').toLowerCase().includes(query)
+      );
       return (
         product.product_name?.toLowerCase().includes(query) ||
         String(product.product_id).includes(query) ||
         String(product.product_code || '').toLowerCase().includes(query) ||
-        String(product.barcode || '').toLowerCase().includes(query)
+        String(product.barcode || '').toLowerCase().includes(query) ||
+        altBarcodeMatch
       );
     }).slice(0, 8);
 
@@ -179,11 +183,15 @@ export default function ProjectsTab() {
   const catalogProducts = products.filter((product) => {
     if (!searchQ.trim()) return true;
     const query = searchQ.toLowerCase();
+    const altBarcodeMatch = (product.alternative_units || []).some(au =>
+      String(au.barcode || '').toLowerCase().includes(query)
+    );
     return (
       product.product_name?.toLowerCase().includes(query) ||
       String(product.product_id).includes(query) ||
       String(product.product_code || '').toLowerCase().includes(query) ||
-      String(product.barcode || '').toLowerCase().includes(query)
+      String(product.barcode || '').toLowerCase().includes(query) ||
+      altBarcodeMatch
     );
   });
 
@@ -565,35 +573,15 @@ export default function ProjectsTab() {
             <div className="pt-project-transaction-shell">
               <div className="pt-billing-layout">
                 <div className="pt-billing-left">
-                  <div className="pt-card-box pt-project-catalog-card">
+                  <div className="pt-card-box pt-selected-products-box">
                     <div className="pt-box-header">
                       <span className="pt-box-title">
-                        <Package size={18} /> Product Catalog
-                        <span className="pt-badge">{catalogProducts.length}</span>
+                        <ShoppingCart size={18} /> Selected Products
+                        <span className="pt-badge">{cartItemCount}</span>
                       </span>
-                      <div className="pt-catalog-view-toggle">
-                        <button
-                          type="button"
-                          className={`pt-view-btn ${catalogView === 'grid' ? 'active' : ''}`}
-                          onClick={() => setCatalogView('grid')}
-                          title="Grid view"
-                          aria-label="Grid view"
-                        >
-                          <Grid3x3 size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          className={`pt-view-btn ${catalogView === 'list' ? 'active' : ''}`}
-                          onClick={() => setCatalogView('list')}
-                          title="List view"
-                          aria-label="List view"
-                        >
-                          <List size={14} />
-                        </button>
-                      </div>
                     </div>
 
-                    <div className="pt-search-wrap">
+                    <div className="pt-search-wrap" style={{ padding: '12px 16px 8px' }}>
                       <div className="pt-search-bar">
                         <Search size={15} className="pt-search-icon" />
                         <input id="searchQ" name="searchQ"
@@ -632,73 +620,6 @@ export default function ProjectsTab() {
                           ))}
                         </div>
                       )}
-                    </div>
-
-                    {loadingProjectData ? (
-                      <div className="pt-loading">Loading catalog...</div>
-                    ) : catalogProducts.length === 0 ? (
-                      <div className="pt-empty">No active products available.</div>
-                    ) : (
-                      catalogView === 'grid' ? (
-                        <div className="pt-catalog-grid">
-                          {catalogProducts.map((product) => (
-                            <button
-                              key={product.product_id}
-                              type="button"
-                              className={`pt-catalog-card ${product.stock_quantity <= 0 ? 'disabled' : ''} ${getStockClass(product.stock_quantity)}`}
-                              onClick={() => product.stock_quantity > 0 && addToCart(product)}
-                              disabled={product.stock_quantity <= 0}
-                            >
-                              <div className="pt-catalog-card-icon">
-                                <Package size={20} />
-                              </div>
-                              <div className="pt-catalog-card-name">{product.product_name}</div>
-                              <div className="pt-catalog-card-code">{product.product_code || `ID: ${product.product_id}`}</div>
-                              <div className="pt-catalog-card-footer">
-                                <div className="pt-catalog-card-price">Rs.{Number(product.unit_price).toFixed(2)}</div>
-                                <div className={`pt-catalog-card-stock ${getStockClass(product.stock_quantity)}`}>
-                                  {getStockLabel(product.stock_quantity)}
-                                </div>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="pt-catalog-list">
-                          {catalogProducts.map((product) => (
-                            <button
-                              key={product.product_id}
-                              type="button"
-                              className={`pt-catalog-list-item ${product.stock_quantity <= 0 ? 'disabled' : ''} ${getStockClass(product.stock_quantity)}`}
-                              onClick={() => product.stock_quantity > 0 && addToCart(product)}
-                              disabled={product.stock_quantity <= 0}
-                            >
-                              <div className="pt-catalog-card-icon pt-list-icon">
-                                <Package size={18} />
-                              </div>
-                              <div className="pt-list-item-info">
-                                <div className="pt-catalog-card-name">{product.product_name}</div>
-                                <div className="pt-catalog-card-code">{product.product_code || `ID: ${product.product_id}`}</div>
-                              </div>
-                              <div className="pt-list-item-right">
-                                <div className="pt-catalog-card-price">Rs.{Number(product.unit_price).toFixed(2)}</div>
-                                <div className={`pt-catalog-card-stock ${getStockClass(product.stock_quantity)}`}>
-                                  {getStockLabel(product.stock_quantity)}
-                                </div>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )
-                    )}
-                  </div>
-
-                  <div className="pt-card-box pt-selected-products-box">
-                    <div className="pt-box-header">
-                      <span className="pt-box-title">
-                        <ShoppingCart size={18} /> Selected Products
-                        <span className="pt-badge">{cartItemCount}</span>
-                      </span>
                     </div>
 
                     {cart.length === 0 ? (

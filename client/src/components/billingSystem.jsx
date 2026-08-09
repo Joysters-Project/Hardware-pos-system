@@ -5,17 +5,19 @@ import {
   CreditCard, Printer, Download, XCircle, CheckCircle,
   User, Phone, MapPin, DollarSign, Receipt, Tag,
   AlertCircle, AlertTriangle, ArrowRight, Sparkles,
-  TrendingUp, Clock, Zap, LayoutGrid, ListOrdered
+  TrendingUp, Clock, Zap, LayoutGrid, ListOrdered, FolderOpen
 } from 'lucide-react';
 import api from '../api/axios';
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
 import { printWithTemplate } from '../utils/printTemplate';
 import SuccessAnim from './SuccessAnim';
 import DashboardLayout from './DashboardLayout';
+import ProjectsTab from './ProjectsTab';
 import toast from 'react-hot-toast';
 import '../styles/BillingSystem.css';
 
 const BillingSystem = () => {
+  const [activePosTab, setActivePosTab] = useState('billing');
   const [cart, setCart] = useState([]);
   const [payData, setPayData] = useState({ amountPaid: '', customerName: '', customerPhone: '', customerAddress: '' });
   const [customerExists, setCustomerExists] = useState(false);
@@ -306,6 +308,63 @@ const BillingSystem = () => {
     }
   };
 
+  // Handle Enter key for fast Barcode Scanner input
+  const handleSearchKeyDown = async (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const query = searchQuery.trim();
+      if (!query) return;
+
+      let items = searchResults;
+      if (items.length === 0) {
+        try {
+          const res = await api.get('/products/search', { params: { q: query } });
+          items = Array.isArray(res.data) ? res.data : [];
+        } catch (err) {
+          console.error('Barcode search error:', err);
+        }
+      }
+
+      if (items.length === 0) {
+        toast.error(`No product found for barcode/query "${query}"`);
+        return;
+      }
+
+      // Check exact barcode match on main product or alternative units
+      let matchedProduct = items.find(p =>
+        String(p.barcode || '').trim().toLowerCase() === query.toLowerCase()
+      );
+      let matchedAltUnitId = null;
+
+      if (!matchedProduct) {
+        for (const p of items) {
+          const alt = (p.alternative_units || []).find(au =>
+            String(au.barcode || '').trim().toLowerCase() === query.toLowerCase()
+          );
+          if (alt) {
+            matchedProduct = p;
+            matchedAltUnitId = alt.unit_id;
+            break;
+          }
+        }
+      }
+
+      // Fallback if exactly 1 search result returned
+      if (!matchedProduct && items.length === 1) {
+        matchedProduct = items[0];
+      }
+
+      if (matchedProduct) {
+        handleAddToCart(matchedProduct, matchedAltUnitId);
+        setSearchQuery('');
+        setSearchResults([]);
+        setShowResults(false);
+      } else if (items.length > 1) {
+        setShowResults(true);
+      }
+    }
+  };
+
   const getSellabilityError = (product) => {
     const isInactive = String(product.status).toLowerCase() === 'inactive';
     if (isInactive) return `"${product.product_name}" is inactive and cannot be sold.`;
@@ -366,7 +425,7 @@ const BillingSystem = () => {
   };
 
   // Add product to cart
-  const handleAddToCart = async (product) => {
+  const handleAddToCart = async (product, targetUnitId = null) => {
     // 1. Block only explicitly inactive products
     const isInactive = String(product.status).toLowerCase() === 'inactive';
     if (isInactive) {
@@ -435,12 +494,17 @@ const BillingSystem = () => {
 
     const availableUnits = [baseUnit, ...altUnits];
 
-    // Check if item exists in the cart with the same unit_id
-    const existingItem = cart.find(item => item.product_id === product.product_id && item.selected_unit_id === parseInt(product.unit_id));
+    // Determine target unit
+    const chosenUnit = targetUnitId
+      ? (availableUnits.find(u => u.unit_id === parseInt(targetUnitId)) || baseUnit)
+      : baseUnit;
+
+    // Check if item exists in the cart with the same selected_unit_id
+    const existingItem = cart.find(item => item.product_id === product.product_id && item.selected_unit_id === chosenUnit.unit_id);
 
     if (existingItem) {
       setCart(cart.map(item =>
-        item.product_id === product.product_id && item.selected_unit_id === parseInt(product.unit_id)
+        item.product_id === product.product_id && item.selected_unit_id === chosenUnit.unit_id
           ? { ...item, quantity: item.quantity + 1 }
           : item
       ));
@@ -448,13 +512,13 @@ const BillingSystem = () => {
       setCart([...cart, {
         product_id: product.product_id,
         product_name: product.product_name,
-        unit_price: parseFloat(product.unit_price),
-        price: parseFloat(product.unit_price),
+        unit_price: parseFloat(chosenUnit.unit_price),
+        price: parseFloat(chosenUnit.unit_price),
         cost_price: parseFloat(product.cost_price || 0),
         quantity: 1,
-        selected_unit_id: parseInt(product.unit_id),
-        selected_unit_name: baseUnitName,
-        conversion_factor: 1.0,
+        selected_unit_id: chosenUnit.unit_id,
+        selected_unit_name: chosenUnit.unit_name,
+        conversion_factor: chosenUnit.conversion_factor,
         available_units: availableUnits,
         discount: 0
       }]);
@@ -639,12 +703,20 @@ const BillingSystem = () => {
       <div className="admin-page-header-modern">
         <div className="header-left">
           <div className="header-icon-wrapper">
-            <CreditCard size={24} className="header-icon" />
+            {activePosTab === 'billing' ? (
+              <CreditCard size={24} className="header-icon" />
+            ) : (
+              <FolderOpen size={24} className="header-icon" />
+            )}
           </div>
           <div>
-            <h1 className="admin-page-title-modern">Billing Counter</h1>
+            <h1 className="admin-page-title-modern">
+              {activePosTab === 'billing' ? 'Billing Counter' : 'Project Billing Counter'}
+            </h1>
             <p className="admin-page-subtitle-modern">
-              Process sales, manage cart & complete transactions
+              {activePosTab === 'billing'
+                ? 'Process sales, manage cart & complete transactions'
+                : 'Select project, issue items, & track project transactions'}
             </p>
           </div>
         </div>
@@ -660,7 +732,30 @@ const BillingSystem = () => {
         </div>
       </div>
 
-      <div className="pos-terminal-modern">
+      {/* POS Tab Switcher */}
+      <div className="pos-tab-switcher">
+        <button
+          type="button"
+          className={`pos-tab-btn ${activePosTab === 'billing' ? 'active' : ''}`}
+          onClick={() => setActivePosTab('billing')}
+        >
+          <CreditCard size={16} />
+          <span>Billing Counter</span>
+        </button>
+        <button
+          type="button"
+          className={`pos-tab-btn ${activePosTab === 'projects' ? 'active' : ''}`}
+          onClick={() => setActivePosTab('projects')}
+        >
+          <FolderOpen size={16} />
+          <span>Project Billing Counter</span>
+        </button>
+      </div>
+
+      {activePosTab === 'projects' ? (
+        <ProjectsTab />
+      ) : (
+        <div className="pos-terminal-modern">
           {/* LEFT PANEL: Search and selected items */}
           <div className="pos-left-modern">
             {/* Enhanced Search Bar */}
@@ -673,6 +768,7 @@ const BillingSystem = () => {
                   placeholder="Search products by name, barcode, SKU..."
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
                 />
                 {searchQuery && (
                   <button
@@ -690,32 +786,39 @@ const BillingSystem = () => {
                 <div className="pos-search-dropdown-modern">
                   <div className="search-results-header">
                     <span>Products found ({searchResults.length})</span>
-                    <span className="hint-text">Click to add</span>
+                    <span className="hint-text">Click or Press Enter to add</span>
                   </div>
-                  {searchResults.map((product) => (
-                    <div
-                      key={product.product_id}
-                      className="pos-search-result-modern"
-                      onClick={() => handleAddToCart(product)}
-                    >
-                      <div className="result-icon">
-                        <Package size={18} />
-                      </div>
-                      <div className="result-info">
-                        <div className="result-name">{product.product_name}</div>
-                        <div className="result-meta">
-                          {product.product_code && `Code: ${product.product_code}`}
-                          {product.barcode && ` · Barcode: ${product.barcode}`}
+                  {searchResults.map((product) => {
+                    const allBarcodes = Array.from(new Set([
+                      product.barcode,
+                      ...(product.alternative_units || []).map(au => au.barcode)
+                    ].filter(Boolean))).join(', ');
+
+                    return (
+                      <div
+                        key={product.product_id}
+                        className="pos-search-result-modern"
+                        onClick={() => handleAddToCart(product)}
+                      >
+                        <div className="result-icon">
+                          <Package size={18} />
+                        </div>
+                        <div className="result-info">
+                          <div className="result-name">{product.product_name}</div>
+                          <div className="result-meta">
+                            {product.product_code && `Code: ${product.product_code}`}
+                            {allBarcodes && ` · Barcode: ${allBarcodes}`}
+                          </div>
+                        </div>
+                        <div className="result-right">
+                          <div className="result-price">Rs.{parseFloat(product.unit_price).toFixed(2)}</div>
+                          <div className={`result-stock ${product.stock_quantity <= 10 ? 'low' : ''}`}>
+                            Stock: {product.stock_quantity}
+                          </div>
                         </div>
                       </div>
-                      <div className="result-right">
-                        <div className="result-price">Rs.{parseFloat(product.unit_price).toFixed(2)}</div>
-                        <div className={`result-stock ${product.stock_quantity <= 10 ? 'low' : ''}`}>
-                          Stock: {product.stock_quantity}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
@@ -1036,6 +1139,7 @@ const BillingSystem = () => {
             </div>
           </div>
         </div>
+      )}
 
       {/* Success Animation */}
       <SuccessAnim

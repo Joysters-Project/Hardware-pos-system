@@ -14,13 +14,16 @@ router.get('/search', async (req, res) => {
 
     const pattern = `%${query}%`;
 
-    // Use raw query to find matching product IDs (avoids Sequelize v3 fn/like incompatibility)
+    // Use raw query to find matching product IDs including barcode search (avoids Sequelize v3 fn/like incompatibility)
     const rows = await db.sequelize.query(
-      `SELECT product_id FROM products
-       WHERE product_name LIKE :pattern
-          OR type LIKE :pattern
-          OR batch_no LIKE :pattern
-          OR CAST(product_id AS CHAR) = :exact
+      `SELECT DISTINCT p.product_id FROM products p
+       LEFT JOIN product_units pu ON p.product_id = pu.product_id
+       WHERE p.product_name LIKE :pattern
+          OR p.type LIKE :pattern
+          OR p.batch_no LIKE :pattern
+          OR p.barcode LIKE :pattern
+          OR pu.barcode LIKE :pattern
+          OR CAST(p.product_id AS CHAR) = :exact
        LIMIT 50`,
       { replacements: { pattern, exact: query }, type: db.Sequelize.QueryTypes.SELECT }
     );
