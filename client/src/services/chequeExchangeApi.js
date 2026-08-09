@@ -11,6 +11,7 @@ export const chequeExchangeApi = {
   getChequeById: (id) => api.get(`/cheque-exchange/${id}`),
   createCheque: (payload) => api.post('/cheque-exchange', payload),
   updateCheque: (id, payload) => api.put(`/cheque-exchange/${id}`, payload),
+  deleteCheque: (id) => api.delete(`/cheque-exchange/${id}`),
   updateChequeStatus: (id, payload) => api.patch(`/cheque-exchange/${id}/status`, payload),
   depositCheque: (id, payload = {}) => api.patch(`/cheque-exchange/${id}/deposit`, payload),
   recordRepayment: (id, payload = {}) => api.patch(`/cheque-exchange/${id}/repayment`, payload),

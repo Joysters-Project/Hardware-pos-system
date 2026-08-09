@@ -53,11 +53,25 @@ function SalaryHistoryPage() {
 
   useEffect(() => { loadHistory(); loadSummary(); }, [loadHistory, loadSummary]);
 
+  const getSalaryCategory = (payment) => {
+    return payment?.salary_category || payment?.employee?.salary_category || "monthly";
+  };
+
+  const formatPayPeriod = (payment) => {
+    const category = getSalaryCategory(payment);
+    if (category === "daily") {
+      return payment?.payment_date
+        ? new Date(payment.payment_date).toLocaleDateString("en-GB")
+        : "—";
+    }
+    return `${MONTHS[(Number(payment?.payment_month || 1) - 1)] || ""} ${payment?.payment_year || ""}`.trim();
+  };
+
   const handleDownload = (payment) => {
     const employeeName = payment?.employee
       ? `${payment.employee.first_name || ""} ${payment.employee.last_name || ""}`.trim()
       : `EMP-${payment?.employee_id || ""}`;
-    const periodLabel = `${MONTHS[(Number(payment?.payment_month || 1) - 1)] || ""} ${payment?.payment_year || ""}`.trim();
+    const periodLabel = formatPayPeriod(payment);
     const paymentDate = payment?.payment_date
       ? new Date(payment.payment_date).toLocaleDateString("en-GB")
       : "—";
@@ -194,7 +208,7 @@ function SalaryHistoryPage() {
                   </div>
                   {p.employee?.email && <div className="sal-emp-email">{p.employee.email}</div>}
                 </td>
-                <td>{MONTHS[(p.payment_month || 1) - 1]} {p.payment_year}</td>
+                <td>{formatPayPeriod(p)}</td>
                 <td>{Number(p.basic_salary).toLocaleString("en-US")}</td>
                 <td className="sal-bonus">+{Number(p.bonus_amount || 0).toLocaleString("en-US")}</td>
                 <td className="sal-deduct">-{Number(p.deduction_amount || 0).toLocaleString("en-US")}</td>

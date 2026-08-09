@@ -59,6 +59,11 @@ function ExpensesPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.expense_type || !form.amount || !form.expense_date) { toast.error("Type, amount and date required"); return; }
+    const amountValue = Number(form.amount);
+    if (Number.isNaN(amountValue) || amountValue <= 0) {
+      toast.error("Amount must be greater than 0");
+      return;
+    }
     if (form.expense_type === "Other" && (!form.description || !form.description.trim())) {
       toast.error("Description is required when Expense Type is 'Other'");
       return;
@@ -74,6 +79,11 @@ function ExpensesPage() {
   };
 
   const handleDelete = async (id) => {
+    const expense = expenses.find((item) => item.expense_id === id);
+    if (expense?.asset_id) {
+      toast.error("Cannot delete this expense because it is linked to an asset.");
+      return;
+    }
     if (!window.confirm("Delete this expense?")) return;
     try { await api.delete(`/expenses/${id}`); toast.success("Expense deleted"); loadAll(); }
     catch (err) { toast.error(err.response?.data?.message || "Delete failed"); }

@@ -79,7 +79,7 @@ function DepartmentsPage() {
     e.preventDefault();
     if (!form.department_name.trim()) { toast.error("Department name is required"); return; }
     const budgetValue = form.budget === "" ? 0 : Number(form.budget);
-    if (Number.isNaN(budgetValue) || budgetValue < 0) { toast.error("Budget must be a valid number"); return; }
+    if (Number.isNaN(budgetValue) || budgetValue <= 0) { toast.error("Budget must be greater than 0"); return; }
 
     if (String(form.status).toLowerCase() === "inactive" && editId) {
       try {
@@ -117,6 +117,14 @@ function DepartmentsPage() {
   };
 
   const handleDelete = async (id, name) => {
+    const department = departments.find(d => d.department_id === id);
+    const hasAssets = (department?.asset_count || 0) > 0;
+
+    if (hasAssets) {
+      toast.error("Cannot delete department while it has assets assigned.");
+      return;
+    }
+
     if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
     setDeletingId(id);
     try {
@@ -200,6 +208,9 @@ function DepartmentsPage() {
     { label: "Employees", value: departments.reduce((s, d) => s + (d.employee_count || 0), 0), icon: <Users size={20} />, color: "#1565c0" },
     { label: "Assets", value: departments.reduce((s, d) => s + (d.asset_count || 0), 0), icon: <Package size={20} />, color: "#6a1b9a" },
   ];
+  const budgetAmount = Number(viewDept?.budget || 0);
+  const spentAmount = (viewDept?.assets || []).reduce((sum, asset) => sum + Number(asset.cost || 0), 0);
+  const remainingAmount = Math.max(0, budgetAmount - spentAmount);
 
   return (
     <div className="dept-container">
@@ -436,7 +447,11 @@ function DepartmentsPage() {
               </div>
               <div className="dept-view-stat">
                 <DollarSign size={16} />
-                <span>Remaining: LKR {Number(viewDept.remaining_budget || 0).toLocaleString("en-LK")}</span>
+                <span>Remaining: LKR {remainingAmount.toLocaleString("en-LK")}</span>
+              </div>
+              <div className="dept-view-stat">
+                <DollarSign size={16} />
+                <span>Spent Amount: LKR {spentAmount.toLocaleString("en-LK")}</span>
               </div>
               <div className="dept-view-stat">
                 <Users size={16} />

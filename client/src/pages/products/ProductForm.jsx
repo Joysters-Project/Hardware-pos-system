@@ -19,7 +19,7 @@ export default function ProductForm() {
   const [formData, setFormData] = useState({
     product_name: '', unit_price: '', cost_price: '',
     stock_quantity: '0', min_stock_quantity: '0', reorder_level: '',
-    type: '', batch_no: '', expiry_date: '',
+    type: '', batch_no: '', barcode: '', expiry_date: '',
     category_id: '', brand_id: '', unit_id: '',
   });
   const [categories, setCategories] = useState([]);
@@ -79,6 +79,7 @@ export default function ProductForm() {
         reorder_level:      p.reorder_level?.toString()      || '',
         type:               p.type      || '',
         batch_no:           p.batch_no  || '',
+        barcode:            p.barcode   || '',
         expiry_date:        p.expiry_date ? String(p.expiry_date).slice(0, 10) : '',
         category_id:        p.category_id?.toString() || '',
         brand_id:           p.brand_id?.toString()   || '',
@@ -139,6 +140,7 @@ export default function ProductForm() {
         reorder_level:      parseFloat(formData.reorder_level)      || 0,
         type:               formData.type,
         batch_no:           formData.batch_no    || null,
+        barcode:            formData.barcode     || null,
         expiry_date:        formData.expiry_date || null,
         category_id:        parseInt(formData.category_id),
         brand_id:           formData.brand_id ? parseInt(formData.brand_id) : null,
