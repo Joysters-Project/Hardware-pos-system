@@ -302,13 +302,13 @@ function EmployeesPage() {
       {/* Filters */}
       <div className="emp-filters">
         <div className="emp-search-wrap"><Search size={14} className="emp-search-icon" />
-          <input className="emp-search" placeholder="Search name, email, phone, NIC..." value={search}
+          <input id="search" name="search" className="emp-search" placeholder="Search name, email, phone, NIC..." value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }} /></div>
-        <select className="emp-select" value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }}>
+        <select id="filterStatus" name="filterStatus" className="emp-select" value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }}>
           <option value="">All Status</option>
           <option value="Active">Active</option><option value="Inactive">Inactive</option><option value="Resigned">Resigned</option>
         </select>
-        <select className="emp-select" value={filterDept} onChange={e => { setFilterDept(e.target.value); setPage(1); }}>
+        <select id="filterDept" name="filterDept" className="emp-select" value={filterDept} onChange={e => { setFilterDept(e.target.value); setPage(1); }}>
           <option value="">All Departments</option>
           {departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
         </select>
@@ -372,7 +372,7 @@ function EmployeesPage() {
               <div className="emp-photo-upload" onClick={() => fileRef.current.click()}>
                 {photoPreview ? <img src={photoPreview} alt="" className="emp-photo-preview" />
                   : <div className="emp-photo-placeholder">📷<br /><small>Click to upload</small></div>}
-                <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhotoChange} />
+                <input id="file_field" name="file_field" ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhotoChange} />
               </div>
               <div className="emp-form-grid">
                 {[["First Name *", "text", "first_name", true], ["Last Name *", "text", "last_name", true],
@@ -393,7 +393,7 @@ function EmployeesPage() {
                 <div className="emp-field">
                   <label>Phone (Sri Lanka) *</label>
                   <div style={{ position: "relative" }}>
-                    <input
+                    <input id="phone_no" name="phone_no"
                       type="text"
                       placeholder="e.g., 0712345678 (10 digits, numbers only)"
                       value={form.phone_no}
@@ -433,22 +433,22 @@ function EmployeesPage() {
                 <div className="emp-field"><label>Salary (LKR) *</label>
                   <input type="number" min="1" value={form.salary} onChange={e => setForm({ ...form, salary: e.target.value })} required /></div>
                 <div className="emp-field"><label>Salary Category *</label>
-                  <select value={form.salary_category} onChange={e => setForm({ ...form, salary_category: e.target.value })} required>
+                  <select id="salary_category" name="salary_category" value={form.salary_category} onChange={e => setForm({ ...form, salary_category: e.target.value })} required>
                     <option value="monthly">Monthly Worker</option>
                     <option value="daily">Daily Worker</option>
                   </select></div>
                 <div className="emp-field"><label>Join Date</label>
-                  <input type="date" value={form.join_date} max={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, join_date: e.target.value })} /></div>
+                  <input id="join_date" name="join_date" type="date" value={form.join_date} max={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, join_date: e.target.value })} /></div>
                 <div className="emp-field"><label>Department *</label>
                   <select value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })} required>
                     <option value=""></option>{departments.filter(d => d.status === "Active").map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
                   </select></div>
                 <div className="emp-field"><label>Status</label>
-                  <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+                  <select id="status" name="status" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
                     <option value="Active">Active</option><option value="Inactive">Inactive</option><option value="Resigned">Resigned</option>
                   </select></div>
                 <div className="emp-field emp-field-full"><label>Address</label>
-                  <textarea rows={2} value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Full address..." /></div>
+                  <textarea id="address" name="address" rows={2} value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Full address..." /></div>
               </div>
               <div className="emp-modal-footer">
                 <button type="button" className="emp-btn-cancel" onClick={closeModal}>Cancel</button>

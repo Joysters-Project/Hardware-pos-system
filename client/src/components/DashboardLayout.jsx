@@ -42,18 +42,9 @@ export default function DashboardLayout({ children, active }) {
     }
   };
 
-  /* Handle browser back button navigation:
-     - If user is on any non-dashboard page, back button automatically navigates to Dashboard.
-     - If user is on Dashboard, pressing back button (1, 2, or more times) asks for logout confirmation and NEVER enters login page.
-  */
+  /* Handle browser back button navigation without adding extra history entries. */
   useEffect(() => {
-    // Push history trap states to create a buffer against multiple rapid back presses
-    window.history.pushState({ inPosApp: true }, null, window.location.href);
-    window.history.pushState({ inPosApp: true }, null, window.location.href);
-
     const handlePopState = () => {
-      // Continuously re-push history trap state to keep user inside POS application frame
-      window.history.pushState({ inPosApp: true }, null, window.location.href);
       const targetDash = getDashboardPath();
       if (window.location.pathname === targetDash) {
         setShowLogoutModal(true);

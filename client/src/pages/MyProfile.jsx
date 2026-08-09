@@ -380,7 +380,7 @@ export default function MyProfile() {
 
               <div className="pf-crop-zoom-row">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
-                <input
+                <input id="imgScale" name="imgScale"
                   type="range"
                   className="pf-crop-slider"
                   min={minZoom}
@@ -434,7 +434,7 @@ export default function MyProfile() {
                 <Camera size={18} />
                 <span>Change</span>
               </button>
-              <input
+              <input id="file_field" name="file_field"
                 ref={overviewFileRef}
                 type="file"
                 accept="image/*"
@@ -590,19 +590,19 @@ export default function MyProfile() {
                 <div className="pf-field pf-field--full pf-field--icon">
                   <label>Current Password</label>
                   <Lock size={15} className="pf-field-icon" />
-                  <input type="password" value={pwd.current_password}
+                  <input id="current_password" name="current_password" type="password" value={pwd.current_password}
                     onChange={(e) => setPwd((p) => ({ ...p, current_password: e.target.value }))} />
                 </div>
                 <div className="pf-field pf-field--icon">
                   <label>New Password</label>
                   <Lock size={15} className="pf-field-icon" />
-                  <input type="password" value={pwd.new_password}
+                  <input id="new_password" name="new_password" type="password" value={pwd.new_password}
                     onChange={(e) => setPwd((p) => ({ ...p, new_password: e.target.value }))} />
                 </div>
                 <div className="pf-field pf-field--icon">
                   <label>Confirm New Password</label>
                   <Lock size={15} className="pf-field-icon" />
-                  <input type="password" value={pwd.confirm_password}
+                  <input id="confirm_password" name="confirm_password" type="password" value={pwd.confirm_password}
                     onChange={(e) => setPwd((p) => ({ ...p, confirm_password: e.target.value }))} />
                 </div>
               </div>

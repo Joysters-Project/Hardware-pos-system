@@ -157,20 +157,20 @@ function SalaryHistoryPage() {
       <div className="salary-filters">
         <div className="sal-search-wrap">
           <Search size={14} className="sal-search-icon" />
-          <input className="sal-search" placeholder="Search employee name..." value={search}
+          <input id="search" name="search" className="sal-search" placeholder="Search employee name..." value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
-        <select className="sal-select" value={filterEmp} onChange={e => { setFilterEmp(e.target.value); setPage(1); }}>
+        <select id="filterEmp" name="filterEmp" className="sal-select" value={filterEmp} onChange={e => { setFilterEmp(e.target.value); setPage(1); }}>
           <option value="">All Employees</option>
           {employees.map(e => (
             <option key={e.employee_id} value={e.employee_id}>{e.first_name} {e.last_name}</option>
           ))}
         </select>
-        <select className="sal-select" value={filterMonth} onChange={e => { setFilterMonth(e.target.value); setPage(1); }}>
+        <select id="filterMonth" name="filterMonth" className="sal-select" value={filterMonth} onChange={e => { setFilterMonth(e.target.value); setPage(1); }}>
           <option value="">All Months</option>
           {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
         </select>
-        <select className="sal-select" value={filterYear} onChange={e => { setFilterYear(e.target.value); setPage(1); }}>
+        <select id="filterYear" name="filterYear" className="sal-select" value={filterYear} onChange={e => { setFilterYear(e.target.value); setPage(1); }}>
           <option value="">All Years</option>
           {years.map(y => <option key={y} value={y}>{y}</option>)}
         </select>

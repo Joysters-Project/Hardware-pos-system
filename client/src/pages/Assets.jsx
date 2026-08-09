@@ -175,12 +175,12 @@ function AssetsPage() {
 
       <div className="asset-filters">
         <div className="asset-search-wrap"><Search size={14} className="asset-search-icon" />
-          <input className="asset-search" placeholder="Search asset name..." value={search}
+          <input id="search" name="search" className="asset-search" placeholder="Search asset name..." value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }} /></div>
-        <select className="asset-select" value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }}>
+        <select id="filterStatus" name="filterStatus" className="asset-select" value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }}>
           <option value="">All Status</option>{ASSET_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <select className="asset-select" value={filterDept} onChange={e => { setFilterDept(e.target.value); setPage(1); }}>
+        <select id="filterDept" name="filterDept" className="asset-select" value={filterDept} onChange={e => { setFilterDept(e.target.value); setPage(1); }}>
           <option value="">All Departments</option>
           {departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
         </select>
@@ -236,43 +236,43 @@ function AssetsPage() {
             <form onSubmit={handleSubmit} className="asset-modal-form">
               <div className="asset-form-grid">
                 <div className="asset-field asset-field-full"><label>Asset Name *</label>
-                  <input value={form.asset_name} onChange={e => setForm({ ...form, asset_name: e.target.value })} required /></div>
+                  <input id="asset_name" name="asset_name" value={form.asset_name} onChange={e => setForm({ ...form, asset_name: e.target.value })} required /></div>
                 <div className="asset-field"><label>Department *</label>
                   <select value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })} required>
                     <option value="">Select</option>{departments.filter(d => String(d.status || "").toLowerCase() === "active").map(d => <option key={d.department_id} value={d.department_id}>{getDeptLabel(d)}</option>)}
                   </select></div>
                 <div className="asset-field"><label>Cost (LKR) *</label>
-                  <input type="number" min="0" step="0.01" value={form.cost}
+                  <input id="cost" name="cost" type="number" min="0" step="0.01" value={form.cost}
                     onChange={e => setForm({ ...form, cost: e.target.value, expense_amount: e.target.value })} required /></div>
                 <div className="asset-field"><label>Purchase Date *</label>
-                  <input type="date" value={form.purchase_date} max={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, purchase_date: e.target.value })} required /></div>
+                  <input id="purchase_date" name="purchase_date" type="date" value={form.purchase_date} max={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, purchase_date: e.target.value })} required /></div>
                 <div className="asset-field"><label>Expiration Date</label>
-                  <input type="date" value={form.expiration_date} min={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, expiration_date: e.target.value })} /></div>
+                  <input id="expiration_date" name="expiration_date" type="date" value={form.expiration_date} min={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, expiration_date: e.target.value })} /></div>
                 <div className="asset-field"><label>Status</label>
-                  <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+                  <select id="status" name="status" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
                     {ASSET_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select></div>
                 <div className="asset-field"><label>Condition</label>
-                  <select value={form.condition_type} onChange={e => setForm({ ...form, condition_type: e.target.value })}>
+                  <select id="condition_type" name="condition_type" value={form.condition_type} onChange={e => setForm({ ...form, condition_type: e.target.value })}>
                     {CONDITION_TYPES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select></div>
                 {form.condition_type === "Other" && <div className="asset-field"><label>Custom Condition *</label>
-                  <input value={form.custom_condition} onChange={e => setForm({ ...form, custom_condition: e.target.value })} required /></div>}
+                  <input id="custom_condition" name="custom_condition" value={form.custom_condition} onChange={e => setForm({ ...form, custom_condition: e.target.value })} required /></div>}
               </div>
               {!editId && <div className="asset-expense-section">
                 <label className="asset-checkbox-label">
-                  <input type="checkbox" checked={form.add_as_expense} onChange={e => setForm({ ...form, add_as_expense: e.target.checked })} />
+                  <input id="checkbox_field" name="checkbox_field" type="checkbox" checked={form.add_as_expense} onChange={e => setForm({ ...form, add_as_expense: e.target.checked })} />
                   <span>Also add as an expense record</span>
                 </label>
                 {form.add_as_expense && <div className="asset-form-grid asset-expense-fields">
                   <div className="asset-field"><label>Expense Type</label>
-                    <select value={form.expense_type} onChange={e => setForm({ ...form, expense_type: e.target.value })}>
+                    <select id="expense_type" name="expense_type" value={form.expense_type} onChange={e => setForm({ ...form, expense_type: e.target.value })}>
                       {EXPENSE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                     </select></div>
                   <div className="asset-field"><label>Expense Amount</label>
-                    <input type="number" min="0" value={form.expense_amount} onChange={e => setForm({ ...form, expense_amount: e.target.value })} /></div>
+                    <input id="expense_amount" name="expense_amount" type="number" min="0" value={form.expense_amount} onChange={e => setForm({ ...form, expense_amount: e.target.value })} /></div>
                   <div className="asset-field asset-field-full"><label>Description</label>
-                    <input value={form.expense_description} onChange={e => setForm({ ...form, expense_description: e.target.value })} placeholder="Optional..." /></div>
+                    <input id="expense_description" name="expense_description" value={form.expense_description} onChange={e => setForm({ ...form, expense_description: e.target.value })} placeholder="Optional..." /></div>
                 </div>}
               </div>}
               <div className="asset-modal-footer">

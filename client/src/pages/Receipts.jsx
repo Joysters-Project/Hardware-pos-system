@@ -304,7 +304,7 @@ const Receipts = () => {
         <section className="receipt-filters">
           <label>
             <span>Customer / Phone</span>
-            <input
+            <input id="customerSearch" name="customerSearch"
               type="text"
               placeholder="Search customer name or phone"
               value={customerSearch}
@@ -313,7 +313,7 @@ const Receipts = () => {
           </label>
           <label>
             <span>Bill number</span>
-            <input
+            <input id="billSearch" name="billSearch"
               type="text"
               placeholder="Search bill no."
               value={billSearch}
@@ -322,7 +322,7 @@ const Receipts = () => {
           </label>
           <label>
             <span>Date</span>
-            <input
+            <input id="billDate" name="billDate"
               type="date"
               value={billDate}
               onChange={(event) => setBillDate(event.target.value)}

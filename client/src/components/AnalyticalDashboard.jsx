@@ -383,7 +383,7 @@ export default function AnalyticalDashboard() {
         <div className="ledger-controller">
           <div className="ledger-search-wrapper">
             <Search className="search-icon" size={18} />
-            <input
+            <input id="searchQuery" name="searchQuery"
               type="text"
               placeholder="Search Customer, Txn ID, or Value..."
               value={searchQuery}

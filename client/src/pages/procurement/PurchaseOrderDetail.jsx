@@ -38,20 +38,20 @@ function ItemCommentCell({ item, poId, supplierHasEmail }) {
   const sendCommentEmail   = useSendItemCommentEmail();
 
   const save = () => {
-    updateComment.mutate({ poId, itemId: item.id, comment: draft.trim() || null });
+    updateComment.mutate({ poId, itemId: item.product_id, comment: draft.trim() || null });
     setEditing(false);
   };
 
   const handleSendEmail = (e) => {
     e.stopPropagation();
     if (!item.comment?.trim()) return;
-    sendCommentEmail.mutate({ poId, itemId: item.id });
+    sendCommentEmail.mutate({ poId, itemId: item.product_id });
   };
 
   if (editing) {
     return (
       <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-        <textarea
+        <textarea id="draft" name="draft"
           autoFocus
           className="proc-input proc-textarea"
           style={{ fontSize: '0.78rem', minHeight: '52px', resize: 'vertical', padding: '5px 8px' }}
@@ -147,7 +147,6 @@ function ReceiveItemModal({ item, po, onClose }) {
     try {
       await receiveMutation.mutateAsync({
         po_id:                 po.po_id,
-        po_item_id:            item.id,
         product_id:            item.product_id,
         supplier_batch_number: form.supplier_batch_number.trim(),
         expiry_date:           form.expiry_date,
@@ -201,7 +200,7 @@ function ReceiveItemModal({ item, po, onClose }) {
             <div className="proc-form-grid">
               <div className="proc-field proc-field-full">
                 <label>Supplier Batch Number <span className="req">*</span></label>
-                <input
+                <input id="supplier_batch_number" name="supplier_batch_number"
                   className="proc-input"
                   placeholder="e.g. AP240701, LOT-2026-015"
                   value={form.supplier_batch_number}
@@ -212,7 +211,7 @@ function ReceiveItemModal({ item, po, onClose }) {
 
               <div className="proc-field">
                 <label>Received Quantity <span className="req">*</span></label>
-                <input
+                <input id="received_quantity" name="received_quantity"
                   className="proc-input"
                   type="number" min="1" max={item.quantity}
                   value={form.received_quantity}
@@ -222,7 +221,7 @@ function ReceiveItemModal({ item, po, onClose }) {
 
               <div className="proc-field">
                 <label>Received Date <span className="req">*</span></label>
-                <input
+                <input id="received_date" name="received_date"
                   className="proc-input"
                   type="date"
                   value={form.received_date}
@@ -232,7 +231,7 @@ function ReceiveItemModal({ item, po, onClose }) {
 
               <div className="proc-field proc-field-full">
                 <label>Expiry Date <span className="req">*</span></label>
-                <input
+                <input id="expiry_date" name="expiry_date"
                   className="proc-input"
                   type="date"
                   value={form.expiry_date}
@@ -560,7 +559,7 @@ export default function PurchaseOrderDetail() {
                 )}
                 <div className="proc-field">
                   <label>Cancellation Reason <span className="req">*</span></label>
-                  <textarea className="proc-input proc-textarea" rows={3} value={cancelReason}
+                  <textarea id="cancelReason" name="cancelReason" className="proc-input proc-textarea" rows={3} value={cancelReason}
                     onChange={e => setCancelReason(e.target.value)}
                     placeholder="Enter reason for cancellation…" />
                 </div>

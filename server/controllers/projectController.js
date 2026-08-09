@@ -268,6 +268,9 @@ exports.addProjectItem = async (req, res) => {
 
     await t.commit();
 
+    const io = req.app.get('io');
+    if (io) io.emit('products:updated');
+
     // Return item(s) with product details
     const fullItems = await db.project_items.findAll({
       where: { transaction_ref: transactionRef },
@@ -325,6 +328,8 @@ exports.deleteTodayProductSales = async (req, res) => {
     }
 
     await t.commit();
+    const io = req.app.get('io');
+    if (io) io.emit('products:updated');
     res.json({ message: 'Product sales removed for today', removed: items.length });
   } catch (err) {
     await t.rollback();
@@ -381,6 +386,9 @@ exports.deleteProjectItem = async (req, res) => {
     await item.destroy({ transaction: t });
     await t.commit();
     console.log(`[Projects] ↩️  Removed item_id: ${req.params.itemId}, stock restored`);
+
+    const io = req.app.get('io');
+    if (io) io.emit('products:updated');
 
     // Notify Admin via Email asynchronously
     emailService.sendProjectItemRemovedNotification(itemDetails).catch((err) => {

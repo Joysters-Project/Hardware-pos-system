@@ -21,6 +21,7 @@ import {
 import toast from 'react-hot-toast';
 import api from '../api/axios';
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
+import { subscribeToEvent } from '../services/socketSingleton';
 import { buildTableHtml, escapeHtml, printWithTemplate } from '../utils/printTemplate';
 import '../styles/ProjectsTab.css';
 
@@ -104,6 +105,11 @@ export default function ProjectsTab() {
     init();
   }, []);
 
+  // Re-fetch products whenever another module changes stock
+  useEffect(() => {
+    return subscribeToEvent('products:updated', loadProducts);
+  }, []);
+
   useEffect(() => {
     if (selectedProject) {
       loadProjectData(selectedProject.project_id);
@@ -119,11 +125,15 @@ export default function ProjectsTab() {
 
     const query = searchQ.toLowerCase();
     const results = products.filter((product) => {
+      const altBarcodeMatch = (product.alternative_units || []).some(au =>
+        String(au.barcode || '').toLowerCase().includes(query)
+      );
       return (
         product.product_name?.toLowerCase().includes(query) ||
         String(product.product_id).includes(query) ||
         String(product.product_code || '').toLowerCase().includes(query) ||
-        String(product.barcode || '').toLowerCase().includes(query)
+        String(product.barcode || '').toLowerCase().includes(query) ||
+        altBarcodeMatch
       );
     }).slice(0, 8);
 
@@ -179,11 +189,15 @@ export default function ProjectsTab() {
   const catalogProducts = products.filter((product) => {
     if (!searchQ.trim()) return true;
     const query = searchQ.toLowerCase();
+    const altBarcodeMatch = (product.alternative_units || []).some(au =>
+      String(au.barcode || '').toLowerCase().includes(query)
+    );
     return (
       product.product_name?.toLowerCase().includes(query) ||
       String(product.product_id).includes(query) ||
       String(product.product_code || '').toLowerCase().includes(query) ||
-      String(product.barcode || '').toLowerCase().includes(query)
+      String(product.barcode || '').toLowerCase().includes(query) ||
+      altBarcodeMatch
     );
   });
 
@@ -513,7 +527,7 @@ export default function ProjectsTab() {
 
         <div className="pt-project-search-bar">
           <Search size={16} className="pt-search-icon" />
-          <input
+          <input id="projectSearchQ" name="projectSearchQ"
             placeholder="Type to search active project by name, owner, or location..."
             value={projectSearchQ}
             onChange={(event) => setProjectSearchQ(event.target.value)}
@@ -565,38 +579,18 @@ export default function ProjectsTab() {
             <div className="pt-project-transaction-shell">
               <div className="pt-billing-layout">
                 <div className="pt-billing-left">
-                  <div className="pt-card-box pt-project-catalog-card">
+                  <div className="pt-card-box pt-selected-products-box">
                     <div className="pt-box-header">
                       <span className="pt-box-title">
-                        <Package size={18} /> Product Catalog
-                        <span className="pt-badge">{catalogProducts.length}</span>
+                        <ShoppingCart size={18} /> Selected Products
+                        <span className="pt-badge">{cartItemCount}</span>
                       </span>
-                      <div className="pt-catalog-view-toggle">
-                        <button
-                          type="button"
-                          className={`pt-view-btn ${catalogView === 'grid' ? 'active' : ''}`}
-                          onClick={() => setCatalogView('grid')}
-                          title="Grid view"
-                          aria-label="Grid view"
-                        >
-                          <Grid3x3 size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          className={`pt-view-btn ${catalogView === 'list' ? 'active' : ''}`}
-                          onClick={() => setCatalogView('list')}
-                          title="List view"
-                          aria-label="List view"
-                        >
-                          <List size={14} />
-                        </button>
-                      </div>
                     </div>
 
-                    <div className="pt-search-wrap">
+                    <div className="pt-search-wrap" style={{ padding: '12px 16px 8px' }}>
                       <div className="pt-search-bar">
                         <Search size={15} className="pt-search-icon" />
-                        <input
+                        <input id="searchQ" name="searchQ"
                           ref={searchInputRef}
                           placeholder="Search product by name, barcode, SKU, or ID..."
                           value={searchQ}
@@ -634,73 +628,6 @@ export default function ProjectsTab() {
                       )}
                     </div>
 
-                    {loadingProjectData ? (
-                      <div className="pt-loading">Loading catalog...</div>
-                    ) : catalogProducts.length === 0 ? (
-                      <div className="pt-empty">No active products available.</div>
-                    ) : (
-                      catalogView === 'grid' ? (
-                        <div className="pt-catalog-grid">
-                          {catalogProducts.map((product) => (
-                            <button
-                              key={product.product_id}
-                              type="button"
-                              className={`pt-catalog-card ${product.stock_quantity <= 0 ? 'disabled' : ''} ${getStockClass(product.stock_quantity)}`}
-                              onClick={() => product.stock_quantity > 0 && addToCart(product)}
-                              disabled={product.stock_quantity <= 0}
-                            >
-                              <div className="pt-catalog-card-icon">
-                                <Package size={20} />
-                              </div>
-                              <div className="pt-catalog-card-name">{product.product_name}</div>
-                              <div className="pt-catalog-card-code">{product.product_code || `ID: ${product.product_id}`}</div>
-                              <div className="pt-catalog-card-footer">
-                                <div className="pt-catalog-card-price">Rs.{Number(product.unit_price).toFixed(2)}</div>
-                                <div className={`pt-catalog-card-stock ${getStockClass(product.stock_quantity)}`}>
-                                  {getStockLabel(product.stock_quantity)}
-                                </div>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="pt-catalog-list">
-                          {catalogProducts.map((product) => (
-                            <button
-                              key={product.product_id}
-                              type="button"
-                              className={`pt-catalog-list-item ${product.stock_quantity <= 0 ? 'disabled' : ''} ${getStockClass(product.stock_quantity)}`}
-                              onClick={() => product.stock_quantity > 0 && addToCart(product)}
-                              disabled={product.stock_quantity <= 0}
-                            >
-                              <div className="pt-catalog-card-icon pt-list-icon">
-                                <Package size={18} />
-                              </div>
-                              <div className="pt-list-item-info">
-                                <div className="pt-catalog-card-name">{product.product_name}</div>
-                                <div className="pt-catalog-card-code">{product.product_code || `ID: ${product.product_id}`}</div>
-                              </div>
-                              <div className="pt-list-item-right">
-                                <div className="pt-catalog-card-price">Rs.{Number(product.unit_price).toFixed(2)}</div>
-                                <div className={`pt-catalog-card-stock ${getStockClass(product.stock_quantity)}`}>
-                                  {getStockLabel(product.stock_quantity)}
-                                </div>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )
-                    )}
-                  </div>
-
-                  <div className="pt-card-box pt-selected-products-box">
-                    <div className="pt-box-header">
-                      <span className="pt-box-title">
-                        <ShoppingCart size={18} /> Selected Products
-                        <span className="pt-badge">{cartItemCount}</span>
-                      </span>
-                    </div>
-
                     {cart.length === 0 ? (
                       <div className="pt-empty">Search and select products to begin the transaction.</div>
                     ) : (
@@ -725,7 +652,7 @@ export default function ProjectsTab() {
                                   </div>
                                 </td>
                                 <td style={{ textAlign: 'center' }}>
-                                  <select
+                                  <select id="select_field" name="select_field"
                                     className={`unit-select-table ${item.available_units && item.available_units.length > 1 ? 'multi' : 'single'}`}
                                     value={item.selected_unit_id || ''}
                                     onChange={(e) => handleUnitChange(item.product_id, e.target.value)}
@@ -742,7 +669,7 @@ export default function ProjectsTab() {
                                 </td>
                                 <td className="pt-cart-price-cell" style={{ textAlign: 'center' }}>{currency(item.unit_price)}</td>
                                 <td style={{ textAlign: 'center' }}>
-                                  <input
+                                  <input id="quantity" name="quantity"
                                     type="number"
                                     className="pt-cart-qty-input"
                                     value={item.quantity}
@@ -784,7 +711,7 @@ export default function ProjectsTab() {
                         <label>Receiver Name *</label>
                         <div className="pt-input-with-icon">
                           <User size={15} className="pt-input-icon" />
-                          <input
+                          <input id="receiverName" name="receiverName"
                             ref={receiverNameRef}
                             placeholder="e.g. John Silva"
                             value={receiverName}
@@ -798,7 +725,7 @@ export default function ProjectsTab() {
                         <label>Receiver Phone Number *</label>
                         <div className="pt-input-with-icon">
                           <Phone size={15} className="pt-input-icon" />
-                          <input
+                          <input id="receiverPhone" name="receiverPhone"
                             ref={receiverPhoneRef}
                             placeholder="e.g. 0712345678 (10 digits)"
                             value={receiverPhone}
@@ -978,7 +905,7 @@ export default function ProjectsTab() {
 
             <div className="pt-delete-reason-field">
               <label>Reason for Deletion *</label>
-              <textarea
+              <textarea id="deleteReason" name="deleteReason"
                 rows={3}
                 value={deleteReason}
                 onChange={(e) => setDeleteReason(e.target.value)}

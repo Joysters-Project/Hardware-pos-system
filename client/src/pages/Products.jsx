@@ -129,7 +129,7 @@ function UnitsManagerModal({ units, onClose, onRefresh }) {
 
         {/* Add new unit row */}
         <div className="units-add-row">
-          <input
+          <input id="newName" name="newName"
             type="text"
             placeholder="New unit name (e.g. Box, Roll, Kg)…"
             value={newName}
@@ -154,7 +154,7 @@ function UnitsManagerModal({ units, onClose, onRefresh }) {
                 <span className="unit-item-id">#{u.unit_id}</span>
 
                 {editingId === u.unit_id ? (
-                  <input
+                  <input id="editName" name="editName"
                     className="unit-item-edit-input"
                     value={editName}
                     autoFocus
@@ -500,7 +500,7 @@ function ProductsPage() {
 
       {/* Search */}
       <div className="search-bar-wrap">
-        <input
+        <input id="search" name="search"
           className="search"
           placeholder="Search by ID, name, type, batch, or barcode…"
           value={search}
@@ -700,7 +700,7 @@ function ProductsPage() {
                 {editAltUnits.map((au, idx) => (
                   <div key={idx} className="alt-unit-edit-row">
                     <div className="modal-field">
-                      <select
+                      <select id="unit_id" name="unit_id"
                         value={au.unit_id}
                         onChange={(e) => handleAltUnitChange(idx, "unit_id", e.target.value)}
                       >
@@ -717,7 +717,7 @@ function ProductsPage() {
                       </select>
                     </div>
                     <div className="modal-field">
-                      <input
+                      <input id="conversion_factor" name="conversion_factor"
                         type="number"
                         min="0.0001"
                         step="0.0001"
@@ -727,7 +727,7 @@ function ProductsPage() {
                       />
                     </div>
                     <div className="modal-field">
-                      <input
+                      <input id="unit_price" name="unit_price"
                         type="number"
                         min="0"
                         step="0.01"
@@ -737,7 +737,7 @@ function ProductsPage() {
                       />
                     </div>
                     <div className="modal-field">
-                      <input
+                      <input id="cost_price" name="cost_price"
                         type="number"
                         min="0"
                         step="0.01"

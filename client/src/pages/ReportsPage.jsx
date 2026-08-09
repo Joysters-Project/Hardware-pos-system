@@ -376,20 +376,20 @@ function SalesReport() {
 
       {/* Filters */}
       <div className="rp-filters">
-        <input placeholder="Search Bill No / Customer / Phone" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+        <input id="search" name="search" placeholder="Search Bill No / Customer / Phone" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
         {!isCashier && (
           <>
             <div className="rp-date-group">
               <label>From</label>
-              <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} />
+              <input id="dateFrom" name="dateFrom" type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} />
             </div>
             <div className="rp-date-group">
               <label>To</label>
-              <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} />
+              <input id="dateTo" name="dateTo" type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} />
             </div>
           </>
         )}
-        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
+        <select id="statusFilter" name="statusFilter" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
           <option value="">All Status</option>
           <option value="PAID">Paid</option>
           <option value="PARTIAL">Partial (Borrowed)</option>
@@ -804,13 +804,13 @@ const filteredReturns = useMemo(() => {
 
       {/* Filters */}
       <div className="rp-filters">
-        <input
+        <input id="search" name="search"
           placeholder="Search Return ID / Bill No / Customer"
           value={search}
           onChange={e => { setSearch(e.target.value); setPage(1); }}
           style={{ minWidth: '260px' }}
         />
-        <select value={filter} onChange={e => { setFilter(e.target.value); setPage(1); }}>
+        <select id="filter" name="filter" value={filter} onChange={e => { setFilter(e.target.value); setPage(1); }}>
           <option value="">All Destinations</option>
           <option value="STOCK">Stock</option>
           <option value="REPAIR">Repair</option>
@@ -819,7 +819,7 @@ const filteredReturns = useMemo(() => {
         </select>
 
         {isManagerOrAdmin && (
-          <select value={dateFilter} onChange={e => { setDateFilter(e.target.value); setPage(1); }}>
+          <select id="dateFilter" name="dateFilter" value={dateFilter} onChange={e => { setDateFilter(e.target.value); setPage(1); }}>
             <option value="all">All Time</option>
             <option value="today">Today</option>
             <option value="this_month">This Month</option>
@@ -1174,16 +1174,16 @@ function BorrowReport() {
       </div>
 
       <div className="rp-filters">
-        <input placeholder="Search Bill No / Customer / Phone" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+        <input id="search" name="search" placeholder="Search Bill No / Customer / Phone" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
         {!isCashier && (
           <>
             <div className="rp-date-group">
               <label>From</label>
-              <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} />
+              <input id="dateFrom" name="dateFrom" type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} />
             </div>
             <div className="rp-date-group">
               <label>To</label>
-              <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} />
+              <input id="dateTo" name="dateTo" type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} />
             </div>
           </>
         )}

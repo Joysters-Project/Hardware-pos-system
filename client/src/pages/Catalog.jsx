@@ -349,7 +349,7 @@ function Catalog() {
             <h3>Add New {getSingularCapitalized(activeTab)}</h3>
             <form onSubmit={handleAdd} className="add-form">
               <div className="add-input-wrapper">
-                <input
+                <input id="name" name="name"
   type="text"
   placeholder={`Enter new ${getSingular(activeTab)} name...`}
   value={formData.name}
@@ -379,7 +379,7 @@ function Catalog() {
             <div className="controller-left">
               <div className="search-box-wrapper">
                 <Search className="search-icon" size={18} />
-                <input
+                <input id="searchQuery" name="searchQuery"
                   type="text"
                   placeholder={`Filter ${activeTab}...`}
                   value={searchQuery}
@@ -411,7 +411,7 @@ function Catalog() {
               </span>
 
               <div className="page-size-selector">
-                <select
+                <select id="pageSize" name="pageSize"
                   value={pageSize}
                   onChange={(e) => {
                     setPageSize(Number(e.target.value));
@@ -473,7 +473,7 @@ function Catalog() {
                       <div className="card-info-left">
                         <span className="card-badge-id">ID #{itemId}</span>
                         {isEditing ? (
-                          <input
+                          <input id="editingName" name="editingName"
                             type="text"
                             value={editingName}
                             onChange={(e) => setEditingName(e.target.value)}

@@ -4,20 +4,23 @@ import {
   Search, Package, X, Minus, Plus, Trash2, ShoppingCart,
   CreditCard, Printer, Download, XCircle, CheckCircle,
   User, Phone, MapPin, DollarSign, Receipt, Tag,
-  AlertCircle, AlertTriangle, Grid3x3, List, ArrowRight, Sparkles,
+  AlertCircle, AlertTriangle, ArrowRight, Sparkles,
   TrendingUp, Clock, Zap, LayoutGrid, ListOrdered, FolderOpen
 } from 'lucide-react';
 import api from '../api/axios';
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
+import { subscribeToEvent } from '../services/socketSingleton';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import { printWithTemplate } from '../utils/printTemplate';
 import SuccessAnim from './SuccessAnim';
 import DashboardLayout from './DashboardLayout';
-import toast from 'react-hot-toast';
 import ProjectsTab from './ProjectsTab';
+import toast from 'react-hot-toast';
 import '../styles/BillingSystem.css';
 
 const BillingSystem = () => {
-  const [posTab, setPosTab] = useState('billing');
+  const [activePosTab, setActivePosTab] = useState('billing');
   const [cart, setCart] = useState([]);
   const [payData, setPayData] = useState({ amountPaid: '', customerName: '', customerPhone: '', customerAddress: '' });
   const [customerExists, setCustomerExists] = useState(false);
@@ -28,8 +31,6 @@ const BillingSystem = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
-  const [catalogProducts, setCatalogProducts] = useState([]);
-  const [catalogView, setCatalogView] = useState('grid');
   const [recentItems, setRecentItems] = useState([]);
   const [showExpiredModal, setShowExpiredModal] = useState(false);
   const [expiredProduct, setExpiredProduct] = useState(null);
@@ -60,26 +61,15 @@ const BillingSystem = () => {
     try {
       const res = await api.get('/products');
       const products = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-      setCatalogProducts(products.filter((product) => isProductActive(product)));
+      setCatalogProducts(products);
     } catch (err) {
       console.error('Failed to load catalog:', err);
     }
   };
 
   // Load catalog products and recent items from localStorage
+  // Load recent items from localStorage
   useEffect(() => {
-    const loadCatalog = async () => {
-      try {
-        const res = await api.get('/products');
-        const products = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-        setCatalogProducts(products);
-      } catch (err) {
-        console.error('Failed to load catalog:', err);
-      }
-    };
-    loadCatalog();
-
-    // Load recent items from localStorage
     const savedRecent = localStorage.getItem('recentCartItems');
     if (savedRecent) {
       try {
@@ -87,6 +77,24 @@ const BillingSystem = () => {
       } catch (e) { }
     }
   }, []);
+
+  // Re-fetch catalog whenever another module changes stock
+  useEffect(() => {
+    return subscribeToEvent('products:updated', refreshCatalog);
+  }, []);
+
+  // Sync searchResults and cart stock quantities whenever catalogProducts refreshes
+  useEffect(() => {
+    if (catalogProducts.length === 0) return;
+    const stockMap = {};
+    catalogProducts.forEach(p => { stockMap[p.product_id] = p.stock_quantity; });
+    setSearchResults(prev =>
+      prev.map(p => p.product_id in stockMap ? { ...p, stock_quantity: stockMap[p.product_id] } : p)
+    );
+    setCart(prev =>
+      prev.map(item => item.product_id in stockMap ? { ...item, stock_quantity: stockMap[item.product_id] } : item)
+    );
+  }, [catalogProducts]);
 
   // Save recent items to localStorage when cart changes
   useEffect(() => {
@@ -332,6 +340,63 @@ const BillingSystem = () => {
     }
   };
 
+  // Handle Enter key for fast Barcode Scanner input
+  const handleSearchKeyDown = async (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const query = searchQuery.trim();
+      if (!query) return;
+
+      let items = searchResults;
+      if (items.length === 0) {
+        try {
+          const res = await api.get('/products/search', { params: { q: query } });
+          items = Array.isArray(res.data) ? res.data : [];
+        } catch (err) {
+          console.error('Barcode search error:', err);
+        }
+      }
+
+      if (items.length === 0) {
+        toast.error(`No product found for barcode/query "${query}"`);
+        return;
+      }
+
+      // Check exact barcode match on main product or alternative units
+      let matchedProduct = items.find(p =>
+        String(p.barcode || '').trim().toLowerCase() === query.toLowerCase()
+      );
+      let matchedAltUnitId = null;
+
+      if (!matchedProduct) {
+        for (const p of items) {
+          const alt = (p.alternative_units || []).find(au =>
+            String(au.barcode || '').trim().toLowerCase() === query.toLowerCase()
+          );
+          if (alt) {
+            matchedProduct = p;
+            matchedAltUnitId = alt.unit_id;
+            break;
+          }
+        }
+      }
+
+      // Fallback if exactly 1 search result returned
+      if (!matchedProduct && items.length === 1) {
+        matchedProduct = items[0];
+      }
+
+      if (matchedProduct) {
+        handleAddToCart(matchedProduct, matchedAltUnitId);
+        setSearchQuery('');
+        setSearchResults([]);
+        setShowResults(false);
+      } else if (items.length > 1) {
+        setShowResults(true);
+      }
+    }
+  };
+
   const getSellabilityError = (product) => {
     const isInactive = String(product.status).toLowerCase() === 'inactive';
     if (isInactive) return `"${product.product_name}" is inactive and cannot be sold.`;
@@ -392,7 +457,7 @@ const BillingSystem = () => {
   };
 
   // Add product to cart
-  const handleAddToCart = async (product) => {
+  const handleAddToCart = async (product, targetUnitId = null) => {
     // 1. Block only explicitly inactive products
     const isInactive = String(product.status).toLowerCase() === 'inactive';
     if (isInactive) {
@@ -461,12 +526,17 @@ const BillingSystem = () => {
 
     const availableUnits = [baseUnit, ...altUnits];
 
-    // Check if item exists in the cart with the same unit_id
-    const existingItem = cart.find(item => item.product_id === product.product_id && item.selected_unit_id === parseInt(product.unit_id));
+    // Determine target unit
+    const chosenUnit = targetUnitId
+      ? (availableUnits.find(u => u.unit_id === parseInt(targetUnitId)) || baseUnit)
+      : baseUnit;
+
+    // Check if item exists in the cart with the same selected_unit_id
+    const existingItem = cart.find(item => item.product_id === product.product_id && item.selected_unit_id === chosenUnit.unit_id);
 
     if (existingItem) {
       setCart(cart.map(item =>
-        item.product_id === product.product_id && item.selected_unit_id === parseInt(product.unit_id)
+        item.product_id === product.product_id && item.selected_unit_id === chosenUnit.unit_id
           ? { ...item, quantity: item.quantity + 1 }
           : item
       ));
@@ -474,12 +544,13 @@ const BillingSystem = () => {
       setCart([...cart, {
         product_id: product.product_id,
         product_name: product.product_name,
-        unit_price: parseFloat(product.unit_price),
-        price: parseFloat(product.unit_price),
+        unit_price: parseFloat(chosenUnit.unit_price),
+        price: parseFloat(chosenUnit.unit_price),
+        cost_price: parseFloat(product.cost_price || 0),
         quantity: 1,
-        selected_unit_id: parseInt(product.unit_id),
-        selected_unit_name: baseUnitName,
-        conversion_factor: 1.0,
+        selected_unit_id: chosenUnit.unit_id,
+        selected_unit_name: chosenUnit.unit_name,
+        conversion_factor: chosenUnit.conversion_factor,
         available_units: availableUnits,
         discount: 0
       }]);
@@ -521,9 +592,26 @@ const BillingSystem = () => {
     ));
   };
 
+  const handleUpdateDiscount = (index, value) => {
+    const discountValue = parseFloat(value);
+    if (!Number.isFinite(discountValue) || discountValue < 0) {
+      return;
+    }
+    setCart(cart.map((item, i) => {
+      if (i !== index) return item;
+      return { ...item, discount: discountValue };
+    }));
+  };
+
+  const cartHasInvalidDiscount = cart.some((item) => {
+    const finalSellingPrice = (item.unit_price * item.quantity) - (item.discount || 0);
+    return finalSellingPrice < (item.cost_price || 0) * item.quantity;
+  });
+
   // Totals Calculation
   const subtotal = cart.reduce((acc, i) => acc + (i.unit_price * i.quantity), 0);
-  const total = subtotal;
+  const totalDiscount = cart.reduce((acc, i) => acc + (i.discount || 0), 0);
+  const total = subtotal - totalDiscount;
   const amountPaid = Number(payData.amountPaid);
   const amountPaidValue = Number.isFinite(amountPaid) ? amountPaid : 0;
   const balance = amountPaidValue - total;
@@ -536,6 +624,9 @@ const BillingSystem = () => {
 
   const handleCheckout = async () => {
     if (cart.length === 0) return alert("Cart is empty!");
+    if (cartHasInvalidDiscount) {
+      return alert("One or more items have a discount that makes final price lower than cost price. Please adjust discount.");
+    }
     if (amountPaidValue <= 0) return alert("Enter the amount received before completing transaction!");
     // Validate phone number if provided
     if (payData.customerPhone.trim()) {
@@ -567,7 +658,7 @@ const BillingSystem = () => {
         })),
         subtotal,
         total_amount: total,
-        discount: 0,
+        discount: totalDiscount,
         amount_paid: amountPaidValue,
         balance_due: isPartial ? Math.abs(balance) : 0,
         customer: (saveCustomer || customerExists || isPartial) && payData.customerPhone ? { name: payData.customerName, phone: payData.customerPhone, address: payData.customerAddress } : null,
@@ -582,6 +673,7 @@ const BillingSystem = () => {
 
       setLastBill({
         ...res.data.data,
+        discount: totalDiscount,
         items: cart.map(item => ({
           ...item,
           billed_quantity: item.quantity,
@@ -600,13 +692,6 @@ const BillingSystem = () => {
       setCustomerExists(false);
       setCustomerLookupMessage('');
       setPhoneError('');
-
-      // Reload catalog to reflect updated stock
-      try {
-        const catRes = await api.get('/products');
-        const products = Array.isArray(catRes.data) ? catRes.data : (catRes.data?.data || []);
-        setCatalogProducts(products);
-      } catch (e) { /* silent */ }
     } catch (err) { alert(err.response?.data?.error || "Error"); }
   };
 
@@ -650,12 +735,20 @@ const BillingSystem = () => {
       <div className="admin-page-header-modern">
         <div className="header-left">
           <div className="header-icon-wrapper">
-            <CreditCard size={24} className="header-icon" />
+            {activePosTab === 'billing' ? (
+              <CreditCard size={24} className="header-icon" />
+            ) : (
+              <FolderOpen size={24} className="header-icon" />
+            )}
           </div>
           <div>
-            <h1 className="admin-page-title-modern">Billing Counter</h1>
+            <h1 className="admin-page-title-modern">
+              {activePosTab === 'billing' ? 'Billing Counter' : 'Project Billing Counter'}
+            </h1>
             <p className="admin-page-subtitle-modern">
-              Process sales, manage cart & complete transactions
+              {activePosTab === 'billing'
+                ? 'Process sales, manage cart & complete transactions'
+                : 'Select project, issue items, & track project transactions'}
             </p>
           </div>
         </div>
@@ -671,40 +764,43 @@ const BillingSystem = () => {
         </div>
       </div>
 
+      {/* POS Tab Switcher */}
       <div className="pos-tab-switcher">
         <button
-          className={`pos-tab-btn ${posTab === 'billing' ? 'active' : ''}`}
-          onClick={() => setPosTab('billing')}
+          type="button"
+          className={`pos-tab-btn ${activePosTab === 'billing' ? 'active' : ''}`}
+          onClick={() => setActivePosTab('billing')}
         >
-          <ShoppingCart size={16} />
-          Billing Counter
+          <CreditCard size={16} />
+          <span>Billing Counter</span>
         </button>
         <button
-          className={`pos-tab-btn ${posTab === 'projects' ? 'active' : ''}`}
-          onClick={() => setPosTab('projects')}
+          type="button"
+          className={`pos-tab-btn ${activePosTab === 'projects' ? 'active' : ''}`}
+          onClick={() => setActivePosTab('projects')}
         >
           <FolderOpen size={16} />
-          Projects
+          <span>Project Billing Counter</span>
         </button>
       </div>
 
-      {posTab === 'projects' && <ProjectsTab />}
-
-      {posTab === 'billing' && (
+      {activePosTab === 'projects' ? (
+        <ProjectsTab />
+      ) : (
         <div className="pos-terminal-modern">
-          {/* LEFT PANEL: Search + Product Catalog */}
+          {/* LEFT PANEL: Search and selected items */}
           <div className="pos-left-modern">
             {/* Enhanced Search Bar */}
             <div className="pos-search-container-modern">
               <div className="pos-search-bar-modern">
                 <Search size={18} className="pos-search-icon-modern" />
-                <input
+                <input id="pos-search" name="searchQuery"
                   ref={searchInputRef}
                   className="pos-search-input-modern"
                   placeholder="Search products by name, barcode, SKU..."
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
-                  id="pos-search"
+                  onKeyDown={handleSearchKeyDown}
                 />
                 {searchQuery && (
                   <button
@@ -722,32 +818,39 @@ const BillingSystem = () => {
                 <div className="pos-search-dropdown-modern">
                   <div className="search-results-header">
                     <span>Products found ({searchResults.length})</span>
-                    <span className="hint-text">Click to add</span>
+                    <span className="hint-text">Click or Press Enter to add</span>
                   </div>
-                  {searchResults.map((product) => (
-                    <div
-                      key={product.product_id}
-                      className="pos-search-result-modern"
-                      onClick={() => handleAddToCart(product)}
-                    >
-                      <div className="result-icon">
-                        <Package size={18} />
-                      </div>
-                      <div className="result-info">
-                        <div className="result-name">{product.product_name}</div>
-                        <div className="result-meta">
-                          {product.product_code && `Code: ${product.product_code}`}
-                          {product.barcode && ` · Barcode: ${product.barcode}`}
+                  {searchResults.map((product) => {
+                    const allBarcodes = Array.from(new Set([
+                      product.barcode,
+                      ...(product.alternative_units || []).map(au => au.barcode)
+                    ].filter(Boolean))).join(', ');
+
+                    return (
+                      <div
+                        key={product.product_id}
+                        className="pos-search-result-modern"
+                        onClick={() => handleAddToCart(product)}
+                      >
+                        <div className="result-icon">
+                          <Package size={18} />
+                        </div>
+                        <div className="result-info">
+                          <div className="result-name">{product.product_name}</div>
+                          <div className="result-meta">
+                            {product.product_code && `Code: ${product.product_code}`}
+                            {allBarcodes && ` · Barcode: ${allBarcodes}`}
+                          </div>
+                        </div>
+                        <div className="result-right">
+                          <div className="result-price">Rs.{parseFloat(product.unit_price).toFixed(2)}</div>
+                          <div className={`result-stock ${product.stock_quantity <= 10 ? 'low' : ''}`}>
+                            Stock: {product.stock_quantity}
+                          </div>
                         </div>
                       </div>
-                      <div className="result-right">
-                        <div className="result-price">Rs.{parseFloat(product.unit_price).toFixed(2)}</div>
-                        <div className={`result-stock ${product.stock_quantity <= 10 ? 'low' : ''}`}>
-                          Stock: {product.stock_quantity}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
@@ -756,98 +859,6 @@ const BillingSystem = () => {
                   <div className="no-results-icon"></div>
                   <div>No products found for "{searchQuery.trim()}"</div>
                   <div className="no-results-hint">Try searching by name, barcode or SKU</div>
-                </div>
-              )}
-            </div>
-
-            <div className="pos-catalog-header-modern">
-              <div className="catalog-title">
-                <Package size={18} />
-                <span>Product Catalog</span>
-                <span className="catalog-count">{catalogProducts.length}</span>
-              </div>
-              <div className="catalog-view-toggle">
-                <button
-                  className={`view-btn ${catalogView === 'grid' ? 'active' : ''}`}
-                  onClick={() => setCatalogView('grid')}
-                >
-                  <Grid3x3 size={16} />
-                </button>
-                <button
-                  className={`view-btn ${catalogView === 'list' ? 'active' : ''}`}
-                  onClick={() => setCatalogView('list')}
-                >
-                  <List size={16} />
-                </button>
-              </div>
-            </div>
-
-            <div className="pos-catalog-modern">
-              {catalogProducts.length === 0 ? (
-                <div className="catalog-empty">
-                  <div className="empty-icon">ðŸ“¦</div>
-                  <div className="empty-text">No products available</div>
-                  <div className="empty-sub">Add products from the Products page</div>
-                </div>
-              ) : catalogView === 'grid' ? (
-                <div className="catalog-grid-modern">
-                  {catalogProducts.map((product) => (
-                    <div
-                      key={product.product_id}
-                      className={`product-card-modern ${isProductExpired(product) ? 'expired' : ''} ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
-                      onClick={() => handleAddToCart(product)}
-                    >
-                      {isProductExpired(product) && (
-                        <div className="expired-badge">EXPIRED</div>
-                      )}
-                      <div className="product-card-icon">
-                        <Package size={20} />
-                      </div>
-                      <div className="product-card-name">{product.product_name}</div>
-                      <div className="product-card-sku">
-                        {product.product_code || `ID: ${product.product_id}`}
-                      </div>
-                      {isProductExpired(product) && (
-                        <div className="expired-date-text">Expired on {formatExpiryDate(product.expiry_date)}</div>
-                      )}
-                      <div className="product-card-bottom">
-                        <div className="product-card-price">Rs.{parseFloat(product.unit_price).toFixed(2)}</div>
-                        <div className={`product-card-stock ${getStockClass(product.stock_quantity)}`}>
-                          {getStockLabel(product.stock_quantity)}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="catalog-list-modern">
-                  {catalogProducts.map((product) => (
-                    <div
-                      key={product.product_id}
-                      className={`product-list-item ${isProductExpired(product) ? 'expired' : ''} ${product.stock_quantity <= 0 ? 'disabled' : ''}`}
-                      onClick={() => handleAddToCart(product)}
-                    >
-                      {isProductExpired(product) && (
-                        <div className="expired-badge-list">EXPIRED</div>
-                      )}
-                      <div className="list-item-icon">
-                        <Package size={18} />
-                      </div>
-                      <div className="list-item-info">
-                        <div className="list-item-name">{product.product_name}</div>
-                        <div className="list-item-code">{product.product_code || `ID: ${product.product_id}`}</div>
-                        {isProductExpired(product) && (
-                          <div className="expired-date-text-list">Expired on {formatExpiryDate(product.expiry_date)}</div>
-                        )}
-                      </div>
-                      <div className="list-item-right">
-                        <div className="list-item-price">Rs.{parseFloat(product.unit_price).toFixed(2)}</div>
-                        <div className={`list-item-stock ${getStockClass(product.stock_quantity)}`}>
-                          {getStockLabel(product.stock_quantity)}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
                 </div>
               )}
             </div>
@@ -875,7 +886,8 @@ const BillingSystem = () => {
                         <th style={{ minWidth: '90px' }}>Product</th>
                         <th style={{ width: '100px', textAlign: 'center' }}>Unit</th>
                         <th style={{ width: '75px', textAlign: 'center' }}>Qty</th>
-                        <th style={{ width: '85px', textAlign: 'right' }}>Subtotal</th>
+                        <th style={{ width: '95px', textAlign: 'center' }}>Discount</th>
+                        <th style={{ width: '105px', textAlign: 'right' }}>Total</th>
                         <th style={{ width: '32px' }}></th>
                       </tr>
                     </thead>
@@ -889,7 +901,7 @@ const BillingSystem = () => {
 
                           {/* Unit column — always a select; shows options if multi-unit, single option if not */}
                           <td style={{ textAlign: 'center' }}>
-                            <select
+                            <select id="select_field" name="select_field"
                               className={`unit-select-table${item.available_units && item.available_units.length > 1 ? ' multi' : ' single'}`}
                               value={item.selected_unit_id}
                               onChange={(e) => handleUnitChange(idx, e.target.value)}
@@ -904,7 +916,7 @@ const BillingSystem = () => {
                           </td>
 
                           <td style={{ textAlign: 'center' }}>
-                            <input
+                            <input id="quantity" name="quantity"
                               type="number"
                               className="qty-input-table"
                               value={item.quantity}
@@ -913,8 +925,21 @@ const BillingSystem = () => {
                               step="0.01"
                             />
                           </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <input id="number_field" name="number_field"
+                              type="number"
+                              className="discount-input-table"
+                              value={item.discount || 0}
+                              onChange={(e) => handleUpdateDiscount(idx, e.target.value)}
+                              min="0"
+                              step="0.01"
+                            />
+                          </td>
                           <td style={{ textAlign: 'right' }}>
-                            <strong>Rs.{(item.unit_price * item.quantity).toFixed(2)}</strong>
+                            <strong>Rs.{((item.unit_price * item.quantity) - (item.discount || 0)).toFixed(2)}</strong>
+                            {((item.unit_price * item.quantity) - (item.discount || 0)) < (item.cost_price || 0) * item.quantity && (
+                              <div className="discount-warning">Final price below cost</div>
+                            )}
                           </td>
                           <td>
                             <button className="table-remove-btn" onClick={() => handleRemoveFromCart(idx)}>
@@ -963,6 +988,11 @@ const BillingSystem = () => {
                 <div className="summary-row">
                   <span className="summary-label">Subtotal ({cartItemCount} items)</span>
                   <span className="summary-value">Rs.{subtotal.toFixed(2)}</span>
+                </div>
+
+                <div className="summary-row">
+                  <span className="summary-label">Discount</span>
+                  <span className="summary-value">Rs.{totalDiscount.toFixed(2)}</span>
                 </div>
 
                 <div className="summary-total-row">
@@ -1049,7 +1079,7 @@ const BillingSystem = () => {
                       )}
                       <div className="partial-input-group">
                         <User size={14} className="input-icon" />
-                        <input
+                        <input id="customer_name_required" name="customer_name_required"
                           placeholder="Customer Name (Required)"
                           value={payData.customerName || ''}
                           onChange={(e) => setPayData({ ...payData, customerName: e.target.value })}
@@ -1058,7 +1088,7 @@ const BillingSystem = () => {
                       </div>
                       <div className="partial-input-group">
                         <Phone size={14} className="input-icon" />
-                        <input
+                        <input id="phone_number_required" name="phone_number_required"
                           placeholder="Phone Number (Required)"
                           value={payData.customerPhone || ''}
                           type="tel"
@@ -1087,7 +1117,7 @@ const BillingSystem = () => {
                       </div>
                       <div className="partial-input-group">
                         <MapPin size={14} className="input-icon" />
-                        <input
+                        <input id="address" name="address"
                           placeholder="Address"
                           value={payData.customerAddress || ''}
                           onChange={(e) => setPayData({ ...payData, customerAddress: e.target.value })}

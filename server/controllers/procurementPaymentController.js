@@ -74,7 +74,8 @@ exports.getAllPayments = async (req, res) => {
     if (payment_method)  whereClause.payment_method  = payment_method;
     if (cheque_status)   whereClause.cheque_status   = cheque_status;
     if (start_date && end_date) {
-      whereClause.due_date = { $between: [start_date, end_date] };
+      const { Op } = require('sequelize');
+      whereClause.due_date = { [Op.between]: [start_date, end_date] };
     }
 
     const list = await supplier_payments.findAll({
@@ -145,8 +146,9 @@ exports.getPaymentDashboard = async (req, res) => {
     const currentMonthStart = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`;
     const nearDueDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
+    const { Op } = require('sequelize');
     const allInvoices = await supplier_payments.findAll({
-      where: { payment_status: { $ne: 'Cancelled' } },
+      where: { payment_status: { [Op.ne]: 'Cancelled' } },
       include: [{ model: suppliers, attributes: ['supplier_name'] }]
     });
 

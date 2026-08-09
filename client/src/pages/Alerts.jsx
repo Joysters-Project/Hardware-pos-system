@@ -119,7 +119,6 @@ function AlertCenterPage() {
   useEffect(() => {
     fetchSummary();
     if (searchParams.get("poCreated") === "1") {
-      toast.success("Purchase Order created successfully.");
       searchParams.delete("poCreated");
       setSearchParams(searchParams, { replace: true });
     }
@@ -308,7 +307,7 @@ function AlertCenterPage() {
       </div>
 
       <div className="alerts-controls">
-        <input
+        <input id="search" name="search"
           type="search"
           className="alerts-search"
           placeholder="Search by product, batch or alert type"

@@ -167,12 +167,12 @@ function ExpensesPage() {
 
       <div className="exp-filters">
         <div className="exp-search-wrap"><Search size={14} className="exp-search-icon" />
-          <input className="exp-search" placeholder="Search by type or description..." value={search}
+          <input id="search" name="search" className="exp-search" placeholder="Search by type or description..." value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }} /></div>
-        <select className="exp-select" value={filterType} onChange={e => { setFilterType(e.target.value); setPage(1); }}>
+        <select id="filterType" name="filterType" className="exp-select" value={filterType} onChange={e => { setFilterType(e.target.value); setPage(1); }}>
           <option value="">All Types</option>{EXPENSE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
-        <select className="exp-select" value={filterDept} onChange={e => { setFilterDept(e.target.value); setPage(1); }}>
+        <select id="filterDept" name="filterDept" className="exp-select" value={filterDept} onChange={e => { setFilterDept(e.target.value); setPage(1); }}>
           <option value="">All Departments</option>
           {departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
         </select>
@@ -226,24 +226,24 @@ function ExpensesPage() {
             <form onSubmit={handleSubmit} className="exp-modal-form">
               <div className="exp-form-grid">
                 <div className="exp-field"><label>Expense Type *</label>
-                  <select value={form.expense_type} onChange={e => setForm({ ...form, expense_type: e.target.value })} required>
+                  <select id="expense_type" name="expense_type" value={form.expense_type} onChange={e => setForm({ ...form, expense_type: e.target.value })} required>
                     <option value="">Select Type</option>{EXPENSE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                   </select></div>
                 <div className="exp-field"><label>Amount (LKR) *</label>
-                  <input type="number" min="0" step="0.01" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} required /></div>
+                  <input id="amount" name="amount" type="number" min="0" step="0.01" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} required /></div>
                 <div className="exp-field"><label>Expense Date *</label>
-                  <input type="date" value={form.expense_date} onChange={e => setForm({ ...form, expense_date: e.target.value })} required /></div>
+                  <input id="expense_date" name="expense_date" type="date" value={form.expense_date} onChange={e => setForm({ ...form, expense_date: e.target.value })} required /></div>
                 <div className="exp-field"><label>Department</label>
-                  <select value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })}>
+                  <select id="department_id" name="department_id" value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })}>
                     <option value="">None</option>{departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
                   </select></div>
                 <div className="exp-field"><label>Linked Asset</label>
-                  <select value={form.asset_id} onChange={e => setForm({ ...form, asset_id: e.target.value })}>
+                  <select id="asset_id" name="asset_id" value={form.asset_id} onChange={e => setForm({ ...form, asset_id: e.target.value })}>
                     <option value="">None</option>{assets.map(a => <option key={a.asset_id} value={a.asset_id}>{a.asset_name}</option>)}
                   </select></div>
                 <div className="exp-field exp-field-full">
                   <label>Description {form.expense_type === "Other" ? <span style={{ color: "#c62828" }}>*</span> : "(Optional)"}</label>
-                  <textarea
+                  <textarea id="description" name="description"
                     rows={3}
                     value={form.description}
                     onChange={e => setForm({ ...form, description: e.target.value })}
