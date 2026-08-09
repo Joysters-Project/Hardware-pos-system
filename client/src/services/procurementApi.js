@@ -1,8 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import toast from 'react-hot-toast';
 
 // Use the shared axios instance that already has the JWT interceptor
 import api from '../api/axios';
+import { subscribeToEvent } from './socketSingleton';
 
 // ── API functions ────────────────────────────────────────────────────────────
 
@@ -626,6 +628,23 @@ export function useDownloadPerformanceReportPDF() {
       toast.success('Supplier Performance Report PDF downloaded!');
     },
     onError: () => toast.error('Failed to download Supplier Performance Report PDF')
+  });
+}
+
+export function useChequeAlerts() {
+  const qc = useQueryClient();
+
+  // Socket-driven instant refresh when cheque status changes
+  useEffect(() => {
+    return subscribeToEvent('cheque:alerts:updated', () => {
+      qc.invalidateQueries({ queryKey: ['cheque-alerts'] });
+    });
+  }, [qc]);
+
+  return useQuery({
+    queryKey: ['cheque-alerts'],
+    queryFn: async () => (await api.get('/procurement/payments/cheque-alerts')).data,
+    refetchInterval: 30000, // poll every 30 s as fallback
   });
 }
 

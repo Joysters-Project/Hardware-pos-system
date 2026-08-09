@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import api from "../api/axios";
-import RecentAlertsWidget from "./RecentAlertsWidget";
+import PaymentAlertsWidget from "./PaymentAlertsWidget";
+import ActionRequiredWidget from "./ActionRequiredWidget";
 
 const ALERT_TYPES = [
   {
@@ -117,6 +118,22 @@ export default function AlertStatCard() {
             Real-time stock, expiry and reorder signals
           </p>
         </div>
+        <button
+          onClick={() => navigate("/alerts")}
+          style={{
+            background: "rgba(139,58,58,0.07)",
+            color: "#8b3a3a",
+            border: "1px solid rgba(139,58,58,0.18)",
+            borderRadius: 10,
+            padding: "8px 16px",
+            fontSize: "0.82rem",
+            fontWeight: 700,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          }}
+        >
+          View All Alerts →
+        </button>
       </div>
 
       <div style={{
@@ -137,7 +154,13 @@ export default function AlertStatCard() {
         ))}
       </div>
 
-      <RecentAlertsWidget />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }} className="dash-alert-row">
+        <PaymentAlertsWidget />
+        <ActionRequiredWidget />
+      </div>
+      <style>{`
+        @media (max-width: 900px) { .dash-alert-row { grid-template-columns: 1fr !important; } }
+      `}</style>
 
       <style>{`
         .kpi-grid {
