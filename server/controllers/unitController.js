@@ -13,6 +13,10 @@ exports.createUnit = async (req, res) => {
       return res.status(400).json({ error: "Unit name can contain letters and spaces only. Numbers and symbols are not allowed." });
     }
 
+    if (unit_name.trim().length > 50) {
+      return res.status(400).json({ error: "Unit name must be 50 characters or fewer." });
+    }
+
     const trimmed = unit_name.trim();
 
     const existingUnit = await units.findOne({
@@ -80,6 +84,9 @@ exports.updateUnit = async (req, res) => {
     if (unit_name && unit_name.trim()) {
       if (!/^[A-Za-z\s]+$/.test(unit_name.trim())) {
         return res.status(400).json({ error: "Unit name can contain letters and spaces only. Numbers and symbols are not allowed." });
+      }
+      if (unit_name.trim().length > 50) {
+        return res.status(400).json({ error: "Unit name must be 50 characters or fewer." });
       }
       const trimmed = unit_name.trim();
 

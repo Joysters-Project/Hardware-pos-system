@@ -15,6 +15,10 @@ exports.createCategory = async (req, res) => {
       return res.status(400).json({ error: "Category name can contain letters and spaces only. Numbers and symbols are not allowed." });
     }
 
+    if (category_name.trim().length > 50) {
+      return res.status(400).json({ error: "Category name must be 50 characters or fewer." });
+    }
+
     const normalized = toTitleCase(category_name);
 
     const existingCategory = await category.findOne({
@@ -82,6 +86,9 @@ exports.updateCategory = async (req, res) => {
     if (category_name && category_name.trim()) {
       if (!/^[A-Za-z\s]+$/.test(category_name.trim())) {
         return res.status(400).json({ error: "Category name can contain letters and spaces only. Numbers and symbols are not allowed." });
+      }
+      if (category_name.trim().length > 50) {
+        return res.status(400).json({ error: "Category name must be 50 characters or fewer." });
       }
       const normalized = toTitleCase(category_name);
 

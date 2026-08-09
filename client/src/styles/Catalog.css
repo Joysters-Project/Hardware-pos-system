@@ -692,3 +692,34 @@
     justify-content: center;
   }
 }
+
+/* ---------- Character Counter ---------- */
+.catalog-char-counter {
+  display: block;
+  text-align: right;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #aaa;
+  margin-top: 4px;
+  transition: color 0.2s;
+  user-select: none;
+}
+
+.catalog-char-counter--warn {
+  color: #d97706;
+}
+
+.catalog-char-counter--limit {
+  color: #c62828;
+  font-weight: 700;
+}
+
+/* Inline edit counter sits beside the input */
+.catalog-char-counter--inline {
+  display: inline-block;
+  margin-top: 0;
+  margin-left: 6px;
+  font-size: 0.72rem;
+  vertical-align: middle;
+  white-space: nowrap;
+}
