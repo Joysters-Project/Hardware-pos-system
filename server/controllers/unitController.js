@@ -9,6 +9,10 @@ exports.createUnit = async (req, res) => {
       return res.status(400).json({ error: "Unit name is required" });
     }
 
+    if (!/^[A-Za-z\s]+$/.test(unit_name.trim())) {
+      return res.status(400).json({ error: "Unit name can contain letters and spaces only. Numbers and symbols are not allowed." });
+    }
+
     const trimmed = unit_name.trim();
 
     const existingUnit = await units.findOne({
@@ -74,6 +78,9 @@ exports.updateUnit = async (req, res) => {
 
     // Check if unit_name is provided
     if (unit_name && unit_name.trim()) {
+      if (!/^[A-Za-z\s]+$/.test(unit_name.trim())) {
+        return res.status(400).json({ error: "Unit name can contain letters and spaces only. Numbers and symbols are not allowed." });
+      }
       const trimmed = unit_name.trim();
 
       const existingUnit = await units.findOne({

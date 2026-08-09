@@ -24,8 +24,9 @@ import "../styles/Catalog.css";
 
 const API_BASE = "http://localhost:5000/api";
 
-// Validation helper for unit names (letters and spaces only)
-const validateUnitName = (name) => /^[A-Za-z\s]+$/.test(name);
+// Validation helpers for catalog items (categories, brands, units - letters and spaces only)
+const validateCatalogName = (name) => /^[A-Za-z\s]+$/.test(name);
+const sanitizeCatalogName = (name) => name.replace(/[^A-Za-z\s]/g, "");
 
 function Catalog() {
   const { user } = useAuth();
@@ -157,8 +158,8 @@ function Catalog() {
       return;
     }
 
-    if (activeTab === "units" && !validateUnitName(name)) {
-      toast.error("Unit name can contain letters only");
+    if (!validateCatalogName(name)) {
+      toast.error(`${getSingularCapitalized(activeTab)} name can contain letters and spaces only. Numbers and symbols are not allowed.`);
       return;
     }
 
@@ -200,8 +201,8 @@ function Catalog() {
       return;
     }
 
-    if (activeTab === "units" && !validateUnitName(editingName.trim())) {
-      toast.error("Unit name can contain letters only");
+    if (!validateCatalogName(editingName.trim())) {
+      toast.error(`${getSingularCapitalized(activeTab)} name can contain letters and spaces only. Numbers and symbols are not allowed.`);
       return;
     }
 
@@ -354,15 +355,12 @@ function Catalog() {
   placeholder={`Enter new ${getSingular(activeTab)} name...`}
   value={formData.name}
   onChange={(e) => {
-    const value = e.target.value;
-
-    if (activeTab === "units") {
-      if (/^[A-Za-z\s]*$/.test(value)) {
-        setFormData({ name: value });
-      }
-    } else {
-      setFormData({ name: value });
+    const rawValue = e.target.value;
+    const sanitized = sanitizeCatalogName(rawValue);
+    if (rawValue !== sanitized) {
+      toast.error("Numbers and symbols are not allowed", { id: "catalog-add-error" });
     }
+    setFormData({ name: sanitized });
   }}
   disabled={loading}
 />
@@ -384,7 +382,12 @@ function Catalog() {
                   placeholder={`Filter ${activeTab}...`}
                   value={searchQuery}
                   onChange={(e) => {
-                    setSearchQuery(e.target.value);
+                    const rawValue = e.target.value;
+                    const sanitized = sanitizeCatalogName(rawValue);
+                    if (rawValue !== sanitized) {
+                      toast.error("Numbers and symbols are not allowed when filtering", { id: "catalog-filter-error" });
+                    }
+                    setSearchQuery(sanitized);
                     setCurrentPage(1);
                   }}
                 />
@@ -476,7 +479,14 @@ function Catalog() {
                           <input id="editingName" name="editingName"
                             type="text"
                             value={editingName}
-                            onChange={(e) => setEditingName(e.target.value)}
+                            onChange={(e) => {
+                              const rawValue = e.target.value;
+                              const sanitized = sanitizeCatalogName(rawValue);
+                              if (rawValue !== sanitized) {
+                                toast.error("Numbers and symbols are not allowed", { id: "catalog-edit-error" });
+                              }
+                              setEditingName(sanitized);
+                            }}
                             onKeyDown={(e) => {
                               if (e.key === "Enter") handleSaveEdit(itemId);
                               if (e.key === "Escape") handleCancelEdit();

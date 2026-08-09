@@ -11,6 +11,10 @@ exports.createCategory = async (req, res) => {
       return res.status(400).json({ error: "Category name is required" });
     }
 
+    if (!/^[A-Za-z\s]+$/.test(category_name.trim())) {
+      return res.status(400).json({ error: "Category name can contain letters and spaces only. Numbers and symbols are not allowed." });
+    }
+
     const normalized = toTitleCase(category_name);
 
     const existingCategory = await category.findOne({
@@ -76,6 +80,9 @@ exports.updateCategory = async (req, res) => {
 
     // Check if category_name is provided
     if (category_name && category_name.trim()) {
+      if (!/^[A-Za-z\s]+$/.test(category_name.trim())) {
+        return res.status(400).json({ error: "Category name can contain letters and spaces only. Numbers and symbols are not allowed." });
+      }
       const normalized = toTitleCase(category_name);
 
       const existingCategory = await category.findOne({

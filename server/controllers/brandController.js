@@ -11,6 +11,10 @@ exports.createBrand = async (req, res) => {
       return res.status(400).json({ error: "Brand name is required" });
     }
 
+    if (!/^[A-Za-z\s]+$/.test(brand_name.trim())) {
+      return res.status(400).json({ error: "Brand name can contain letters and spaces only. Numbers and symbols are not allowed." });
+    }
+
     const normalized = toTitleCase(brand_name);
 
     const existingBrand = await brands.findOne({
@@ -76,6 +80,9 @@ exports.updateBrand = async (req, res) => {
 
     // Check if brand_name is provided
     if (brand_name && brand_name.trim()) {
+      if (!/^[A-Za-z\s]+$/.test(brand_name.trim())) {
+        return res.status(400).json({ error: "Brand name can contain letters and spaces only. Numbers and symbols are not allowed." });
+      }
       const normalized = toTitleCase(brand_name);
 
       const existingBrand = await brands.findOne({
