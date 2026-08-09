@@ -1,7 +1,11 @@
 const { units, products } = require('../models');
+const { logActivity } = require('../services/auditService');
+
+const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
 
 // CREATE Unit
 exports.createUnit = async (req, res) => {
+  const ip = getIp(req);
   try {
     const { unit_name } = req.body;
 
@@ -31,6 +35,8 @@ exports.createUnit = async (req, res) => {
     }
 
     const newUnit = await units.create({ unit_name: trimmed });
+    await logActivity(req.user?.user_id, req.user?.role, 'CREATE_UNIT',
+      `Unit created: "${trimmed}" (ID: ${newUnit.unit_id})`, ip);
 
     res.status(201).json({
       message: "Unit created successfully",
@@ -71,6 +77,7 @@ exports.getUnitById = async (req, res) => {
 
 // UPDATE Unit
 exports.updateUnit = async (req, res) => {
+  const ip = getIp(req);
   try {
     const unit = await units.findByPk(req.params.id);
 
@@ -79,6 +86,7 @@ exports.updateUnit = async (req, res) => {
     }
 
     const { unit_name } = req.body;
+    const oldName = unit.unit_name;
 
     // Check if unit_name is provided
     if (unit_name && unit_name.trim()) {
@@ -105,6 +113,8 @@ exports.updateUnit = async (req, res) => {
       }
 
       await unit.update({ unit_name: trimmed });
+      await logActivity(req.user?.user_id, req.user?.role, 'UPDATE_UNIT',
+        `Unit ID ${req.params.id} updated: "${oldName}" -> "${trimmed}"`, ip);
     }
 
     res.status(200).json({
@@ -118,6 +128,7 @@ exports.updateUnit = async (req, res) => {
 
 // DELETE Unit (with product check)
 exports.deleteUnit = async (req, res) => {
+  const ip = getIp(req);
   try {
     const unit = await units.findByPk(req.params.id);
 
@@ -138,7 +149,10 @@ exports.deleteUnit = async (req, res) => {
       });
     }
 
+    const name = unit.unit_name;
     await unit.destroy();
+    await logActivity(req.user?.user_id, req.user?.role, 'DELETE_UNIT',
+      `Unit deleted: "${name}" (ID: ${req.params.id})`, ip);
 
     res.status(200).json({
       message: "Unit deleted successfully"

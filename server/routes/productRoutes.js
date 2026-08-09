@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const productController = require('../controllers/productController');
+const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../models');
 
 // --- SEARCH LOGIC (From your local HEAD) ---
@@ -56,7 +57,7 @@ router.get('/search', async (req, res) => {
 // --- STANDARD CRUD (From Developer Branch) ---
 
 // CREATE Product
-router.post('/', productController.createProduct);
+router.post('/', authMiddleware, productController.createProduct);
 
 // GET All Products
 router.get('/', (req, res, next) => {
@@ -68,9 +69,9 @@ router.get('/', (req, res, next) => {
 router.get('/:id', productController.getProductById);
 
 // UPDATE Product
-router.put('/:id', productController.updateProduct);
+router.put('/:id', authMiddleware, productController.updateProduct);
 
 // DELETE Product
-router.delete('/:id', productController.deleteProduct);
+router.delete('/:id', authMiddleware, productController.deleteProduct);
 
 module.exports = router;

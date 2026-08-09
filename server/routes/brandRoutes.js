@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const brandController = require('../controllers/brandController');
+const authMiddleware = require('../middleware/authMiddleware');
 
 // CREATE Brand
-router.post('/', brandController.createBrand);
+router.post('/', authMiddleware, brandController.createBrand);
 
 // GET All Brands
 router.get('/', brandController.getAllBrands);
@@ -12,10 +13,10 @@ router.get('/', brandController.getAllBrands);
 router.get('/:id', brandController.getBrandById);
 
 // UPDATE Brand (supports both PUT and PATCH)
-router.put('/:id', brandController.updateBrand);
-router.patch('/:id', brandController.updateBrand);
+router.put('/:id', authMiddleware, brandController.updateBrand);
+router.patch('/:id', authMiddleware, brandController.updateBrand);
 
 // DELETE Brand
-router.delete('/:id', brandController.deleteBrand);
+router.delete('/:id', authMiddleware, brandController.deleteBrand);
 
 module.exports = router;

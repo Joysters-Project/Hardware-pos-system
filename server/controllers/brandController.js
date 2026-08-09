@@ -1,9 +1,12 @@
 const { brands, products } = require('../models');
+const { logActivity } = require('../services/auditService');
 
+const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
 const toTitleCase = (str) => str.trim().charAt(0).toUpperCase() + str.trim().slice(1).toLowerCase();
 
 // CREATE Brand
 exports.createBrand = async (req, res) => {
+  const ip = getIp(req);
   try {
     const { brand_name } = req.body;
 
@@ -33,6 +36,8 @@ exports.createBrand = async (req, res) => {
     }
 
     const newBrand = await brands.create({ brand_name: normalized });
+    await logActivity(req.user?.user_id, req.user?.role, 'CREATE_BRAND',
+      `Brand created: "${normalized}" (ID: ${newBrand.brand_id})`, ip);
 
     res.status(201).json({
       message: "Brand created successfully",
@@ -73,6 +78,7 @@ exports.getBrandById = async (req, res) => {
 
 // UPDATE Brand
 exports.updateBrand = async (req, res) => {
+  const ip = getIp(req);
   try {
     const brand = await brands.findByPk(req.params.id);
 
@@ -81,6 +87,7 @@ exports.updateBrand = async (req, res) => {
     }
 
     const { brand_name } = req.body;
+    const oldName = brand.brand_name;
 
     // Check if brand_name is provided
     if (brand_name && brand_name.trim()) {
@@ -107,6 +114,8 @@ exports.updateBrand = async (req, res) => {
       }
 
       await brand.update({ brand_name: normalized });
+      await logActivity(req.user?.user_id, req.user?.role, 'UPDATE_BRAND',
+        `Brand ID ${req.params.id} updated: "${oldName}" -> "${normalized}"`, ip);
     }
 
     res.status(200).json({
@@ -120,6 +129,7 @@ exports.updateBrand = async (req, res) => {
 
 // DELETE Brand (with product check)
 exports.deleteBrand = async (req, res) => {
+  const ip = getIp(req);
   try {
     const brand = await brands.findByPk(req.params.id);
 
@@ -140,7 +150,10 @@ exports.deleteBrand = async (req, res) => {
       });
     }
 
+    const name = brand.brand_name;
     await brand.destroy();
+    await logActivity(req.user?.user_id, req.user?.role, 'DELETE_BRAND',
+      `Brand deleted: "${name}" (ID: ${req.params.id})`, ip);
 
     res.status(200).json({
       message: "Brand deleted successfully"

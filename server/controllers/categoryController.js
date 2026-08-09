@@ -1,9 +1,12 @@
 const { category, products } = require('../models');
+const { logActivity } = require('../services/auditService');
 
+const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
 const toTitleCase = (str) => str.trim().charAt(0).toUpperCase() + str.trim().slice(1).toLowerCase();
 
 // CREATE Category
 exports.createCategory = async (req, res) => {
+  const ip = getIp(req);
   try {
     const { category_name } = req.body;
 
@@ -33,6 +36,8 @@ exports.createCategory = async (req, res) => {
     }
 
     const newCategory = await category.create({ category_name: normalized });
+    await logActivity(req.user?.user_id, req.user?.role, 'CREATE_CATEGORY',
+      `Category created: "${normalized}" (ID: ${newCategory.category_id})`, ip);
 
     res.status(201).json({
       message: "Category created successfully",
@@ -73,6 +78,7 @@ exports.getCategoryById = async (req, res) => {
 
 // UPDATE Category
 exports.updateCategory = async (req, res) => {
+  const ip = getIp(req);
   try {
     const Category = await category.findByPk(req.params.id);
 
@@ -81,6 +87,7 @@ exports.updateCategory = async (req, res) => {
     }
 
     const { category_name } = req.body;
+    const oldName = Category.category_name;
 
     // Check if category_name is provided
     if (category_name && category_name.trim()) {
@@ -107,6 +114,8 @@ exports.updateCategory = async (req, res) => {
       }
 
       await Category.update({ category_name: normalized });
+      await logActivity(req.user?.user_id, req.user?.role, 'UPDATE_CATEGORY',
+        `Category ID ${req.params.id} updated: "${oldName}" -> "${normalized}"`, ip);
     }
 
     res.status(200).json({
@@ -120,6 +129,7 @@ exports.updateCategory = async (req, res) => {
 
 // DELETE Category (with product check)
 exports.deleteCategory = async (req, res) => {
+  const ip = getIp(req);
   try {
     const Category = await category.findByPk(req.params.id);
 
@@ -140,7 +150,10 @@ exports.deleteCategory = async (req, res) => {
       });
     }
 
+    const name = Category.category_name;
     await Category.destroy();
+    await logActivity(req.user?.user_id, req.user?.role, 'DELETE_CATEGORY',
+      `Category deleted: "${name}" (ID: ${req.params.id})`, ip);
 
     res.status(200).json({
       message: "Category deleted successfully"
