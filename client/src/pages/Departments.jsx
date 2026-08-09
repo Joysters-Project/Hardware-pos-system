@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { Building2, Users, Package, FolderOpen, Plus, Search, Pencil, Trash2, Eye, X, ChevronLeft, ChevronRight, DollarSign } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
+import { buildTableHtml, escapeHtml, printWithTemplate } from "../utils/printTemplate";
 import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
 import "../styles/Departments.css";
@@ -78,7 +79,26 @@ function DepartmentsPage() {
     e.preventDefault();
     if (!form.department_name.trim()) { toast.error("Department name is required"); return; }
     const budgetValue = form.budget === "" ? 0 : Number(form.budget);
-    if (Number.isNaN(budgetValue) || budgetValue < 0) { toast.error("Budget must be a valid number"); return; }
+    if (Number.isNaN(budgetValue) || budgetValue <= 0) { toast.error("Budget must be greater than 0"); return; }
+
+    if (String(form.status).toLowerCase() === "inactive" && editId) {
+      try {
+        const res = await api.get(`/departments/${editId}`);
+        const payload = res.data?.data || res.data;
+        const hasActiveEmployee = (payload.employees || []).some(e =>
+          String(e.status || "").toLowerCase() === "active"
+        );
+
+        if (hasActiveEmployee) {
+          toast.error("Cannot make department inactive while it has active employees.");
+          return;
+        }
+      } catch {
+        toast.error("Unable to verify employee status right now.");
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const payload = { ...form, budget: budgetValue };
@@ -97,6 +117,14 @@ function DepartmentsPage() {
   };
 
   const handleDelete = async (id, name) => {
+    const department = departments.find(d => d.department_id === id);
+    const hasAssets = (department?.asset_count || 0) > 0;
+
+    if (hasAssets) {
+      toast.error("Cannot delete department while it has assets assigned.");
+      return;
+    }
+
     if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
     setDeletingId(id);
     try {
@@ -116,69 +144,54 @@ function DepartmentsPage() {
   };
 
   const printEmployees = (dept) => {
-    const win = window.open("", "_blank", "width=900,height=650");
-    const rows = (dept.employees || []).map((e, i) => `
-      <tr style="background:${i % 2 === 0 ? "#fff" : "#fdf8f8"}">
-        <td>#${e.employee_id}</td>
-        <td><strong>${e.first_name} ${e.last_name}</strong></td>
-        <td>${e.position || "—"}</td>
-        <td><span style="padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;
-          background:${e.status === "Active" ? "#e8f5e9" : "#fce4e4"};color:${e.status === "Active" ? "#2e7d32" : "#c62828"}">${e.status}</span></td>
-        <td>${e.email || "—"}</td>
-      </tr>`).join("");
-    win.document.write(`<!DOCTYPE html><html><head><title>Employees — ${dept.department_name}</title>
-      <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',sans-serif;padding:32px;color:#222}
-      .hdr{display:flex;justify-content:space-between;border-bottom:3px solid #8b3a3a;padding-bottom:14px;margin-bottom:20px}
-      h1{font-size:18px;color:#8b3a3a;font-weight:700}.meta{font-size:11px;color:#888;text-align:right}
-      table{width:100%;border-collapse:collapse;font-size:13px}
-      th{background:linear-gradient(135deg,#8b3a3a,#a84545);color:#fff;padding:9px 12px;text-align:left;font-weight:600}
-      td{padding:9px 12px;border-bottom:1px solid #f0f0f0}
-      .footer{margin-top:20px;text-align:center;font-size:10px;color:#aaa;border-top:1px solid #eee;padding-top:10px}
-      </style></head><body>
-      <div class="hdr"><div><h1>Employees — ${dept.department_name}</h1>
-      <p style="font-size:11px;color:#888;margin-top:3px">${dept.employees.length} employee(s)</p></div>
-      <div class="meta">Generated: ${new Date().toLocaleString()}</div></div>
-      <table><thead><tr><th>#</th><th>Name</th><th>Position</th><th>Status</th><th>Email</th></tr></thead>
-      <tbody>${rows}</tbody></table>
-      <div class="footer">Mathumithan Hardware POS System • ${dept.department_name} Department</div>
-      </body></html>`);
-    win.document.close(); win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 400);
+    const rows = (dept.employees || []).map((e) => ([
+      escapeHtml(`#${e.employee_id}`),
+      `<strong>${escapeHtml(`${e.first_name} ${e.last_name}`.trim())}</strong>`,
+      escapeHtml(e.position || "—"),
+      `<span style="font-weight:700;color:${e.status === "Active" ? "#2e7d32" : "#c62828"}">${escapeHtml(e.status || "—")}</span>`,
+      escapeHtml(e.email || "—"),
+    ]));
+
+    const contentHtml = buildTableHtml({
+      columns: ["#", "Name", "Position", "Status", "Email"],
+      rows,
+      emptyMessage: "No employees in this department"
+    });
+
+    const opened = printWithTemplate({
+      title: `Employees - ${dept.department_name}`,
+      subtitle: `${dept.employees.length} employee(s)`,
+      contentHtml,
+    });
+
+    if (!opened) toast.error("Allow pop-ups to print the report");
   };
 
   const printAssets = (dept) => {
-    const win = window.open("", "_blank", "width=900,height=650");
     const ASSET_COLORS = { Active: "#2e7d32", Maintenance: "#e65100", Damaged: "#c62828", Lost: "#6a1b9a", Disposed: "#616161" };
     const totalCost = (dept.assets || []).reduce((s, a) => s + parseFloat(a.cost || 0), 0);
-    const rows = (dept.assets || []).map((a, i) => `
-      <tr style="background:${i % 2 === 0 ? "#fff" : "#fdf8f8"}">
-        <td>#${a.asset_id}</td>
-        <td><strong>${a.asset_name}</strong></td>
-        <td>LKR ${Number(a.cost).toLocaleString("en-US")}</td>
-        <td><span style="padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;
-          background:${(ASSET_COLORS[a.status] || "#333") + "18"};color:${ASSET_COLORS[a.status] || "#333"}">${a.status}</span></td>
-        <td>${a.purchase_date ? new Date(a.purchase_date).toLocaleDateString() : "—"}</td>
-      </tr>`).join("");
-    win.document.write(`<!DOCTYPE html><html><head><title>Assets — ${dept.department_name}</title>
-      <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',sans-serif;padding:32px;color:#222}
-      .hdr{display:flex;justify-content:space-between;border-bottom:3px solid #8b3a3a;padding-bottom:14px;margin-bottom:20px}
-      h1{font-size:18px;color:#8b3a3a;font-weight:700}.meta{font-size:11px;color:#888;text-align:right}
-      .summary{background:#fdf5f5;border:1px solid #f0dede;border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:13px}
-      table{width:100%;border-collapse:collapse;font-size:13px}
-      th{background:linear-gradient(135deg,#8b3a3a,#a84545);color:#fff;padding:9px 12px;text-align:left;font-weight:600}
-      td{padding:9px 12px;border-bottom:1px solid #f0f0f0}
-      .footer{margin-top:20px;text-align:center;font-size:10px;color:#aaa;border-top:1px solid #eee;padding-top:10px}
-      </style></head><body>
-      <div class="hdr"><div><h1>Assets — ${dept.department_name}</h1>
-      <p style="font-size:11px;color:#888;margin-top:3px">${dept.assets.length} asset(s)</p></div>
-      <div class="meta">Generated: ${new Date().toLocaleString()}</div></div>
-      <div class="summary">Total Active Asset Value: <strong>LKR ${totalCost.toLocaleString("en-US")}</strong></div>
-      <table><thead><tr><th>#</th><th>Asset Name</th><th>Cost</th><th>Status</th><th>Purchased</th></tr></thead>
-      <tbody>${rows}</tbody></table>
-      <div class="footer">Mathumithan Hardware POS System • ${dept.department_name} Department</div>
-      </body></html>`);
-    win.document.close(); win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 400);
+    const rows = (dept.assets || []).map((a) => ([
+      escapeHtml(`#${a.asset_id}`),
+      `<strong>${escapeHtml(a.asset_name)}</strong>`,
+      escapeHtml(`LKR ${Number(a.cost).toLocaleString("en-US")}`),
+      `<span style="font-weight:700;color:${ASSET_COLORS[a.status] || "#333"}">${escapeHtml(a.status || "—")}</span>`,
+      escapeHtml(a.purchase_date ? new Date(a.purchase_date).toLocaleDateString() : "—"),
+    ]));
+
+    const summaryHtml = `<p style="margin:0 0 12px;font-size:12px;color:#555;">Total Active Asset Value: <strong>LKR ${escapeHtml(totalCost.toLocaleString("en-US"))}</strong></p>`;
+    const tableHtml = buildTableHtml({
+      columns: ["#", "Asset Name", "Cost", "Status", "Purchased"],
+      rows,
+      emptyMessage: "No assets in this department"
+    });
+
+    const opened = printWithTemplate({
+      title: `Assets - ${dept.department_name}`,
+      subtitle: `${dept.assets.length} asset(s)`,
+      contentHtml: `${summaryHtml}${tableHtml}`,
+    });
+
+    if (!opened) toast.error("Allow pop-ups to print the report");
   };
 
   const filtered = departments.filter(d => {
@@ -195,6 +208,9 @@ function DepartmentsPage() {
     { label: "Employees", value: departments.reduce((s, d) => s + (d.employee_count || 0), 0), icon: <Users size={20} />, color: "#1565c0" },
     { label: "Assets", value: departments.reduce((s, d) => s + (d.asset_count || 0), 0), icon: <Package size={20} />, color: "#6a1b9a" },
   ];
+  const budgetAmount = Number(viewDept?.budget || 0);
+  const spentAmount = (viewDept?.assets || []).reduce((sum, asset) => sum + Number(asset.cost || 0), 0);
+  const remainingAmount = Math.max(0, budgetAmount - spentAmount);
 
   return (
     <div className="dept-container">
@@ -230,7 +246,7 @@ function DepartmentsPage() {
       <div className="dept-toolbar">
         <div className="dept-search-wrap">
           <Search size={15} className="dept-search-icon" />
-          <input
+          <input id="search" name="search"
             className="dept-search"
             placeholder="Search departments..."
             value={search}
@@ -360,7 +376,7 @@ function DepartmentsPage() {
             <form onSubmit={handleSubmit} className="dept-modal-form">
               <div className="dept-field">
                 <label>Department Name <span className="req">*</span></label>
-                <input
+                <input id="department_name" name="department_name"
                   value={form.department_name}
                   onChange={e => setForm({ ...form, department_name: e.target.value })}
                   placeholder="e.g. Sales, IT, Warehouse"
@@ -369,7 +385,7 @@ function DepartmentsPage() {
               </div>
               <div className="dept-field">
                 <label>Budget <span className="req">*</span></label>
-                <input
+                <input id="budget" name="budget"
                   type="number"
                   min="0"
                   step="0.01"
@@ -380,7 +396,7 @@ function DepartmentsPage() {
               </div>
               <div className="dept-field">
                 <label>Description</label>
-                <textarea
+                <textarea id="description" name="description"
                   rows={3}
                   value={form.description}
                   onChange={e => setForm({ ...form, description: e.target.value })}
@@ -389,7 +405,7 @@ function DepartmentsPage() {
               </div>
               <div className="dept-field">
                 <label>Status</label>
-                <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+                <select id="status" name="status" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
                 </select>
@@ -431,7 +447,11 @@ function DepartmentsPage() {
               </div>
               <div className="dept-view-stat">
                 <DollarSign size={16} />
-                <span>Remaining: LKR {Number(viewDept.remaining_budget || 0).toLocaleString("en-LK")}</span>
+                <span>Remaining: LKR {remainingAmount.toLocaleString("en-LK")}</span>
+              </div>
+              <div className="dept-view-stat">
+                <DollarSign size={16} />
+                <span>Spent Amount: LKR {spentAmount.toLocaleString("en-LK")}</span>
               </div>
               <div className="dept-view-stat">
                 <Users size={16} />

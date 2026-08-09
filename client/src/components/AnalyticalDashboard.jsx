@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import api from "../api/axios";
+import { printWithTemplate, buildTableHtml } from "../utils/printTemplate";
 import {
   TrendingUp,
   TrendingDown,
@@ -93,8 +94,23 @@ export default function AnalyticalDashboard() {
   }, [transactions, searchQuery]);
 
   const handleExportPDF = () => {
-    window.open(`/api/dashboard/analytical/export-pdf`, "_blank");
-    toast.success("Downloading analytical report PDF...");
+    const rows = filteredTransactions.map((txn) => [
+      txn.id,
+      txn.customer,
+      txn.time,
+      `LKR ${Number(txn.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      txn.status?.toUpperCase(),
+    ]);
+    const tableHtml = buildTableHtml({
+      columns: ["Transaction ID", "Customer", "Date & Time", "Amount", "Status"],
+      rows,
+      emptyMessage: "No transactions found.",
+    });
+    printWithTemplate({
+      title: "Recent Sales Ledger",
+      subtitle: `Total: ${filteredTransactions.length} transaction${filteredTransactions.length !== 1 ? "s" : ""}`,
+      contentHtml: tableHtml,
+    });
   };
 
   // Map dynamic icon to KPI block
@@ -107,6 +123,9 @@ export default function AnalyticalDashboard() {
 
   // Helper to render KPI value with small currency text
   const renderKPIValue = (value) => {
+    if (!value || typeof value !== "string") {
+      return <div className="kpi-value">{value ?? "0"}</div>;
+    }
     if (value.startsWith("LKR")) {
       const numPart = value.replace("LKR", "").trim();
       return (
@@ -128,10 +147,10 @@ export default function AnalyticalDashboard() {
   }
 
   const kpiList = [
-    { id: 1, title: "Total Revenue", value: kpis.totalRevenue, trend: "+12.4%", isPositive: true, label: "vs last period" },
-    { id: 2, title: "Sales Volume", value: kpis.salesVolume, trend: "+8.2%", isPositive: true, label: "vs last period" },
-    { id: 3, title: "Average Order Value", value: kpis.aov, trend: "+3.1%", isPositive: true, label: "vs last period" },
-    { id: 4, title: "Conversion Rate", value: kpis.conversionRate, trend: "+0.45%", isPositive: true, label: "vs last period" }
+    { id: 1, title: "Total Revenue", value: kpis?.totalRevenue || "LKR 0.00", trend: "+12.4%", isPositive: true, label: "vs last period" },
+    { id: 2, title: "Sales Volume", value: kpis?.salesVolume || "0 orders", trend: "+8.2%", isPositive: true, label: "vs last period" },
+    { id: 3, title: "Average Order Value", value: kpis?.aov || "LKR 0.00", trend: "+3.1%", isPositive: true, label: "vs last period" },
+    { id: 4, title: "Conversion Rate", value: kpis?.conversionRate || "0.00%", trend: "+0.45%", isPositive: true, label: "vs last period" }
   ];
 
   return (
@@ -364,7 +383,7 @@ export default function AnalyticalDashboard() {
         <div className="ledger-controller">
           <div className="ledger-search-wrapper">
             <Search className="search-icon" size={18} />
-            <input
+            <input id="searchQuery" name="searchQuery"
               type="text"
               placeholder="Search Customer, Txn ID, or Value..."
               value={searchQuery}

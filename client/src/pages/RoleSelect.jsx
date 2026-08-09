@@ -1,9 +1,17 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import "../styles/RoleSelect.css";
 import logo from "../assets/logo.png";
 
 function RoleSelect() {
   const navigate = useNavigate();
+  const { isAuthenticated, role: userRole } = useAuth();
+
+  if (isAuthenticated) {
+    const normRole = (userRole || "admin").toLowerCase();
+    const dashPath = normRole === "manager" ? "/dashboard/manager" : normRole === "cashier" ? "/dashboard/cashier" : "/dashboard/admin";
+    return <Navigate to={dashPath} replace />;
+  }
 
   const goToLogin = (role) => {
     navigate("/login/" + role.toLowerCase());

@@ -1,5 +1,6 @@
 const db = require('../models');
 const { Op } = require('sequelize');
+const DEPT_NAME_REGEX = /^[A-Za-z0-9 ]+$/;
 
 const getAllDepartments = async (req, res) => {
   try {
@@ -37,6 +38,8 @@ const getAllDepartments = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+const MAX_DEPARTMENT_BUDGET = 100000000; // 10 crore
 
 const getDepartmentById = async (req, res) => {
   try {
@@ -89,13 +92,24 @@ const createDepartment = async (req, res) => {
   try {
     const { department_name, budget, description, status } = req.body;
     if (!department_name) return res.status(400).json({ message: 'Department name is required' });
+    if (String(department_name).length > 100) return res.status(400).json({ message: 'Department name cannot exceed 100 characters' });
+    if (!DEPT_NAME_REGEX.test(String(department_name))) return res.status(400).json({ message: 'Department name can only contain letters, numbers and spaces' });
 
     const exists = await db.departments.findOne({ where: { department_name } });
     if (exists) return res.status(400).json({ message: 'Department name already exists' });
 
+    const parsedBudget = parseFloat(budget || 0);
+    if (!Number.isFinite(parsedBudget) || parsedBudget < 0) {
+      return res.status(400).json({ message: 'Invalid budget value' });
+    }
+
+    if (parsedBudget > MAX_DEPARTMENT_BUDGET) {
+      return res.status(400).json({ message: `Budget cannot exceed ${MAX_DEPARTMENT_BUDGET}` });
+    }
+
     const dept = await db.departments.create({
       department_name,
-      budget: budget || 0,
+      budget: parsedBudget,
       description: description || null,
       status: status || 'Active',
       used_budget: 0
@@ -121,6 +135,12 @@ const updateDepartment = async (req, res) => {
     const { department_name, budget, description, status } = req.body;
 
     if (department_name && department_name !== dept.department_name) {
+      if (String(department_name).length > 100) {
+        return res.status(400).json({ success: false, message: 'Department name cannot exceed 100 characters' });
+      }
+      if (!DEPT_NAME_REGEX.test(String(department_name))) {
+        return res.status(400).json({ success: false, message: 'Department name can only contain letters, numbers and spaces' });
+      }
       const exists = await db.departments.findOne({ where: { department_name } });
       if (exists) {
         return res.status(400).json({ success: false, message: 'Department name already exists' });
@@ -129,9 +149,41 @@ const updateDepartment = async (req, res) => {
 
     const updatePayload = {};
     if (department_name !== undefined) updatePayload.department_name = department_name;
-    if (budget !== undefined) updatePayload.budget = budget;
+    if (budget !== undefined) {
+      const parsedBudget = parseFloat(budget);
+      if (!Number.isFinite(parsedBudget) || parsedBudget < 0) {
+        return res.status(400).json({ success: false, message: 'Invalid budget value' });
+      }
+      if (parsedBudget > MAX_DEPARTMENT_BUDGET) {
+        return res.status(400).json({ success: false, message: `Budget cannot exceed ${MAX_DEPARTMENT_BUDGET}` });
+      }
+      updatePayload.budget = parsedBudget;
+    }
     if (description !== undefined) updatePayload.description = description;
-    if (status !== undefined) updatePayload.status = status;
+    if (status !== undefined) {
+      const normalizedStatus = String(status).trim();
+      const isInactiveStatus = normalizedStatus.toLowerCase() === 'inactive';
+
+      if (isInactiveStatus) {
+        const employees = await db.employees.findAll({
+          where: { department_id: req.params.id },
+          attributes: ['status']
+        });
+
+        const hasActiveEmployee = employees.some(employee =>
+          String(employee.status || '').toLowerCase() === 'active'
+        );
+
+        if (hasActiveEmployee) {
+          return res.status(400).json({
+            success: false,
+            message: 'Cannot make department inactive while it has active employees.'
+          });
+        }
+      }
+
+      updatePayload.status = normalizedStatus;
+    }
 
     await dept.update(updatePayload);
     return res.status(200).json({ success: true, message: 'Department updated successfully', data: dept });

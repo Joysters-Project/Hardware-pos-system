@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
+import { escapeHtml, printWithTemplate } from "../utils/printTemplate";
 import AdminDashboard from "./AdminDashboard";
 import "../styles/Salary.css";
 
@@ -52,67 +53,51 @@ function SalaryHistoryPage() {
 
   useEffect(() => { loadHistory(); loadSummary(); }, [loadHistory, loadSummary]);
 
-  const handleDownload = (payment) => {
-    const win = window.open("", "_blank", "width=1000,height=800");
-    if (!win) {
-      toast.error("Popup blocked. Please allow popups to view the payslip.");
-      return;
-    }
+  const getSalaryCategory = (payment) => {
+    return payment?.salary_category || payment?.employee?.salary_category || "monthly";
+  };
 
+  const formatPayPeriod = (payment) => {
+    const category = getSalaryCategory(payment);
+    if (category === "daily") {
+      return payment?.payment_date
+        ? new Date(payment.payment_date).toLocaleDateString("en-GB")
+        : "—";
+    }
+    return `${MONTHS[(Number(payment?.payment_month || 1) - 1)] || ""} ${payment?.payment_year || ""}`.trim();
+  };
+
+  const handleDownload = (payment) => {
     const employeeName = payment?.employee
       ? `${payment.employee.first_name || ""} ${payment.employee.last_name || ""}`.trim()
       : `EMP-${payment?.employee_id || ""}`;
-    const periodLabel = `${MONTHS[(Number(payment?.payment_month || 1) - 1)] || ""} ${payment?.payment_year || ""}`.trim();
+    const periodLabel = formatPayPeriod(payment);
     const paymentDate = payment?.payment_date
       ? new Date(payment.payment_date).toLocaleDateString("en-GB")
       : "—";
 
-    const html = `<!DOCTYPE html>
-      <html>
-        <head>
-          <title>Payslip</title>
-          <style>
-            body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: #f7f7f7; color: #222; padding: 24px; }
-            .page { background: #fff; max-width: 780px; margin: 0 auto; border: 1px solid #e0e0e0; box-shadow: 0 10px 30px rgba(0,0,0,.08); }
-            .header { background: linear-gradient(135deg, #8b3a3a, #a84545); color: #fff; padding: 24px 32px; }
-            .title { font-size: 24px; font-weight: 700; margin: 0; }
-            .sub { font-size: 12px; margin: 6px 0 0; opacity: 0.9; }
-            .body { padding: 24px 32px 32px; }
-            .row { display: flex; justify-content: space-between; gap: 18px; margin-bottom: 10px; font-size: 13px; }
-            .label { color: #777; font-weight: 600; min-width: 130px; }
-            .value { color: #222; }
-            .card { border: 1px solid #eee; border-radius: 10px; padding: 14px 16px; margin-top: 16px; }
-            .total { font-weight: 700; color: #1565c0; }
-            .footer { margin-top: 28px; text-align: center; color: #999; font-size: 11px; }
-          </style>
-        </head>
-        <body>
-          <div class="page">
-            <div class="header">
-              <h1 class="title">Mathumithan Hardware</h1>
-              <p class="sub">Salary Payment Confirmation</p>
-            </div>
-            <div class="body">
-              <div class="row"><span class="label">Employee</span><span class="value">${employeeName}</span></div>
-              <div class="row"><span class="label">Period</span><span class="value">${periodLabel}</span></div>
-              <div class="row"><span class="label">Payment Date</span><span class="value">${paymentDate}</span></div>
-              <div class="row"><span class="label">Payment Method</span><span class="value">${payment?.payment_method || "—"}</span></div>
-              <div class="card">
-                <div class="row"><span class="label">Basic Salary</span><span class="value">LKR ${Number(payment?.basic_salary || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}</span></div>
-                <div class="row"><span class="label">Bonus</span><span class="value">+LKR ${Number(payment?.bonus_amount || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}</span></div>
-                <div class="row"><span class="label">Deduction</span><span class="value">-LKR ${Number(payment?.deduction_amount || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}</span></div>
-                <div class="row"><span class="label">Net Salary</span><span class="value total">LKR ${Number(payment?.final_salary || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}</span></div>
-              </div>
-              <div class="footer">Generated in the browser • No backend PDF file is created</div>
-            </div>
-          </div>
-        </body>
-      </html>`;
+    const contentHtml = `
+      <table class="tpl-table">
+        <tr><td>Employee</td><td>${escapeHtml(employeeName)}</td></tr>
+        <tr><td>Period</td><td>${escapeHtml(periodLabel)}</td></tr>
+        <tr><td>Payment Date</td><td>${escapeHtml(paymentDate)}</td></tr>
+        <tr><td>Payment Method</td><td>${escapeHtml(payment?.payment_method || "—")}</td></tr>
+        <tr><td>Basic Salary</td><td>${escapeHtml(`LKR ${Number(payment?.basic_salary || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}`)}</td></tr>
+        <tr><td>Bonus</td><td>${escapeHtml(`+LKR ${Number(payment?.bonus_amount || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}`)}</td></tr>
+        <tr><td>Deduction</td><td>${escapeHtml(`-LKR ${Number(payment?.deduction_amount || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}`)}</td></tr>
+        <tr><td><strong>Net Salary</strong></td><td><strong>${escapeHtml(`LKR ${Number(payment?.final_salary || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}`)}</strong></td></tr>
+      </table>
+    `;
 
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 400);
+    const opened = printWithTemplate({
+      title: "Payslip",
+      subtitle: "Salary Payment Confirmation",
+      contentHtml,
+    });
+
+    if (!opened) {
+      toast.error("Popup blocked. Please allow popups to view the payslip.");
+    }
   };
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
@@ -172,20 +157,20 @@ function SalaryHistoryPage() {
       <div className="salary-filters">
         <div className="sal-search-wrap">
           <Search size={14} className="sal-search-icon" />
-          <input className="sal-search" placeholder="Search employee name..." value={search}
+          <input id="search" name="search" className="sal-search" placeholder="Search employee name..." value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
-        <select className="sal-select" value={filterEmp} onChange={e => { setFilterEmp(e.target.value); setPage(1); }}>
+        <select id="filterEmp" name="filterEmp" className="sal-select" value={filterEmp} onChange={e => { setFilterEmp(e.target.value); setPage(1); }}>
           <option value="">All Employees</option>
           {employees.map(e => (
             <option key={e.employee_id} value={e.employee_id}>{e.first_name} {e.last_name}</option>
           ))}
         </select>
-        <select className="sal-select" value={filterMonth} onChange={e => { setFilterMonth(e.target.value); setPage(1); }}>
+        <select id="filterMonth" name="filterMonth" className="sal-select" value={filterMonth} onChange={e => { setFilterMonth(e.target.value); setPage(1); }}>
           <option value="">All Months</option>
           {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
         </select>
-        <select className="sal-select" value={filterYear} onChange={e => { setFilterYear(e.target.value); setPage(1); }}>
+        <select id="filterYear" name="filterYear" className="sal-select" value={filterYear} onChange={e => { setFilterYear(e.target.value); setPage(1); }}>
           <option value="">All Years</option>
           {years.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
@@ -223,7 +208,7 @@ function SalaryHistoryPage() {
                   </div>
                   {p.employee?.email && <div className="sal-emp-email">{p.employee.email}</div>}
                 </td>
-                <td>{MONTHS[(p.payment_month || 1) - 1]} {p.payment_year}</td>
+                <td>{formatPayPeriod(p)}</td>
                 <td>{Number(p.basic_salary).toLocaleString("en-US")}</td>
                 <td className="sal-bonus">+{Number(p.bonus_amount || 0).toLocaleString("en-US")}</td>
                 <td className="sal-deduct">-{Number(p.deduction_amount || 0).toLocaleString("en-US")}</td>

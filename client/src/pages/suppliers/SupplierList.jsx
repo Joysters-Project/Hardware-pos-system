@@ -128,10 +128,10 @@ export default function SupplierList() {
       <motion.div className="proc-toolbar"
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
         <div className="proc-search-wrap">
-          <input className="proc-search" placeholder="Search by name, code, contact, phone..."
+          <input id="search" name="search" className="proc-search" placeholder="Search by name, code, contact, phone..."
             value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <select className="proc-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+        <select id="filterStatus" name="filterStatus" className="proc-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
           <option value="">All Status</option>
           <option value="Active">Active</option>
           <option value="Inactive">Inactive</option>

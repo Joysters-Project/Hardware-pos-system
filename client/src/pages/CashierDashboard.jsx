@@ -29,14 +29,6 @@ function CashierDashboard() {
   const [shiftTime, setShiftTime] = useState("0h 0m");
 
   useEffect(() => {
-    // Prevent back button after logout
-    window.history.pushState(null, null, window.location.href);
-    const handleBackButton = () => {
-      window.history.pushState(null, null, window.location.href);
-    };
-    
-    window.addEventListener("popstate", handleBackButton);
-
     // Fetch Stats
     const fetchStats = async () => {
       try {
@@ -68,17 +60,11 @@ function CashierDashboard() {
     const interval = setInterval(updateShiftTime, 60000);
 
     return () => {
-      window.removeEventListener("popstate", handleBackButton);
       clearInterval(interval);
     };
   }, []);
 
   const handleLogout = () => {
-    window.history.pushState(null, null, window.location.href);
-    window.addEventListener("popstate", () => {
-      window.history.pushState(null, null, window.location.href);
-    });
-
     logout();
     toast.success("Logged out successfully!");
     navigate("/", { replace: true });
@@ -92,11 +78,11 @@ function CashierDashboard() {
       renderValue: () => (
         <div className="kpi-value-wrapper">
           <span className="kpi-currency">Rs</span>
-          <span className="kpi-number">{stats.salesToday.toFixed(2)}</span>
+          <span className="kpi-number">{(stats?.salesToday || 0).toFixed(2)}</span>
         </div>
       ),
       trend: "+Today",
-      label: `${stats.transactionsCount} transactions`
+      label: `${stats?.transactionsCount || 0} transactions`
     },
     {
       id: 2,

@@ -5,12 +5,14 @@ import { Eye, Pencil, Trash2, Plus, Search, RefreshCw, FileDown, X, ChevronLeft,
 import toast from "react-hot-toast";
 import api from "../utils/axios";
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from "../utils/phoneValidation";
+import { buildTableHtml, escapeHtml, printWithTemplate } from "../utils/printTemplate";
 import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
 import "../styles/Employees.css";
 
 const BASE_URL = "http://localhost:5000";
 const POSITIONS = ["Admin", "Manager", "Cashier", "Supervisor", "Sales", "Warehouse", "IT", "HR", "Accountant", "Other"];
+const MAX_PHOTO_SIZE = 1 * 1024 * 1024; // 1 MB
 const EMPTY_FORM = { first_name: "", last_name: "", nic: "", phone_no: "", email: "", address: "", position: "", salary: "", salary_category: "monthly", join_date: "", status: "Active", department_id: "" };
 
 function EmployeesPage() {
@@ -44,7 +46,14 @@ function EmployeesPage() {
     finally { setPageLoading(false); }
   };
 
-  const openAdd = () => { setForm(EMPTY_FORM); setEditId(null); setPhotoFile(null); setPhotoPreview(null); setShowModal(true); };
+  const openAdd = () => {
+    const today = new Date().toISOString().split("T")[0];
+    setForm({ ...EMPTY_FORM, join_date: today });
+    setEditId(null);
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    setShowModal(true);
+  };
   const openEdit = (e) => {
     setForm({
       first_name: e.first_name || "", last_name: e.last_name || "", nic: e.nic || "", phone_no: e.phone_no || "",
@@ -62,6 +71,11 @@ function EmployeesPage() {
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    if (file.size > MAX_PHOTO_SIZE) {
+      toast.error("Photo must be 1 MB or smaller");
+      if (fileRef.current) fileRef.current.value = null;
+      return;
+    }
     setPhotoFile(file);
     setPhotoPreview(URL.createObjectURL(file));
   };
@@ -69,14 +83,51 @@ function EmployeesPage() {
   const handleSubmit = async (evt) => {
     evt.preventDefault();
     if (!form.first_name || !form.last_name) { toast.error("First and last name required"); return; }
+    const nameRegex = /^[A-Za-z ]+$/;
+    if (!nameRegex.test(form.first_name.trim()) || !nameRegex.test(form.last_name.trim())) {
+      toast.error("Names may only contain letters and spaces");
+      return;
+    }
+    if (!form.nic) {
+      toast.error("NIC is required");
+      return;
+    }
+    // Validate Sri Lankan NIC formats: old (9 digits + V/X) or new (12 digits)
+    const nicVal = form.nic?.trim();
+    const nicOld = /^\d{9}[vVxX]$/;
+    const nicNew = /^\d{12}$/;
+    if (!(nicOld.test(nicVal) || nicNew.test(nicVal))) {
+      toast.error("Please enter a valid NIC (9 digits + V/X or 12 digits)");
+      return;
+    }
+    form.nic = nicVal;
+    if (!form.position || !form.position.trim()) {
+      toast.error("Position is required");
+      return;
+    }
+    const positionRegex = /^[A-Za-z ]+$/;
+    if (!positionRegex.test(form.position.trim())) {
+      toast.error("Position may only contain letters and spaces");
+      return;
+    }
     if (!form.email) {
       toast.error("Email is required");
+      return;
+    }
+    if (!form.join_date) {
+      toast.error("Join date is required");
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(form.email.trim())) {
       toast.error("Please enter a valid email address");
+      return;
+    }
+
+    const salaryNum = Number(form.salary);
+    if (!form.salary || isNaN(salaryNum) || salaryNum <= 0) {
+      toast.error("Salary must be greater than zero");
       return;
     }
 
@@ -110,18 +161,21 @@ function EmployeesPage() {
       return;
     }
 
-    if (form.phone_no) {
-      const phoneValidation = validateSriLankanPhone(form.phone_no);
-      if (!phoneValidation.isValid) {
-        setPhoneError(phoneValidation.message);
-        toast.error(phoneValidation.message);
-        return;
-      }
-      form.phone_no = phoneValidation.formatted;
+    if (!form.phone_no) {
+      toast.error("Phone is required");
+      return;
     }
+    const phoneValidation = validateSriLankanPhone(form.phone_no);
+    if (!phoneValidation.isValid) {
+      setPhoneError(phoneValidation.message);
+      toast.error(phoneValidation.message);
+      return;
+    }
+    form.phone_no = phoneValidation.formatted;
 
     setLoading(true);
     try {
+      if (photoFile && photoFile.size > MAX_PHOTO_SIZE) { toast.error("Photo must be 1 MB or smaller"); setLoading(false); return; }
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => { if (v !== "") fd.append(k, v); });
       if (photoFile) fd.append("profile_photo", photoFile);
@@ -152,8 +206,11 @@ function EmployeesPage() {
       <tr style="background:${i % 2 === 0 ? "#fff" : "#fdf8f8"}">
         <td>#${e.employee_id}</td>
         <td><strong>${e.first_name} ${e.last_name}</strong></td>
+        <td>${e.nic || "—"}</td>
         <td>${e.position || "—"}</td>
         <td>${getDeptName(e.department_id)}</td>
+        <td>${e.salary_category === "daily" ? "Daily Worker" : "Monthly Worker"}</td>
+        <td>${e.join_date ? new Date(e.join_date).toLocaleDateString() : "—"}</td>
         <td>${e.phone_no || "—"}</td>
         <td>${e.email || "—"}</td>
         <td>LKR ${Number(e.salary || 0).toLocaleString("en-US")}</td>
@@ -173,7 +230,7 @@ function EmployeesPage() {
       <div class="hdr"><div><h1>Employees Report — Mathumithan Hardware</h1>
       <p style="font-size:11px;color:#888;margin-top:3px">Total: ${filtered.length} employee(s)</p></div>
       <div class="meta">Generated: ${new Date().toLocaleString()}</div></div>
-      <table><thead><tr><th>#</th><th>Name</th><th>Position</th><th>Department</th><th>Phone</th><th>Email</th><th>Salary</th><th>Status</th></tr></thead>
+      <table><thead><tr><th>#</th><th>Name</th><th>NIC</th><th>Position</th><th>Department</th><th>Salary Category</th><th>Join Date</th><th>Phone</th><th>Email</th><th>Salary</th><th>Status</th></tr></thead>
       <tbody>${rows}</tbody></table>
       <div class="footer">Mathumithan Hardware POS System &bull; Employees Report &bull; Confidential</div>
       </body></html>`);
@@ -182,40 +239,31 @@ function EmployeesPage() {
   };
 
   const exportViewPDF = (emp) => {
-    const win = window.open("", "_blank", "width=800,height=600");
-    win.document.write(`<!DOCTYPE html><html><head><title>Employee — ${emp.first_name} ${emp.last_name}</title>
-      <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',sans-serif;padding:36px;color:#222}
-      .hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #8b3a3a;padding-bottom:16px;margin-bottom:24px}
-      h1{font-size:20px;color:#8b3a3a;font-weight:700}.meta{font-size:11px;color:#888;text-align:right}
-      .sec{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#8b3a3a;margin:18px 0 8px;border-bottom:1px solid #f0e0e0;padding-bottom:4px}
-      table{width:100%;border-collapse:collapse}
-      tr:nth-child(even) td{background:#fdf8f8}td{padding:9px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
-      td:first-child{color:#777;font-weight:600;width:40%}
-      .footer{margin-top:28px;text-align:center;font-size:10px;color:#aaa;border-top:1px solid #eee;padding-top:10px}
-      </style></head><body>
-      <div class="hdr"><div><h1>${emp.first_name} ${emp.last_name}</h1><p style="font-size:12px;color:#888;margin-top:3px">Employee Profile</p></div>
-      <div class="meta">Generated: ${new Date().toLocaleString()}</div></div>
-      <div class="sec">Personal Information</div>
-      <table>
-        <tr><td>Employee ID</td><td>#${emp.employee_id}</td></tr>
-        <tr><td>Full Name</td><td>${emp.first_name} ${emp.last_name}</td></tr>
-        <tr><td>NIC</td><td>${emp.nic || "—"}</td></tr>
-        <tr><td>Phone</td><td>${emp.phone_no || "—"}</td></tr>
-        <tr><td>Email</td><td>${emp.email || "—"}</td></tr>
-        <tr><td>Address</td><td>${emp.address || "—"}</td></tr>
+    const detailsHtml = `
+      <table class="tpl-table">
+        <tbody>
+          <tr><td>Employee ID</td><td>#${escapeHtml(emp.employee_id)}</td></tr>
+          <tr><td>Full Name</td><td>${escapeHtml(`${emp.first_name} ${emp.last_name}`.trim())}</td></tr>
+          <tr><td>NIC</td><td>${escapeHtml(emp.nic || "—")}</td></tr>
+          <tr><td>Phone</td><td>${escapeHtml(emp.phone_no || "—")}</td></tr>
+          <tr><td>Email</td><td>${escapeHtml(emp.email || "—")}</td></tr>
+          <tr><td>Address</td><td>${escapeHtml(emp.address || "—")}</td></tr>
+          <tr><td>Position</td><td>${escapeHtml(emp.position || "—")}</td></tr>
+          <tr><td>Department</td><td>${escapeHtml(emp.department?.department_name || getDeptName(emp.department_id))}</td></tr>
+          <tr><td>Salary</td><td>${escapeHtml(`LKR ${Number(emp.salary || 0).toLocaleString("en-US")}`)}</td></tr>
+          <tr><td>Join Date</td><td>${escapeHtml(emp.join_date ? new Date(emp.join_date).toLocaleDateString() : "—")}</td></tr>
+          <tr><td>Status</td><td>${escapeHtml(emp.status || "Active")}</td></tr>
+        </tbody>
       </table>
-      <div class="sec">Employment Details</div>
-      <table>
-        <tr><td>Position</td><td>${emp.position || "—"}</td></tr>
-        <tr><td>Department</td><td>${emp.department?.department_name || getDeptName(emp.department_id)}</td></tr>
-        <tr><td>Salary</td><td>LKR ${Number(emp.salary || 0).toLocaleString("en-US")}</td></tr>
-        <tr><td>Join Date</td><td>${emp.join_date ? new Date(emp.join_date).toLocaleDateString() : "—"}</td></tr>
-        <tr><td>Status</td><td>${emp.status || "Active"}</td></tr>
-      </table>
-      <div class="footer">Mathumithan Hardware POS System &bull; Employee Profile &bull; Confidential</div>
-      </body></html>`);
-    win.document.close(); win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 400);
+    `;
+
+    const opened = printWithTemplate({
+      title: `${emp.first_name} ${emp.last_name}`,
+      subtitle: "Employee Profile",
+      contentHtml: detailsHtml,
+    });
+
+    if (!opened) toast.error("Allow pop-ups to print the report");
   };
 
   const filtered = employees.filter(e => {
@@ -254,13 +302,13 @@ function EmployeesPage() {
       {/* Filters */}
       <div className="emp-filters">
         <div className="emp-search-wrap"><Search size={14} className="emp-search-icon" />
-          <input className="emp-search" placeholder="Search name, email, phone, NIC..." value={search}
+          <input id="search" name="search" className="emp-search" placeholder="Search name, email, phone, NIC..." value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }} /></div>
-        <select className="emp-select" value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }}>
+        <select id="filterStatus" name="filterStatus" className="emp-select" value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }}>
           <option value="">All Status</option>
           <option value="Active">Active</option><option value="Inactive">Inactive</option><option value="Resigned">Resigned</option>
         </select>
-        <select className="emp-select" value={filterDept} onChange={e => { setFilterDept(e.target.value); setPage(1); }}>
+        <select id="filterDept" name="filterDept" className="emp-select" value={filterDept} onChange={e => { setFilterDept(e.target.value); setPage(1); }}>
           <option value="">All Departments</option>
           {departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
         </select>
@@ -271,12 +319,12 @@ function EmployeesPage() {
       <div className="emp-table-wrap">
         <table className="emp-table">
           <thead><tr>
-            <th>Photo</th><th>#</th><th>Name</th><th>Position</th><th>Department</th><th>Salary Category</th>
+            <th>Photo</th><th>#</th><th>Name</th><th>NIC</th><th>Position</th><th>Department</th><th>Salary Category</th><th>Join Date</th>
             <th>Phone</th><th>Salary (LKR)</th><th>Status</th><th>Actions</th>
           </tr></thead>
           <tbody>
-            {pageLoading ? <tr><td colSpan="10" className="emp-empty">Loading...</td></tr>
-              : paginated.length === 0 ? <tr><td colSpan="10" className="emp-empty">No employees found</td></tr>
+            {pageLoading ? <tr><td colSpan="12" className="emp-empty">Loading...</td></tr>
+              : paginated.length === 0 ? <tr><td colSpan="12" className="emp-empty">No employees found</td></tr>
                 : paginated.map(e => (
                   <tr key={e.employee_id}>
                     <td>{e.profile_photo
@@ -286,9 +334,11 @@ function EmployeesPage() {
                     <td><span className="emp-id-badge">#{e.employee_id}</span></td>
                     <td className="emp-name-cell"><div className="emp-fullname">{e.first_name} {e.last_name}</div>
                       <div className="emp-email-sub">{e.email}</div></td>
+                    <td>{e.nic || "—"}</td>
                     <td>{e.position}</td>
                     <td>{getDeptName(e.department_id)}</td>
                     <td>{e.salary_category === "daily" ? "Daily Worker" : "Monthly Worker"}</td>
+                    <td>{e.join_date ? new Date(e.join_date).toLocaleDateString() : "—"}</td>
                     <td>{e.phone_no || "—"}</td>
                     <td className="emp-salary-cell">LKR {Number(e.salary || 0).toLocaleString("en-US")}</td>
                     <td><span className={`emp-status-pill ${e.status?.toLowerCase()}`}>{e.status}</span></td>
@@ -322,25 +372,33 @@ function EmployeesPage() {
               <div className="emp-photo-upload" onClick={() => fileRef.current.click()}>
                 {photoPreview ? <img src={photoPreview} alt="" className="emp-photo-preview" />
                   : <div className="emp-photo-placeholder">📷<br /><small>Click to upload</small></div>}
-                <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhotoChange} />
+                <input id="file_field" name="file_field" ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhotoChange} />
               </div>
               <div className="emp-form-grid">
                 {[["First Name *", "text", "first_name", true], ["Last Name *", "text", "last_name", true],
-                ["NIC", "text", "nic"], ["Email *", "email", "email", true]].map(([label, type, key, req]) => (
+                ["NIC *", "text", "nic", true], ["Email *", "email", "email", true]].map(([label, type, key, req]) => (
                   <div className="emp-field" key={key}>
                     <label>{label}</label>
-                    <input type={type} value={form[key]} onChange={e => setForm({ ...form, [key]: e.target.value })} required={!!req} />
+                    <input
+                      type={type}
+                      value={form[key]}
+                      onChange={e => setForm({ ...form, [key]: e.target.value })}
+                      required={!!req}
+                      pattern={key === "nic" ? "(^\\d{9}[vVxX]$|^\\d{12}$)" : key === "first_name" || key === "last_name" ? "^[A-Za-z ]+$" : undefined}
+                      title={key === "nic" ? "NIC must be 9 digits + V/X or 12 digits" : key === "first_name" || key === "last_name" ? "Name may only contain letters and spaces" : undefined}
+                    />
                   </div>
                 ))}
                 {/* Phone Field with Validation */}
                 <div className="emp-field">
-                  <label>Phone (Sri Lanka)</label>
+                  <label>Phone (Sri Lanka) *</label>
                   <div style={{ position: "relative" }}>
-                    <input
+                    <input id="phone_no" name="phone_no"
                       type="text"
                       placeholder="e.g., 0712345678 (10 digits, numbers only)"
                       value={form.phone_no}
                       maxLength="10"
+                      required
                       onChange={e => {
                         const filtered = filterSriLankanPhoneInput(e.target.value);
                         setForm({ ...form, phone_no: filtered });
@@ -362,28 +420,35 @@ function EmployeesPage() {
                   </div>
                 </div>
                 <div className="emp-field"><label>Position *</label>
-                  <select value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} required>
-                    <option value=""></option>{POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
-                  </select></div>
+                  <input
+                    type="text"
+                    value={form.position}
+                    onChange={e => setForm({ ...form, position: e.target.value })}
+                    required
+                    pattern="^[A-Za-z ]+$"
+                    title="Position may only contain letters and spaces"
+                    placeholder="e.g. Manager"
+                  />
+                </div>
                 <div className="emp-field"><label>Salary (LKR) *</label>
-                  <input type="number" min="0" value={form.salary} onChange={e => setForm({ ...form, salary: e.target.value })} required /></div>
+                  <input type="number" min="1" value={form.salary} onChange={e => setForm({ ...form, salary: e.target.value })} required /></div>
                 <div className="emp-field"><label>Salary Category *</label>
-                  <select value={form.salary_category} onChange={e => setForm({ ...form, salary_category: e.target.value })} required>
+                  <select id="salary_category" name="salary_category" value={form.salary_category} onChange={e => setForm({ ...form, salary_category: e.target.value })} required>
                     <option value="monthly">Monthly Worker</option>
                     <option value="daily">Daily Worker</option>
                   </select></div>
                 <div className="emp-field"><label>Join Date</label>
-                  <input type="date" value={form.join_date} max={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, join_date: e.target.value })} /></div>
+                  <input id="join_date" name="join_date" type="date" value={form.join_date} max={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, join_date: e.target.value })} /></div>
                 <div className="emp-field"><label>Department *</label>
                   <select value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })} required>
-                    <option value=""></option>{departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
+                    <option value=""></option>{departments.filter(d => d.status === "Active").map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
                   </select></div>
                 <div className="emp-field"><label>Status</label>
-                  <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+                  <select id="status" name="status" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
                     <option value="Active">Active</option><option value="Inactive">Inactive</option><option value="Resigned">Resigned</option>
                   </select></div>
                 <div className="emp-field emp-field-full"><label>Address</label>
-                  <textarea rows={2} value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Full address..." /></div>
+                  <textarea id="address" name="address" rows={2} value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Full address..." /></div>
               </div>
               <div className="emp-modal-footer">
                 <button type="button" className="emp-btn-cancel" onClick={closeModal}>Cancel</button>

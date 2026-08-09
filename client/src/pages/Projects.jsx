@@ -4,12 +4,14 @@ import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   FolderOpen, Plus, X, Eye, Edit2, Trash2,
-  BarChart2, TrendingUp, Package,
-  ChevronDown, ChevronUp, Calendar
+  BarChart2, TrendingUp, Package, ShoppingCart,
+  ChevronDown, ChevronUp, Calendar, Printer
 } from 'lucide-react';
 import api from '../utils/axios';
+import { buildTableHtml, escapeHtml, printWithTemplate } from '../utils/printTemplate';
 import AdminDashboard from './AdminDashboard';
 import ManagerDashboard from './ManagerDashboard';
+import ProjectsTab from '../components/ProjectsTab';
 import '../styles/Projects.css';
 
 const STATUSES = ['Active', 'Completed', 'On Hold', 'Cancelled'];
@@ -136,6 +138,78 @@ function ProjectsPage() {
     finally { setLoading(false); }
   };
 
+  const printMonthlyReport = () => {
+    if (!monthlyData) return;
+
+    const monthName = MONTHS[reportMonth - 1] || reportMonth;
+    const title = `Project Monthly Summary - ${monthName} ${reportYear}`;
+    const subtitle = `Total Items: ${monthlyData.totalItems} | Projects: ${monthlyData.byProject.length} | Project Income: ${fmtCurrency(monthlyData.totalProjectIncome || 0)}`;
+
+    const rows = [];
+    (monthlyData.byProject || []).forEach((pg) => {
+      const projName = pg.project?.project_name || 'Project';
+      (pg.items || []).forEach((item) => {
+        rows.push([
+          projName,
+          item.product?.product_name || '—',
+          Number(item.quantity || 0).toFixed(2),
+          fmtCurrency(item.unit_price),
+          fmtCurrency(Number(item.quantity || 0) * Number(item.unit_price || 0)),
+          item.receiver_name || (item.takenByUser ? `${item.takenByUser.first_name || ''} ${item.takenByUser.last_name || ''}`.trim() : '—'),
+          fmtDateTime(item.taken_at),
+        ]);
+      });
+    });
+
+    const columns = ['Project', 'Product', 'Qty', 'Unit Price', 'Total', 'Receiver / Taken By', 'Date & Time'];
+    const tableHtml = buildTableHtml({
+      columns,
+      rows: rows.map((row) => row.map((cell) => escapeHtml(cell))),
+      emptyMessage: 'No project items recorded for this month.',
+    });
+
+    const opened = printWithTemplate({
+      title,
+      subtitle,
+      contentHtml: tableHtml,
+    });
+
+    if (!opened) {
+      toast.error('Allow pop-ups to print the monthly summary');
+    }
+  };
+
+  const printYearlyReport = () => {
+    if (!yearlyData) return;
+
+    const title = `Project Yearly Summary - ${yearlyYear}`;
+    const subtitle = `Total Items: ${yearlyData.totalItems} | Project Income: ${fmtCurrency(yearlyData.totalProjectIncome || 0)}`;
+
+    const activeMonths = (yearlyData.byMonth || []).filter((m) => Number(m.totalItems || 0) > 0 || Number(m.totalValue || 0) > 0);
+    const rows = activeMonths.map((m) => [
+      MONTHS[m.month - 1] || `Month ${m.month}`,
+      m.totalItems,
+      fmtCurrency(m.projectIncome || 0),
+    ]);
+
+    const columns = ['Month', 'Items Taken', 'Project Income'];
+    const tableHtml = buildTableHtml({
+      columns,
+      rows: rows.map((row) => row.map((cell) => escapeHtml(cell))),
+      emptyMessage: 'No project activity recorded for this year.',
+    });
+
+    const opened = printWithTemplate({
+      title,
+      subtitle,
+      contentHtml: tableHtml,
+    });
+
+    if (!opened) {
+      toast.error('Allow pop-ups to print the yearly summary');
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'monthly') loadMonthly(reportYear, reportMonth);
   }, [activeTab, reportYear, reportMonth]);
@@ -182,7 +256,7 @@ function ProjectsPage() {
     const day = String(dateObj.getDate()).padStart(2, '0');
     const month = String(dateObj.getMonth() + 1).padStart(2, '0');
     const year = dateObj.getFullYear();
-    const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
     return `${day}/${month}/${year}, ${timeStr}`;
   };
 
@@ -271,9 +345,10 @@ function ProjectsPage() {
       {/* ── Tabs ── */}
       <div className="proj-tabs">
         {[
-          { key: 'projects', label: 'Projects',       icon: <FolderOpen size={15} /> },
-          { key: 'monthly',  label: 'Monthly Report', icon: <BarChart2 size={15} /> },
-          { key: 'yearly',   label: 'Yearly Report',  icon: <TrendingUp size={15} /> },
+          { key: 'projects',        label: 'Projects',               icon: <FolderOpen size={15} /> },
+          { key: 'billing-counter', label: 'Project Billing Counter',icon: <ShoppingCart size={15} /> },
+          { key: 'monthly',         label: 'Monthly Report',         icon: <BarChart2 size={15} /> },
+          { key: 'yearly',          label: 'Yearly Report',          icon: <TrendingUp size={15} /> },
         ].map(t => (
           <button key={t.key} className={`proj-tab ${activeTab === t.key ? 'active' : ''}`}
             onClick={() => setActiveTab(t.key)}>
@@ -281,6 +356,11 @@ function ProjectsPage() {
           </button>
         ))}
       </div>
+
+      {/* ══ PROJECT BILLING COUNTER ══ */}
+      {activeTab === 'billing-counter' && (
+        <ProjectsTab />
+      )}
 
       {/* ══ PROJECTS LIST ══ */}
       {activeTab === 'projects' && (
@@ -341,19 +421,29 @@ function ProjectsPage() {
       {/* ══ MONTHLY REPORT ══ */}
       {activeTab === 'monthly' && (
         <div className="proj-report-section">
-          <div className="proj-report-controls">
-            <select value={reportYear} onChange={e => setReportYear(Number(e.target.value))}>
+          <div className="proj-report-controls" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <select id="reportYear" name="reportYear" value={reportYear} onChange={e => setReportYear(Number(e.target.value))}>
               {projectYears.length > 0
                 ? projectYears.map(y => <option key={y} value={y}>{y}</option>)
                 : <option value={reportYear}>{reportYear}</option>}
             </select>
-            <select value={reportMonth} onChange={e => setReportMonth(Number(e.target.value))}>
+            <select id="reportMonth" name="reportMonth" value={reportMonth} onChange={e => setReportMonth(Number(e.target.value))}>
               {(availableMonthsForYear(reportYear).length > 0
                 ? availableMonthsForYear(reportYear)
                 : [reportMonth]
               ).map(m => <option key={m} value={m}>{MONTHS[m - 1]}</option>)}
             </select>
             {loading && <span style={{ fontSize: '0.85rem', color: '#888' }}>Loading…</span>}
+
+            <button
+              type="button"
+              className="proj-btn-primary"
+              style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              onClick={printMonthlyReport}
+              disabled={!monthlyData || !monthlyData.byProject || monthlyData.byProject.length === 0}
+            >
+              <Printer size={16} /> Print Monthly Summary
+            </button>
           </div>
 
           {monthlyData && (
@@ -420,13 +510,23 @@ function ProjectsPage() {
       {/* ══ YEARLY REPORT ══ */}
       {activeTab === 'yearly' && (
         <div className="proj-report-section">
-          <div className="proj-report-controls">
-            <select value={yearlyYear} onChange={e => setYearlyYear(Number(e.target.value))}>
+          <div className="proj-report-controls" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <select id="yearlyYear" name="yearlyYear" value={yearlyYear} onChange={e => setYearlyYear(Number(e.target.value))}>
               {projectYears.length > 0
                 ? projectYears.map(y => <option key={y} value={y}>{y}</option>)
                 : <option value={yearlyYear}>{yearlyYear}</option>}
             </select>
             {loading && <span style={{ fontSize: '0.85rem', color: '#888' }}>Loading…</span>}
+
+            <button
+              type="button"
+              className="proj-btn-primary"
+              style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              onClick={printYearlyReport}
+              disabled={!yearlyData || !yearlyData.totalItems}
+            >
+              <Printer size={16} /> Print Yearly Summary
+            </button>
           </div>
 
           {yearlyData && (
@@ -481,41 +581,41 @@ function ProjectsPage() {
               <div className="proj-form-grid">
                 <div className="proj-field proj-field-full">
                   <label>Project Name *</label>
-                  <input value={form.project_name} onChange={f('project_name')}
+                  <input id="project_name" name="project_name" value={form.project_name} onChange={f('project_name')}
                     required placeholder="e.g. Welding Gate Project" />
                 </div>
                 <div className="proj-field">
                   <label>Project Owner</label>
-                  <input value={form.project_owner} onChange={f('project_owner')}
+                  <input id="project_owner" name="project_owner" value={form.project_owner} onChange={f('project_owner')}
                     placeholder="e.g. John Silva" />
                 </div>
                 <div className="proj-field">
                   <label>Location</label>
-                  <input value={form.location} onChange={f('location')}
+                  <input id="location" name="location" value={form.location} onChange={f('location')}
                     placeholder="e.g. Colombo, Site A" />
                 </div>
                 <div className="proj-field">
                   <label>Status</label>
-                  <select value={form.status} onChange={f('status')}>
+                  <select id="status" name="status" value={form.status} onChange={f('status')}>
                     {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div className="proj-field">
                   <label>Start Date *</label>
-                  <input type="date" value={form.start_date} onChange={f('start_date')} required />
+                  <input id="start_date" name="start_date" type="date" value={form.start_date} onChange={f('start_date')} required />
                 </div>
                 <div className="proj-field">
                   <label>Deadline</label>
-                  <input type="date" value={form.deadline} onChange={f('deadline')} />
+                  <input id="deadline" name="deadline" type="date" value={form.deadline} onChange={f('deadline')} />
                 </div>
                 <div className="proj-field">
                   <label>End Date (Actual)</label>
-                  <input type="date" value={form.end_date} onChange={f('end_date')} />
+                  <input id="end_date" name="end_date" type="date" value={form.end_date} onChange={f('end_date')} />
                 </div>
                 {editId && ['Completed', 'Cancelled'].includes(form.status) && (
                   <div className="proj-field proj-field-full">
                     <label>Final Payment (Real Amount) *</label>
-                    <input type="number" min="0" step="0.01" value={form.final_payment} onChange={f('final_payment')}
+                    <input id="final_payment" name="final_payment" type="number" min="0" step="0.01" value={form.final_payment} onChange={f('final_payment')}
                       placeholder="e.g. 250000" />
                     <div style={{ marginTop: 6, color: '#6b7280', fontSize: '0.9rem' }}>
                       Estimated project cost: <strong>{fmtCurrency(projectEstimate ?? 0)}</strong>
@@ -524,7 +624,7 @@ function ProjectsPage() {
                 )}
                 <div className="proj-field proj-field-full">
                   <label>Description</label>
-                  <textarea rows={3} value={form.description} onChange={f('description')}
+                  <textarea id="description" name="description" rows={3} value={form.description} onChange={f('description')}
                     placeholder="Optional project notes…" />
                 </div>
               </div>

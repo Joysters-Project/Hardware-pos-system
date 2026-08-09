@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, Navigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 import "../styles/Login.css";
@@ -8,7 +8,14 @@ import logo from "../assets/logo.png";
 function Login() {
   const navigate = useNavigate();
   const { role } = useParams();
-  const { login } = useAuth();
+  const { login, isAuthenticated, role: userRole } = useAuth();
+
+  // If already authenticated, redirect to dashboard
+  if (isAuthenticated) {
+    const normRole = (userRole || "admin").toLowerCase();
+    const dashPath = normRole === "manager" ? "/dashboard/manager" : normRole === "cashier" ? "/dashboard/cashier" : "/dashboard/admin";
+    return <Navigate to={dashPath} replace />;
+  }
 
   const [userName, setUserName] = useState("");
   const [password, setPassword] = useState("");
@@ -50,17 +57,25 @@ function Login() {
         toast.success("Login successful!");
 
         if (data.token && data.user) {
-          // Store all user information
+          const userRoleName = (data.user.role || roleParam).toLowerCase();
+          // Store all user information in sessionStorage & localStorage
+          sessionStorage.setItem('userId', data.user.user_id);
+          sessionStorage.setItem('userName', data.user.user_name);
+          sessionStorage.setItem('userFirstName', data.user.first_name);
+          sessionStorage.setItem('userLastName', data.user.last_name);
+          sessionStorage.setItem('userFullName', `${data.user.first_name} ${data.user.last_name}`);
+          
           localStorage.setItem('userId', data.user.user_id);
           localStorage.setItem('userName', data.user.user_name);
           localStorage.setItem('userFirstName', data.user.first_name);
           localStorage.setItem('userLastName', data.user.last_name);
           localStorage.setItem('userFullName', `${data.user.first_name} ${data.user.last_name}`);
-          
-          login(data.user.user_name, data.token, roleParam.toLowerCase());
-        }
 
-        setTimeout(() => navigate("/dashboard/" + roleParam.toLowerCase()), 1500);
+          login(data.user.user_name, data.token, userRoleName);
+          navigate("/dashboard/" + userRoleName, { replace: true });
+        } else {
+          navigate("/dashboard/" + roleParam.toLowerCase(), { replace: true });
+        }
       } else {
         toast.error(data.message || 'Login failed');
       }
@@ -87,7 +102,7 @@ function Login() {
 
           <form onSubmit={handleSubmit}>
             <div className="input-box">
-              <input
+              <input id="userName" name="userName"
                 type="text"
                 placeholder="Username"
                 value={userName}
@@ -98,7 +113,7 @@ function Login() {
             </div>
 
             <div className="input-box" style={{position:"relative"}}>
-              <input
+              <input id="password" name="password"
                 type={showPassword ? "text" : "password"}
                 placeholder="Password"
                 value={password}

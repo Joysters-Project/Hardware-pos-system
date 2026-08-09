@@ -96,6 +96,8 @@ const inventory_statuses = require('./inventory_statuses');
 const product_warranties = require('./product_warranties');
 const supplier_services = require('./supplier_services');
 const supplier_payment_transactions = require('./supplier_payment_transactions');
+const cheque_customers  = require('./cheque_customers');
+const customer_cheques  = require('./customer_cheques');
 
 // 3. Initialize the DB object
 const db = {
@@ -136,6 +138,8 @@ const db = {
   product_warranties: product_warranties(sequelize),
   supplier_services:  supplier_services(sequelize),
   supplier_payment_transactions: supplier_payment_transactions(sequelize),
+  cheque_customers:   cheque_customers(sequelize),
+  customer_cheques:   customer_cheques(sequelize),
 };
 
 // 4. Define Relationships
@@ -257,6 +261,12 @@ db.products.belongsTo(db.suppliers, { foreignKey: 'preferred_supplier_id', as: '
 
 db.suppliers.hasMany(db.supplier_documents, { foreignKey: 'supplier_id' });
 db.supplier_documents.belongsTo(db.suppliers, { foreignKey: 'supplier_id' });
+
+// Customer Cheque Exchange Module
+db.cheque_customers.hasMany(db.customer_cheques, { foreignKey: 'customer_id', as: 'cheques' });
+db.customer_cheques.belongsTo(db.cheque_customers, { foreignKey: 'customer_id', as: 'customer' });
+db.users.hasMany(db.customer_cheques, { foreignKey: 'created_by', as: 'createdCheques' });
+db.customer_cheques.belongsTo(db.users, { foreignKey: 'created_by', as: 'creator' });
 
 // Batch Inventory
 db.products.hasMany(db.batch_inventory, { foreignKey: 'product_id' });

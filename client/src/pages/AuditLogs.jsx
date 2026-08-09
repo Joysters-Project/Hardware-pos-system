@@ -125,15 +125,15 @@ function AuditLogPage() {
       <div className="audit-filters">
         <div className="audit-search-wrap">
           <Search size={14} className="audit-search-icon" />
-          <input className="audit-search" placeholder="Search by username..."
+          <input id="search" name="search" className="audit-search" placeholder="Search by username..."
             value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
-        <select className="audit-select" value={action} onChange={e => { setAction(e.target.value); setPage(1); }}>
+        <select id="action" name="action" className="audit-select" value={action} onChange={e => { setAction(e.target.value); setPage(1); }}>
           <option value="">All Actions</option>
           {actions.map(a => <option key={a} value={a}>{a}</option>)}
         </select>
-        <input type="date" className="audit-select" value={from} onChange={e => { setFrom(e.target.value); setPage(1); }} title="From date" />
-        <input type="date" className="audit-select" value={to}   onChange={e => { setTo(e.target.value);   setPage(1); }} title="To date" />
+        <input id="from" name="from" type="date" className="audit-select" value={from} onChange={e => { setFrom(e.target.value); setPage(1); }} title="From date" />
+        <input id="to" name="to" type="date" className="audit-select" value={to}   onChange={e => { setTo(e.target.value);   setPage(1); }} title="To date" />
         {(search || action || from || to) && (
           <button className="audit-clear-btn" onClick={resetFilters}>Clear</button>
         )}

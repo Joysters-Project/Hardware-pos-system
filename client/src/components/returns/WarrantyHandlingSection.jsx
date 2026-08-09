@@ -77,7 +77,7 @@ export default function WarrantyHandlingSection({ item, onChangeField, calculate
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>
             <div>
               <label>Supplier {actionLabel} Charge (LKR)</label>
-              <input
+              <input id="0_00" name="0_00"
                 type="number"
                 min="0"
                 placeholder="0.00"
@@ -97,7 +97,7 @@ export default function WarrantyHandlingSection({ item, onChangeField, calculate
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '10px' }}>
             <div>
               <label>Warranty Card No. (Optional)</label>
-              <input
+              <input id="e_g_wc_88219" name="e_g_wc_88219"
                 type="text"
                 placeholder="e.g. WC-88219"
                 value={item.warranty_card_no || ''}
@@ -106,7 +106,7 @@ export default function WarrantyHandlingSection({ item, onChangeField, calculate
             </div>
             <div>
               <label>Warranty Expiry Date</label>
-              <input
+              <input id="date_field" name="date_field"
                 type="date"
                 value={item.warranty_expiry_date || ''}
                 onChange={(e) => handleExpiryDateChange(e.target.value)}
@@ -136,7 +136,7 @@ export default function WarrantyHandlingSection({ item, onChangeField, calculate
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <div>
               <label>Supplier {actionLabel} Charge (LKR)</label>
-              <input
+              <input id="0_00" name="0_00"
                 type="number"
                 min="0"
                 placeholder="0.00"

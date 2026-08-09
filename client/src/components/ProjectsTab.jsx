@@ -22,6 +22,7 @@ import toast from 'react-hot-toast';
 import api from '../api/axios';
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
 import { subscribeToEvent } from '../services/socketSingleton';
+import { buildTableHtml, escapeHtml, printWithTemplate } from '../utils/printTemplate';
 import '../styles/ProjectsTab.css';
 
 const currency = (value) => `LKR ${Number(value || 0).toLocaleString('en-LK', { minimumFractionDigits: 2 })}`;
@@ -55,41 +56,19 @@ const buildSummaryGroups = (items) => {
 };
 
 const printReport = (title, rows, columns) => {
-  const popup = window.open('', '_blank', 'width=1100,height=780');
-  if (!popup) {
+  const tableHtml = buildTableHtml({
+    columns,
+    rows: rows.map((row) => row.map((cell) => escapeHtml(cell))),
+  });
+
+  const opened = printWithTemplate({
+    title,
+    contentHtml: tableHtml,
+  });
+
+  if (!opened) {
     toast.error('Allow pop-ups to print the report');
-    return;
   }
-
-  const headerCells = columns.map((column) => `<th>${column}</th>`).join('');
-  const bodyRows = rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join('')}</tr>`).join('');
-
-  popup.document.write(`
-    <html>
-      <head>
-        <title>${title}</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 24px; color: #222; }
-          h1 { margin: 0 0 8px; font-size: 22px; }
-          p { margin: 0 0 18px; color: #666; }
-          table { width: 100%; border-collapse: collapse; }
-          th { background: #8b3a3a; color: #fff; text-align: left; padding: 10px 12px; font-size: 13px; }
-          td { border-bottom: 1px solid #e9e9e9; padding: 10px 12px; font-size: 13px; }
-        </style>
-      </head>
-      <body>
-        <h1>${title}</h1>
-        <p>Generated on ${new Date().toLocaleString()}</p>
-        <table>
-          <thead><tr>${headerCells}</tr></thead>
-          <tbody>${bodyRows}</tbody>
-        </table>
-      </body>
-    </html>
-  `);
-  popup.document.close();
-  popup.focus();
-  popup.print();
 };
 
 export default function ProjectsTab() {
@@ -146,11 +125,15 @@ export default function ProjectsTab() {
 
     const query = searchQ.toLowerCase();
     const results = products.filter((product) => {
+      const altBarcodeMatch = (product.alternative_units || []).some(au =>
+        String(au.barcode || '').toLowerCase().includes(query)
+      );
       return (
         product.product_name?.toLowerCase().includes(query) ||
         String(product.product_id).includes(query) ||
         String(product.product_code || '').toLowerCase().includes(query) ||
-        String(product.barcode || '').toLowerCase().includes(query)
+        String(product.barcode || '').toLowerCase().includes(query) ||
+        altBarcodeMatch
       );
     }).slice(0, 8);
 
@@ -206,11 +189,15 @@ export default function ProjectsTab() {
   const catalogProducts = products.filter((product) => {
     if (!searchQ.trim()) return true;
     const query = searchQ.toLowerCase();
+    const altBarcodeMatch = (product.alternative_units || []).some(au =>
+      String(au.barcode || '').toLowerCase().includes(query)
+    );
     return (
       product.product_name?.toLowerCase().includes(query) ||
       String(product.product_id).includes(query) ||
       String(product.product_code || '').toLowerCase().includes(query) ||
-      String(product.barcode || '').toLowerCase().includes(query)
+      String(product.barcode || '').toLowerCase().includes(query) ||
+      altBarcodeMatch
     );
   });
 
@@ -231,6 +218,25 @@ export default function ProjectsTab() {
   };
 
   const addToCart = (product) => {
+    const baseUnitName = product.unit?.unit_name || product.unit_name || 'number';
+    const baseUnitId = product.unit_id ? parseInt(product.unit_id) : 0;
+
+    const baseUnit = {
+      unit_id: baseUnitId,
+      unit_name: baseUnitName,
+      conversion_factor: 1.0,
+      unit_price: Number(product.unit_price)
+    };
+
+    const altUnits = (product.alternative_units || []).map(au => ({
+      unit_id: parseInt(au.unit_id),
+      unit_name: au.unit_details?.unit_name || au.unit?.unit_name || au.unit_name || 'Alt Unit',
+      conversion_factor: parseFloat(au.conversion_factor),
+      unit_price: parseFloat(au.unit_price || (product.unit_price * au.conversion_factor))
+    }));
+
+    const availableUnits = [baseUnit, ...altUnits];
+
     setCart((current) => {
       const existing = current.find((item) => item.product_id === product.product_id);
       if (existing) {
@@ -246,9 +252,13 @@ export default function ProjectsTab() {
         {
           product_id: product.product_id,
           product_name: product.product_name,
+          base_unit_price: Number(product.unit_price),
           unit_price: Number(product.unit_price),
           stock_quantity: Number(product.stock_quantity || 0),
           quantity: 1,
+          selected_unit_id: baseUnitId,
+          selected_unit_name: baseUnitName,
+          available_units: availableUnits,
         },
       ];
     });
@@ -257,6 +267,21 @@ export default function ProjectsTab() {
     setShowSearch(false);
     setSearchResults([]);
     window.requestAnimationFrame(() => receiverNameRef.current?.focus());
+  };
+
+  const handleUnitChange = (productId, unitIdVal) => {
+    const unitId = parseInt(unitIdVal);
+    setCart((current) => current.map((item) => {
+      if (item.product_id !== productId) return item;
+      const selectedUnit = (item.available_units || []).find(u => u.unit_id === unitId);
+      if (!selectedUnit) return item;
+      return {
+        ...item,
+        selected_unit_id: unitId,
+        selected_unit_name: selectedUnit.unit_name,
+        unit_price: Number(selectedUnit.unit_price),
+      };
+    }));
   };
 
   const selectSearchResult = (product) => {
@@ -483,8 +508,9 @@ export default function ProjectsTab() {
         Number(item.quantity || 0).toFixed(2),
         item.receiver_name || '—',
         item.receiver_phone || '—',
+        formatTime(item.taken_at),
       ]),
-      ['Product', 'Quantity', 'Receiver Name', 'Receiver Phone'],
+      ['Product', 'Quantity', 'Receiver Name', 'Receiver Phone', 'Purchase Time'],
     );
   };
 
@@ -501,7 +527,7 @@ export default function ProjectsTab() {
 
         <div className="pt-project-search-bar">
           <Search size={16} className="pt-search-icon" />
-          <input
+          <input id="projectSearchQ" name="projectSearchQ"
             placeholder="Type to search active project by name, owner, or location..."
             value={projectSearchQ}
             onChange={(event) => setProjectSearchQ(event.target.value)}
@@ -553,38 +579,18 @@ export default function ProjectsTab() {
             <div className="pt-project-transaction-shell">
               <div className="pt-billing-layout">
                 <div className="pt-billing-left">
-                  <div className="pt-card-box pt-project-catalog-card">
+                  <div className="pt-card-box pt-selected-products-box">
                     <div className="pt-box-header">
                       <span className="pt-box-title">
-                        <Package size={18} /> Product Catalog
-                        <span className="pt-badge">{catalogProducts.length}</span>
+                        <ShoppingCart size={18} /> Selected Products
+                        <span className="pt-badge">{cartItemCount}</span>
                       </span>
-                      <div className="pt-catalog-view-toggle">
-                        <button
-                          type="button"
-                          className={`pt-view-btn ${catalogView === 'grid' ? 'active' : ''}`}
-                          onClick={() => setCatalogView('grid')}
-                          title="Grid view"
-                          aria-label="Grid view"
-                        >
-                          <Grid3x3 size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          className={`pt-view-btn ${catalogView === 'list' ? 'active' : ''}`}
-                          onClick={() => setCatalogView('list')}
-                          title="List view"
-                          aria-label="List view"
-                        >
-                          <List size={14} />
-                        </button>
-                      </div>
                     </div>
 
-                    <div className="pt-search-wrap">
+                    <div className="pt-search-wrap" style={{ padding: '12px 16px 8px' }}>
                       <div className="pt-search-bar">
                         <Search size={15} className="pt-search-icon" />
-                        <input
+                        <input id="searchQ" name="searchQ"
                           ref={searchInputRef}
                           placeholder="Search product by name, barcode, SKU, or ID..."
                           value={searchQ}
@@ -622,73 +628,6 @@ export default function ProjectsTab() {
                       )}
                     </div>
 
-                    {loadingProjectData ? (
-                      <div className="pt-loading">Loading catalog...</div>
-                    ) : catalogProducts.length === 0 ? (
-                      <div className="pt-empty">No active products available.</div>
-                    ) : (
-                      catalogView === 'grid' ? (
-                        <div className="pt-catalog-grid">
-                          {catalogProducts.map((product) => (
-                            <button
-                              key={product.product_id}
-                              type="button"
-                              className={`pt-catalog-card ${product.stock_quantity <= 0 ? 'disabled' : ''} ${getStockClass(product.stock_quantity)}`}
-                              onClick={() => product.stock_quantity > 0 && addToCart(product)}
-                              disabled={product.stock_quantity <= 0}
-                            >
-                              <div className="pt-catalog-card-icon">
-                                <Package size={20} />
-                              </div>
-                              <div className="pt-catalog-card-name">{product.product_name}</div>
-                              <div className="pt-catalog-card-code">{product.product_code || `ID: ${product.product_id}`}</div>
-                              <div className="pt-catalog-card-footer">
-                                <div className="pt-catalog-card-price">Rs.{Number(product.unit_price).toFixed(2)}</div>
-                                <div className={`pt-catalog-card-stock ${getStockClass(product.stock_quantity)}`}>
-                                  {getStockLabel(product.stock_quantity)}
-                                </div>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="pt-catalog-list">
-                          {catalogProducts.map((product) => (
-                            <button
-                              key={product.product_id}
-                              type="button"
-                              className={`pt-catalog-list-item ${product.stock_quantity <= 0 ? 'disabled' : ''} ${getStockClass(product.stock_quantity)}`}
-                              onClick={() => product.stock_quantity > 0 && addToCart(product)}
-                              disabled={product.stock_quantity <= 0}
-                            >
-                              <div className="pt-catalog-card-icon pt-list-icon">
-                                <Package size={18} />
-                              </div>
-                              <div className="pt-list-item-info">
-                                <div className="pt-catalog-card-name">{product.product_name}</div>
-                                <div className="pt-catalog-card-code">{product.product_code || `ID: ${product.product_id}`}</div>
-                              </div>
-                              <div className="pt-list-item-right">
-                                <div className="pt-catalog-card-price">Rs.{Number(product.unit_price).toFixed(2)}</div>
-                                <div className={`pt-catalog-card-stock ${getStockClass(product.stock_quantity)}`}>
-                                  {getStockLabel(product.stock_quantity)}
-                                </div>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )
-                    )}
-                  </div>
-
-                  <div className="pt-card-box pt-selected-products-box">
-                    <div className="pt-box-header">
-                      <span className="pt-box-title">
-                        <ShoppingCart size={18} /> Selected Products
-                        <span className="pt-badge">{cartItemCount}</span>
-                      </span>
-                    </div>
-
                     {cart.length === 0 ? (
                       <div className="pt-empty">Search and select products to begin the transaction.</div>
                     ) : (
@@ -697,6 +636,7 @@ export default function ProjectsTab() {
                           <thead>
                             <tr>
                               <th style={{ minWidth: '100px' }}>Product</th>
+                              <th style={{ width: '90px', textAlign: 'center' }}>Unit</th>
                               <th style={{ width: '90px', textAlign: 'center' }}>Unit Price</th>
                               <th style={{ width: '75px', textAlign: 'center' }}>Qty</th>
                               <th style={{ width: '36px', textAlign: 'center' }}></th>
@@ -707,11 +647,29 @@ export default function ProjectsTab() {
                               <tr key={item.product_id}>
                                 <td className="pt-cart-product-cell">
                                   <div className="pt-cart-product-name" title={item.product_name}>{item.product_name}</div>
-                                  <div className="pt-cart-product-meta">Stock: {item.stock_quantity}</div>
+                                  <div className="pt-cart-product-meta">
+                                    Rs.{item.unit_price.toFixed(2)} per {item.selected_unit_name || 'unit'}
+                                  </div>
+                                </td>
+                                <td style={{ textAlign: 'center' }}>
+                                  <select id="select_field" name="select_field"
+                                    className={`unit-select-table ${item.available_units && item.available_units.length > 1 ? 'multi' : 'single'}`}
+                                    value={item.selected_unit_id || ''}
+                                    onChange={(e) => handleUnitChange(item.product_id, e.target.value)}
+                                    disabled={!item.available_units || item.available_units.length <= 1}
+                                  >
+                                    {(item.available_units && item.available_units.length > 0 ? item.available_units : [
+                                      { unit_id: item.selected_unit_id || 0, unit_name: item.selected_unit_name || 'number' }
+                                    ]).map((au) => (
+                                      <option key={au.unit_id} value={au.unit_id}>
+                                        {au.unit_name}
+                                      </option>
+                                    ))}
+                                  </select>
                                 </td>
                                 <td className="pt-cart-price-cell" style={{ textAlign: 'center' }}>{currency(item.unit_price)}</td>
                                 <td style={{ textAlign: 'center' }}>
-                                  <input
+                                  <input id="quantity" name="quantity"
                                     type="number"
                                     className="pt-cart-qty-input"
                                     value={item.quantity}
@@ -753,7 +711,7 @@ export default function ProjectsTab() {
                         <label>Receiver Name *</label>
                         <div className="pt-input-with-icon">
                           <User size={15} className="pt-input-icon" />
-                          <input
+                          <input id="receiverName" name="receiverName"
                             ref={receiverNameRef}
                             placeholder="e.g. John Silva"
                             value={receiverName}
@@ -767,7 +725,7 @@ export default function ProjectsTab() {
                         <label>Receiver Phone Number *</label>
                         <div className="pt-input-with-icon">
                           <Phone size={15} className="pt-input-icon" />
-                          <input
+                          <input id="receiverPhone" name="receiverPhone"
                             ref={receiverPhoneRef}
                             placeholder="e.g. 0712345678 (10 digits)"
                             value={receiverPhone}
@@ -947,7 +905,7 @@ export default function ProjectsTab() {
 
             <div className="pt-delete-reason-field">
               <label>Reason for Deletion *</label>
-              <textarea
+              <textarea id="deleteReason" name="deleteReason"
                 rows={3}
                 value={deleteReason}
                 onChange={(e) => setDeleteReason(e.target.value)}
