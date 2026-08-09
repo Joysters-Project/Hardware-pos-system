@@ -65,9 +65,9 @@ export default function DashboardLayout({ children, active }) {
     setShowLogoutModal(false);
     sessionStorage.removeItem("pos_session_history");
     sessionStorage.removeItem("sidebar_scroll_top");
+    const targetRole = role ? role.toLowerCase() : "admin";
     logout();
     toast.success("Logged out successfully!");
-    const targetRole = role ? role.toLowerCase() : "admin";
     navigate(`/login/${targetRole}`, { replace: true });
   };
 

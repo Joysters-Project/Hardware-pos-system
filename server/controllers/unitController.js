@@ -1,7 +1,5 @@
 const { units, products } = require('../models');
 
-const toTitleCase = (str) => str.trim().charAt(0).toUpperCase() + str.trim().slice(1).toLowerCase();
-
 // CREATE Unit
 exports.createUnit = async (req, res) => {
   try {
@@ -11,20 +9,20 @@ exports.createUnit = async (req, res) => {
       return res.status(400).json({ error: "Unit name is required" });
     }
 
-    const normalized = toTitleCase(unit_name);
+    const trimmed = unit_name.trim();
 
     const existingUnit = await units.findOne({
-      where: { unit_name: normalized }
+      where: { unit_name: trimmed }
     });
 
     if (existingUnit) {
       return res.status(409).json({ 
         error: "Unit name already exists",
-        message: `A unit with name "${normalized}" already exists`
+        message: `A unit with name "${trimmed}" already exists`
       });
     }
 
-    const newUnit = await units.create({ unit_name: normalized });
+    const newUnit = await units.create({ unit_name: trimmed });
 
     res.status(201).json({
       message: "Unit created successfully",
@@ -76,11 +74,11 @@ exports.updateUnit = async (req, res) => {
 
     // Check if unit_name is provided
     if (unit_name && unit_name.trim()) {
-      const normalized = toTitleCase(unit_name);
+      const trimmed = unit_name.trim();
 
       const existingUnit = await units.findOne({
         where: { 
-          unit_name: normalized,
+          unit_name: trimmed,
           unit_id: { [require('sequelize').Op.ne]: req.params.id }
         }
       });
@@ -88,11 +86,11 @@ exports.updateUnit = async (req, res) => {
       if (existingUnit) {
         return res.status(409).json({ 
           error: "Unit name already exists",
-          message: `A unit with name "${normalized}" already exists`
+          message: `A unit with name "${trimmed}" already exists`
         });
       }
 
-      await unit.update({ unit_name: normalized });
+      await unit.update({ unit_name: trimmed });
     }
 
     res.status(200).json({

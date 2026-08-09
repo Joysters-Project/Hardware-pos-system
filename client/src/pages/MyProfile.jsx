@@ -20,7 +20,7 @@ const getInitials = (v) =>
 
 export default function MyProfile() {
   const navigate = useNavigate();
-  const { logout, updateProfilePhoto } = useAuth();
+  const { logout, updateProfilePhoto, role } = useAuth();
   const fileRef         = useRef(); // used in edit form
   const overviewFileRef = useRef(); // used in overview circle
 
@@ -306,9 +306,10 @@ export default function MyProfile() {
 
   const handleLogout = () => {
     setShowLogoutModal(false);
+    const targetRole = role ? role.toLowerCase() : 'admin';
     logout();
     toast.success("Logged out successfully");
-    navigate("/", { replace: true });
+    navigate(`/login/${targetRole}`, { replace: true });
   };
 
   /* ── loading skeleton ───────────────────────────── */
