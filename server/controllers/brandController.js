@@ -1,30 +1,30 @@
 const { brands, products } = require('../models');
 
+const toTitleCase = (str) => str.trim().charAt(0).toUpperCase() + str.trim().slice(1).toLowerCase();
+
 // CREATE Brand
 exports.createBrand = async (req, res) => {
   try {
     const { brand_name } = req.body;
 
-    // Check if brand_name is provided
     if (!brand_name || !brand_name.trim()) {
       return res.status(400).json({ error: "Brand name is required" });
     }
 
-    // Check for duplicate brand name (case-insensitive)
+    const normalized = toTitleCase(brand_name);
+
     const existingBrand = await brands.findOne({
-      where: { brand_name: brand_name.trim() }
+      where: { brand_name: normalized }
     });
 
     if (existingBrand) {
       return res.status(409).json({ 
         error: "Brand name already exists",
-        message: `A brand with name "${brand_name}" already exists`
+        message: `A brand with name "${normalized}" already exists`
       });
     }
 
-    const newBrand = await brands.create({ 
-      brand_name: brand_name.trim() 
-    });
+    const newBrand = await brands.create({ brand_name: normalized });
 
     res.status(201).json({
       message: "Brand created successfully",
@@ -76,10 +76,11 @@ exports.updateBrand = async (req, res) => {
 
     // Check if brand_name is provided
     if (brand_name && brand_name.trim()) {
-      // Check for duplicate brand name (excluding current brand)
+      const normalized = toTitleCase(brand_name);
+
       const existingBrand = await brands.findOne({
         where: { 
-          brand_name: brand_name.trim(),
+          brand_name: normalized,
           brand_id: { [require('sequelize').Op.ne]: req.params.id }
         }
       });
@@ -87,11 +88,11 @@ exports.updateBrand = async (req, res) => {
       if (existingBrand) {
         return res.status(409).json({ 
           error: "Brand name already exists",
-          message: `A brand with name "${brand_name}" already exists`
+          message: `A brand with name "${normalized}" already exists`
         });
       }
 
-      await brand.update({ brand_name: brand_name.trim() });
+      await brand.update({ brand_name: normalized });
     }
 
     res.status(200).json({

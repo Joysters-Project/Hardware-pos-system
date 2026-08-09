@@ -129,7 +129,8 @@ exports.getAnalyticalStats = async (req, res) => {
         customer: bill.customer ? bill.customer.customer_name : "Walk-in Customer",
         amount: parseFloat(bill.total_amount) || 0,
         status: bill.status ? bill.status.toLowerCase() : "completed",
-        time: timeLabel
+        time: timeLabel,
+        rawTime: bill.bill_date
       };
     });
 

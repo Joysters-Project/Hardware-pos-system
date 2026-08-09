@@ -413,7 +413,7 @@ export default function AnalyticalDashboard() {
                   <span className="ledger-customer-name">{txn.customer}</span>
                 </div>
                 <div className="ledger-center">
-                  <span className="ledger-timestamp">{txn.time}</span>
+                  <span className="ledger-timestamp" title={txn.rawTime ? new Date(txn.rawTime).toLocaleString('en-LK', { dateStyle: 'medium', timeStyle: 'medium' }) : txn.time}>{txn.time}</span>
                 </div>
                 <div className="ledger-right">
                   <span className="ledger-amount">

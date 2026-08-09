@@ -1,30 +1,30 @@
 const { units, products } = require('../models');
 
+const toTitleCase = (str) => str.trim().charAt(0).toUpperCase() + str.trim().slice(1).toLowerCase();
+
 // CREATE Unit
 exports.createUnit = async (req, res) => {
   try {
     const { unit_name } = req.body;
 
-    // Check if unit_name is provided
     if (!unit_name || !unit_name.trim()) {
       return res.status(400).json({ error: "Unit name is required" });
     }
 
-    // Check for duplicate unit name (case-insensitive)
+    const normalized = toTitleCase(unit_name);
+
     const existingUnit = await units.findOne({
-      where: { unit_name: unit_name.trim() }
+      where: { unit_name: normalized }
     });
 
     if (existingUnit) {
       return res.status(409).json({ 
         error: "Unit name already exists",
-        message: `A unit with name "${unit_name}" already exists`
+        message: `A unit with name "${normalized}" already exists`
       });
     }
 
-    const newUnit = await units.create({ 
-      unit_name: unit_name.trim() 
-    });
+    const newUnit = await units.create({ unit_name: normalized });
 
     res.status(201).json({
       message: "Unit created successfully",
@@ -76,10 +76,11 @@ exports.updateUnit = async (req, res) => {
 
     // Check if unit_name is provided
     if (unit_name && unit_name.trim()) {
-      // Check for duplicate unit name (excluding current unit)
+      const normalized = toTitleCase(unit_name);
+
       const existingUnit = await units.findOne({
         where: { 
-          unit_name: unit_name.trim(),
+          unit_name: normalized,
           unit_id: { [require('sequelize').Op.ne]: req.params.id }
         }
       });
@@ -87,11 +88,11 @@ exports.updateUnit = async (req, res) => {
       if (existingUnit) {
         return res.status(409).json({ 
           error: "Unit name already exists",
-          message: `A unit with name "${unit_name}" already exists`
+          message: `A unit with name "${normalized}" already exists`
         });
       }
 
-      await unit.update({ unit_name: unit_name.trim() });
+      await unit.update({ unit_name: normalized });
     }
 
     res.status(200).json({

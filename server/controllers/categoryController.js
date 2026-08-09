@@ -1,30 +1,30 @@
 const { category, products } = require('../models');
 
+const toTitleCase = (str) => str.trim().charAt(0).toUpperCase() + str.trim().slice(1).toLowerCase();
+
 // CREATE Category
 exports.createCategory = async (req, res) => {
   try {
     const { category_name } = req.body;
 
-    // Check if category_name is provided
     if (!category_name || !category_name.trim()) {
       return res.status(400).json({ error: "Category name is required" });
     }
 
-    // Check for duplicate category name (case-insensitive)
+    const normalized = toTitleCase(category_name);
+
     const existingCategory = await category.findOne({
-      where: { category_name: category_name.trim() }
+      where: { category_name: normalized }
     });
 
     if (existingCategory) {
       return res.status(409).json({ 
         error: "Category name already exists",
-        message: `A category with name "${category_name}" already exists`
+        message: `A category with name "${normalized}" already exists`
       });
     }
 
-    const newCategory = await category.create({ 
-      category_name: category_name.trim() 
-    });
+    const newCategory = await category.create({ category_name: normalized });
 
     res.status(201).json({
       message: "Category created successfully",
@@ -76,10 +76,11 @@ exports.updateCategory = async (req, res) => {
 
     // Check if category_name is provided
     if (category_name && category_name.trim()) {
-      // Check for duplicate category name (excluding current category)
+      const normalized = toTitleCase(category_name);
+
       const existingCategory = await category.findOne({
         where: { 
-          category_name: category_name.trim(),
+          category_name: normalized,
           category_id: { [require('sequelize').Op.ne]: req.params.id }
         }
       });
@@ -87,11 +88,11 @@ exports.updateCategory = async (req, res) => {
       if (existingCategory) {
         return res.status(409).json({ 
           error: "Category name already exists",
-          message: `A category with name "${category_name}" already exists`
+          message: `A category with name "${normalized}" already exists`
         });
       }
 
-      await Category.update({ category_name: category_name.trim() });
+      await Category.update({ category_name: normalized });
     }
 
     res.status(200).json({
