@@ -290,6 +290,8 @@ export default function MyProfile() {
       return toast.error("New passwords must match");
     if (pwd.new_password.length < 6)
       return toast.error("New password must be at least 6 characters");
+    if (pwd.current_password === pwd.new_password)
+      return toast.error("New password must be different from current password");
 
     setPwdLoading(true);
     try {

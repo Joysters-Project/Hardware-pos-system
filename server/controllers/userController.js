@@ -127,12 +127,20 @@ exports.changePassword = async (req, res) => {
     if (new_password.length < 6) {
       return res.status(400).json({ message: 'New password must be at least 6 characters' });
     }
+    if (current_password === new_password) {
+      return res.status(400).json({ message: 'New password must be different from current password' });
+    }
 
     const user = await db.users.findByPk(req.user.user_id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const isMatch = await bcrypt.compare(current_password, user.password);
     if (!isMatch) return res.status(400).json({ message: 'Current password is incorrect' });
+
+    const isSameAsOld = await bcrypt.compare(new_password, user.password);
+    if (isSameAsOld) {
+      return res.status(400).json({ message: 'New password must be different from current password' });
+    }
 
     await user.update({ password: await bcrypt.hash(new_password, 10) });
     await logActivity(req.user.user_id, req.user.role, 'USER_PASSWORD_CHANGED',
