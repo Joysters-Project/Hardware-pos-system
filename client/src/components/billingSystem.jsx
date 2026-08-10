@@ -29,6 +29,7 @@ const BillingSystem = () => {
     }
   }, [location.state]);
   const [cart, setCart] = useState([]);
+  const [catalogProducts, setCatalogProducts] = useState([]);
   const [payData, setPayData] = useState({ amountPaid: '', customerName: '', customerPhone: '', customerAddress: '' });
   const [customerExists, setCustomerExists] = useState(false);
   const [saveCustomer, setSaveCustomer] = useState(false);
@@ -87,6 +88,7 @@ const BillingSystem = () => {
 
   // Re-fetch catalog whenever another module changes stock
   useEffect(() => {
+    refreshCatalog();
     return subscribeToEvent('products:updated', refreshCatalog);
   }, []);
 
