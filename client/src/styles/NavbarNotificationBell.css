@@ -169,6 +169,11 @@
   color: #d97706;
 }
 
+.nbell-section-count--pay {
+  background: #fce7f3;
+  color: #c62828;
+}
+
 /* ── Inventory List ── */
 .nbell-inv-list {
   padding: 2px 12px 4px;

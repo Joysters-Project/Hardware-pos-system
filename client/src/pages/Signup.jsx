@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import "../styles/Signup.css";
 import logo from "../assets/logo.png";
+import api from "../api";
 
 function Signup() {
   const navigate = useNavigate();

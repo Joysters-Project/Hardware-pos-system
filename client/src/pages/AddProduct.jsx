@@ -28,6 +28,12 @@ const toNumberOrNull = (value, parser = Number) => {
 	return parser(value);
 };
 
+const generateBarcode = () => {
+	const timePart = Date.now().toString().slice(-8);
+	const randomPart = Math.random().toString().slice(2, 6).padStart(4, "0");
+	return `${timePart}${randomPart}`;
+};
+
 function AddProductPage() {
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -175,7 +181,22 @@ function AddProductPage() {
 						</div>
 						<div className="field-group">
 							<label>Barcode (Optional)</label>
-							<input name="barcode" placeholder="Optional" value={form.barcode} onChange={handleChange} />
+							<div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+								<input name="barcode" placeholder="Optional" value={form.barcode} onChange={handleChange} style={{ flex: 1 }} />
+								<button
+									type="button"
+									className="submit-btn"
+									onClick={() => setForm((prev) => ({ ...prev, barcode: generateBarcode() }))}
+									style={{
+										padding: "8px 12px",
+										fontSize: "12px",
+										minWidth: "unset",
+										whiteSpace: "nowrap",
+									}}
+								>
+									Auto Generate
+								</button>
+							</div>
 						</div>
 						<div className="field-group">
 							<label>Expiry Date</label>

@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { Package, CreditCard } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import api from "../api/axios";
@@ -9,6 +10,8 @@ import "../styles/Alerts.css";
 import DetailModal from "../components/DetailModal";
 import ProductDetailContent from "../components/ProductDetailContent";
 import PODetailContent from "../components/PODetailContent";
+import { useChequeAlerts } from "../services/procurementApi";
+import { subscribeToEvent } from "../services/socketSingleton";
 
 const THEME = "#8b3a3a";
 
@@ -101,6 +104,185 @@ function DisposeModal({ target, onClose, onConfirm, disposing }) {
   );
 }
 
+const PAYMENT_ALERT_FILTERS = [
+  { key: "",         label: "All Payment Alerts" },
+  { key: "due-soon",  label: "Cheques Due Soon" },
+  { key: "due-today", label: "Cheques Due Today" },
+  { key: "overdue",   label: "Cheques Overdue" },
+  { key: "bounced",   label: "Cheques Bounced" },
+];
+
+const PAYMENT_ALERT_COLORS = {
+  "Due Soon":  "#d97706",
+  "Due Today": "#c62828",
+  "Overdue":   "#991b1b",
+  "Bounced":   "#7c3aed",
+};
+
+function ChequeDetailContent({ cheque }) {
+  if (!cheque) return null;
+  const fmtD = (d) => d ? new Date(d).toLocaleDateString("en-GB") : "—";
+  const fmt  = (n) => `LKR ${Number(n || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}`;
+  const color = PAYMENT_ALERT_COLORS[cheque.alert_type] || "#6b7280";
+  const daysLabel = cheque.days_remaining === null ? null
+    : cheque.days_remaining < 0  ? `${Math.abs(cheque.days_remaining)} day${Math.abs(cheque.days_remaining) !== 1 ? "s" : ""} overdue`
+    : cheque.days_remaining === 0 ? "Due today"
+    : `${cheque.days_remaining} day${cheque.days_remaining !== 1 ? "s" : ""} remaining`;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", fontSize: "0.9rem" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
+        <span className="alert-type-pill" style={{ background: color }}>{cheque.alert_type}</span>
+        {daysLabel && <span style={{ fontWeight: 700, color }}>{daysLabel}</span>}
+      </div>
+      {[
+        ["Supplier",       cheque.supplier_name],
+        ["Cheque Number",  cheque.cheque_number],
+        ["Bank",           cheque.bank_name],
+        ["Amount",         fmt(cheque.amount)],
+        ["Cheque Date",    fmtD(cheque.cheque_date)],
+        ["Clearing Date",  fmtD(cheque.clearing_date)],
+        ["Status",         cheque.cheque_status],
+        ["PO Reference",   cheque.po_number],
+      ].filter(([, v]) => v).map(([label, value]) => (
+        <div key={label} style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f1e7e5", paddingBottom: "0.4rem" }}>
+          <span style={{ color: "#5e4a48", fontWeight: 600 }}>{label}</span>
+          <span style={{ fontWeight: 700, color: label === "Status" ? color : "#2b2b2b" }}>{value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PaymentAlertsTab() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const activeType = searchParams.get("type") || "";
+  const [viewCheque, setViewCheque] = useState(null);
+
+  const { data, isLoading, refetch } = useChequeAlerts();
+  const allAlerts = data?.alerts || [];
+  const summary   = data?.summary || {};
+
+  const filtered = useMemo(() => {
+    if (!activeType) return allAlerts;
+    const typeMap = { "due-soon": "Due Soon", "due-today": "Due Today", "overdue": "Overdue", "bounced": "Bounced" };
+    return allAlerts.filter(a => a.alert_type === typeMap[activeType]);
+  }, [allAlerts, activeType]);
+
+  const setType = (key) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", "payment");
+    if (key) next.set("type", key); else next.delete("type");
+    setSearchParams(next);
+  };
+
+  const typeCounts = useMemo(() => ({
+    "": summary.total || 0,
+    "due-soon":  summary.dueSoon  || 0,
+    "due-today": summary.dueToday || 0,
+    "overdue":   summary.overdue  || 0,
+    "bounced":   summary.bounced  || 0,
+  }), [summary]);
+
+  const fmtD = (d) => d ? new Date(d).toLocaleDateString("en-GB") : "—";
+  const fmt  = (n) => `LKR ${Number(n || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}`;
+
+  const daysLabel = (a) => {
+    if (a.days_remaining === null) return "—";
+    if (a.days_remaining < 0)  return `${Math.abs(a.days_remaining)}d overdue`;
+    if (a.days_remaining === 0) return "Today";
+    return `${a.days_remaining}d`;
+  };
+
+  return (
+    <>
+      {viewCheque && (
+        <DetailModal title="Cheque Alert Details" onClose={() => setViewCheque(null)}>
+          <ChequeDetailContent cheque={viewCheque} />
+        </DetailModal>
+      )}
+
+      <div className="alert-chips">
+        {PAYMENT_ALERT_FILTERS.map(({ key, label }) => {
+          const isActive = activeType === key;
+          const count = typeCounts[key] || 0;
+          const colorMap = { "due-soon": "#d97706", "due-today": "#c62828", "overdue": "#991b1b", "bounced": "#7c3aed" };
+          const chipColor = colorMap[key] || THEME;
+          return (
+            <button
+              key={key || "all-pay"}
+              onClick={() => setType(key)}
+              className={`alert-chip ${isActive ? "alert-chip--active" : ""}`}
+              style={isActive
+                ? { background: chipColor, color: "#fff", border: `1.5px solid ${chipColor}`, boxShadow: `0 4px 12px ${chipColor}40` }
+                : { background: "#fff", color: "#4b5563", border: "1.5px solid #e5e7eb" }}
+            >
+              <span style={{ fontWeight: 700 }}>{label}</span>
+              <span className="alert-chip-count" style={isActive ? { background: "rgba(255,255,255,0.2)", color: "#fff" } : { background: `${chipColor}14`, color: chipColor }}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="alerts-table-wrap">
+        <table className="alerts-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Supplier</th>
+              <th>Cheque No.</th>
+              <th>Bank</th>
+              <th>Clearing Date</th>
+              <th>Amount</th>
+              <th>Days Remaining</th>
+              <th>Alert</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr className="loading-row"><td colSpan={9}>Loading payment alerts...</td></tr>
+            ) : filtered.length === 0 ? (
+              <tr className="empty-row"><td colSpan={9}>No payment alerts found.</td></tr>
+            ) : filtered.map((a) => {
+              const color = PAYMENT_ALERT_COLORS[a.alert_type] || "#6b7280";
+              return (
+                <tr key={a.payment_id}>
+                  <td>{a.payment_id}</td>
+                  <td style={{ fontWeight: 600 }}>{a.supplier_name}</td>
+                  <td style={{ fontWeight: 600, color }}>{a.cheque_number || "—"}</td>
+                  <td>{a.bank_name || "—"}</td>
+                  <td style={{ color: a.alert_type === "Overdue" ? "#991b1b" : "#333" }}>{fmtD(a.clearing_date)}</td>
+                  <td>{fmt(a.amount)}</td>
+                  <td>
+                    <span style={{ fontWeight: 700, color }}>{daysLabel(a)}</span>
+                  </td>
+                  <td>
+                    <span className="alert-type-pill" style={{ background: color }}>{a.alert_type}</span>
+                  </td>
+                  <td>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button className="action-btn action-btn--view" onClick={() => setViewCheque(a)}>
+                        👁 View
+                      </button>
+                      <button className="action-btn action-btn--po" onClick={() => navigate("/procurement/payments")}>
+                        💳 Payments
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
 function AlertCenterPage() {
   const isCashier = (localStorage.getItem("role") || "").toLowerCase() === "cashier";
   const [searchParams, setSearchParams] = useSearchParams();
@@ -114,12 +296,22 @@ function AlertCenterPage() {
   const [viewProductId, setViewProductId] = useState(null);
   const [viewPoId, setViewPoId] = useState(null);
 
+  const activeTab    = searchParams.get("tab") || "inventory";
   const activeFilter = searchParams.get("type") || "";
+
+  // Payment alert count for tab badge (non-cashier only)
+  const { data: chequeData } = useChequeAlerts();
+  const paymentTabCount = isCashier ? 0 : (chequeData?.summary?.total || 0);
+
+  const setTab = (tab) => {
+    const next = new URLSearchParams();
+    next.set("tab", tab);
+    setSearchParams(next);
+  };
 
   useEffect(() => {
     fetchSummary();
     if (searchParams.get("poCreated") === "1") {
-      toast.success("Purchase Order created successfully.");
       searchParams.delete("poCreated");
       setSearchParams(searchParams, { replace: true });
     }
@@ -133,6 +325,14 @@ function AlertCenterPage() {
     const onVisible = () => { if (document.visibilityState === "visible") { fetchAlerts(); fetchSummary(); } };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [activeFilter, search]);
+
+  // Auto-refresh: socket event + 30s polling fallback
+  useEffect(() => {
+    const refresh = () => { fetchAlerts(); fetchSummary(); };
+    const unsub = subscribeToEvent("alerts:updated", refresh);
+    const timer = setInterval(refresh, 30000);
+    return () => { unsub(); clearInterval(timer); };
   }, [activeFilter, search]);
 
   const fetchSummary = async () => {
@@ -252,13 +452,43 @@ function AlertCenterPage() {
       )}
       <div className="alerts-header">
         <div>
-          <h1>Stock Alert Center</h1>
+          <h1>Alert Center</h1>
           <p className="alerts-subtitle">
-            Monitor and manage inventory alerts in one place.
+            Monitor and manage inventory and payment alerts in one place.
           </p>
         </div>
       </div>
 
+      {/* Tab switcher — only show Payment Alerts tab for non-cashier */}
+      {!isCashier && (
+        <div className="alert-tab-switcher">
+          <button
+            className={`alert-tab-btn ${activeTab !== "payment" ? "alert-tab-btn--active" : ""}`}
+            onClick={() => setTab("inventory")}
+          >
+            <Package size={16} className="alert-tab-icon" />
+            Inventory Alerts
+            {counts[""] > 0 && (
+              <span className="alert-tab-count">{counts[""]}</span>
+            )}
+          </button>
+          <button
+            className={`alert-tab-btn ${activeTab === "payment" ? "alert-tab-btn--active" : ""}`}
+            onClick={() => setTab("payment")}
+          >
+            <CreditCard size={16} className="alert-tab-icon" />
+            Payment Alerts
+            {paymentTabCount > 0 && (
+              <span className="alert-tab-count">{paymentTabCount}</span>
+            )}
+          </button>
+        </div>
+      )}
+
+      {activeTab === "payment" && !isCashier ? (
+        <PaymentAlertsTab />
+      ) : (
+      <>
       <div className="alert-chips">
         {(isCashier ? ALERT_FILTERS.filter(f => CASHIER_ALLOWED_FILTERS.includes(f.key)) : ALERT_FILTERS).map((f) => {
           const isActive = activeFilter === f.key;
@@ -467,6 +697,8 @@ function AlertCenterPage() {
           </tbody>
         </table>
       </div>
+      </>
+      )}
     </div>
   );
 }

@@ -21,6 +21,7 @@ import {
 import toast from 'react-hot-toast';
 import api from '../api/axios';
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
+import { subscribeToEvent } from '../services/socketSingleton';
 import { buildTableHtml, escapeHtml, printWithTemplate } from '../utils/printTemplate';
 import '../styles/ProjectsTab.css';
 
@@ -102,6 +103,11 @@ export default function ProjectsTab() {
       await Promise.all([loadProjects(), loadProducts()]);
     };
     init();
+  }, []);
+
+  // Re-fetch products whenever another module changes stock
+  useEffect(() => {
+    return subscribeToEvent('products:updated', loadProducts);
   }, []);
 
   useEffect(() => {

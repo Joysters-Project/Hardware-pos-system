@@ -11,6 +11,12 @@ const fieldVariants = {
   visible: { opacity: 1, x: 0 },
 };
 
+const generateBarcode = () => {
+  const timePart = Date.now().toString().slice(-8);
+  const randomPart = Math.random().toString().slice(2, 6).padStart(4, '0');
+  return `${timePart}${randomPart}`;
+};
+
 export default function ProductForm() {
   const navigate = useNavigate();
   const { id }   = useParams();
@@ -264,6 +270,31 @@ export default function ProductForm() {
               </div>
             </motion.div>
 
+            <motion.div className="pf-field" variants={fieldVariants} initial="hidden" animate="visible" transition={{ delay: 0.22 }}>
+              <label className="pf-label">Barcode (Optional)</label>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input className="pf-input" name="barcode" value={formData.barcode}
+                  onChange={handleChange} placeholder="Optional" style={{ flex: 1 }} />
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, barcode: generateBarcode() }))}
+                  style={{
+                    border: '1px solid #d1d5db',
+                    background: '#f8fafc',
+                    color: '#1f2937',
+                    borderRadius: '8px',
+                    padding: '9px 14px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    fontSize: '12px'
+                  }}
+                >
+                  Auto Generate
+                </button>
+              </div>
+            </motion.div>
+
             {/* Category, Brand, Unit */}
             <motion.div className="pf-grid-3" variants={fieldVariants} initial="hidden" animate="visible" transition={{ delay: 0.24 }}>
               <div className="pf-field">
@@ -354,7 +385,26 @@ export default function ProductForm() {
 
                   <div className="pf-field">
                     <label className="pf-label">Barcode (Optional)</label>
-                    <input id="barcode" name="barcode" className="pf-input" type="text" placeholder="e.g. 123456789" value={item.barcode} onChange={(e) => handleAltUnitChange(idx, "barcode", e.target.value)} />
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <input className="pf-input" type="text" placeholder="e.g. 123456789" value={item.barcode} onChange={(e) => handleAltUnitChange(idx, "barcode", e.target.value)} style={{ flex: 1 }} />
+                      <button
+                        type="button"
+                        onClick={() => handleAltUnitChange(idx, "barcode", generateBarcode())}
+                        style={{
+                          border: '1px solid #d1d5db',
+                          background: '#f8fafc',
+                          color: '#1f2937',
+                          borderRadius: '8px',
+                          padding: '8px 10px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                          fontSize: '11px'
+                        }}
+                      >
+                        Auto
+                      </button>
+                    </div>
                   </div>
                 </div>
 

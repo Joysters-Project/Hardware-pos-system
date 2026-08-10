@@ -34,6 +34,12 @@ const buildPayload = (form) => ({
 
 const EMPTY_ALT_UNIT = { unit_id: "", conversion_factor: "", unit_price: "", cost_price: "", barcode: "" };
 
+const generateBarcode = () => {
+  const timePart = Date.now().toString().slice(-8);
+  const randomPart = Math.random().toString().slice(2, 6).padStart(4, "0");
+  return `${timePart}${randomPart}`;
+};
+
 const EDIT_FIELDS = [
   { name: "product_name", placeholder: "Product Name *", type: "text" },
   { name: "type",         placeholder: "Type *",         type: "text" },
@@ -478,10 +484,6 @@ function ProductsPage() {
       <div className="products-header">
         <h1>Products</h1>
         <div className="header-actions">
-          <button className="refresh-btn" onClick={loadPageData} disabled={loading}>
-            <RefreshCw size={15} />
-            {loading ? "Refreshing…" : "Refresh"}
-          </button>
           <button className="manage-units-btn" onClick={() => setUnitsModal(true)}>
             <Settings size={15} />
             Manage Units
@@ -585,18 +587,55 @@ function ProductsPage() {
               {/* ── Basic Information ── */}
               <div className="modal-section-title">Basic Information</div>
 
-              {EDIT_FIELDS.map((f) => (
-                <div key={f.name} className="modal-field">
-                  <label>{f.placeholder}</label>
-                  <input
-                    name={f.name}
-                    type={f.type}
-                    step={f.step}
-                    value={editForm[f.name] ?? ""}
-                    onChange={handleEditFieldChange}
-                  />
-                </div>
-              ))}
+              {EDIT_FIELDS.map((f) => {
+                if (f.name === "barcode") {
+                  return (
+                    <div key={f.name} className="modal-field" style={{ gridColumn: "span 1" }}>
+                      <label>{f.placeholder}</label>
+                      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                        <input
+                          name={f.name}
+                          type={f.type}
+                          step={f.step}
+                          value={editForm[f.name] ?? ""}
+                          onChange={handleEditFieldChange}
+                          style={{ flex: 1 }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setEditForm((prev) => ({ ...prev, barcode: generateBarcode() }))}
+                          style={{
+                            border: "1px solid #d1d5db",
+                            background: "#f8fafc",
+                            color: "#1f2937",
+                            borderRadius: "8px",
+                            padding: "8px 12px",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                            fontSize: "12px",
+                          }}
+                        >
+                          Auto Generate
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={f.name} className="modal-field">
+                    <label>{f.placeholder}</label>
+                    <input
+                      name={f.name}
+                      type={f.type}
+                      step={f.step}
+                      value={editForm[f.name] ?? ""}
+                      onChange={handleEditFieldChange}
+                    />
+                  </div>
+                );
+              })}
 
               {/* ── Classification ── */}
               <div className="modal-section-title">Classification</div>
@@ -708,12 +747,32 @@ function ProductsPage() {
                       />
                     </div>
                     <div className="modal-field">
-                      <input id="barcode" name="barcode"
-                        type="text"
-                        placeholder="Barcode (optional)"
-                        value={au.barcode}
-                        onChange={(e) => handleAltUnitChange(idx, "barcode", e.target.value)}
-                      />
+                      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                        <input
+                          type="text"
+                          placeholder="Barcode (optional)"
+                          value={au.barcode}
+                          onChange={(e) => handleAltUnitChange(idx, "barcode", e.target.value)}
+                          style={{ flex: 1 }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleAltUnitChange(idx, "barcode", generateBarcode())}
+                          style={{
+                            border: "1px solid #d1d5db",
+                            background: "#f8fafc",
+                            color: "#1f2937",
+                            borderRadius: "8px",
+                            padding: "6px 8px",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                            fontSize: "11px",
+                          }}
+                        >
+                          Auto
+                        </button>
+                      </div>
                     </div>
                     <button
                       type="button"

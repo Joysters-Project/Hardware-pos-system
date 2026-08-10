@@ -95,6 +95,7 @@ const product_units = require('./product_units');
 const inventory_statuses = require('./inventory_statuses');
 const product_warranties = require('./product_warranties');
 const supplier_services = require('./supplier_services');
+const supplier_payment_transactions = require('./supplier_payment_transactions');
 const cheque_customers  = require('./cheque_customers');
 const customer_cheques  = require('./customer_cheques');
 
@@ -136,6 +137,7 @@ const db = {
   inventory_statuses: inventory_statuses(sequelize),
   product_warranties: product_warranties(sequelize),
   supplier_services:  supplier_services(sequelize),
+  supplier_payment_transactions: supplier_payment_transactions(sequelize),
   cheque_customers:   cheque_customers(sequelize),
   customer_cheques:   customer_cheques(sequelize),
 };

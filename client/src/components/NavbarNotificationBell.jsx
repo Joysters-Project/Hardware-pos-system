@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Bell, X, ChevronRight, Package, AlertTriangle, RefreshCw, Clock, ShoppingCart } from "lucide-react";
+import { Bell, X, ChevronRight, Package, AlertTriangle, RefreshCw, Clock, ShoppingCart, CreditCard } from "lucide-react";
 import api from "../api/axios";
 import { useNavigate } from "react-router-dom";
-import { useUnreadNotificationsCount} from "../services/procurementApi";
+import { useUnreadNotificationsCount, useChequeAlerts } from "../services/procurementApi";
+import { subscribeToEvent } from "../services/socketSingleton";
 import "../styles/NavbarNotificationBell.css";
 
 const THEME = "#8b3a3a";
@@ -40,6 +41,11 @@ export default function NavbarNotificationBell() {
   const { data: procData } = useUnreadNotificationsCount();
   const procUnread = procData?.count || 0;
 
+  /* Cheque alerts */
+  const { data: chequeData } = useChequeAlerts();
+  const chequeSummary = chequeData?.summary || {};
+  const chequeTotal   = chequeSummary.total || 0;
+
   /* ── Existing fetch (unchanged) ── */
   const fetchSummary = useCallback(async () => {
     setLoading(true);
@@ -55,6 +61,13 @@ export default function NavbarNotificationBell() {
 
   useEffect(() => { fetchSummary(); }, [fetchSummary]);
 
+  // Re-fetch inventory summary on socket events or every 30s
+  useEffect(() => {
+    const unsub = subscribeToEvent("alerts:updated", fetchSummary);
+    const timer = setInterval(fetchSummary, 30000);
+    return () => { unsub(); clearInterval(timer); };
+  }, [fetchSummary]);
+
   /* ── Outside-click close (unchanged) ── */
   useEffect(() => {
     const handler = (e) => {
@@ -65,7 +78,7 @@ export default function NavbarNotificationBell() {
   }, []);
 
   const inventoryTotal = summary?.total || 0;
-  const badgeCount     = inventoryTotal + (isCashier ? 0 : procUnread);
+  const badgeCount     = inventoryTotal + (isCashier ? 0 : procUnread + chequeTotal);
   const timestamp      = relativeTime(summary?.updated_at);
 
   const close = () => setOpen(false);
@@ -152,7 +165,43 @@ export default function NavbarNotificationBell() {
               {/* ── Divider ── */}
               {!isCashier && <div className="nbell-divider" />}
 
-              {/* ── Section 2: Procurement Summary ── */}
+              {/* ── Section 2: Payment Alerts ── */}
+              {!isCashier && chequeTotal > 0 && (
+              <>
+              <div className="nbell-section-label">
+                <CreditCard size={12} />
+                Payment Alerts
+                <span className="nbell-section-count nbell-section-count--pay">{chequeTotal}</span>
+              </div>
+              <div className="nbell-inv-list">
+                {[
+                  { key: "due-soon",  label: "Cheques Due Soon",  count: chequeSummary.dueSoon  || 0, color: "#d97706" },
+                  { key: "due-today", label: "Cheques Due Today", count: chequeSummary.dueToday || 0, color: "#c62828" },
+                  { key: "overdue",   label: "Cheques Overdue",   count: chequeSummary.overdue  || 0, color: "#991b1b" },
+                  { key: "bounced",   label: "Cheques Bounced",   count: chequeSummary.bounced  || 0, color: "#7c3aed" },
+                ].map(({ key, label, count, color }) => (
+                  <div
+                    key={key}
+                    className={`nbell-inv-row ${count === 0 ? "nbell-inv-row--zero" : ""}`}
+                    onClick={() => { close(); navigate(`/alerts?tab=payment&type=${key}`); }}
+                    role="button" tabIndex={0}
+                    onKeyDown={(e) => e.key === "Enter" && (close(), navigate(`/alerts?tab=payment&type=${key}`))}
+                  >
+                    <span className="nbell-inv-icon" style={{ background: `${color}18`, color }}>
+                      <CreditCard size={13} />
+                    </span>
+                    <span className="nbell-inv-label">{label}</span>
+                    <span className="nbell-inv-badge" style={count > 0 ? { background: `${color}18`, color } : {}}>
+                      {count}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="nbell-divider" />
+              </>
+              )}
+
+              {/* ── Section 3: Procurement Summary ── */}
               {!isCashier && (
               <>
               <div className="nbell-section-label">
@@ -197,7 +246,7 @@ export default function NavbarNotificationBell() {
                 tabIndex={0}
                 onKeyDown={(e) => e.key === "Enter" && (close(), navigate("/alerts"))}
               >
-                View All Inventory Alerts
+                View All Alerts →
                 <ChevronRight size={13} />
               </div>
             </>

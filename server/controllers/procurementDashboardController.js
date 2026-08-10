@@ -1,6 +1,6 @@
 const { purchase_orders, suppliers, supplier_payments, auto_reorder_suggestions, products, sequelize } = require('../models');
 const Sequelize = require('sequelize');
-const { fn, col, literal } = Sequelize;
+const { fn, col, literal, Op } = Sequelize;
 
 // GET /api/procurement/dashboard
 exports.getDashboardStats = async (req, res) => {
