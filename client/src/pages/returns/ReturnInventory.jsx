@@ -308,6 +308,7 @@ export default function ReturnInventory() {
     if (!opened) toast.error("Allow pop-ups to print the report");
   };
 
+
   if (loading && returns.length === 0) {
     return <div style={{ padding: "24px", color: "#888" }}>Loading returned inventory details...</div>;
   }

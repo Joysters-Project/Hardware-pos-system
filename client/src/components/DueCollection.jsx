@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Search, CreditCard, Receipt, FolderOpen } from "lucide-react";
 import api from "../api/axios";
 import toast from "react-hot-toast";
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from "../utils/phoneValidation";
@@ -7,6 +9,7 @@ import DashboardLayout from "./DashboardLayout";
 import "../styles/DueCollection.css";
 
 const DueCollection = () => {
+  const navigate = useNavigate();
   const [activeView, setActiveView] = useState("checking");
   const [searchQuery, setSearchQuery] = useState("");
   const [customer, setCustomer] = useState(null);
@@ -597,21 +600,47 @@ const DueCollection = () => {
         </div>
       </div>
 
-      <div className="due-nav-tabs">
-        <button
-          type="button"
-          className={`due-nav-tab${activeView === "checking" ? " active" : ""}`}
-          onClick={() => setActiveView("checking")}
-        >
-          Due Checking
-        </button>
-        <button
-          type="button"
-          className={`due-nav-tab${activeView === "collection" ? " active" : ""}`}
-          onClick={() => setActiveView("collection")}
-        >
-          Due Collection
-        </button>
+      <div className="pos-tab-switcher due-tab-switcher">
+        <div className="due-tabs-group">
+          <button
+            type="button"
+            className={`pos-tab-btn${activeView === "checking" ? " active" : ""}`}
+            onClick={() => setActiveView("checking")}
+          >
+            <Search size={16} />
+            <span>Due Checking</span>
+          </button>
+          <button
+            type="button"
+            className={`pos-tab-btn${activeView === "collection" ? " active" : ""}`}
+            onClick={() => setActiveView("collection")}
+          >
+            <CreditCard size={16} />
+            <span>Due Collection</span>
+          </button>
+        </div>
+
+        {/* ── Navigation Links (Billing Counter Style) ── */}
+        <div className="due-nav-links-group">
+          <button
+            type="button"
+            className="pos-tab-btn due-nav-link"
+            onClick={() => navigate('/billing')}
+            title="Navigate to Billing Counter"
+          >
+            <Receipt size={16} />
+            <span>Billing Counter</span>
+          </button>
+          <button
+            type="button"
+            className="pos-tab-btn due-nav-link accent"
+            onClick={() => navigate('/billing', { state: { tab: 'projects' } })}
+            title="Navigate to Project Billing Counter"
+          >
+            <FolderOpen size={16} />
+            <span>Project Billing Counter</span>
+          </button>
+        </div>
       </div>
 
       <div className={`due-view-shell ${viewEnter ? "due-view-shell-active" : ""}`}>

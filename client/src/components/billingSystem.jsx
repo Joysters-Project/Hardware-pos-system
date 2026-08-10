@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Search, Package, X, Minus, Plus, Trash2, ShoppingCart,
   CreditCard, Printer, Download, XCircle, CheckCircle,
@@ -20,8 +20,16 @@ import toast from 'react-hot-toast';
 import '../styles/BillingSystem.css';
 
 const BillingSystem = () => {
-  const [activePosTab, setActivePosTab] = useState('billing');
+  const location = useLocation();
+  const [activePosTab, setActivePosTab] = useState(location.state?.tab || 'billing');
+
+  useEffect(() => {
+    if (location.state?.tab) {
+      setActivePosTab(location.state.tab);
+    }
+  }, [location.state]);
   const [cart, setCart] = useState([]);
+  const [catalogProducts, setCatalogProducts] = useState([]);
   const [payData, setPayData] = useState({ amountPaid: '', customerName: '', customerPhone: '', customerAddress: '' });
   const [customerExists, setCustomerExists] = useState(false);
   const [saveCustomer, setSaveCustomer] = useState(false);
@@ -80,6 +88,7 @@ const BillingSystem = () => {
 
   // Re-fetch catalog whenever another module changes stock
   useEffect(() => {
+    refreshCatalog();
     return subscribeToEvent('products:updated', refreshCatalog);
   }, []);
 

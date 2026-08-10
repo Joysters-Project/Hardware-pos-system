@@ -339,7 +339,7 @@ function SalesReport() {
       </div>
       {/* Sales Revenue Chart */}
       <div className="chart-container" style={{ height: '300px', marginBottom: '20px' }}>
-        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
+        <ResponsiveContainer width="100%" height={300}>
           <LineChart data={salesChartData} margin={{ top: 8, right: 20, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
             <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#2c2c2c', fontSize: 11, fontWeight: 600 }} />
@@ -625,6 +625,26 @@ function ReturnsReport() {
 
   const reset = () => { setFilter(''); setSearch(''); if (!isCashier) setDateFilter('all'); setTimeframe(initialTimeframe); setPage(1); };
 
+  // Filter returns based on search query — must be before any conditional return
+  const filteredReturns = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    return returnsData.filter((r) => {
+      const matchSearch = !q ||
+        String(r.return_id || '').includes(q) ||
+        (r.bill?.bill_no || r.bills?.bill_no || r.bill_number || '').toLowerCase().includes(q) ||
+        (r.bill?.customer?.customer_name || '').toLowerCase().includes(q) ||
+        (r.bill?.customer?.phone_no || '').includes(q);
+      const destinationValue = (r.destination || '').toUpperCase();
+      const hasDestinationMatch = !filter || destinationValue === filter || (r.items || []).some((item) => (item.destination || '').toUpperCase() === filter);
+      const matchTimeframe = matchesTimeframe(r.return_date, timeframe);
+      return matchSearch && hasDestinationMatch && matchTimeframe;
+    });
+  }, [returnsData, search, filter, timeframe]);
+
+  const returnsChartData = useMemo(() => {
+    return buildTimeSeriesData(filteredReturns, timeframe, (r) => r.return_date, (r) => r.total_refund_amount);
+  }, [filteredReturns, timeframe]);
+
   if (!isAuthorized) {
     return (
       <div className="rp-section">
@@ -635,26 +655,6 @@ function ReturnsReport() {
       </div>
     );
   }
-
-  // Filter returns based on search query
-const filteredReturns = useMemo(() => {
-  const q = search.toLowerCase().trim();
-  return returnsData.filter((r) => {
-    const matchSearch = !q ||
-      String(r.return_id || '').includes(q) ||
-      (r.bill?.bill_no || r.bills?.bill_no || r.bill_number || '').toLowerCase().includes(q) ||
-      (r.bill?.customer?.customer_name || '').toLowerCase().includes(q) ||
-      (r.bill?.customer?.phone_no || '').includes(q);
-    const destinationValue = (r.destination || '').toUpperCase();
-    const hasDestinationMatch = !filter || destinationValue === filter || (r.items || []).some((item) => (item.destination || '').toUpperCase() === filter);
-    const matchTimeframe = matchesTimeframe(r.return_date, timeframe);
-    return matchSearch && hasDestinationMatch && matchTimeframe;
-  });
-}, [returnsData, search, filter, timeframe]);
-
-  const returnsChartData = useMemo(() => {
-    return buildTimeSeriesData(filteredReturns, timeframe, (r) => r.return_date, (r) => r.total_refund_amount);
-  }, [filteredReturns, timeframe]);
 
   const totalRefunded = filteredReturns.reduce((s, r) => s + Number(r.total_refund_amount || 0), 0);
   const totalItems = filteredReturns.reduce((s, r) => s + (r.items?.length || 0), 0);
@@ -790,7 +790,7 @@ const filteredReturns = useMemo(() => {
       </div>
       {/* Returns Refund Chart */}
       <div className="chart-container" style={{ height: '300px', marginBottom: '20px' }}>
-        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
+        <ResponsiveContainer width="100%" height={300}>
           <BarChart data={returnsChartData} margin={{ top: 8, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
             <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#2c2c2c', fontSize: 11, fontWeight: 600 }} />
@@ -1139,7 +1139,7 @@ function BorrowReport() {
         <h3 style={{ textAlign: 'center', marginBottom: '8px', fontSize: '14px', color: '#800000', fontWeight: '700', letterSpacing: '0.4px' }}>
           📊 Monthly Sales Revenue vs Borrow Outstanding (Rs.)
         </h3>
-        <ResponsiveContainer width="100%" height="90%" minWidth={0} minHeight={320}>
+        <ResponsiveContainer width="100%" height={280}>
           <BarChart data={salesVsBorrowChartData} margin={{ top: 8, right: 30, left: 20, bottom: 5 }} barCategoryGap="28%" barGap={4}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f5e6e6" />
             <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#666', fontWeight: 600 }} />
