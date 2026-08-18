@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Search, RefreshCw, Trash2, ChevronLeft, ChevronRight, ShieldAlert } from 'lucide-react';
+import { Search, RefreshCw, ChevronLeft, ChevronRight, ShieldAlert, Eye, X, Clock, User, Shield, Activity, Globe, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../utils/axios';
 import AdminDashboard from './AdminDashboard';
@@ -18,6 +19,25 @@ const ACTION_COLORS = {
   INVENTORY_ADD:         { bg: '#e8f5e9', color: '#2e7d32' },
   INVENTORY_UPDATE:      { bg: '#fff3e0', color: '#e65100' },
   INVENTORY_DELETE:      { bg: '#fdecea', color: '#c62828' },
+  CREATE_CATEGORY:       { bg: '#e8f5e9', color: '#2e7d32' },
+  UPDATE_CATEGORY:       { bg: '#fff3e0', color: '#e65100' },
+  DELETE_CATEGORY:       { bg: '#fdecea', color: '#c62828' },
+  CREATE_BRAND:          { bg: '#e8f5e9', color: '#2e7d32' },
+  UPDATE_BRAND:          { bg: '#fff3e0', color: '#e65100' },
+  DELETE_BRAND:          { bg: '#fdecea', color: '#c62828' },
+  CREATE_UNIT:           { bg: '#e8f5e9', color: '#2e7d32' },
+  UPDATE_UNIT:           { bg: '#fff3e0', color: '#e65100' },
+  DELETE_UNIT:           { bg: '#fdecea', color: '#c62828' },
+  CREATE_DEPARTMENT:     { bg: '#e8f5e9', color: '#2e7d32' },
+  UPDATE_DEPARTMENT:     { bg: '#fff3e0', color: '#e65100' },
+  DELETE_DEPARTMENT:     { bg: '#fdecea', color: '#c62828' },
+  CREATE_ASSET:          { bg: '#e8f5e9', color: '#2e7d32' },
+  UPDATE_ASSET:          { bg: '#fff3e0', color: '#e65100' },
+  DISPOSE_ASSET:         { bg: '#fff8e1', color: '#f57f17' },
+  DELETE_ASSET:          { bg: '#fdecea', color: '#c62828' },
+  CREATE_PROJECT:        { bg: '#e8f5e9', color: '#2e7d32' },
+  UPDATE_PROJECT:        { bg: '#fff3e0', color: '#e65100' },
+  DELETE_PROJECT:        { bg: '#fdecea', color: '#c62828' },
   INVOICE_CREATED:       { bg: '#e8f4fd', color: '#1565c0' },
   SALARY_SLIP_CREATED:   { bg: '#e8f5e9', color: '#2e7d32' },
   SALARY_SLIP_PAID:      { bg: '#e0f2f1', color: '#00695c' },
@@ -31,12 +51,12 @@ const ACTION_COLORS = {
 const getActionStyle = (action) => ACTION_COLORS[action] || { bg: '#f5f5f5', color: '#555' };
 
 function AuditLogPage() {
-  const [logs,      setLogs]      = useState([]);
-  const [actions,   setActions]   = useState([]);
-  const [total,     setTotal]     = useState(0);
-  const [pages,     setPages]     = useState(1);
-  const [loading,   setLoading]   = useState(false);
-  const [deleting,  setDeleting]  = useState(null);
+  const [logs,        setLogs]        = useState([]);
+  const [actions,     setActions]     = useState([]);
+  const [total,       setTotal]       = useState(0);
+  const [pages,       setPages]       = useState(1);
+  const [loading,     setLoading]     = useState(false);
+  const [selectedLog, setSelectedLog] = useState(null);
 
   const [search,    setSearch]    = useState('');
   const [action,    setAction]    = useState('');
@@ -75,17 +95,6 @@ function AuditLogPage() {
   useEffect(() => { load(); }, [load]);
   useEffect(() => { loadActions(); }, [loadActions]);
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this audit log entry?')) return;
-    setDeleting(id);
-    try {
-      await api.delete(`/audit_log/${id}`);
-      toast.success('Log entry deleted');
-      load();
-    } catch { toast.error('Failed to delete'); }
-    finally { setDeleting(null); }
-  };
-
   const resetFilters = () => {
     setSearch(''); setAction(''); setFrom(''); setTo(''); setPage(1);
   };
@@ -93,7 +102,11 @@ function AuditLogPage() {
   const formatTime = (t) => {
     if (!t) return '—';
     const d = new Date(t);
-    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const day   = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year  = d.getFullYear();
+    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    return `${day}/${month}/${year} ${timeStr}`;
   };
 
   const getUserName = (log) => {
@@ -144,14 +157,14 @@ function AuditLogPage() {
         <table className="audit-table">
           <thead>
             <tr>
-              <th>#</th>
-              <th>Time</th>
-              <th>User</th>
-              <th>Role</th>
-              <th>Action</th>
+              <th style={{ width: '50px' }}>#</th>
+              <th style={{ width: '140px' }}>Time</th>
+              <th style={{ width: '90px' }}>User</th>
+              <th style={{ width: '70px' }}>Role</th>
+              <th style={{ width: '150px' }}>Action</th>
               <th>Details</th>
-              <th>IP Address</th>
-              <th></th>
+              <th style={{ width: '80px' }}>IP Address</th>
+              <th style={{ width: '50px', textAlign: 'center' }}>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -178,11 +191,9 @@ function AuditLogPage() {
                   </td>
                   <td className="audit-details-cell" title={log.details}>{log.details || '—'}</td>
                   <td className="audit-ip-cell">{log.ip_address || '—'}</td>
-                  <td>
-                    <button className="audit-del-btn" title="Delete log entry"
-                      onClick={() => handleDelete(log.log_id)}
-                      disabled={deleting === log.log_id}>
-                      {deleting === log.log_id ? <RefreshCw size={13} className="spin" /> : <Trash2 size={13} />}
+                  <td style={{ textAlign: 'center' }}>
+                    <button className="audit-view-btn" title="View details" onClick={() => setSelectedLog(log)}>
+                      <Eye size={15} />
                     </button>
                   </td>
                 </tr>
@@ -210,6 +221,69 @@ function AuditLogPage() {
             <ChevronRight size={15} />
           </button>
         </div>
+      )}
+
+      {/* Action Details Modal Portal — Covers & blurs full viewport */}
+      {selectedLog && createPortal(
+        <div className="audit-modal-overlay" onClick={() => setSelectedLog(null)}>
+          <div className="audit-modal" onClick={e => e.stopPropagation()}>
+            <div className="audit-modal-header">
+              <div className="audit-modal-header-title">
+                <ShieldAlert size={20} />
+                <h3>Audit Log Entry #{selectedLog.log_id}</h3>
+              </div>
+              <button className="audit-modal-close" title="Close" onClick={() => setSelectedLog(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="audit-modal-body">
+              <div className="audit-modal-grid">
+                <div className="audit-modal-item">
+                  <div className="audit-modal-item-label"><Clock size={13} /> Time</div>
+                  <div className="audit-modal-item-val">{formatTime(selectedLog.time)}</div>
+                </div>
+                <div className="audit-modal-item">
+                  <div className="audit-modal-item-label"><User size={13} /> User</div>
+                  <div className="audit-modal-item-val audit-username">{getUserName(selectedLog)}</div>
+                </div>
+                <div className="audit-modal-item">
+                  <div className="audit-modal-item-label"><Shield size={13} /> Role</div>
+                  <div className="audit-modal-item-val">
+                    <span className="audit-role-pill">{selectedLog.role || '—'}</span>
+                  </div>
+                </div>
+                <div className="audit-modal-item">
+                  <div className="audit-modal-item-label"><Activity size={13} /> Action</div>
+                  <div className="audit-modal-item-val">
+                    <span className="audit-action-pill" style={getActionStyle(selectedLog.action)}>
+                      {selectedLog.action}
+                    </span>
+                  </div>
+                </div>
+                <div className="audit-modal-item full-width">
+                  <div className="audit-modal-item-label"><Globe size={13} /> IP Address</div>
+                  <div className="audit-modal-item-val audit-ip-code">{selectedLog.ip_address || '—'}</div>
+                </div>
+              </div>
+
+              <div className="audit-modal-details-box">
+                <div className="audit-modal-details-header">
+                  <FileText size={14} />
+                  <span>Action Details</span>
+                </div>
+                <p>{selectedLog.details || 'No additional details provided.'}</p>
+              </div>
+            </div>
+
+            <div className="audit-modal-footer">
+              <button className="audit-modal-close-btn" onClick={() => setSelectedLog(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

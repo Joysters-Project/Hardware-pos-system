@@ -65,13 +65,16 @@ exports.getCashierStats = async (req, res) => {
 
     const recentTransactions = recentBills.map(bill => {
       const date = new Date(bill.bill_date);
-      const timeStr = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      const exactDateTime = isNaN(date.getTime())
+        ? 'N/A'
+        : date.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
       return {
         bill_id: bill.bill_id,
         customer: bill.customer ? bill.customer.customer_name : 'Walk-in',
         amount: parseFloat(bill.total_amount) || 0,
         status: bill.status || 'completed',
-        time: timeStr
+        time: exactDateTime,
+        rawTime: bill.bill_date
       };
     });
 
@@ -104,7 +107,7 @@ exports.getAnalyticalStats = async (req, res) => {
 
     // 2. Fetch Recent Ledger (real bills + customer associations)
     const recentBills = await db.bills.findAll({
-      attributes: ['bill_id', 'bill_date', 'total_amount', 'customer_id'],
+      attributes: ['bill_id', 'bill_date', 'total_amount', 'customer_id', 'status'],
       order: [['bill_date', 'DESC']],
       limit: 10,
       include: [{
@@ -114,22 +117,18 @@ exports.getAnalyticalStats = async (req, res) => {
     });
 
     const formattedTransactions = recentBills.map(bill => {
-      const timeDiff = new Date() - new Date(bill.bill_date);
-      const mins = Math.floor(timeDiff / (1000 * 60));
-      const hours = Math.floor(mins / 60);
-      const days = Math.floor(hours / 24);
-      let timeLabel = "Just now";
-      
-      if (days > 0) timeLabel = `${days} day${days > 1 ? 's' : ''} ago`;
-      else if (hours > 0) timeLabel = `${hours} hour${hours > 1 ? 's' : ''} ago`;
-      else if (mins > 0) timeLabel = `${mins} min${mins > 1 ? 's' : ''} ago`;
+      const date = new Date(bill.bill_date);
+      const exactDateTime = isNaN(date.getTime())
+        ? 'N/A'
+        : date.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
 
       return {
         id: `TXN-${bill.bill_id}`,
         customer: bill.customer ? bill.customer.customer_name : "Walk-in Customer",
         amount: parseFloat(bill.total_amount) || 0,
         status: bill.status ? bill.status.toLowerCase() : "completed",
-        time: timeLabel
+        time: exactDateTime,
+        rawTime: bill.bill_date
       };
     });
 
@@ -359,8 +358,12 @@ exports.exportAnalyticalPDF = async (req, res) => {
       recentBills.forEach((bill, index) => {
         const name = bill.customer ? bill.customer.customer_name : 'Walk-in Customer';
         const formattedAmount = parseFloat(bill.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const date = new Date(bill.bill_date);
+        const exactDateTime = isNaN(date.getTime())
+          ? 'N/A'
+          : date.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
         doc.fontSize(10).fillColor('#2c2c2c').text(
-          `${index + 1}. TXN-${bill.bill_id.toString().padStart(4, '0')}  |  Customer: ${name.padEnd(20, ' ')}  |  Amount: LKR ${formattedAmount.padStart(12, ' ')}  |  Status: ${bill.status.toUpperCase()}`
+          `${index + 1}. TXN-${bill.bill_id.toString().padStart(4, '0')}  |  Customer: ${name.padEnd(20, ' ')}  |  Date & Time: ${exactDateTime}  |  Amount: LKR ${formattedAmount.padStart(12, ' ')}  |  Status: ${(bill.status || 'completed').toUpperCase()}`
         );
       });
     }

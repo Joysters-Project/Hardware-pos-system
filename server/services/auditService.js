@@ -12,9 +12,9 @@ const { audit_log } = require('../models');
  */
 const logActivity = async (userId, role, action, details, ip = null) => {
   try {
-    if (!userId) return; // skip if no authenticated user
+    const finalUserId = userId || 1;
     await audit_log.create({
-      user_id:    userId,
+      user_id:    finalUserId,
       role:       role   || 'Unknown',
       action:     action,
       details:    details || null,

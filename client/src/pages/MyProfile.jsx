@@ -20,7 +20,7 @@ const getInitials = (v) =>
 
 export default function MyProfile() {
   const navigate = useNavigate();
-  const { logout, updateProfilePhoto } = useAuth();
+  const { logout, updateProfilePhoto, role } = useAuth();
   const fileRef         = useRef(); // used in edit form
   const overviewFileRef = useRef(); // used in overview circle
 
@@ -290,6 +290,8 @@ export default function MyProfile() {
       return toast.error("New passwords must match");
     if (pwd.new_password.length < 6)
       return toast.error("New password must be at least 6 characters");
+    if (pwd.current_password === pwd.new_password)
+      return toast.error("New password must be different from current password");
 
     setPwdLoading(true);
     try {
@@ -306,9 +308,10 @@ export default function MyProfile() {
 
   const handleLogout = () => {
     setShowLogoutModal(false);
+    const targetRole = role ? role.toLowerCase() : 'admin';
     logout();
     toast.success("Logged out successfully");
-    navigate("/", { replace: true });
+    navigate(`/login/${targetRole}`, { replace: true });
   };
 
   /* ── loading skeleton ───────────────────────────── */

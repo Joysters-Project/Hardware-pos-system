@@ -1,30 +1,43 @@
 const { brands, products } = require('../models');
+const { logActivity } = require('../services/auditService');
+
+const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
+const toTitleCase = (str) => str.trim().charAt(0).toUpperCase() + str.trim().slice(1).toLowerCase();
 
 // CREATE Brand
 exports.createBrand = async (req, res) => {
+  const ip = getIp(req);
   try {
     const { brand_name } = req.body;
 
-    // Check if brand_name is provided
     if (!brand_name || !brand_name.trim()) {
       return res.status(400).json({ error: "Brand name is required" });
     }
 
-    // Check for duplicate brand name (case-insensitive)
+    if (!/^[A-Za-z\s]+$/.test(brand_name.trim())) {
+      return res.status(400).json({ error: "Brand name can contain letters and spaces only. Numbers and symbols are not allowed." });
+    }
+
+    if (brand_name.trim().length > 50) {
+      return res.status(400).json({ error: "Brand name must be 50 characters or fewer." });
+    }
+
+    const normalized = toTitleCase(brand_name);
+
     const existingBrand = await brands.findOne({
-      where: { brand_name: brand_name.trim() }
+      where: { brand_name: normalized }
     });
 
     if (existingBrand) {
       return res.status(409).json({ 
         error: "Brand name already exists",
-        message: `A brand with name "${brand_name}" already exists`
+        message: `A brand with name "${normalized}" already exists`
       });
     }
 
-    const newBrand = await brands.create({ 
-      brand_name: brand_name.trim() 
-    });
+    const newBrand = await brands.create({ brand_name: normalized });
+    await logActivity(req.user?.user_id, req.user?.role, 'CREATE_BRAND',
+      `Brand created: "${normalized}" (ID: ${newBrand.brand_id})`, ip);
 
     res.status(201).json({
       message: "Brand created successfully",
@@ -65,6 +78,7 @@ exports.getBrandById = async (req, res) => {
 
 // UPDATE Brand
 exports.updateBrand = async (req, res) => {
+  const ip = getIp(req);
   try {
     const brand = await brands.findByPk(req.params.id);
 
@@ -73,13 +87,21 @@ exports.updateBrand = async (req, res) => {
     }
 
     const { brand_name } = req.body;
+    const oldName = brand.brand_name;
 
     // Check if brand_name is provided
     if (brand_name && brand_name.trim()) {
-      // Check for duplicate brand name (excluding current brand)
+      if (!/^[A-Za-z\s]+$/.test(brand_name.trim())) {
+        return res.status(400).json({ error: "Brand name can contain letters and spaces only. Numbers and symbols are not allowed." });
+      }
+      if (brand_name.trim().length > 50) {
+        return res.status(400).json({ error: "Brand name must be 50 characters or fewer." });
+      }
+      const normalized = toTitleCase(brand_name);
+
       const existingBrand = await brands.findOne({
         where: { 
-          brand_name: brand_name.trim(),
+          brand_name: normalized,
           brand_id: { [require('sequelize').Op.ne]: req.params.id }
         }
       });
@@ -87,11 +109,13 @@ exports.updateBrand = async (req, res) => {
       if (existingBrand) {
         return res.status(409).json({ 
           error: "Brand name already exists",
-          message: `A brand with name "${brand_name}" already exists`
+          message: `A brand with name "${normalized}" already exists`
         });
       }
 
-      await brand.update({ brand_name: brand_name.trim() });
+      await brand.update({ brand_name: normalized });
+      await logActivity(req.user?.user_id, req.user?.role, 'UPDATE_BRAND',
+        `Brand ID ${req.params.id} updated: "${oldName}" -> "${normalized}"`, ip);
     }
 
     res.status(200).json({
@@ -105,6 +129,7 @@ exports.updateBrand = async (req, res) => {
 
 // DELETE Brand (with product check)
 exports.deleteBrand = async (req, res) => {
+  const ip = getIp(req);
   try {
     const brand = await brands.findByPk(req.params.id);
 
@@ -125,7 +150,10 @@ exports.deleteBrand = async (req, res) => {
       });
     }
 
+    const name = brand.brand_name;
     await brand.destroy();
+    await logActivity(req.user?.user_id, req.user?.role, 'DELETE_BRAND',
+      `Brand deleted: "${name}" (ID: ${req.params.id})`, ip);
 
     res.status(200).json({
       message: "Brand deleted successfully"

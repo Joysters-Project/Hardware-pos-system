@@ -1,5 +1,8 @@
 const db = require('../models');
 const { Op } = require('sequelize');
+const { logActivity } = require('../services/auditService');
+
+const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
 
 const getAllAssets = async (req, res) => {
   try {
@@ -38,6 +41,7 @@ const getAssetById = async (req, res) => {
 };
 
 const createAsset = async (req, res) => {
+  const ip = getIp(req);
   try {
     console.log('Asset Create Request Body:', req.body);
 
@@ -97,6 +101,9 @@ const createAsset = async (req, res) => {
       });
     }
 
+    await logActivity(req.user?.user_id, req.user?.role, 'CREATE_ASSET',
+      `Asset created: "${asset_name}" (ID: ${asset.asset_id}), Cost: ${assetCost}`, ip);
+
     res.status(201).json({
       message: 'Asset created successfully',
       data: asset,
@@ -109,6 +116,7 @@ const createAsset = async (req, res) => {
 };
 
 const updateAsset = async (req, res) => {
+  const ip = getIp(req);
   try {
     console.log('Asset Update Request Body:', req.body);
 
@@ -160,6 +168,9 @@ const updateAsset = async (req, res) => {
     await recalcDeptBudget(oldDeptId);
     if (newDeptId !== oldDeptId) await recalcDeptBudget(newDeptId);
 
+    await logActivity(req.user?.user_id, req.user?.role, 'UPDATE_ASSET',
+      `Asset ID ${req.params.id} ("${asset.asset_name}") updated`, ip);
+
     res.status(200).json({ message: 'Asset updated successfully', data: asset });
   } catch (error) {
     console.error('Asset Update Error:', error);
@@ -168,12 +179,16 @@ const updateAsset = async (req, res) => {
 };
 
 const disposeAsset = async (req, res) => {
+  const ip = getIp(req);
   try {
     const asset = await db.assets.findByPk(req.params.id);
     if (!asset) return res.status(404).json({ message: 'Asset not found' });
 
     await asset.update({ status: 'Disposed' });
     await recalcDeptBudget(asset.department_id);
+
+    await logActivity(req.user?.user_id, req.user?.role, 'DISPOSE_ASSET',
+      `Asset marked as Disposed: "${asset.asset_name}" (ID: ${asset.asset_id})`, ip);
 
     res.status(200).json({ message: 'Asset marked as Disposed', data: asset });
   } catch (error) {
@@ -182,6 +197,7 @@ const disposeAsset = async (req, res) => {
 };
 
 const deleteAsset = async (req, res) => {
+  const ip = getIp(req);
   try {
     const asset = await db.assets.findByPk(req.params.id);
     if (!asset) return res.status(404).json({ message: 'Asset not found' });
@@ -190,9 +206,13 @@ const deleteAsset = async (req, res) => {
       return res.status(400).json({ message: 'Only Disposed assets can be permanently deleted. Use dispose endpoint first.' });
     }
 
+    const name = asset.asset_name;
     const deptId = asset.department_id;
     await asset.destroy();
     await recalcDeptBudget(deptId);
+
+    await logActivity(req.user?.user_id, req.user?.role, 'DELETE_ASSET',
+      `Asset deleted: "${name}" (ID: ${req.params.id})`, ip);
 
     res.status(200).json({ message: 'Asset deleted successfully' });
   } catch (error) {

@@ -93,11 +93,28 @@ export default function AnalyticalDashboard() {
     });
   }, [transactions, searchQuery]);
 
+  const formatExactDateTime = (txn) => {
+    if (txn.rawTime) {
+      const d = new Date(txn.rawTime);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+      }
+    }
+    return txn.time || 'N/A';
+  };
+
   const handleExportPDF = () => {
     const rows = filteredTransactions.map((txn) => [
       txn.id,
       txn.customer,
-      txn.time,
+      formatExactDateTime(txn),
       `LKR ${Number(txn.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       txn.status?.toUpperCase(),
     ]);
@@ -413,7 +430,7 @@ export default function AnalyticalDashboard() {
                   <span className="ledger-customer-name">{txn.customer}</span>
                 </div>
                 <div className="ledger-center">
-                  <span className="ledger-timestamp">{txn.time}</span>
+                  <span className="ledger-timestamp" title={formatExactDateTime(txn)}>{formatExactDateTime(txn)}</span>
                 </div>
                 <div className="ledger-right">
                   <span className="ledger-amount">

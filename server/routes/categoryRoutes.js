@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const categoryController = require('../controllers/categoryController');
+const authMiddleware = require('../middleware/authMiddleware');
 
 // CREATE Category
-router.post('/', categoryController.createCategory);
+router.post('/', authMiddleware, categoryController.createCategory);
 
 // GET All Categories
 router.get('/', categoryController.getAllCategories);
@@ -12,10 +13,10 @@ router.get('/', categoryController.getAllCategories);
 router.get('/:id', categoryController.getCategoryById);
 
 // UPDATE Category (supports both PUT and PATCH)
-router.put('/:id', categoryController.updateCategory);
-router.patch('/:id', categoryController.updateCategory);
+router.put('/:id', authMiddleware, categoryController.updateCategory);
+router.patch('/:id', authMiddleware, categoryController.updateCategory);
 
 // DELETE Category
-router.delete('/:id', categoryController.deleteCategory);
+router.delete('/:id', authMiddleware, categoryController.deleteCategory);
 
 module.exports = router;

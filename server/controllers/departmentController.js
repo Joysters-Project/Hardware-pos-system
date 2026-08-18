@@ -1,5 +1,8 @@
 const db = require('../models');
 const { Op } = require('sequelize');
+const { logActivity } = require('../services/auditService');
+
+const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
 const DEPT_NAME_REGEX = /^[A-Za-z0-9 ]+$/;
 
 const getAllDepartments = async (req, res) => {
@@ -89,6 +92,7 @@ const getDepartmentById = async (req, res) => {
 };
 
 const createDepartment = async (req, res) => {
+  const ip = getIp(req);
   try {
     const { department_name, budget, description, status } = req.body;
     if (!department_name) return res.status(400).json({ message: 'Department name is required' });
@@ -115,6 +119,9 @@ const createDepartment = async (req, res) => {
       used_budget: 0
     });
 
+    await logActivity(req.user?.user_id, req.user?.role, 'CREATE_DEPARTMENT',
+      `Department created: "${department_name}" (ID: ${dept.department_id}), Budget: ${parsedBudget}`, ip);
+
     res.status(201).json({ message: 'Department created successfully', data: dept });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -122,6 +129,7 @@ const createDepartment = async (req, res) => {
 };
 
 const updateDepartment = async (req, res) => {
+  const ip = getIp(req);
   try {
     console.error('Department Error:', 'PUT department request');
     console.error('Department ID:', req.params.id);
@@ -186,6 +194,10 @@ const updateDepartment = async (req, res) => {
     }
 
     await dept.update(updatePayload);
+
+    await logActivity(req.user?.user_id, req.user?.role, 'UPDATE_DEPARTMENT',
+      `Department ID ${req.params.id} ("${dept.department_name}") updated`, ip);
+
     return res.status(200).json({ success: true, message: 'Department updated successfully', data: dept });
   } catch (error) {
     console.error('Department Error:', error);
@@ -197,6 +209,7 @@ const updateDepartment = async (req, res) => {
 };
 
 const deleteDepartment = async (req, res) => {
+  const ip = getIp(req);
   try {
     const dept = await db.departments.findByPk(req.params.id);
     if (!dept) return res.status(404).json({ message: 'Department not found' });
@@ -204,7 +217,12 @@ const deleteDepartment = async (req, res) => {
     const empCount = await db.employees.count({ where: { department_id: req.params.id } });
     if (empCount > 0) return res.status(400).json({ message: 'Cannot delete department with active employees' });
 
+    const name = dept.department_name;
     await dept.destroy();
+
+    await logActivity(req.user?.user_id, req.user?.role, 'DELETE_DEPARTMENT',
+      `Department deleted: "${name}" (ID: ${req.params.id})`, ip);
+
     res.status(200).json({ message: 'Department deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
