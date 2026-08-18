@@ -47,7 +47,10 @@ class ReturnService {
       // Validate each item
       for (const item of items) {
         const product_id = Number(item.product_id);
-        const return_quantity = Number(item.return_quantity || item.quantity || 1);
+        const return_quantity = parseFloat(item.return_quantity || item.quantity || 1);
+        if (Number.isNaN(return_quantity) || return_quantity <= 0) {
+          throw new Error(`Invalid return quantity for product ${product_id}`);
+        }
         const action = String(item.action || item.destination || 'REFUND').toUpperCase();
         const condition = String(item.condition || 'DEFECTIVE').toUpperCase();
 
@@ -70,7 +73,8 @@ class ReturnService {
           throw new Error(`Bill item not found for product ${product_id}`);
         }
 
-        if (return_quantity > billItem.quantity) {
+        const billedQuantity = parseFloat(billItem.quantity || 0);
+        if (return_quantity > billedQuantity + 0.0001) {
           throw new Error(`Return quantity exceeds billed quantity for product ${product_id}`);
         }
 
@@ -122,7 +126,7 @@ class ReturnService {
       // Process each return item
       for (const item of items) {
         const product_id = Number(item.product_id);
-        const return_quantity = Number(item.return_quantity || item.quantity || 1);
+        const return_quantity = parseFloat(item.return_quantity || item.quantity || 1);
         const refund_amount = item.calculated_refund || 0;
         const action = String(item.action || 'REFUND').toUpperCase();
         const condition = String(item.condition || 'DEFECTIVE').toUpperCase();
@@ -157,8 +161,9 @@ class ReturnService {
         // Update bill item quantity and total
         const billItem = await bill_items.findOne({ where: { bill_id, product_id }, transaction: t });
         if (billItem) {
-          const remainingQty = billItem.quantity - return_quantity;
-          if (remainingQty <= 0) {
+          const billedQty = parseFloat(billItem.quantity || 0);
+          const remainingQty = parseFloat((billedQty - return_quantity).toFixed(4));
+          if (remainingQty <= 0.0001) {
             await billItem.destroy({ transaction: t });
           } else {
             const perUnitDiscount = Number(billItem.discount || 0) / Number(billItem.quantity || 1);
@@ -300,10 +305,10 @@ class ReturnService {
       throw new Error('Bill item not found for this bill and product');
     }
 
-    const max_returnable = Number(billItem.quantity);
-    const requestedQty = Number(returnQty);
+    const max_returnable = parseFloat(billItem.quantity || 0);
+    const requestedQty = parseFloat(returnQty || 0);
 
-    if (requestedQty > max_returnable) {
+    if (requestedQty > max_returnable + 0.0001) {
       throw new Error('Return quantity exceeds maximum returnable amount');
     }
 

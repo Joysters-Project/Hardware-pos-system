@@ -139,8 +139,9 @@ export default function ReturnInventory() {
         ret.items.forEach(item => {
           if (item.destination === selectedDestination) {
             const existing = items.find(x => x.product_id === item.product_id);
+            const itemQty = parseFloat(item.return_quantity || item.quantity || 0);
             if (existing) {
-              existing.quantity += item.return_quantity;
+              existing.quantity = parseFloat((existing.quantity + itemQty).toFixed(2));
               if (item.return_reason && !existing.reasons.includes(item.return_reason)) {
                 existing.reasons.push(item.return_reason);
               }
@@ -155,7 +156,7 @@ export default function ReturnInventory() {
               items.push({
                 product_id: item.product_id,
                 product_name: item.product?.product_name || products.find(p => p.product_id === item.product_id)?.product_name || `Product #${item.product_id}`,
-                quantity: item.return_quantity,
+                quantity: itemQty,
                 reasons: item.return_reason ? [item.return_reason] : [],
                 supplier_ids: supplierIds
               });
@@ -166,7 +167,7 @@ export default function ReturnInventory() {
     });
 
     const label = DESTINATION_META[selectedDestination]?.label || selectedDestination;
-    const qty = items.reduce((sum, item) => sum + item.quantity, 0);
+    const qty = parseFloat(items.reduce((sum, item) => sum + item.quantity, 0).toFixed(2));
 
     return { label, qty, items };
   }, [returns, selectedDestination, products]);
@@ -209,8 +210,9 @@ export default function ReturnInventory() {
           const dest = item.destination;
           if (dests[dest]) {
             const existing = dests[dest].items.find(x => x.product_id === item.product_id);
+            const itemQty = parseFloat(item.return_quantity || item.quantity || 0);
             if (existing) {
-              existing.quantity += item.return_quantity;
+              existing.quantity = parseFloat((existing.quantity + itemQty).toFixed(2));
               if (item.return_reason && !existing.reasons.includes(item.return_reason)) {
                 existing.reasons.push(item.return_reason);
               }
@@ -226,7 +228,7 @@ export default function ReturnInventory() {
               dests[dest].items.push({
                 product_id: item.product_id,
                 product_name: item.product?.product_name || products.find(p => p.product_id === item.product_id)?.product_name || `Product #${item.product_id}`,
-                quantity: item.return_quantity,
+                quantity: itemQty,
                 reasons: item.return_reason ? [item.return_reason] : [],
                 supplier_ids: supplierIds
               });
@@ -238,7 +240,7 @@ export default function ReturnInventory() {
 
     Object.keys(dests).forEach(key => {
       dests[key].count = dests[key].items.length;
-      dests[key].qty = dests[key].items.reduce((sum, item) => sum + item.quantity, 0);
+      dests[key].qty = parseFloat(dests[key].items.reduce((sum, item) => sum + item.quantity, 0).toFixed(2));
     });
 
     return dests;

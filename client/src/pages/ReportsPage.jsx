@@ -711,7 +711,7 @@ function ReturnsReport() {
             fmt(fs?.refundable_amount || 0),
             fmt(remainingBalance),
             item.product?.product_name || `Product #${item.product_id}`,
-            item.return_quantity,
+            parseFloat(item.return_quantity || item.quantity || 0),
             fmt(item.refund_amount),
             item.return_reason || '–',
             item.destination,
@@ -736,7 +736,7 @@ function ReturnsReport() {
       const remainingBalance = Math.max(0, (originalBill - paidAmount) - r.total_refund_amount);
 
       const productsStr = r.items && r.items.length > 0
-        ? r.items.map(item => `${item.product?.product_name || `Product #${item.product_id}`} (${item.return_quantity})`).join(', ')
+        ? r.items.map(item => `${item.product?.product_name || `Product #${item.product_id}`} (${parseFloat(item.return_quantity || item.quantity || 0)})`).join(', ')
         : '–';
 
       return [
@@ -949,7 +949,7 @@ function ReturnsReport() {
                                         <tr key={item.return_item_id || idx}>
                                           <td className="muted">{idx + 1}</td>
                                           <td className="bold">{item.product?.product_name || `Product #${item.product_id}`}</td>
-                                          <td className="center">{item.return_quantity}</td>
+                                          <td className="center">{parseFloat(item.return_quantity || item.quantity || 0)}</td>
                                           <td className="right green">{fmtNum(item.refund_amount)}</td>
                                           <td>{item.return_reason || '–'}</td>
                                           <td><span className="rp-dest-badge">{item.destination}</span></td>

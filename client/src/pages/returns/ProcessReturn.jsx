@@ -157,16 +157,21 @@ function ReturnItemCard({ item, onToggle, onFieldChange, calcPayment }) {
             <label>Return Quantity</label>
             <input id="return_quantity" name="return_quantity"
               type="number"
-              min="1"
+              step="any"
+              min="0.01"
               max={item.max_quantity}
               value={item.return_quantity}
-              onChange={(e) =>
-                onFieldChange('return_quantity',
-                  Math.min(item.max_quantity, Math.max(1, parseInt(e.target.value) || 1))
-                )
-              }
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '') {
+                  onFieldChange('return_quantity', '');
+                } else {
+                  const num = parseFloat(val);
+                  onFieldChange('return_quantity', isNaN(num) ? '' : Math.min(item.max_quantity, Math.max(0.0001, num)));
+                }
+              }}
             />
-            {item.return_quantity > item.max_quantity && (
+            {(parseFloat(item.return_quantity) || 0) > item.max_quantity && (
               <div className="ret-field-error">⚠️ Cannot exceed billed quantity ({item.max_quantity})</div>
             )}
           </div>
@@ -296,7 +301,7 @@ function SummaryPanel({ selectedItems, globalDecision, onGlobalDecisionChange, s
   const total = selectedItems.length;
   const refundItems = selectedItems.filter(i => ['REFUND', 'PARTIAL_REFUND', 'STOCK'].includes(i.action));
   const supplierItems = selectedItems.filter(i => ['REPAIR', 'EXCHANGE', 'SUPPLIER_CLAIM'].includes(i.action));
-  const grossRefund = refundItems.reduce((s, i) => s + (i.price_per_unit * i.return_quantity), 0);
+  const grossRefund = refundItems.reduce((s, i) => s + (i.price_per_unit * (parseFloat(i.return_quantity) || 0)), 0);
   const totalRepair = selectedItems.reduce((s, i) => s + calcCustomerPayment(i), 0);
   const needsSupplier = supplierItems.length > 0;
 
@@ -697,8 +702,8 @@ export default function ProcessReturn() {
           const isValidWarranty = item.has_warranty_answer === 'YES' && item.warranty_status === 'VALID';
           return {
             product_id: item.product_id,
-            return_quantity: Number(item.return_quantity),
-            quantity: Number(item.return_quantity),
+            return_quantity: parseFloat(item.return_quantity) || 0,
+            quantity: parseFloat(item.return_quantity) || 0,
             condition: (() => {
               // Map extended conditions to backend-accepted ENUM values
               const map = {
@@ -731,7 +736,7 @@ export default function ProcessReturn() {
         toast.success('Return processed successfully!');
         const grossRefund = selectedList.reduce((s, i) =>
           ['REFUND', 'PARTIAL_REFUND', 'STOCK'].includes(i.action)
-            ? s + i.price_per_unit * i.return_quantity : s, 0);
+            ? s + i.price_per_unit * (parseFloat(i.return_quantity) || 0) : s, 0);
         const billPayments = selectedBill?.payments || [];
         const amountPaid = billPayments
           .filter(p => parseFloat(p.amount_paid) > 0)

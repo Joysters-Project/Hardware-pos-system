@@ -149,7 +149,7 @@ export default function ReturnList() {
                   </div>
                   <div style={{ fontSize: '13px', color: '#777', marginTop: '4px' }}>
                     <strong>Items Returned:</strong>{' '}
-                    {ret.items?.map(i => `${i.product?.product_name || 'Product'} (x${i.return_quantity || i.quantity || 1}) - ${i.action || 'REFUND'}`).join(', ')}
+                    {ret.items?.map(i => `${i.product?.product_name || 'Product'} (x${parseFloat(i.return_quantity || i.quantity || 1)}) - ${i.action || 'REFUND'}`).join(', ')}
                   </div>
                 </div>
 
@@ -238,7 +238,7 @@ export default function ReturnList() {
                   {selectedReturn.items?.map((item) => (
                     <tr key={item.return_item_id} style={{ borderTop: '1px solid #eee' }}>
                       <td style={{ padding: '8px 12px', fontWeight: '500' }}>{item.product?.product_name || `Product #${item.product_id}`}</td>
-                      <td style={{ padding: '8px 12px' }}>{item.return_quantity || item.quantity || 1}</td>
+                      <td style={{ padding: '8px 12px' }}>{parseFloat(item.return_quantity || item.quantity || 1)}</td>
                       <td style={{ padding: '8px 12px' }}>{item.condition || 'DEFECTIVE'}</td>
                       <td style={{ padding: '8px 12px' }}>
                         <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>

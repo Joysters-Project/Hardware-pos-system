@@ -98,10 +98,10 @@ const ReturnSystem = () => {
     const item = billData.bill_items?.find(i => i.product_id === parseInt(selectedProduct));
     if (!item) return toast.error("Item not found in bill");
     
-    const qty = parseInt(returnQuantity) || 1;
-    const billQty = parseInt(item.quantity) || 0;
+    const qty = parseFloat(returnQuantity) || 0;
+    const billQty = parseFloat(item.quantity) || 0;
     
-    if (qty > billQty) {
+    if (qty > billQty + 0.0001) {
       return toast.error(`Return quantity cannot exceed ${billQty}`);
     }
 
@@ -238,10 +238,11 @@ const ReturnSystem = () => {
                     return item ? (
                       <input id="returnQuantity" name="returnQuantity" 
                         type="number" 
-                        min="1" 
+                        step="any"
+                        min="0.01" 
                         max={item.quantity}
                         value={returnQuantity} 
-                        onChange={(e) => setReturnQuantity(parseInt(e.target.value) || 1)}
+                        onChange={(e) => setReturnQuantity(e.target.value)}
                         required 
                       />
                     ) : null;
