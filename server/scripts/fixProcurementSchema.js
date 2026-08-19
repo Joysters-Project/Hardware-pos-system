@@ -20,7 +20,7 @@ async function addIf(qi, table, col, def) {
   }
 }
 
-(async () => {
+async function fixProcurementSchema() {
   try {
     await sequelize.authenticate();
     const qi = sequelize.getQueryInterface();
@@ -38,6 +38,8 @@ async function addIf(qi, table, col, def) {
     await addIf(qi, 'purchase_orders', 'created_by',           { type: DataTypes.INTEGER,    allowNull: true });
     await addIf(qi, 'purchase_orders', 'actual_delivery_date', { type: DataTypes.DATEONLY,   allowNull: true });
     await addIf(qi, 'purchase_orders', 'notes',                { type: DataTypes.TEXT,       allowNull: true });
+    await addIf(qi, 'po_items', 'unit_price',                  { type: DataTypes.DECIMAL(10,2), allowNull: false, defaultValue: 0 });
+    await addIf(qi, 'po_items', 'comment',                     { type: DataTypes.TEXT, allowNull: true });
 
     // products
     await addIf(qi, 'products', 'avg_daily_sales',       { type: DataTypes.DECIMAL(10,4), allowNull: true, defaultValue: 0 });
@@ -49,4 +51,8 @@ async function addIf(qi, table, col, def) {
   } finally {
     await sequelize.close();
   }
-})();
+}
+
+module.exports = fixProcurementSchema;
+
+if (require.main === module) fixProcurementSchema();

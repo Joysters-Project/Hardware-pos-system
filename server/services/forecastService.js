@@ -1,5 +1,6 @@
 const db = require('../models');
 const { products, bill_items, bills } = db;
+const { Op } = require('sequelize');
 
 /**
  * getProductForecast
@@ -7,7 +8,7 @@ const { products, bill_items, bills } = db;
  */
 const getProductForecast = async (productId) => {
   try {
-    const product = await products.findById(productId);
+    const product = await products.findByPk(productId);
     if (!product) {
       throw new Error(`Product with ID ${productId} not found`);
     }
@@ -20,7 +21,7 @@ const getProductForecast = async (productId) => {
       include: [{
         model: bills,
         where: {
-          bill_date: { $gte: thirtyDaysAgo }
+          bill_date: { [Op.gte]: thirtyDaysAgo }
         }
       }]
     });

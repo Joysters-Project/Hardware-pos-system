@@ -6,12 +6,13 @@ const { Op } = require('sequelize');
  * Recalculate and persist product stock_quantity and expiry_date
  * from active batches. Call after any batch change.
  */
-async function syncProductFromBatches(productId) {
+async function syncProductFromBatches(productId, transaction) {
   const activeBatches = await batch_inventory.findAll({
     where: { product_id: productId, status: { [Op.in]: ['Active', 'Low Stock'] }, remaining_quantity: { [Op.gt]: 0 } },
+    transaction,
   });
 
-  const totalStock = activeBatches.reduce((s, b) => s + (b.remaining_quantity || 0), 0);
+  const totalStock = activeBatches.reduce((sum, batch) => sum + Number(batch.remaining_quantity || 0), 0);
 
   // Nearest expiry among active batches with remaining qty (FEFO)
   const withExpiry = activeBatches.filter(b => b.expiry_date);
@@ -19,7 +20,7 @@ async function syncProductFromBatches(productId) {
   const nearestExpiry = withExpiry.length > 0 ? withExpiry[0].expiry_date : null;
 
   // Step 6: derive product status from stock vs min_stock
-  const product = await products.findByPk(productId);
+  const product = await products.findByPk(productId, { transaction });
   let newStatus = product?.status || 'active';
   if (product) {
     const minQty = parseInt(product.min_stock_quantity) || 0;
@@ -32,7 +33,7 @@ async function syncProductFromBatches(productId) {
 
   await products.update(
     { stock_quantity: totalStock, expiry_date: nearestExpiry, status: newStatus },
-    { where: { product_id: productId } }
+    { where: { product_id: productId }, transaction }
   );
 }
 
@@ -77,7 +78,7 @@ async function generateBatchNumber() {
 /**
  * Create a batch from a received PO item.
  */
-async function createBatchFromPOItem({ productId, purchaseOrderId, supplierId, purchasePrice, quantity, expiryDate, receivedDate }) {
+async function createBatchFromPOItem({ productId, purchaseOrderId, supplierId, purchasePrice, quantity, expiryDate, receivedDate, transaction }) {
   const batchNumber = await generateBatchNumber();
   const batch = await batch_inventory.create({
     batch_number: batchNumber,
@@ -90,8 +91,8 @@ async function createBatchFromPOItem({ productId, purchaseOrderId, supplierId, p
     received_date: receivedDate || new Date().toISOString().split('T')[0],
     expiry_date: expiryDate || null,
     status: 'Active',
-  });
-  await syncProductFromBatches(productId);
+  }, { transaction });
+  await syncProductFromBatches(productId, transaction);
   return batch;
 }
 

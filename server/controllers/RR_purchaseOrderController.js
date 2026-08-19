@@ -33,13 +33,42 @@ exports.createPurchaseOrder = async (req, res) => {
       return res.status(400).json({ error: 'At least one line item is required' });
     }
 
+    const normalisedItems = items.map((item) => ({
+      product_id: Number(item.product_id),
+      quantity: Number(item.quantity),
+      unit_price: Number(item.unit_price),
+    }));
+    if (normalisedItems.some((item) => !Number.isInteger(item.product_id) || !Number.isInteger(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.unit_price) || item.unit_price < 0)) {
+      await transaction.rollback();
+      return res.status(400).json({ error: 'Every item needs a valid product, quantity, and unit price' });
+    }
+
+    const productIds = normalisedItems.map((item) => item.product_id);
+    if (new Set(productIds).size !== productIds.length) {
+      await transaction.rollback();
+      return res.status(400).json({ error: 'A product can only appear once in a purchase order' });
+    }
+
+    const [supplier, orderProducts] = await Promise.all([
+      suppliers.findByPk(poData.supplier_id, { transaction }),
+      products.findAll({ where: { product_id: productIds }, transaction }),
+    ]);
+    if (!supplier) {
+      await transaction.rollback();
+      return res.status(400).json({ error: 'Selected supplier does not exist' });
+    }
+    if (orderProducts.length !== productIds.length) {
+      await transaction.rollback();
+      return res.status(400).json({ error: 'One or more selected products do not exist' });
+    }
+
     // Auto-generate PO number PO-YYYY-NNNN
     const maxId = (await purchase_orders.max('po_id', { transaction })) || 0;
     const year  = new Date().getFullYear();
     const poNumber = `PO-${year}-${String(maxId + 1).padStart(4, '0')}`;
 
     // Calculate total from items
-    const totalAmount = items.reduce((sum, i) => sum + (Number(i.unit_price) * Number(i.quantity)), 0);
+    const totalAmount = normalisedItems.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
 
     const po = await purchase_orders.create({
       ...poData,
@@ -50,7 +79,7 @@ exports.createPurchaseOrder = async (req, res) => {
       created_by:  req.user?.user_id || null,
     }, { transaction });
 
-    const itemsData = items.map((item) => ({
+    const itemsData = normalisedItems.map((item) => ({
       po_id:       po.po_id,
       product_id:  item.product_id,
       quantity:    item.quantity,
@@ -61,7 +90,7 @@ exports.createPurchaseOrder = async (req, res) => {
 
     await transaction.commit();
 
-    for (const item of items) {
+    for (const item of normalisedItems) {
       await alerts.update(
         { status: 'Purchase Ordered', purchase_order_id: po.po_id },
         { where: { product_id: item.product_id, status: 'Active' } }
@@ -78,7 +107,7 @@ exports.createPurchaseOrder = async (req, res) => {
     ).catch(err => console.error(`[PO Controller] Payment record creation failed: ${err.message}`));
 
     // 2. Fetch full PO with associations for email/notifications
-    const fullPO = await purchase_orders.findById(po.po_id, {
+    const fullPO = await purchase_orders.findByPk(po.po_id, {
       include: [
         { model: suppliers },
         { model: po_items, include: [products] }
@@ -113,7 +142,7 @@ exports.createPurchaseOrder = async (req, res) => {
 
     res.status(201).json({ message: 'Purchase Order created successfully', data: po });
   } catch (error) {
-    await transaction.rollback();
+    if (!transaction.finished) await transaction.rollback();
     res.status(500).json({ error: error.message });
   }
 };
@@ -137,7 +166,7 @@ exports.getAllPurchaseOrders = async (req, res) => {
 // GET /api/procurement/purchase-orders/:id
 exports.getPurchaseOrderById = async (req, res) => {
   try {
-    const po = await purchase_orders.findById(req.params.id, {
+    const po = await purchase_orders.findByPk(req.params.id, {
       include: [
         { model: suppliers },
         { model: po_items,  include: [{ model: products }] },
@@ -154,7 +183,7 @@ exports.getPurchaseOrderById = async (req, res) => {
 exports.updateStatus = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
-    const po = await purchase_orders.findById(req.params.id, {
+    const po = await purchase_orders.findByPk(req.params.id, {
       include: [{ model: po_items }],
       transaction,
     });
@@ -236,7 +265,7 @@ exports.updateStatus = async (req, res) => {
         ).catch(() => {});
 
         // Sync alerts based on actual post-receipt stock level
-        const updatedProduct = await products.findById(item.product_id, { transaction });
+        const updatedProduct = await products.findByPk(item.product_id, { transaction });
         if (updatedProduct) {
           await syncAlertsForProduct(updatedProduct).catch(() => {});
         }
@@ -254,7 +283,7 @@ exports.updateStatus = async (req, res) => {
 
     // ─── Post-Commit Hooks (Asynchronous) ──────────────────────────────────
     try {
-      const fullPO = await purchase_orders.findById(po.po_id, {
+      const fullPO = await purchase_orders.findByPk(po.po_id, {
         include: [
           { model: suppliers },
           { model: po_items, include: [products] }
@@ -327,7 +356,7 @@ exports.cancelPurchaseOrder = async (req, res) => {
 // DELETE /api/procurement/purchase-orders/:id (only Pending)
 exports.deletePurchaseOrder = async (req, res) => {
   try {
-    const po = await purchase_orders.findById(req.params.id, {
+    const po = await purchase_orders.findByPk(req.params.id, {
       include: [{ model: po_items }],
     });
     if (!po) return res.status(404).json({ message: 'Purchase Order not found' });
@@ -362,7 +391,7 @@ exports.deletePurchaseOrder = async (req, res) => {
 // POST /api/procurement/purchase-orders/:id/send-email
 exports.sendPOEmail = async (req, res) => {
   try {
-    const po = await purchase_orders.findById(req.params.id, {
+    const po = await purchase_orders.findByPk(req.params.id, {
       include: [
         { model: suppliers },
         { model: po_items, include: [products] },
@@ -381,7 +410,7 @@ exports.sendPOEmail = async (req, res) => {
 // POST /api/procurement/purchase-orders/:poId/items/:itemId/send-comment-email
 exports.sendItemCommentEmail = async (req, res) => {
   try {
-    const po = await purchase_orders.findById(req.params.poId, {
+    const po = await purchase_orders.findByPk(req.params.poId, {
       include: [{ model: suppliers }, { model: po_items, include: [products] }],
     });
     if (!po) return res.status(404).json({ message: 'Purchase Order not found' });
@@ -423,7 +452,7 @@ exports.updateItemComment = async (req, res) => {
 // EXPORT PDF
 exports.exportPurchaseOrderPDF = async (req, res) => {
   try {
-    const po = await purchase_orders.findById(req.params.id, {
+    const po = await purchase_orders.findByPk(req.params.id, {
       include: [
         { model: suppliers },
         { model: po_items, include: [products] }

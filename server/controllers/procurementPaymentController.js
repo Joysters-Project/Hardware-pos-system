@@ -2,7 +2,7 @@ const { supplier_payments, suppliers, purchase_orders } = require('../models');
 const paymentService = require('../services/supplierPaymentService');
 const pdfService = require('../services/pdfService');
 const notificationService = require('../services/procurementNotificationService');
-const { fn, col, literal } = require('sequelize');
+const { fn, col, literal, Op } = require('sequelize');
 const { CHEQUE_CLEARING_DAYS } = require('../utils/chequeLogic');
 
 /**
@@ -74,7 +74,7 @@ exports.getAllPayments = async (req, res) => {
     if (payment_method)  whereClause.payment_method  = payment_method;
     if (cheque_status)   whereClause.cheque_status   = cheque_status;
     if (start_date && end_date) {
-      whereClause.due_date = { $between: [start_date, end_date] };
+      whereClause.due_date = { [Op.between]: [start_date, end_date] };
     }
 
     const list = await supplier_payments.findAll({
@@ -98,7 +98,7 @@ exports.getAllPayments = async (req, res) => {
  */
 exports.getPaymentById = async (req, res) => {
   try {
-    const item = await supplier_payments.findById(req.params.id, {
+    const item = await supplier_payments.findByPk(req.params.id, {
       include: [
         { model: suppliers },
         { model: purchase_orders }
@@ -146,7 +146,7 @@ exports.getPaymentDashboard = async (req, res) => {
     const nearDueDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     const allInvoices = await supplier_payments.findAll({
-      where: { payment_status: { $ne: 'Cancelled' } },
+      where: { payment_status: { [Op.ne]: 'Cancelled' } },
       include: [{ model: suppliers, attributes: ['supplier_name'] }]
     });
 
@@ -238,7 +238,7 @@ exports.updateChequeStatus = async (req, res) => {
       return res.status(400).json({ error: `cheque_status must be one of: ${VALID.join(', ')}` });
     }
 
-    const payment = await supplier_payments.findById(req.params.id, {
+    const payment = await supplier_payments.findByPk(req.params.id, {
       include: [{ model: suppliers, attributes: ['supplier_name'] }]
     });
     if (!payment) return res.status(404).json({ error: 'Payment record not found' });
@@ -285,7 +285,7 @@ exports.updateChequeStatus = async (req, res) => {
 
 exports.downloadPaymentReceipt = async (req, res) => {
   try {
-    const payment = await supplier_payments.findById(req.params.id, {
+    const payment = await supplier_payments.findByPk(req.params.id, {
       include: [
         { model: suppliers },
         { model: purchase_orders }

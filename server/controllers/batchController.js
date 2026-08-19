@@ -1,4 +1,4 @@
-const { batch_inventory, products, purchase_orders, po_items, suppliers } = require('../models');
+const { batch_inventory, products, purchase_orders, po_items, suppliers, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { syncProductFromBatches, refreshBatchStatuses } = require('../services/batchService');
 const { syncAlertsForProduct } = require('../services/alertService');
@@ -6,6 +6,7 @@ const { syncAlertsForProduct } = require('../services/alertService');
 // POST /api/batch-inventory/receive
 // Body: { po_id, po_item_id, product_id, supplier_batch_number, expiry_date, received_date, received_quantity }
 exports.receiveOrderItem = async (req, res) => {
+  const transaction = await sequelize.transaction();
   try {
     const { po_id, po_item_id, product_id, supplier_batch_number, expiry_date, received_date, received_quantity } = req.body;
 
@@ -20,20 +21,32 @@ exports.receiveOrderItem = async (req, res) => {
     // Duplicate batch number check — model enforces global uniqueness on batch_number
     const duplicate = await batch_inventory.findOne({
       where: { batch_number: supplier_batch_number.trim() },
+      transaction,
     });
     if (duplicate)
       return res.status(400).json({ error: `Batch number "${supplier_batch_number.trim()}" already exists for this product.` });
 
     // Fetch PO and item
-    const po = await purchase_orders.findById(po_id, { include: [{ model: po_items }] });
+    const po = await purchase_orders.findByPk(po_id, {
+      include: [{ model: po_items }], transaction, lock: transaction.LOCK.UPDATE,
+    });
     if (!po) return res.status(404).json({ error: 'Purchase Order not found.' });
 
-    const poItem = po.po_items?.find(i => i.id === Number(po_item_id));
+    // Legacy databases may not yet have po_items.id. Product ids are unique
+    // within newly created orders, so they provide a safe compatibility fallback.
+    const poItem = po.po_items?.find((item) =>
+      item.id === Number(po_item_id) || (!po_item_id && Number(item.product_id) === Number(product_id))
+    );
     if (!poItem) return res.status(404).json({ error: 'PO line item not found.' });
+    if (Number(poItem.product_id) !== Number(product_id)) {
+      await transaction.rollback();
+      return res.status(400).json({ error: 'The selected product does not match this PO line item.' });
+    }
 
     // Check already-received quantity for this PO item
     const alreadyReceived = await batch_inventory.sum('received_quantity', {
       where: { product_id, purchase_order_id: po_id },
+      transaction,
     }) || 0;
     const remaining = poItem.quantity - alreadyReceived;
     if (Number(received_quantity) > remaining)
@@ -51,33 +64,38 @@ exports.receiveOrderItem = async (req, res) => {
       received_date:     received_date || new Date().toISOString().split('T')[0],
       expiry_date,
       status: 'Active',
-    });
+    }, { transaction });
 
     // --- Sync product stock + expiry ---
-    await syncProductFromBatches(product_id);
-
-    // --- Sync alerts ---
-    const updatedProduct = await products.findById(product_id);
-    if (updatedProduct) await syncAlertsForProduct(updatedProduct).catch(() => {});
+    await syncProductFromBatches(product_id, transaction);
 
     // --- Mark PO as Received if all items fully received ---
-    const totalOrdered = po.po_items.reduce((s, i) => s + i.quantity, 0);
+    const totalOrdered = po.po_items.reduce((sum, item) => sum + Number(item.quantity), 0);
     const totalReceivedNow = (await batch_inventory.sum('received_quantity', {
       where: { purchase_order_id: po_id },
+      transaction,
     })) || 0;
 
     if (totalReceivedNow >= totalOrdered && po.status !== 'Received') {
       await po.update({
         status: 'Received',
         actual_delivery_date: new Date().toISOString().split('T')[0],
-      });
+      }, { transaction });
     }
+
+    await transaction.commit();
+
+    const updatedProduct = await products.findByPk(product_id);
+    if (updatedProduct) await syncAlertsForProduct(updatedProduct).catch(() => {});
 
     res.status(201).json({ message: 'Order received and batch created successfully.', batch });
   } catch (err) {
+    if (!transaction.finished) await transaction.rollback();
     console.error('[batchController.receiveOrderItem] Error processing request:', err);
     console.error('[batchController.receiveOrderItem] Request body:', req.body);
     res.status(500).json({ error: err.message });
+  } finally {
+    if (!transaction.finished) await transaction.rollback();
   }
 };
 

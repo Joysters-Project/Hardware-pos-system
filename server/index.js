@@ -17,6 +17,7 @@ const ensureReturnSchema = require('./scripts/ensureReturnSchema');
 const ensureEmployeeSchema = require('./scripts/ensureEmployeeSchema');
 const ensureAlertsSchema   = require('./scripts/ensureAlertsSchema');
 const ensureSupplierPaymentsSchema = require('./scripts/ensureSupplierPaymentsSchema');
+const fixProcurementSchema = require('./scripts/fixProcurementSchema');
 const { startNearExpiryCron } = require('./cron/nearExpiryCron');
 
 const app    = express();
@@ -64,6 +65,7 @@ db.sequelize.sync({ force: false })
     await ensureEmployeeSchema();
     await ensureAlertsSchema();
     await ensureSupplierPaymentsSchema();
+    await fixProcurementSchema();
     await seedDefaultAdmin();
     startNearExpiryCron();
     startServer();

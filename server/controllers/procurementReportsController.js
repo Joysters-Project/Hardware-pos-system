@@ -1,5 +1,5 @@
 const { purchase_orders, suppliers, sequelize } = require('../models');
-const { fn, col, literal } = require('sequelize');
+const { fn, col, literal, Op } = require('sequelize');
 
 // GET /api/procurement/reports/supplier-performance
 exports.supplierPerformance = async (req, res) => {
@@ -53,8 +53,8 @@ exports.purchaseSummary = async (req, res) => {
     const where = {};
     if (from || to) {
       where.po_date = {};
-      if (from) where.po_date.$gte = from;
-      if (to)   where.po_date.$lte = to;
+      if (from) where.po_date[Op.gte] = from;
+      if (to)   where.po_date[Op.lte] = to;
     }
 
     const rows = await purchase_orders.findAll({
@@ -91,8 +91,8 @@ exports.outstandingOrders = async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     const orders = await purchase_orders.findAll({
       where: {
-        status: { $in: ['Pending', 'Approved', 'Shipped'] },
-        expected_delivery: { $lt: today },
+        status: { [Op.in]: ['Pending', 'Approved', 'Shipped'] },
+        expected_delivery: { [Op.lt]: today },
       },
       include: [{ model: suppliers, attributes: ['supplier_name', 'phone'] }],
       order: [['expected_delivery', 'ASC']],
@@ -114,7 +114,7 @@ exports.downloadOutstandingReportPDF = async (req, res) => {
       const outstandingSum = await supplier_payments.sum('balance_amount', {
         where: {
           supplier_id: supplier.supplier_id,
-          payment_status: { $in: ['Pending', 'Partially Paid', 'Overdue'] }
+          payment_status: { [Op.in]: ['Pending', 'Partially Paid', 'Overdue'] }
         }
       }) || 0.00;
       
