@@ -14,6 +14,9 @@ const ensureSupplierSchema = require('./scripts/ensureSupplierSchema');
 const ensureProjectSchema = require('./scripts/ensureProjectSchema');
 const ensureMultiUnitSchema = require('./scripts/ensureMultiUnitSchema');
 const ensureReturnSchema = require('./scripts/ensureReturnSchema');
+const ensureEmployeeSchema = require('./scripts/ensureEmployeeSchema');
+const ensureAlertsSchema   = require('./scripts/ensureAlertsSchema');
+const ensureSupplierPaymentsSchema = require('./scripts/ensureSupplierPaymentsSchema');
 const { startNearExpiryCron } = require('./cron/nearExpiryCron');
 
 const app    = express();
@@ -36,6 +39,21 @@ app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ── Database Sync ─────────────────────────────────────────────────────────────
+const startServer = () => {
+  server.listen(PORT)
+    .on('listening', () => {
+      console.log(`🚀 Server is listening on http://localhost:${PORT}`);
+    })
+    .on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${PORT} is already in use. Set a different PORT in your environment or stop the process using it.`);
+      } else {
+        console.error('❌ Server failed to start:', err);
+      }
+      process.exit(1);
+    });
+};
+
 db.sequelize.sync({ force: false })
   .then(async () => {
     console.log('✅ Database connected successfully');
@@ -43,11 +61,16 @@ db.sequelize.sync({ force: false })
     await ensureProjectSchema();
     await ensureMultiUnitSchema();
     await ensureReturnSchema();
+    await ensureEmployeeSchema();
+    await ensureAlertsSchema();
+    await ensureSupplierPaymentsSchema();
     await seedDefaultAdmin();
     startNearExpiryCron();
+    startServer();
   })
   .catch((err) => {
     console.error('❌ Database connection failed:', err.message);
+    process.exit(1);
   });
 
 // ── Routes ───────────────────────────────────────────────────────────────────
@@ -68,6 +91,7 @@ const billRoutes                    = require('./routes/billRoutes');
 const billItemsRoutes               = require('./routes/billItemsRoutes');
 const paymentRoutes                 = require('./routes/paymentRoutes');
 const returnRoutes                  = require('./routes/returnRoutes');
+const supplierServiceRoutes         = require('./routes/supplierServiceRoutes');
 const alertRoutes                   = require('./routes/alertRoutes');
 const purchaseOrderRoutes           = require('./routes/purchaseOrderRoutes');
 const poItemsRoutes                 = require('./routes/poItemsRoutes');
@@ -76,6 +100,7 @@ const dashboardRoutes               = require('./routes/dashboardRoutes');
 const assetRoutes                   = require('./routes/assetRoutes');
 const expenseRoutes                 = require('./routes/expenseRoutes');
 const salaryRoutes                  = require('./routes/salaryRoutes');
+const projectRoutes                 = require('./routes/projectRoutes');
 const RR_supplierRoutes             = require('./routes/RR_supplierRoutes');
 const RR_purchaseOrderRoutes        = require('./routes/RR_purchaseOrderRoutes');
 const procurementDashboardRoutes    = require('./routes/procurementDashboardRoutes');
@@ -85,41 +110,7 @@ const autoReorderRoutes             = require('./routes/autoReorderRoutes');
 const forecastRoutes                = require('./routes/forecastRoutes');
 const procurementNotificationRoutes = require('./routes/procurementNotificationRoutes');
 const supplierPerformanceRoutes     = require('./routes/supplierPerformanceRoutes');
-const departmentRoutes   = require('./routes/departmentRoutes');
-const employeeRoutes     = require('./routes/employeeRoutes');
-const userRoutes         = require('./routes/userRoutes');
-const profileRoutes      = require('./routes/profileRoutes');
-const auditLogRoutes     = require('./routes/auditLogRoutes');
-const categoryRoutes     = require('./routes/categoryRoutes');
-const brandRoutes        = require('./routes/brandRoutes');
-const unitRoutes         = require('./routes/unitRoutes');
-const productRoutes      = require('./routes/productRoutes');
-const supplierRoutes     = require('./routes/supplierRoutes');
-const customerRoutes     = require('./routes/customerRoutes');
-const billRoutes         = require('./routes/billRoutes');
-const billItemsRoutes    = require('./routes/billItemsRoutes');
-const paymentRoutes      = require('./routes/paymentRoutes');
-const returnRoutes       = require('./routes/returnRoutes');
-const supplierServiceRoutes = require('./routes/supplierServiceRoutes');
-const alertRoutes        = require('./routes/alertRoutes');
-const purchaseOrderRoutes = require('./routes/purchaseOrderRoutes');
-const poItemsRoutes      = require('./routes/poItemsRoutes');
-const schemaRoutes       = require('./routes/schemaRoutes');
-const dashboardRoutes    = require('./routes/dashboardRoutes');
-const assetRoutes        = require('./routes/assetRoutes');
-const expenseRoutes      = require('./routes/expenseRoutes');
-const salaryRoutes       = require('./routes/salaryRoutes');
-const projectRoutes      = require('./routes/projectRoutes');
-const RR_supplierRoutes              = require('./routes/RR_supplierRoutes');
-const RR_purchaseOrderRoutes         = require('./routes/RR_purchaseOrderRoutes');
-const procurementDashboardRoutes     = require('./routes/procurementDashboardRoutes');
-const procurementReportsRoutes       = require('./routes/procurementReportsRoutes');
-const procurementPaymentRoutes       = require('./routes/procurementPaymentRoutes');
-const autoReorderRoutes              = require('./routes/autoReorderRoutes');
-const forecastRoutes                 = require('./routes/forecastRoutes');
-const procurementNotificationRoutes  = require('./routes/procurementNotificationRoutes');
-const supplierPerformanceRoutes      = require('./routes/supplierPerformanceRoutes');
-const batchRoutes                    = require('./routes/batchRoutes');
+const batchRoutes                   = require('./routes/batchRoutes');
 
 app.use('/api/departments',    departmentRoutes);
 app.use('/api/employees',      employeeRoutes);
@@ -212,10 +203,5 @@ cron.schedule('0 8 * * *', async () => {
 // ── Default & Health Routes ───────────────────────────────────────────────────
 app.get('/', (req, res) => res.send('Mathumithan Hardware POS Backend is Running...'));
 app.get('/health', (req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
-
-// ── Start Server ─────────────────────────────────────────────────────────────
-server.listen(PORT, () => {
-  console.log(`🚀 Server is listening on http://localhost:${PORT}`);
-});
 
 app.set('models', db);

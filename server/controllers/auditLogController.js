@@ -7,12 +7,12 @@ exports.getAllAuditLogs = async (req, res) => {
     const { search, action, user_id, from, to, page = 1, limit = 20 } = req.query;
     const where = {};
 
-    if (action)  where.action  = { [Op.like]: `%${action}%` };
+    if (action)  where.action  = { $like: `%${action}%` };
     if (user_id) where.user_id = user_id;
     if (from || to) {
       where.time = {};
-      if (from) where.time[Op.gte] = new Date(from);
-      if (to)   where.time[Op.lte] = new Date(new Date(to).setHours(23, 59, 59, 999));
+      if (from) where.time$gte = new Date(from);
+      if (to)   where.time$lte = new Date(new Date(to).setHours(23, 59, 59, 999));
     }
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -23,10 +23,10 @@ exports.getAllAuditLogs = async (req, res) => {
       attributes: ['user_id', 'user_name', 'first_name', 'last_name'],
       ...(search ? {
         where: {
-          [Op.or]: [
-            { user_name:  { [Op.like]: `%${search}%` } },
-            { first_name: { [Op.like]: `%${search}%` } },
-            { last_name:  { [Op.like]: `%${search}%` } },
+          $or: [
+            { user_name:  { $like: `%${search}%` } },
+            { first_name: { $like: `%${search}%` } },
+            { last_name:  { $like: `%${search}%` } },
           ]
         },
         required: true,
@@ -63,7 +63,7 @@ exports.getAllAuditLogs = async (req, res) => {
 // GET /api/audit_log/:id
 exports.getAuditLogById = async (req, res) => {
   try {
-    const log = await audit_log.findByPk(req.params.id, {
+    const log = await audit_log.findById(req.params.id, {
       include: [{ model: users, attributes: ['user_id', 'user_name', 'first_name', 'last_name'] }],
     });
     if (!log) return res.status(404).json({ message: 'Audit log not found' });
@@ -90,7 +90,7 @@ exports.getLogsByUser = async (req, res) => {
 // DELETE /api/audit_log/:id (Admin only)
 exports.deleteAuditLog = async (req, res) => {
   try {
-    const log = await audit_log.findByPk(req.params.id);
+    const log = await audit_log.findById(req.params.id);
     if (!log) return res.status(404).json({ message: 'Audit log not found' });
     await log.destroy();
     res.status(200).json({ message: 'Audit log deleted successfully' });

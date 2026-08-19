@@ -27,7 +27,7 @@ exports.getSuggestions = async (req, res) => {
  */
 exports.approveSuggestion = async (req, res) => {
   try {
-    const suggestion = await auto_reorder_suggestions.findByPk(req.params.id);
+    const suggestion = await auto_reorder_suggestions.findById(req.params.id);
     if (!suggestion) {
       return res.status(404).json({ error: 'Suggestion not found' });
     }
@@ -45,7 +45,7 @@ exports.approveSuggestion = async (req, res) => {
  */
 exports.rejectSuggestion = async (req, res) => {
   try {
-    const suggestion = await auto_reorder_suggestions.findByPk(req.params.id);
+    const suggestion = await auto_reorder_suggestions.findById(req.params.id);
     if (!suggestion) {
       return res.status(404).json({ error: 'Suggestion not found' });
     }
@@ -64,7 +64,7 @@ exports.rejectSuggestion = async (req, res) => {
 exports.convertToPO = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
-    const suggestion = await auto_reorder_suggestions.findByPk(req.params.id, {
+    const suggestion = await auto_reorder_suggestions.findById(req.params.id, {
       include: [products, suppliers],
       transaction
     });

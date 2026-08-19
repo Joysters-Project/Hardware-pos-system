@@ -74,7 +74,7 @@ exports.getPurchaseOrderByProduct = async (req, res) => {
 // GET Purchase Order by ID
 exports.getPurchaseOrderById = async (req, res) => {
   try {
-    const purchaseOrder = await purchase_orders.findByPk(req.params.id);
+    const purchaseOrder = await purchase_orders.findById(req.params.id);
 
     if (!purchaseOrder) {
       return res.status(404).json({ message: "Purchase Order not found" });
@@ -89,7 +89,7 @@ exports.getPurchaseOrderById = async (req, res) => {
 // UPDATE Purchase Order
 exports.updatePurchaseOrder = async (req, res) => {
   try {
-    const purchaseOrder = await purchase_orders.findByPk(req.params.id);
+    const purchaseOrder = await purchase_orders.findById(req.params.id);
 
     if (!purchaseOrder) {
       return res.status(404).json({ message: "Purchase Order not found" });
@@ -109,7 +109,7 @@ exports.updatePurchaseOrder = async (req, res) => {
 // DELETE Purchase Order
 exports.deletePurchaseOrder = async (req, res) => {
   try {
-    const purchaseOrder = await purchase_orders.findByPk(req.params.id);
+    const purchaseOrder = await purchase_orders.findById(req.params.id);
 
     if (!purchaseOrder) {
       return res.status(404).json({ message: "Purchase Order not found" });

@@ -1,4 +1,5 @@
 const db   = require('../models');
+const { Op } = require('sequelize');
 const { sendPayslipEmail } = require('../services/salaryService');
 const { logActivity } = require('../services/auditService');
 const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
@@ -25,7 +26,7 @@ const getAllPayments = async (req, res) => {
     const empWhere = {};
     if (search) {
       const searchPattern = `%${search}%`;
-      empWhere.$or = [
+      empWhere$or = [
         { first_name: { $like: searchPattern } },
         { last_name:  { $like: searchPattern } },
         { email:      { $like: searchPattern } },
@@ -42,7 +43,6 @@ const getAllPayments = async (req, res) => {
     res.status(200).json(list);
   } catch (error) {
     console.error('Salary fetch error:', error);
-    console.error(error.stack);
     res.status(500).json({ message: error.message });
   }
 };
@@ -61,9 +61,8 @@ const getPaymentById = async (req, res) => {
 // GET /api/salary/employee/:employee_id
 const getEmployeeSalaryHistory = async (req, res) => {
   try {
-    const where = { employee_id: req.params.employee_id };
     const list = await db.salary_payments.findAll({
-      where,
+      where: { employee_id: req.params.employee_id },
       include: [empInclude],
       order: [['created_at', 'DESC']]
     });
@@ -104,8 +103,6 @@ const getEmployeeSalarySummary = async (req, res) => {
 // POST /api/salary
 const createPayment = async (req, res) => {
   try {
-    console.log('Salary Create Request Body:', req.body);
-
     const {
       employee_id, salary_category,
       basic_salary, bonus_amount = 0, deduction_amount = 0,
@@ -136,23 +133,14 @@ const createPayment = async (req, res) => {
         where: { employee_id, salary_category: 'monthly', payment_month, payment_year }
       });
       if (exists) {
-        const monthName = MONTHS[parseInt(payment_month, 10) - 1] || payment_month;
-        return res.status(409).json({
-          success: false,
-          message: 'Salary already paid for this month.'
-        });
+        return res.status(409).json({ success: false, message: 'Salary already paid for this month.' });
       }
     } else {
       const exists = await db.salary_payments.findOne({
         where: { employee_id, salary_category: 'daily', payment_date }
       });
       if (exists) {
-        const d = new Date(payment_date);
-        const formatted = d.toLocaleDateString('en-GB');
-        return res.status(409).json({
-          success: false,
-          message: 'Salary already paid for this date.'
-        });
+        return res.status(409).json({ success: false, message: 'Salary already paid for this date.' });
       }
     }
 
@@ -188,7 +176,7 @@ const createPayment = async (req, res) => {
   }
 };
 
-// PUT /api/salary/:id/pay — kept for backward compat but simplified
+// PUT /api/salary/:id/pay
 const paySalary = async (req, res) => {
   try {
     const record = await db.salary_payments.findById(req.params.id, { include: [empInclude] });
@@ -256,9 +244,9 @@ const getDashboardStats = async (req, res) => {
     ]);
 
     res.status(200).json({
-      pending: Number(pendingRow?.[0]?.count || 0),
-      paid:    Number(paidRow?.[0]?.count    || 0),
-      upcoming: Number(activeRow?.[0]?.count || 0),
+      pending:  Number(pendingRow?.[0]?.count  || 0),
+      paid:     Number(paidRow?.[0]?.count     || 0),
+      upcoming: Number(activeRow?.[0]?.count   || 0),
       showAlert: false,
       currentMonth: month,
       currentYear: year

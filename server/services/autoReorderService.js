@@ -50,7 +50,7 @@ const checkProductReorder = async (productId) => {
     const existing = await auto_reorder_suggestions.findOne({
       where: {
         product_id: productId,
-        status: { [Op.in]: ['Pending', 'Approved'] }
+        status: { $in: ['Pending', 'Approved'] }
       }
     });
     if (existing) return existing;
@@ -107,7 +107,7 @@ const checkAndGenerateSuggestions = async () => {
       where: {
         status: 'active',
         stock_quantity: {
-          [Op.lt]: products.sequelize.col('reorder_level')
+          $lt: products.sequelize.col('reorder_level')
         }
       }
     });

@@ -43,7 +43,7 @@ exports.getAllSuppliers = async (req, res) => {
 // GET Supplier By ID
 exports.getSupplierById = async (req, res) => {
   try {
-    const supplier = await suppliers.findByPk(req.params.id);
+    const supplier = await suppliers.findById(req.params.id);
 
     if (!supplier) {
       return res.status(404).json({ message: "Supplier not found" });
@@ -58,7 +58,7 @@ exports.getSupplierById = async (req, res) => {
 // UPDATE Supplier
 exports.updateSupplier = async (req, res) => {
   try {
-    const supplier = await suppliers.findByPk(req.params.id);
+    const supplier = await suppliers.findById(req.params.id);
 
     if (!supplier) {
       return res.status(404).json({ message: "Supplier not found" });
@@ -92,7 +92,7 @@ exports.updateSupplier = async (req, res) => {
 // DELETE Supplier
 exports.deleteSupplier = async (req, res) => {
   try {
-    const supplier = await suppliers.findByPk(req.params.id);
+    const supplier = await suppliers.findById(req.params.id);
 
     if (!supplier) {
       return res.status(404).json({ message: "Supplier not found" });

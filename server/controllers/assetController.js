@@ -7,13 +7,13 @@ const getAllAssets = async (req, res) => {
     const where = {};
     if (status) where.status = status;
     if (department_id) where.department_id = department_id;
-    if (search) where.asset_name = { [Op.like]: `%${search}%` };
+    if (search) where.asset_name = { $like: `%${search}%` };
 
     const list = await db.assets.findAll({
       where,
       subQuery: false,
       include: [{ model: db.departments, attributes: ['department_name'] }],
-      order: [[db.sequelize.col('assets.created_at'), 'DESC']]
+      order: [['asset_id', 'DESC']]
     });
 
     res.status(200).json(list);
@@ -202,7 +202,7 @@ const deleteAsset = async (req, res) => {
 // Helper: recalculate department used_budget
 async function recalcDeptBudget(department_id) {
   const total = await db.assets.sum('cost', {
-    where: { department_id, status: { [Op.ne]: 'Disposed' } }
+    where: { department_id, status: { $ne: 'Disposed' } }
   }) || 0;
   await db.departments.update({ used_budget: total }, { where: { department_id } });
 }

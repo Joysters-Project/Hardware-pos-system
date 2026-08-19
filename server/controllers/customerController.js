@@ -49,7 +49,7 @@ exports.getAllCustomers = async (req, res) => {
 // GET Customer by ID
 exports.getCustomerById = async (req, res) => {
   try {
-    const customer = await customers.findByPk(req.params.id);
+    const customer = await customers.findById(req.params.id);
 
     if (!customer) {
       return res.status(404).json({ message: "Customer not found" });
@@ -64,7 +64,7 @@ exports.getCustomerById = async (req, res) => {
 // UPDATE Customer
 exports.updateCustomer = async (req, res) => {
   try {
-    const customer = await customers.findByPk(req.params.id);
+    const customer = await customers.findById(req.params.id);
 
     if (!customer) {
       return res.status(404).json({ message: "Customer not found" });
@@ -97,7 +97,7 @@ exports.updateCustomer = async (req, res) => {
 // DELETE Customer
 exports.deleteCustomer = async (req, res) => {
   try {
-    const customer = await customers.findByPk(req.params.id);
+    const customer = await customers.findById(req.params.id);
 
     if (!customer) {
       return res.status(404).json({ message: "Customer not found" });

@@ -51,7 +51,7 @@ exports.getAllUnits = async (req, res) => {
 // GET Unit by ID
 exports.getUnitById = async (req, res) => {
   try {
-    const unit = await units.findByPk(req.params.id);
+    const unit = await units.findById(req.params.id);
 
     if (!unit) {
       return res.status(404).json({ message: "Unit not found" });
@@ -66,7 +66,7 @@ exports.getUnitById = async (req, res) => {
 // UPDATE Unit
 exports.updateUnit = async (req, res) => {
   try {
-    const unit = await units.findByPk(req.params.id);
+    const unit = await units.findById(req.params.id);
 
     if (!unit) {
       return res.status(404).json({ message: "Unit not found" });
@@ -80,7 +80,7 @@ exports.updateUnit = async (req, res) => {
       const existingUnit = await units.findOne({
         where: { 
           unit_name: unit_name.trim(),
-          unit_id: { [require('sequelize').Op.ne]: req.params.id }
+          unit_id: { $ne: req.params.id }
         }
       });
 
@@ -106,7 +106,7 @@ exports.updateUnit = async (req, res) => {
 // DELETE Unit (with product check)
 exports.deleteUnit = async (req, res) => {
   try {
-    const unit = await units.findByPk(req.params.id);
+    const unit = await units.findById(req.params.id);
 
     if (!unit) {
       return res.status(404).json({ message: "Unit not found" });

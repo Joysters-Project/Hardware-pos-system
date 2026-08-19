@@ -50,7 +50,7 @@ exports.getAllSupplierServices = async (req, res) => {
 exports.getSupplierServiceById = async (req, res) => {
   try {
     const { id } = req.params;
-    const service = await supplier_services.findByPk(id, {
+    const service = await supplier_services.findById(id, {
       include: [
         { model: suppliers },
         { 
@@ -110,7 +110,7 @@ exports.updateSupplierServiceStatus = async (req, res) => {
     }
 
     const result = await sequelize.transaction(async (t) => {
-      const service = await supplier_services.findByPk(id, {
+      const service = await supplier_services.findById(id, {
         include: [{ model: return_items }],
         transaction: t
       });

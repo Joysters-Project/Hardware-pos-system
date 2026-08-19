@@ -51,7 +51,7 @@ exports.getAllCategories = async (req, res) => {
 // GET Category by ID
 exports.getCategoryById = async (req, res) => {
   try {
-    const Category = await category.findByPk(req.params.id);
+    const Category = await category.findById(req.params.id);
 
     if (!Category) {
       return res.status(404).json({ message: "Category not found" });
@@ -66,7 +66,7 @@ exports.getCategoryById = async (req, res) => {
 // UPDATE Category
 exports.updateCategory = async (req, res) => {
   try {
-    const Category = await category.findByPk(req.params.id);
+    const Category = await category.findById(req.params.id);
 
     if (!Category) {
       return res.status(404).json({ message: "Category not found" });
@@ -80,7 +80,7 @@ exports.updateCategory = async (req, res) => {
       const existingCategory = await category.findOne({
         where: { 
           category_name: category_name.trim(),
-          category_id: { [require('sequelize').Op.ne]: req.params.id }
+          category_id: { $ne: req.params.id }
         }
       });
 
@@ -106,7 +106,7 @@ exports.updateCategory = async (req, res) => {
 // DELETE Category (with product check)
 exports.deleteCategory = async (req, res) => {
   try {
-    const Category = await category.findByPk(req.params.id);
+    const Category = await category.findById(req.params.id);
 
     if (!Category) {
       return res.status(404).json({ message: "Category not found" });

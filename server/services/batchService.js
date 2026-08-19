@@ -1,4 +1,5 @@
-const { batch_inventory, products } = require('../models');
+const db = require('../models');
+const { batch_inventory, products } = db;
 const { Op } = require('sequelize');
 
 /**

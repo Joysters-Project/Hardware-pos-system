@@ -13,7 +13,6 @@ module.exports = (sequelize) => {
     project_departments: {
       type: DataTypes.TEXT,
       allowNull: true,
-      defaultValue: '[]',
     },
     description:  { type: DataTypes.TEXT, allowNull: true },
     status: {

@@ -17,15 +17,15 @@ exports.receiveOrderItem = async (req, res) => {
     if (!received_quantity || Number(received_quantity) <= 0)
       return res.status(400).json({ error: 'Received Quantity must be greater than zero.' });
 
-    // Duplicate batch number check for same product
+    // Duplicate batch number check — model enforces global uniqueness on batch_number
     const duplicate = await batch_inventory.findOne({
-      where: { product_id, batch_number: supplier_batch_number.trim() },
+      where: { batch_number: supplier_batch_number.trim() },
     });
     if (duplicate)
       return res.status(400).json({ error: `Batch number "${supplier_batch_number.trim()}" already exists for this product.` });
 
     // Fetch PO and item
-    const po = await purchase_orders.findByPk(po_id, { include: [{ model: po_items }] });
+    const po = await purchase_orders.findById(po_id, { include: [{ model: po_items }] });
     if (!po) return res.status(404).json({ error: 'Purchase Order not found.' });
 
     const poItem = po.po_items?.find(i => i.id === Number(po_item_id));
@@ -57,7 +57,7 @@ exports.receiveOrderItem = async (req, res) => {
     await syncProductFromBatches(product_id);
 
     // --- Sync alerts ---
-    const updatedProduct = await products.findByPk(product_id);
+    const updatedProduct = await products.findById(product_id);
     if (updatedProduct) await syncAlertsForProduct(updatedProduct).catch(() => {});
 
     // --- Mark PO as Received if all items fully received ---
@@ -75,6 +75,8 @@ exports.receiveOrderItem = async (req, res) => {
 
     res.status(201).json({ message: 'Order received and batch created successfully.', batch });
   } catch (err) {
+    console.error('[batchController.receiveOrderItem] Error processing request:', err);
+    console.error('[batchController.receiveOrderItem] Request body:', req.body);
     res.status(500).json({ error: err.message });
   }
 };
@@ -116,7 +118,7 @@ exports.getBatchesByProduct = async (req, res) => {
 // GET /api/batch-inventory/:id
 exports.getBatchById = async (req, res) => {
   try {
-    const batch = await batch_inventory.findByPk(req.params.id, {
+    const batch = await batch_inventory.findById(req.params.id, {
       include: [
         { model: products,        attributes: ['product_id', 'product_name'] },
         { model: purchase_orders, attributes: ['po_id', 'po_number'] },
@@ -133,7 +135,7 @@ exports.getBatchById = async (req, res) => {
 // POST /api/batch-inventory/:id/dispose
 exports.disposeBatch = async (req, res) => {
   try {
-    const batch = await batch_inventory.findByPk(req.params.id);
+    const batch = await batch_inventory.findById(req.params.id);
     if (!batch) return res.status(404).json({ message: 'Batch not found' });
     if (batch.status !== 'Expired') {
       return res.status(400).json({ error: 'Only Expired batches can be disposed' });

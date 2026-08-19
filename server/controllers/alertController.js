@@ -2,7 +2,7 @@ const { alerts, products, batch_inventory } = require('../models');
 const { Op } = require('sequelize');
 const { syncAlertsForProduct, generateAllAlerts } = require('../services/alertService');
 
-const NEAR_EXPIRY_DAYS = 30; // dashboard uses 30-day window
+const NEAR_EXPIRY_DAYS = 30;
 
 // POST /api/alerts/generate — full inventory scan
 exports.generateAlerts = async (req, res) => {
@@ -32,9 +32,7 @@ exports.getAlertSummary = async (req, res) => {
       alerts.count({ where: { status: 'Purchase Ordered', is_resolved: false }, distinct: true, col: 'product_id' }),
     ]);
 
-    // Only count Out of Stock alerts where product stock is actually 0
     const outOfStock = outOfStockRows.filter(a => a.product && parseInt(a.product.stock_quantity) === 0).length;
-    // Only count Low Stock alerts where product stock > 0 AND stock <= min_stock_quantity
     const lowStock = lowStockRows.filter(a => {
       if (!a.product) return false;
       const stock = parseInt(a.product.stock_quantity);
@@ -66,9 +64,9 @@ exports.getAllAlerts = async (req, res) => {
     if (alert_type) where.alert_type = alert_type;
 
     if (search) {
-      where.$or = [
-        { alert_type: { $like: `%${search}%` } },
-        { '$product.product_name$': { $like: `%${search}%` } },
+      where[Op.or] = [
+        { alert_type: { [Op.like]: `%${search}%` } },
+        { '$product.product_name$': { [Op.like]: `%${search}%` } },
       ];
     }
 
@@ -78,7 +76,6 @@ exports.getAllAlerts = async (req, res) => {
         model: products,
         attributes: ['product_id', 'product_name', 'stock_quantity', 'min_stock_quantity',
                      'reorder_level', 'batch_no', 'expiry_date', 'status'],
-        attributes: ['product_id', 'product_name', 'stock_quantity', 'min_stock_quantity', 'reorder_level', 'batch_no', 'expiry_date'],
       }],
       order: [['alert_id', 'DESC']],
       ...(search ? { subQuery: false } : {}),
@@ -87,7 +84,6 @@ exports.getAllAlerts = async (req, res) => {
 
     const alertsList = await alerts.findAll(opts);
 
-    // Filter out stale stock alerts that no longer match actual product stock
     let response = alertsList.filter(alert => {
       const product = alert.product;
       if (!product) return true;
@@ -110,12 +106,6 @@ exports.getAllAlerts = async (req, res) => {
       }
     }
 
-    if (alert_type === 'Expired') {
-      // Expired alert transitions are handled by generateAllAlerts / syncAlertsForProduct
-    }
-
-    // Build FIFO batch map: batch_inventory (Active, remaining_qty > 0) takes priority,
-    // fallback to product.batch_no if no inventory record exists.
     const productIds = [...new Set(response.map(a => a.product_id).filter(Boolean))];
     const batchMap = {};
     if (batch_inventory && productIds.length) {
@@ -148,10 +138,6 @@ exports.getAlertById = async (req, res) => {
       include: [{ model: products,
         attributes: ['product_id', 'product_name', 'stock_quantity', 'min_stock_quantity',
                      'reorder_level', 'batch_no', 'expiry_date', 'status'] }],
-      include: [{
-        model: products,
-        attributes: ['product_id', 'product_name', 'stock_quantity', 'min_stock_quantity', 'reorder_level', 'batch_no', 'expiry_date'],
-      }],
     });
     if (!alert) return res.status(404).json({ message: 'Alert not found' });
     res.status(200).json(alert);
@@ -229,7 +215,7 @@ exports.getExpiryAlerts = async (req, res) => {
     const future = new Date(today.getTime() + days * 24 * 60 * 60 * 1000);
     const [expiring, expired] = await Promise.all([
       products.findAll({
-        where: { expiry_date: { $between: [today, future] }, status: 'active' },
+        where: { expiry_date: { [Op.between]: [today, future] }, status: 'active' },
         attributes: ['product_id', 'product_name', 'expiry_date', 'stock_quantity', 'batch_no'],
         order: [['expiry_date', 'ASC']],
       }),

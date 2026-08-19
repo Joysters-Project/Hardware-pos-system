@@ -1,5 +1,6 @@
-const { suppliers, purchase_orders, supplier_payments, supplier_documents } = require('../models');
-const { fn, col, Op } = require('sequelize');
+const db = require('../models');
+const { suppliers, purchase_orders, supplier_payments, supplier_documents } = db;
+const { Op } = require('sequelize');
 const { logActivity } = require('../services/auditService');
 const pdfService = require('../services/pdfService');
 
@@ -36,11 +37,6 @@ exports.getAllSuppliers = async (req, res) => {
   try {
     const supplierList = await suppliers.findAll({
       order: [['supplier_name', 'ASC']],
-      attributes: {
-        include: [[fn('COUNT', col('purchase_orders.po_id')), 'po_count']],
-      },
-      include: [{ model: purchase_orders, attributes: [] }],
-      group: ['suppliers.supplier_id'],
     });
 
     res.status(200).json(supplierList);
@@ -54,27 +50,26 @@ exports.getSupplierById = async (req, res) => {
   try {
     const supplier = await suppliers.findByPk(req.params.id, {
       include: [
-        { model: purchase_orders, order: [['po_date', 'DESC']] },
-        { model: supplier_payments, order: [['due_date', 'DESC']] }
+        { model: purchase_orders, separate: true, order: [['po_date', 'DESC']] },
+        { model: supplier_payments, separate: true, order: [['due_date', 'DESC']] }
       ],
     });
 
     if (!supplier) return res.status(404).json({ message: 'Supplier not found' });
 
-    // Calculate outstanding balance
     const outstandingSum = await supplier_payments.sum('balance_amount', {
       where: {
         supplier_id: req.params.id,
         payment_status: { [Op.in]: ['Pending', 'Partially Paid', 'Overdue'] }
       }
-    }) || 0.00;
+    }) || 0;
 
-    // Convert to JSON and attach outstanding balance
     const result = supplier.toJSON();
     result.outstanding_balance = parseFloat(outstandingSum);
 
     res.status(200).json(result);
   } catch (error) {
+    console.error('[getSupplierById] ERROR:', error.message, error.stack);
     res.status(500).json({ error: error.message });
   }
 };
@@ -216,8 +211,8 @@ exports.getSupplierStatement = async (req, res) => {
       supplier_payments.findAll({ where: paymentWhere, order: [['created_at', 'ASC']] })
     ]);
 
-    const totalPurchased = orders.reduce((sum, o) => sum + parseFloat(o.total_amount), 0);
-    const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.paid_amount), 0);
+    const totalPurchased = orders.reduce((sum, o) => sum + parseFloat(o.total_amount || 0), 0);
+    const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.paid_amount || 0), 0);
     const balanceDue = totalPurchased - totalPaid;
 
     res.json({

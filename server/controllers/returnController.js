@@ -68,7 +68,7 @@ exports.getReturnsByBill = async (req, res) => {
 exports.getReturnById = async (req, res) => {
   try {
     const { id } = req.params;
-    const returnRecord = await returns.findByPk(id, {
+    const returnRecord = await returns.findById(id, {
       include: [
         { model: bills, include: [{ model: customers }] },
         { 
@@ -102,7 +102,7 @@ exports.updateReturnStatus = async (req, res) => {
       return res.status(400).json({ success: false, error: `Valid status required: ${validStatuses.join(', ')}` });
     }
 
-    const returnRecord = await returns.findByPk(id);
+    const returnRecord = await returns.findById(id);
     if (!returnRecord) {
       return res.status(404).json({ success: false, error: 'Return record not found' });
     }
@@ -150,7 +150,7 @@ exports.lookupBill = async (req, res) => {
         clauses.push(
           bills.sequelize.where(
             bills.sequelize.fn('LOWER', bills.sequelize.col('bill_no')),
-            { [Op.like]: `%${normalizedTerm}%` }
+            { $like: `%${normalizedTerm}%` }
           )
         );
       }
@@ -161,7 +161,7 @@ exports.lookupBill = async (req, res) => {
       }
 
       const results = await bills.findAll({
-        where: { [Op.or]: clauses },
+        where: { $or: clauses },
         include: [
           {
             model: bill_items,
@@ -186,7 +186,7 @@ exports.lookupBill = async (req, res) => {
     const customer = await customers.findOne({ 
       where: { 
         phone_no: {
-          [Op.like]: `%${trimmedPhone}%`
+          $like: `%${trimmedPhone}%`
         }
       } 
     });
@@ -236,11 +236,11 @@ exports.getAllReturns = async (req, res) => {
     if (isCashier) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      headerWhere.return_date = { [Op.gte]: today };
+      headerWhere.return_date = { $gte: today };
     } else if (from_date || to_date) {
       headerWhere.return_date = {};
-      if (from_date) headerWhere.return_date[Op.gte] = new Date(from_date);
-      if (to_date) headerWhere.return_date[Op.lte] = new Date(to_date);
+      if (from_date) headerWhere.return_date$gte = new Date(from_date);
+      if (to_date) headerWhere.return_date$lte = new Date(to_date);
     }
 
     const includeArr = [

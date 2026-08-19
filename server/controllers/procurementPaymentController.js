@@ -98,7 +98,7 @@ exports.getAllPayments = async (req, res) => {
  */
 exports.getPaymentById = async (req, res) => {
   try {
-    const item = await supplier_payments.findByPk(req.params.id, {
+    const item = await supplier_payments.findById(req.params.id, {
       include: [
         { model: suppliers },
         { model: purchase_orders }
@@ -238,7 +238,7 @@ exports.updateChequeStatus = async (req, res) => {
       return res.status(400).json({ error: `cheque_status must be one of: ${VALID.join(', ')}` });
     }
 
-    const payment = await supplier_payments.findByPk(req.params.id, {
+    const payment = await supplier_payments.findById(req.params.id, {
       include: [{ model: suppliers, attributes: ['supplier_name'] }]
     });
     if (!payment) return res.status(404).json({ error: 'Payment record not found' });
@@ -285,7 +285,7 @@ exports.updateChequeStatus = async (req, res) => {
 
 exports.downloadPaymentReceipt = async (req, res) => {
   try {
-    const payment = await supplier_payments.findByPk(req.params.id, {
+    const payment = await supplier_payments.findById(req.params.id, {
       include: [
         { model: suppliers },
         { model: purchase_orders }

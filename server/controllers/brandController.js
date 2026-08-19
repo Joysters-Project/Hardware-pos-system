@@ -51,7 +51,7 @@ exports.getAllBrands = async (req, res) => {
 // GET Brand by ID
 exports.getBrandById = async (req, res) => {
   try {
-    const brand = await brands.findByPk(req.params.id);
+    const brand = await brands.findById(req.params.id);
 
     if (!brand) {
       return res.status(404).json({ message: "Brand not found" });
@@ -66,7 +66,7 @@ exports.getBrandById = async (req, res) => {
 // UPDATE Brand
 exports.updateBrand = async (req, res) => {
   try {
-    const brand = await brands.findByPk(req.params.id);
+    const brand = await brands.findById(req.params.id);
 
     if (!brand) {
       return res.status(404).json({ message: "Brand not found" });
@@ -80,7 +80,7 @@ exports.updateBrand = async (req, res) => {
       const existingBrand = await brands.findOne({
         where: { 
           brand_name: brand_name.trim(),
-          brand_id: { [require('sequelize').Op.ne]: req.params.id }
+          brand_id: { $ne: req.params.id }
         }
       });
 
@@ -106,7 +106,7 @@ exports.updateBrand = async (req, res) => {
 // DELETE Brand (with product check)
 exports.deleteBrand = async (req, res) => {
   try {
-    const brand = await brands.findByPk(req.params.id);
+    const brand = await brands.findById(req.params.id);
 
     if (!brand) {
       return res.status(404).json({ message: "Brand not found" });

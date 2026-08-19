@@ -25,7 +25,7 @@ const getAllEmployees = async (req, res) => {
       where,
       subQuery: false,
       include: [{ model: db.departments, attributes: ['department_name'] }],
-      order: [[db.sequelize.col('employees.created_at'), 'DESC']],
+      order: [['employee_id', 'DESC']],
     });
     res.status(200).json(list);
   } catch (error) {

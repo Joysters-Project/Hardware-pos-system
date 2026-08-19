@@ -39,16 +39,22 @@ function getApplicableTypes(product, nearestBatchExpiry) {
 // Get the nearest expiry date from batches with remaining stock (any non-Disposed status)
 async function getNearestBatchExpiry(productId) {
   if (!batch_inventory) return null;
-  const batch = await batch_inventory.findOne({
-    where: {
-      product_id: productId,
-      remaining_quantity: { [Op.gt]: 0 },
-      expiry_date: { [Op.ne]: null },
-      status: { [Op.notIn]: ['Disposed'] },
-    },
-    order: [['expiry_date', 'ASC']],
-  }).catch(() => null);
-  return batch?.expiry_date || null;
+
+  try {
+    const batch = await batch_inventory.findOne({
+      where: {
+        product_id: productId,
+        remaining_quantity: { $gt: 0 },
+        expiry_date: { $ne: null },
+        status: { $notIn: ['Disposed'] },
+      },
+      order: [['expiry_date', 'ASC']],
+    });
+    return batch?.expiry_date || null;
+  } catch (err) {
+    console.warn(`[AlertService] getNearestBatchExpiry failed for product ${productId}:`, err.message);
+    return null;
+  }
 }
 
 async function syncAlertsForProduct(product) {

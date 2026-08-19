@@ -7,7 +7,7 @@ const env = process.env.NODE_ENV || 'development';
 let dbConfig = {
   database: process.env.DB_NAME,
   username: process.env.DB_USER,
-  password: process.env.DB_PASS,
+  password: process.env.DB_PASSWORD || process.env.DB_PASS,
   host: process.env.DB_HOST,
   port: process.env.DB_PORT || 3306,
   dialect: 'mysql',
@@ -21,7 +21,7 @@ try {
     dbConfig = {
       database: process.env.DB_NAME || cfg.database,
       username: process.env.DB_USER || cfg.username,
-      password: process.env.DB_PASS || cfg.password,
+      password: process.env.DB_PASSWORD || process.env.DB_PASS || cfg.password,
       host: process.env.DB_HOST || cfg.host,
       port: process.env.DB_PORT || cfg.port || 3306,
       dialect: cfg.dialect || 'mysql',
@@ -49,7 +49,7 @@ const sequelize = new Sequelize(
       typeCast: true,
       timezone: '+05:30',
       connectTimeout: 10000,
-      multipleStatements: true
+      multipleStatements: true,
     },
     pool: {
       max: 5,
@@ -265,3 +265,19 @@ db.suppliers.hasMany(db.batch_inventory, { foreignKey: 'supplier_id' });
 db.batch_inventory.belongsTo(db.suppliers, { foreignKey: 'supplier_id' });
 
 module.exports = db;
+
+// Backwards-compatibility: add deprecated `findById` alias to models
+// Many controllers in this codebase still call `findById` (Sequelize v3 style).
+// Add a runtime alias to `findByPk` so those calls continue to work.
+Object.keys(db).forEach((k) => {
+  const model = db[k];
+  if (!model || typeof model !== 'object') return;
+  // If model provides findByPk (Sequelize v4+), add legacy findById alias.
+  if (typeof model.findByPk === 'function' && typeof model.findById !== 'function') {
+    model.findById = model.findByPk.bind(model);
+  }
+  // If model provides findById (Sequelize v3), add modern findByPk alias.
+  if (typeof model.findById === 'function' && typeof model.findByPk !== 'function') {
+    model.findByPk = model.findById.bind(model);
+  }
+});

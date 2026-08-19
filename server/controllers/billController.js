@@ -47,17 +47,17 @@ exports.searchBills = async (req, res) => {
     }];
 
     if (searchType === 'bill_no') {
-      whereClause.bill_no = { [Op.like]: `%${query}%` };
+      whereClause.bill_no = { $like: `%${query}%` };
     } else if (searchType === 'customer_name') {
       include.push({
         model: customers,
-        where: { customer_name: { [Op.like]: `%${query}%` } },
+        where: { customer_name: { $like: `%${query}%` } },
         required: true
       });
     } else if (searchType === 'phone_no') {
       include.push({
         model: customers,
-        where: { phone_no: { [Op.like]: `%${query}%` } },
+        where: { phone_no: { $like: `%${query}%` } },
         required: true
       });
     } else {
@@ -114,7 +114,7 @@ exports.getAllBills = async (req, res) => {
 // READ Bill by ID
 exports.getBillById = async (req, res) => {
   try {
-    const bill = await bills.findByPk(req.params.id, {
+    const bill = await bills.findById(req.params.id, {
       include: [
         {
           model: bill_items,
@@ -139,7 +139,7 @@ exports.getBillById = async (req, res) => {
 // UPDATE Bill
 exports.updateBill = async (req, res) => {
   try {
-    const bill = await bills.findByPk(req.params.id);
+    const bill = await bills.findById(req.params.id);
 
     if (!bill) {
       return res.status(404).json({ message: "Bill not found" });
@@ -159,7 +159,7 @@ exports.updateBill = async (req, res) => {
 // DELETE Bill
 exports.deleteBill = async (req, res) => {
   try {
-    const bill = await bills.findByPk(req.params.id);
+    const bill = await bills.findById(req.params.id);
 
     if (!bill) {
       return res.status(404).json({ message: "Bill not found" });

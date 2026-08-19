@@ -130,7 +130,7 @@ const login = async (req, res) => {
 const unlockUser = async (req, res) => {
   try {
     if (req.user.role !== 'Admin') return res.status(403).json({ message: 'Only admin can unlock accounts' });
-    const user = await users.findByPk(req.body.user_id);
+    const user = await users.findById(req.body.user_id);
     if (!user) return res.status(404).json({ message: 'User not found' });
     await user.update({ failed_attempts: 0, is_locked: false, lock_time: null });
     res.status(200).json({ message: 'User account unlocked successfully' });
@@ -144,7 +144,7 @@ const logout = async (req, res) => {
   const ip = getIp(req);
   try {
     const { user_id } = req.body;
-    const user = await users.findByPk(user_id);
+    const user = await users.findById(user_id);
     await logActivity(user_id, user?.role || 'Unknown', 'LOGOUT', `User "${user?.user_name || user_id}" logged out`, ip);
     res.status(200).json({ message: 'Logout successful' });
   } catch (err) {
@@ -263,7 +263,7 @@ const simpleRegister = async (req, res) => {
     if (!username || !password || !firstName || !lastName || !email || !role || !employee_id)
       return res.status(400).json({ message: 'All fields are required' });
 
-    const employee = await db.employees.findByPk(employee_id);
+    const employee = await db.employees.findById(employee_id);
     if (!employee) return res.status(400).json({ message: 'Employee ID not found' });
     if (employee.email !== email) return res.status(400).json({ message: 'Email does not match the employee record' });
     if (employee.first_name !== firstName || employee.last_name !== lastName)

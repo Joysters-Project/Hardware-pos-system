@@ -372,6 +372,11 @@ function EmployeesPage() {
                   </select></div>
                 <div className="emp-field"><label>Salary (LKR) *</label>
                   <input type="number" min="0" value={form.salary} onChange={e => setForm({ ...form, salary: e.target.value })} required /></div>
+                <div className="emp-field"><label>Salary Category *</label>
+                  <select value={form.salary_category} onChange={e => setForm({ ...form, salary_category: e.target.value })} required>
+                    <option value="monthly">Monthly Worker</option>
+                    <option value="daily">Daily Worker</option>
+                  </select></div>
                 <div className="emp-field"><label>Join Date</label>
                   <input type="date" value={form.join_date} max={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, join_date: e.target.value })} /></div>
                 <div className="emp-field"><label>Department *</label>
@@ -385,37 +390,15 @@ function EmployeesPage() {
                 <div className="emp-field emp-field-full"><label>Address</label>
                   <textarea rows={2} value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Full address..." /></div>
               </div>
-              <div className="emp-field"><label>Position *</label>
-                <select value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} required>
-                  <option value=""></option>{POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
-                </select></div>
-              <div className="emp-field"><label>Salary (LKR) *</label>
-                <input type="number" min="0" value={form.salary} onChange={e => setForm({ ...form, salary: e.target.value })} required /></div>
-              <div className="emp-field"><label>Salary Category *</label>
-                <select value={form.salary_category} onChange={e => setForm({ ...form, salary_category: e.target.value })} required>
-                  <option value="monthly">Monthly Worker</option>
-                  <option value="daily">Daily Worker</option>
-                </select></div>
-              <div className="emp-field"><label>Join Date</label>
-                <input type="date" value={form.join_date} max={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, join_date: e.target.value })} /></div>
-              <div className="emp-field"><label>Department *</label>
-                <select value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })} required>
-                  <option value=""></option>{departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
-                </select></div>
-              <div className="emp-field"><label>Status</label>
-                <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
-                  <option value="Active">Active</option><option value="Inactive">Inactive</option><option value="Resigned">Resigned</option>
-                </select></div>
-              <div className="emp-field emp-field-full"><label>Address</label>
-                <textarea rows={2} value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Full address..." /></div>
-            </div>
-            <div className="emp-modal-footer">
-              <button type="button" className="emp-btn-cancel" onClick={closeModal}>Cancel</button>
-              <button type="submit" className="emp-btn-submit" disabled={loading}>{loading ? "Saving..." : editId ? "Update" : "Create"}</button>
-            </div>
-          </form>
-        </div>
-      </div>}
+              <div className="emp-modal-footer">
+                <button type="button" className="emp-btn-cancel" onClick={closeModal}>Cancel</button>
+                <button type="submit" className="emp-btn-submit" disabled={loading}>{loading ? "Saving..." : editId ? "Update" : "Create"}</button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* View Modal */}
       {viewEmp && createPortal(

@@ -23,6 +23,7 @@ import {
   ClipboardList,
   UserCircle,
   Bell,
+  FolderOpen,
   Archive,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";

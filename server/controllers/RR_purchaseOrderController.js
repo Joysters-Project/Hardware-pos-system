@@ -78,7 +78,7 @@ exports.createPurchaseOrder = async (req, res) => {
     ).catch(err => console.error(`[PO Controller] Payment record creation failed: ${err.message}`));
 
     // 2. Fetch full PO with associations for email/notifications
-    const fullPO = await purchase_orders.findByPk(po.po_id, {
+    const fullPO = await purchase_orders.findById(po.po_id, {
       include: [
         { model: suppliers },
         { model: po_items, include: [products] }
@@ -137,7 +137,7 @@ exports.getAllPurchaseOrders = async (req, res) => {
 // GET /api/procurement/purchase-orders/:id
 exports.getPurchaseOrderById = async (req, res) => {
   try {
-    const po = await purchase_orders.findByPk(req.params.id, {
+    const po = await purchase_orders.findById(req.params.id, {
       include: [
         { model: suppliers },
         { model: po_items,  include: [{ model: products }] },
@@ -154,7 +154,7 @@ exports.getPurchaseOrderById = async (req, res) => {
 exports.updateStatus = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
-    const po = await purchase_orders.findByPk(req.params.id, {
+    const po = await purchase_orders.findById(req.params.id, {
       include: [{ model: po_items }],
       transaction,
     });
@@ -236,7 +236,7 @@ exports.updateStatus = async (req, res) => {
         ).catch(() => {});
 
         // Sync alerts based on actual post-receipt stock level
-        const updatedProduct = await products.findByPk(item.product_id, { transaction });
+        const updatedProduct = await products.findById(item.product_id, { transaction });
         if (updatedProduct) {
           await syncAlertsForProduct(updatedProduct).catch(() => {});
         }
@@ -254,7 +254,7 @@ exports.updateStatus = async (req, res) => {
 
     // ─── Post-Commit Hooks (Asynchronous) ──────────────────────────────────
     try {
-      const fullPO = await purchase_orders.findByPk(po.po_id, {
+      const fullPO = await purchase_orders.findById(po.po_id, {
         include: [
           { model: suppliers },
           { model: po_items, include: [products] }
@@ -327,7 +327,7 @@ exports.cancelPurchaseOrder = async (req, res) => {
 // DELETE /api/procurement/purchase-orders/:id (only Pending)
 exports.deletePurchaseOrder = async (req, res) => {
   try {
-    const po = await purchase_orders.findByPk(req.params.id, {
+    const po = await purchase_orders.findById(req.params.id, {
       include: [{ model: po_items }],
     });
     if (!po) return res.status(404).json({ message: 'Purchase Order not found' });
@@ -362,7 +362,7 @@ exports.deletePurchaseOrder = async (req, res) => {
 // POST /api/procurement/purchase-orders/:id/send-email
 exports.sendPOEmail = async (req, res) => {
   try {
-    const po = await purchase_orders.findByPk(req.params.id, {
+    const po = await purchase_orders.findById(req.params.id, {
       include: [
         { model: suppliers },
         { model: po_items, include: [products] },
@@ -381,7 +381,7 @@ exports.sendPOEmail = async (req, res) => {
 // POST /api/procurement/purchase-orders/:poId/items/:itemId/send-comment-email
 exports.sendItemCommentEmail = async (req, res) => {
   try {
-    const po = await purchase_orders.findByPk(req.params.poId, {
+    const po = await purchase_orders.findById(req.params.poId, {
       include: [{ model: suppliers }, { model: po_items, include: [products] }],
     });
     if (!po) return res.status(404).json({ message: 'Purchase Order not found' });
@@ -423,7 +423,7 @@ exports.updateItemComment = async (req, res) => {
 // EXPORT PDF
 exports.exportPurchaseOrderPDF = async (req, res) => {
   try {
-    const po = await purchase_orders.findByPk(req.params.id, {
+    const po = await purchase_orders.findById(req.params.id, {
       include: [
         { model: suppliers },
         { model: po_items, include: [products] }

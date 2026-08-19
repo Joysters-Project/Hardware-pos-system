@@ -1,4 +1,4 @@
-const { products, category, brands, units, batch_inventory } = require('../models');
+const { products, category, brands, units, batch_inventory, product_units } = require('../models');
 const { Op } = require('sequelize');
 const { logActivity } = require('../services/auditService');
 const { syncAlertsForProduct } = require('../services/alertService');
@@ -60,7 +60,7 @@ exports.getAllProducts = async (req, res) => {
 
 exports.getProductById = async (req, res) => {
   try {
-    const product = await products.findByPk(req.params.id, {
+    const product = await products.findById(req.params.id, {
       attributes: { exclude: EXCLUDE },
       include: [
         { model: category, attributes: ['category_id', 'category_name'] },
@@ -80,7 +80,7 @@ exports.getProductById = async (req, res) => {
     const plain = product.toJSON();
     if (batch_inventory) {
       const batch = await batch_inventory.findOne({
-        where: { product_id: plain.product_id, remaining_quantity: { [Op.gt]: 0 }, status: 'Active' },
+        where: { product_id: plain.product_id, remaining_quantity: { $gt: 0 }, status: 'Active' },
         attributes: ['batch_number'],
         order: [['expiry_date', 'ASC']],
       });
@@ -98,7 +98,7 @@ exports.getProductById = async (req, res) => {
 exports.updateProduct = async (req, res) => {
   const ip = getIp(req);
   try {
-    const product = await products.findByPk(req.params.id, { attributes: { exclude: EXCLUDE } });
+    const product = await products.findById(req.params.id, { attributes: { exclude: EXCLUDE } });
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
     const changes = [];
@@ -140,7 +140,7 @@ exports.updateProduct = async (req, res) => {
 exports.deleteProduct = async (req, res) => {
   const ip = getIp(req);
   try {
-    const product = await products.findByPk(req.params.id);
+    const product = await products.findById(req.params.id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
     const name = product.product_name;
     await product.destroy();

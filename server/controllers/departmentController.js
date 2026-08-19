@@ -5,7 +5,7 @@ const getAllDepartments = async (req, res) => {
   try {
     const { search } = req.query;
     const where = search
-      ? { department_name: { [Op.like]: `%${search}%` } }
+      ? { department_name: { $like: `%${search}%` } }
       : {};
 
     const list = await db.departments.findAll({

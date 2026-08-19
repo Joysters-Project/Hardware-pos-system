@@ -52,7 +52,7 @@ exports.getActiveProjects = async (req, res) => {
 // ── GET single project with all items ────────────────────────────────────────
 exports.getProjectById = async (req, res) => {
   try {
-    const project = await db.projects.findByPk(req.params.id, {
+    const project = await db.projects.findById(req.params.id, {
       include: [
         { model: db.users, as: 'creator', attributes: ['user_id', 'user_name', 'first_name', 'last_name'] },
         {
@@ -116,7 +116,7 @@ exports.createProject = async (req, res) => {
 // ── UPDATE project status/details (admin/manager only) ───────────────────────
 exports.updateProject = async (req, res) => {
   try {
-    const project = await db.projects.findByPk(req.params.id);
+    const project = await db.projects.findById(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
 
     const { project_name, project_owner, location, project_type, project_departments, description, status, start_date, deadline, end_date, final_cost, final_payment } = req.body;
@@ -171,7 +171,7 @@ exports.updateProject = async (req, res) => {
 // ── ADD PAYMENT to project (admin only) ──────────────────────────────────────
 exports.addPayment = async (req, res) => {
   try {
-    const project = await db.projects.findByPk(req.params.id);
+    const project = await db.projects.findById(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
     const { amount } = req.body;
     if (!amount || isNaN(amount) || Number(amount) <= 0) {
@@ -190,7 +190,7 @@ exports.addPayment = async (req, res) => {
 // ── DELETE project (admin only) ───────────────────────────────────────────────
 exports.deleteProject = async (req, res) => {
   try {
-    const project = await db.projects.findByPk(req.params.id);
+    const project = await db.projects.findById(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
     await db.project_items.destroy({ where: { project_id: req.params.id } });
     await project.destroy();
@@ -224,7 +224,7 @@ exports.addProjectItem = async (req, res) => {
     }
 
     // Validate project is active
-    const project = await db.projects.findByPk(project_id, { transaction: t });
+    const project = await db.projects.findById(project_id, { transaction: t });
     if (!project) { await t.rollback(); return res.status(404).json({ message: 'Project not found' }); }
     if (project.status !== 'Active') { await t.rollback(); return res.status(400).json({ message: 'Cannot add items to a non-active project' }); }
 
@@ -241,7 +241,7 @@ exports.addProjectItem = async (req, res) => {
         return res.status(400).json({ message: 'Each item requires a valid product_id and quantity' });
       }
 
-      const product = await db.products.findByPk(productId, { transaction: t });
+      const product = await db.products.findById(productId, { transaction: t });
       if (!product) { await t.rollback(); return res.status(404).json({ message: 'Product not found' }); }
       if (product.stock_quantity < quantity) {
         await t.rollback();
@@ -306,7 +306,7 @@ exports.deleteTodayProductSales = async (req, res) => {
 
     const where = {
       product_id: productId,
-      taken_at: { [Op.between]: [start, end] },
+      taken_at: { $between: [start, end] },
     };
     if (project_id) where.project_id = project_id;
 
@@ -317,7 +317,7 @@ exports.deleteTodayProductSales = async (req, res) => {
     }
 
     for (const item of items) {
-      const product = await db.products.findByPk(item.product_id, { transaction: t });
+      const product = await db.products.findById(item.product_id, { transaction: t });
       if (product) {
         await product.update({ stock_quantity: Number(product.stock_quantity) + Number(item.quantity) }, { transaction: t });
       }
@@ -343,7 +343,7 @@ exports.deleteProjectItem = async (req, res) => {
       return res.status(400).json({ message: 'Reason for deletion is required' });
     }
 
-    const item = await db.project_items.findByPk(req.params.itemId, {
+    const item = await db.project_items.findById(req.params.itemId, {
       include: [
         { model: db.projects, as: 'project' },
         { model: db.products, as: 'product' },
@@ -373,7 +373,7 @@ exports.deleteProjectItem = async (req, res) => {
     };
 
     // Restore stock
-    const product = await db.products.findByPk(item.product_id, { transaction: t });
+    const product = await db.products.findById(item.product_id, { transaction: t });
     if (product) {
       await product.update({ stock_quantity: Number(product.stock_quantity) + Number(item.quantity) }, { transaction: t });
     }
@@ -421,7 +421,7 @@ exports.getDailyReport = async (req, res) => {
     const start = new Date(targetDate); start.setHours(0, 0, 0, 0);
     const end   = new Date(targetDate); end.setHours(23, 59, 59, 999);
 
-    const where = { taken_at: { [Op.between]: [start, end] } };
+    const where = { taken_at: { $between: [start, end] } };
     if (project_id) where.project_id = project_id;
 
     const items = await db.project_items.findAll({
@@ -452,7 +452,7 @@ exports.getMonthlyReport = async (req, res) => {
     const end   = new Date(y, m, 0, 23, 59, 59, 999);
 
     const items = await db.project_items.findAll({
-      where: { taken_at: { [Op.between]: [start, end] } },
+      where: { taken_at: { $between: [start, end] } },
       include: [
         { model: db.products, as: 'product', attributes: ['product_id', 'product_name', 'unit_price'] },
         { model: db.projects, attributes: ['project_id', 'project_name', 'project_type', 'final_cost', 'status'] },
@@ -495,7 +495,7 @@ exports.getYearlyReport = async (req, res) => {
     const end   = new Date(y, 11, 31, 23, 59, 59, 999);
 
     const items = await db.project_items.findAll({
-      where: { taken_at: { [Op.between]: [start, end] } },
+      where: { taken_at: { $between: [start, end] } },
       include: [
         { model: db.products, as: 'product', attributes: ['product_id', 'product_name'] },
         { model: db.projects, attributes: ['project_id', 'project_name', 'project_type', 'final_cost', 'status', 'end_date', 'updated_at'] },
@@ -512,10 +512,10 @@ exports.getYearlyReport = async (req, res) => {
 
     const projects = await db.projects.findAll({
       where: {
-        status: { [Op.in]: ['Completed', 'Cancelled'] },
-        [Op.or]: [
-          { end_date: { [Op.between]: [start, end] } },
-          { updated_at: { [Op.between]: [start, end] } },
+        status: { $in: ['Completed', 'Cancelled'] },
+        $or: [
+          { end_date: { $between: [start, end] } },
+          { updated_at: { $between: [start, end] } },
         ],
       },
       attributes: ['project_id', 'project_name', 'final_cost', 'end_date', 'updated_at'],

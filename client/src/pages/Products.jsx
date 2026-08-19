@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Pencil, Trash2, Eye, Plus, RefreshCw, FileDown, Layers } from "lucide-react";
+import { Pencil, Trash2, Eye, Plus, RefreshCw, FileDown, Layers,Settings } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../api/axios";
 import AdminDashboard from "./AdminDashboard";
@@ -218,6 +217,7 @@ function ProductsPage() {
   const [units,      setUnits]      = useState([]);
   const [search,     setSearch]     = useState("");
   const [loading,    setLoading]    = useState(false);
+  const [unitsModal, setUnitsModal] = useState(false);
 
   /* Edit modal */
   const [editModal,  setEditModal]  = useState(false);
@@ -448,7 +448,7 @@ function ProductsPage() {
   };
 
   /* ── PDF export ── */
-  const exportPDF = () => {
+  const exportPDF2 = () => {
     if (!viewProduct) return;
     const altUnitsHTML =
       Array.isArray(viewProduct.alternative_units) && viewProduct.alternative_units.length
@@ -820,10 +820,32 @@ function ProductsPage() {
               <div className="view-grid">
                 {[
                   ["Product ID", `#${viewProduct.product_id}`],
-                  ["Product Name", viewProduct.product_name],
+                  ["Product Name", viewProduct.product_name || "—"],
                   ["Type", viewProduct.type || "—"],
                   ["Batch No", viewProduct.batch_no || "—"],
-                  ["Status", <span key="s" className={`status-pill ${String(viewProduct.status).toLowerCase() === "inactive" ? "inactive" : "active"}`}>{String(viewProduct.status).toLowerCase() === "inactive" ? "Inactive" : "Active"}</span>],
+                  ["Status", <span key="status" className={`status-pill ${String(viewProduct.status).toLowerCase() === "inactive" ? "inactive" : "active"}`}>{String(viewProduct.status).toLowerCase() === "inactive" ? "Inactive" : "Active"}</span>],
+                ].map(([label, value]) => (
+                  <div className="view-row" key={label}>
+                    <span className="view-label">{label}</span>
+                    <span className="view-value">{value}</span>
+                  </div>
+                ))}
+                {viewProduct.expiry_date && (
+                  <div className="view-row">
+                    <span className="view-label">Expiry Date</span>
+                    <span className="view-value">{new Date(viewProduct.expiry_date).toLocaleDateString()}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="view-section">
+              <h3 className="view-section-title">Classification</h3>
+              <div className="view-grid">
+                {[
+                  ["Category", categoryMap.get(Number(viewProduct.category_id)) || "—"],
+                  ["Brand", brandMap.get(Number(viewProduct.brand_id)) || "—"],
+                  ["Base Unit", unitMap.get(Number(viewProduct.unit_id)) || "—"],
                 ].map(([label, value]) => (
                   <div className="view-row" key={label}>
                     <span className="view-label">{label}</span>
@@ -831,87 +853,34 @@ function ProductsPage() {
                   </div>
                 ))}
               </div>
-            ) : (
-              <>
-                {/* Basic Info */}
-                <div className="view-section">
-                  <h3 className="view-section-title">Basic Information</h3>
-                  <div className="view-grid">
-                    {[
-                      ["Product ID",   `#${viewProduct.product_id}`],
-                      ["Product Name", viewProduct.product_name  || "—"],
-                      ["Type",         viewProduct.type          || "—"],
-                      ["Batch No",     viewProduct.batch_no      || "—"],
-                    ].map(([label, value]) => (
-                      <div className="view-row" key={label}>
-                        <span className="view-label">{label}</span>
-                        <span className="view-value">{value}</span>
-                      </div>
-                    ))}
-                    <div className="view-row">
-                      <span className="view-label">Status</span>
-                      <span className="view-value">
-                        <span className={`status-pill ${String(viewProduct.status).toLowerCase()}`}>
-                          {viewProduct.status || "active"}
-                        </span>
-                      </span>
-                    </div>
-                    {viewProduct.expiry_date && (
-                      <div className="view-row">
-                        <span className="view-label">Expiry Date</span>
-                        <span className="view-value">{new Date(viewProduct.expiry_date).toLocaleDateString()}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
+            </div>
 
-                {/* Classification */}
-                <div className="view-section">
-                  <h3 className="view-section-title">Classification</h3>
-                  <div className="view-grid">
-                    {[
-                      ["Category", categoryMap.get(Number(viewProduct.category_id)) || "—"],
-                      ["Brand",    brandMap.get(Number(viewProduct.brand_id))        || "—"],
-                      ["Base Unit",unitMap.get(Number(viewProduct.unit_id))          || "—"],
-                    ].map(([label, value]) => (
-                      <div className="view-row" key={label}>
-                        <span className="view-label">{label}</span>
-                        <span className="view-value">{value}</span>
-                      </div>
-                    ))}
+            <div className="view-section">
+              <h3 className="view-section-title">Pricing</h3>
+              <div className="view-grid">
+                {[
+                  ["Unit Price", `Rs. ${Number(viewProduct.unit_price || 0).toFixed(2)}`],
+                  ["Cost Price", `Rs. ${Number(viewProduct.cost_price || 0).toFixed(2)}`],
+                ].map(([label, value]) => (
+                  <div className="view-row" key={label}>
+                    <span className="view-label">{label}</span>
+                    <span className="view-value">{value}</span>
                   </div>
-                </div>
+                ))}
+              </div>
+            </div>
 
-                {/* Pricing */}
-                <div className="view-section">
-                  <h3 className="view-section-title">Pricing</h3>
-                  <div className="view-grid">
-                    {[
-                      ["Unit Price",  `Rs. ${Number(viewProduct.unit_price  || 0).toFixed(2)}`],
-                      ["Cost Price",  `Rs. ${Number(viewProduct.cost_price  || 0).toFixed(2)}`],
-                    ].map(([label, value]) => (
-                      <div className="view-row" key={label}>
-                        <span className="view-label">{label}</span>
-                        <span className="view-value">{value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Stock */}
-                <div className="view-section">
-                  <h3 className="view-section-title">Stock Details</h3>
-                  <div className="view-grid">
-                    {[
-                      ["Stock Quantity", viewProduct.stock_quantity     ?? 0],
-                      ["Min Stock",      viewProduct.min_stock_quantity ?? 0],
-                      ["Reorder Level",  viewProduct.reorder_level      ?? 0],
-                    ].map(([label, value]) => (
-                      <div className="view-row" key={label}>
-                        <span className="view-label">{label}</span>
-                        <span className="view-value">{value}</span>
-                      </div>
-                    ))}
+            <div className="view-section">
+              <h3 className="view-section-title">Stock Details</h3>
+              <div className="view-grid">
+                {[
+                  ["Stock Quantity", viewProduct.stock_quantity ?? 0],
+                  ["Min Stock", viewProduct.min_stock_quantity ?? 0],
+                  ["Reorder Level", viewProduct.reorder_level ?? 0],
+                ].map(([label, value]) => (
+                  <div className="view-row" key={label}>
+                    <span className="view-label">{label}</span>
+                    <span className="view-value">{value}</span>
                   </div>
                 ))}
               </div>
@@ -928,14 +897,19 @@ function ProductsPage() {
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
                     <thead>
                       <tr style={{ background: "linear-gradient(135deg,#8b3a3a,#a84545)", color: "#fff" }}>
-                        {["Batch", "Supplier", "PO", "Buy Price", "Rcvd", "Rem", "Rcvd Date", "Expiry", "Status"].map(h => (
+                        {["Batch", "Supplier", "PO", "Buy Price", "Rcvd", "Rem", "Rcvd Date", "Expiry", "Status"].map((h) => (
                           <th key={h} style={{ padding: "6px 8px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {productBatches.map((b, i) => {
-                        const BSTYLE = { Active: { background: "#e5f7eb", color: "#1d7e42" }, "Low Stock": { background: "#fff3e0", color: "#e65100" }, Expired: { background: "#fdecea", color: "#c62828" }, Disposed: { background: "#f0f0f0", color: "#888" } };
+                        const BSTYLE = {
+                          Active: { background: "#e5f7eb", color: "#1d7e42" },
+                          "Low Stock": { background: "#fff3e0", color: "#e65100" },
+                          Expired: { background: "#fdecea", color: "#c62828" },
+                          Disposed: { background: "#f0f0f0", color: "#888" },
+                        };
                         return (
                           <tr key={b.batch_id} style={{ background: i % 2 === 0 ? "#fff" : "#fdf8f8", borderTop: "1px solid #f5f0f0" }}>
                             <td style={{ padding: "5px 8px", fontWeight: 600 }}>{b.batch_number}</td>

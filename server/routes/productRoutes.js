@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const productController = require('../controllers/productController');
 const db = require('../models');
+const { Op } = require('sequelize');
 
 // --- SEARCH LOGIC (From your local HEAD) ---
 router.get('/search', async (req, res) => {
@@ -16,15 +17,15 @@ router.get('/search', async (req, res) => {
     const searchClauses = [
       db.Sequelize.where(
         db.Sequelize.fn('LOWER', db.Sequelize.col('product_name')),
-        { $like: `%${lowerQuery}%` }
+        { [Op.like]: `%${lowerQuery}%` }
       ),
       db.Sequelize.where(
         db.Sequelize.fn('LOWER', db.Sequelize.col('type')),
-        { $like: `%${lowerQuery}%` }
+        { [Op.like]: `%${lowerQuery}%` }
       ),
       db.Sequelize.where(
         db.Sequelize.fn('LOWER', db.Sequelize.col('batch_no')),
-        { $like: `%${lowerQuery}%` }
+        { [Op.like]: `%${lowerQuery}%` }
       )
     ];
 
@@ -35,7 +36,7 @@ router.get('/search', async (req, res) => {
 
     const results = await db.products.findAll({
       where: {
-        $or: searchClauses
+        [Op.or]: searchClauses
       },
       include: [
         { model: db.units, attributes: ['unit_id', 'unit_name'] },

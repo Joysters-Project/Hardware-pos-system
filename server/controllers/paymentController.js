@@ -35,7 +35,7 @@ exports.getAllPayments = async (req, res) => {
 // GET Payment By ID
 exports.getPaymentById = async (req, res) => {
   try {
-    const payment = await payments.findByPk(req.params.id);
+    const payment = await payments.findById(req.params.id);
 
     if (!payment) {
       return res.status(404).json({ message: "Payment not found" });
@@ -50,7 +50,7 @@ exports.getPaymentById = async (req, res) => {
 // UPDATE Payment
 exports.updatePayment = async (req, res) => {
   try {
-    const payment = await payments.findByPk(req.params.id);
+    const payment = await payments.findById(req.params.id);
 
     if (!payment) {
       return res.status(404).json({ message: "Payment not found" });
@@ -70,7 +70,7 @@ exports.updatePayment = async (req, res) => {
 // DELETE Payment
 exports.deletePayment = async (req, res) => {
   try {
-    const payment = await payments.findByPk(req.params.id);
+    const payment = await payments.findById(req.params.id);
 
     if (!payment) {
       return res.status(404).json({ message: "Payment not found" });

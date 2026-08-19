@@ -28,7 +28,7 @@ exports.getAllPoItems = async (req, res) => {
 // GET PO Item by ID
 exports.getPoItemById = async (req, res) => {
   try {
-    const poItem = await po_items.findByPk(req.params.id);
+    const poItem = await po_items.findById(req.params.id);
 
     if (!poItem) {
       return res.status(404).json({ message: "PO Item not found" });
@@ -43,7 +43,7 @@ exports.getPoItemById = async (req, res) => {
 // UPDATE PO Item
 exports.updatePoItem = async (req, res) => {
   try {
-    const poItem = await po_items.findByPk(req.params.id);
+    const poItem = await po_items.findById(req.params.id);
 
     if (!poItem) {
       return res.status(404).json({ message: "PO Item not found" });
@@ -63,7 +63,7 @@ exports.updatePoItem = async (req, res) => {
 // DELETE PO Item
 exports.deletePoItem = async (req, res) => {
   try {
-    const poItem = await po_items.findByPk(req.params.id);
+    const poItem = await po_items.findById(req.params.id);
 
     if (!poItem) {
       return res.status(404).json({ message: "PO Item not found" });

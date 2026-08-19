@@ -8,9 +8,9 @@ const getAllExpenses = async (req, res) => {
     if (expense_type) where.expense_type = expense_type;
     if (department_id) where.department_id = department_id;
     if (search) {
-      where[Op.or] = [
-        { expense_type: { [Op.like]: `%${search}%` } },
-        { description: { [Op.like]: `%${search}%` } }
+      where$or = [
+        { expense_type: { $like: `%${search}%` } },
+        { description: { $like: `%${search}%` } }
       ];
     }
 
@@ -32,7 +32,7 @@ const getAllExpenses = async (req, res) => {
 
 const getExpenseById = async (req, res) => {
   try {
-    const expense = await db.expenses.findByPk(req.params.id, {
+    const expense = await db.expenses.findById(req.params.id, {
       include: [
         { model: db.departments, attributes: ['department_name'] },
         { model: db.assets, attributes: ['asset_name', 'status'] }
@@ -68,7 +68,7 @@ const createExpense = async (req, res) => {
 
 const updateExpense = async (req, res) => {
   try {
-    const expense = await db.expenses.findByPk(req.params.id);
+    const expense = await db.expenses.findById(req.params.id);
     if (!expense) return res.status(404).json({ message: 'Expense not found' });
 
     const { expense_type, amount, description, expense_date, department_id, asset_id } = req.body;
@@ -82,7 +82,7 @@ const updateExpense = async (req, res) => {
 
 const deleteExpense = async (req, res) => {
   try {
-    const expense = await db.expenses.findByPk(req.params.id);
+    const expense = await db.expenses.findById(req.params.id);
     if (!expense) return res.status(404).json({ message: 'Expense not found' });
     await expense.destroy();
     res.status(200).json({ message: 'Expense deleted successfully' });
