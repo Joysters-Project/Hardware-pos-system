@@ -629,7 +629,7 @@ export default function SupplierDetail() {
                                 <div className="proc-action-btns">
                                   <a 
                                     className="btn-small outline" 
-                                    href={`http://localhost:5000${doc.file_path}`} 
+                                    href={`${import.meta.env.VITE_API_URL}${doc.file_path}`} 
                                     target="_blank" 
                                     rel="noreferrer"
                                     download

@@ -6,6 +6,9 @@ server/node_modules/
 # Secret files (CRITICAL: keeps your passwords private)
 .env
 server/.env
+client/.env
+client/.env.local
+client/.env.*.local
 
 # Local development / generated output
 server/users_output.json

@@ -1,13 +1,7 @@
-import axios from 'axios';
+import api from '../api/axios';
 
-const API_BASE_URL = 'http://localhost:5000/api';
-
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+// Re-uses the canonical axios instance (baseURL already set to VITE_API_URL/api).
+// All service methods use relative paths — no environment-specific URLs here.
 
 export const supplierService = {
   getAll: () => api.get('/suppliers'),
