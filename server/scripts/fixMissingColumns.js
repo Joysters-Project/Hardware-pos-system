@@ -3,10 +3,10 @@ const { Sequelize, DataTypes } = require('sequelize');
 const cfg = require('../config/config.json').development;
 
 const s = new Sequelize(
-  process.env.DB_NAME || cfg.database,
-  process.env.DB_USER || cfg.username,
-  process.env.DB_PASS || cfg.password,
-  { host: process.env.DB_HOST || cfg.host, dialect: 'mysql', logging: false }
+  process.env.MYSQLDATABASE || cfg.database,
+  process.env.MYSQLUSER || cfg.username,
+  process.env.MYSQLPASSWORD || cfg.password,
+  { host: process.env.MYSQLHOST || cfg.host, dialect: 'mysql', logging: false }
 );
 
 const addIf = async (s, table, col, def) => {
