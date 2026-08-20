@@ -1,4 +1,4 @@
-const { returns, return_items, products, payments, bills, bill_items, customers, supplier_returns, supplier_services, inventory_statuses, sequelize } = require('../models');
+const { returns, return_items, products, payments, bills, bill_items, customers, supplier_returns, supplier_services, inventory_statuses, units, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const ReturnService = require('../services/returnService');
 const WarrantyService = require('../services/warrantyService');
@@ -29,7 +29,7 @@ exports.previewRefund = async (req, res) => {
     const result = await ReturnService.previewRefund(
       Number(bill_id),
       Number(product_id),
-      Number(return_qty)
+      parseFloat(return_qty)
     );
 
     res.status(200).json(result);
@@ -165,7 +165,10 @@ exports.lookupBill = async (req, res) => {
         include: [
           {
             model: bill_items,
-            include: [{ model: products, attributes: ['product_id', 'product_name', 'unit_price', 'cost_price'] }]
+            include: [
+              { model: products, attributes: ['product_id', 'product_name', 'unit_price', 'cost_price', 'unit_id'], include: [{ model: units, attributes: ['unit_id', 'unit_name'] }] },
+              { model: units, as: 'billed_unit', attributes: ['unit_id', 'unit_name'] }
+            ]
           },
           {
             model: customers,
@@ -204,7 +207,10 @@ exports.lookupBill = async (req, res) => {
       include: [
         {
           model: bill_items,
-          include: [{ model: products, attributes: ['product_id', 'product_name', 'unit_price', 'cost_price'] }]
+          include: [
+            { model: products, attributes: ['product_id', 'product_name', 'unit_price', 'cost_price', 'unit_id'], include: [{ model: units, attributes: ['unit_id', 'unit_name'] }] },
+            { model: units, as: 'billed_unit', attributes: ['unit_id', 'unit_name'] }
+          ]
         },
         {
           model: customers,
@@ -320,7 +326,7 @@ exports.getAllReturns = async (req, res) => {
           };
         }
         
-        productTotals[productName].total_returned_qty += (item.return_quantity || item.quantity || 1);
+        productTotals[productName].total_returned_qty = parseFloat((productTotals[productName].total_returned_qty + (parseFloat(item.return_quantity || item.quantity) || 1)).toFixed(2));
         productTotals[productName].total_amount_per_product += refundAmount;
         grandTotalReturned += refundAmount;
       });

@@ -5,11 +5,11 @@ require('dotenv').config();
 // Support .env variables and fallback to server/config/config.json (Sequelize CLI style)
 const env = process.env.NODE_ENV || 'development';
 let dbConfig = {
-  database: process.env.DB_NAME,
-  username: process.env.DB_USER,
-  password: process.env.DB_PASS,
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT || 3306,
+  database: process.env.MYSQLDATABASE,
+  username: process.env.MYSQLUSER,
+  password: process.env.MYSQLPASSWORD,
+  host: process.env.MYSQLHOST,
+  port: process.env.MYSQLPORT || 3306,
   dialect: 'mysql',
   logging: false,
 };
@@ -19,11 +19,11 @@ try {
   if (configFile && configFile[env]) {
     const cfg = configFile[env];
     dbConfig = {
-      database: process.env.DB_NAME || cfg.database,
-      username: process.env.DB_USER || cfg.username,
-      password: process.env.DB_PASS || cfg.password,
-      host: process.env.DB_HOST || cfg.host,
-      port: process.env.DB_PORT || cfg.port || 3306,
+      database: process.env.MYSQLDATABASE || cfg.database,
+      username: process.env.MYSQLUSER || cfg.username,
+      password: process.env.MYSQLPASSWORD || cfg.password,
+      host: process.env.MYSQLHOST || cfg.host,
+      port: process.env.MYSQLPORT || cfg.port || 3306,
       dialect: cfg.dialect || 'mysql',
       logging: false,
     };
