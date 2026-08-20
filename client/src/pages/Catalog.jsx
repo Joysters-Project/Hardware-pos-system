@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../api/axios";
 import toast from "react-hot-toast";
 import {
   Layers,
@@ -21,8 +21,6 @@ import { useAuth } from "../context/AuthContext";
 import DashboardLayout from "../components/DashboardLayout";
 import { buildTableHtml, escapeHtml, printWithTemplate } from "../utils/printTemplate";
 import "../styles/Catalog.css";
-
-const API_BASE = "http://localhost:5000/api";
 
 const MAX_LENGTHS = { categories: 50, brands: 50, units: 50 };
 
@@ -72,13 +70,13 @@ function Catalog() {
     setLoading(true);
     try {
       if (activeTab === "categories") {
-        const res = await axios.get(`${API_BASE}/category`);
+        const res = await api.get('/category');
         setCategories(res.data);
       } else if (activeTab === "brands") {
-        const res = await axios.get(`${API_BASE}/brands`);
+        const res = await api.get('/brands');
         setBrands(res.data);
       } else if (activeTab === "units") {
-        const res = await axios.get(`${API_BASE}/units`);
+        const res = await api.get('/units');
         setUnits(res.data);
       }
     } catch (error) {
@@ -105,9 +103,9 @@ function Catalog() {
 
   // Get API endpoint based on tab
   const getEndpoint = () => {
-    if (activeTab === "categories") return `${API_BASE}/category`;
-    if (activeTab === "brands") return `${API_BASE}/brands`;
-    return `${API_BASE}/units`;
+    if (activeTab === "categories") return '/category';
+    if (activeTab === "brands") return '/brands';
+    return '/units';
   };
 
   // Get payload key based on tab
@@ -130,7 +128,7 @@ function Catalog() {
     setSchemaPanel(prev => ({ ...prev, loading: true, isOpen: true, tableName, tableLabel }));
 
     try {
-      const res = await axios.get(`${API_BASE}/schema/table/${tableName}`);
+      const res = await api.get(`/schema/table/${tableName}`);
       setSchemaPanel(prev => ({
         ...prev,
         schema: res.data,
@@ -175,7 +173,7 @@ function Catalog() {
     setLoading(true);
     try {
       const payload = { [getPayloadKey()]: formData.name.trim() };
-      await axios.post(getEndpoint(), payload);
+      await api.post(getEndpoint(), payload);
 
       toast.success(`${getSingular(activeTab)} created successfully`);
       setFormData({ name: "" });
@@ -223,7 +221,7 @@ function Catalog() {
     setLoading(true);
     try {
       const payload = { [getPayloadKey()]: editingName.trim() };
-      await axios.patch(`${getEndpoint()}/${id}`, payload);
+      await api.patch(`${getEndpoint()}/${id}`, payload);
 
       toast.success("Updated successfully");
       setEditingId(null);
@@ -248,7 +246,7 @@ function Catalog() {
     if (window.confirm(`Are you sure you want to delete "${item[fieldNames.name]}"?`)) {
       setLoading(true);
       try {
-        await axios.delete(`${getEndpoint()}/${id}`);
+        await api.delete(`${getEndpoint()}/${id}`);
         toast.success("Deleted successfully");
         loadData();
       } catch (error) {

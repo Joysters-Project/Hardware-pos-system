@@ -11,7 +11,7 @@ import { useAuth } from "../context/AuthContext";
 import LogoutConfirmModal from "../components/LogoutConfirmModal";
 import "../styles/MyProfile.css";
 
-const BASE_URL = "http://localhost:5000";
+const BASE_URL = import.meta.env.VITE_API_URL;
 const SL_PHONE  = /^(?:\+94|0)?7(?:0|1|2|4|5|6|7|8)\d{7}$/;
 const EMAIL_RE  = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
