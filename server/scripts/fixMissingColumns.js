@@ -1,13 +1,21 @@
 require('dotenv').config({ quiet: true });
 const { Sequelize, DataTypes } = require('sequelize');
 const cfg = require('../config/config.json').development;
+const databaseUrl = process.env.MYSQL_PUBLIC_URL || process.env.MYSQL_URL || process.env.DATABASE_URL;
 
-const s = new Sequelize(
-  process.env.MYSQLDATABASE || cfg.database,
-  process.env.MYSQLUSER || cfg.username,
-  process.env.MYSQLPASSWORD || cfg.password,
-  { host: process.env.MYSQLHOST || cfg.host, dialect: 'mysql', logging: false }
-);
+const s = databaseUrl
+  ? new Sequelize(databaseUrl, { dialect: 'mysql', logging: false })
+  : new Sequelize(
+    process.env.MYSQLDATABASE || cfg.database,
+    process.env.MYSQLUSER || cfg.username,
+    process.env.MYSQLPASSWORD || cfg.password,
+    {
+      host: process.env.MYSQLHOST || cfg.host,
+      port: process.env.MYSQLPORT || cfg.port || 3306,
+      dialect: 'mysql',
+      logging: false
+    }
+  );
 
 const addIf = async (s, table, col, def) => {
   const [rows] = await s.query(`DESCRIBE \`${table}\``);

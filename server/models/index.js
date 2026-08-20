@@ -4,12 +4,26 @@ require('dotenv').config();
 
 // Support .env variables and fallback to server/config/config.json (Sequelize CLI style)
 const env = process.env.NODE_ENV || 'development';
+const databaseUrl = process.env.MYSQL_PUBLIC_URL || process.env.MYSQL_URL || process.env.DATABASE_URL;
+let urlConfig = {};
+
+if (databaseUrl) {
+  const parsedUrl = new URL(databaseUrl);
+  urlConfig = {
+    database: decodeURIComponent(parsedUrl.pathname.replace(/^\//, '')),
+    username: decodeURIComponent(parsedUrl.username),
+    password: decodeURIComponent(parsedUrl.password),
+    host: parsedUrl.hostname,
+    port: parsedUrl.port || 3306,
+  };
+}
+
 let dbConfig = {
-  database: process.env.MYSQLDATABASE,
-  username: process.env.MYSQLUSER,
-  password: process.env.MYSQLPASSWORD,
-  host: process.env.MYSQLHOST,
-  port: process.env.MYSQLPORT || 3306,
+  database: urlConfig.database || process.env.MYSQLDATABASE,
+  username: urlConfig.username || process.env.MYSQLUSER,
+  password: urlConfig.password || process.env.MYSQLPASSWORD,
+  host: urlConfig.host || process.env.MYSQLHOST,
+  port: urlConfig.port || process.env.MYSQLPORT || 3306,
   dialect: 'mysql',
   logging: false,
 };
@@ -19,11 +33,11 @@ try {
   if (configFile && configFile[env]) {
     const cfg = configFile[env];
     dbConfig = {
-      database: process.env.MYSQLDATABASE || cfg.database,
-      username: process.env.MYSQLUSER || cfg.username,
-      password: process.env.MYSQLPASSWORD || cfg.password,
-      host: process.env.MYSQLHOST || cfg.host,
-      port: process.env.MYSQLPORT || cfg.port || 3306,
+      database: dbConfig.database || cfg.database,
+      username: dbConfig.username || cfg.username,
+      password: dbConfig.password || cfg.password,
+      host: dbConfig.host || cfg.host,
+      port: dbConfig.port || cfg.port || 3306,
       dialect: cfg.dialect || 'mysql',
       logging: false,
     };
