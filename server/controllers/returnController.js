@@ -1,4 +1,4 @@
-const { returns, return_items, products, payments, bills, bill_items, customers, supplier_returns, supplier_services, inventory_statuses, sequelize } = require('../models');
+const { returns, return_items, products, payments, bills, bill_items, customers, supplier_returns, supplier_services, inventory_statuses, units, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const ReturnService = require('../services/returnService');
 const WarrantyService = require('../services/warrantyService');
@@ -165,7 +165,10 @@ exports.lookupBill = async (req, res) => {
         include: [
           {
             model: bill_items,
-            include: [{ model: products, attributes: ['product_id', 'product_name', 'unit_price', 'cost_price'] }]
+            include: [
+              { model: products, attributes: ['product_id', 'product_name', 'unit_price', 'cost_price', 'unit_id'], include: [{ model: units, attributes: ['unit_id', 'unit_name'] }] },
+              { model: units, as: 'billed_unit', attributes: ['unit_id', 'unit_name'] }
+            ]
           },
           {
             model: customers,
@@ -204,7 +207,10 @@ exports.lookupBill = async (req, res) => {
       include: [
         {
           model: bill_items,
-          include: [{ model: products, attributes: ['product_id', 'product_name', 'unit_price', 'cost_price'] }]
+          include: [
+            { model: products, attributes: ['product_id', 'product_name', 'unit_price', 'cost_price', 'unit_id'], include: [{ model: units, attributes: ['unit_id', 'unit_name'] }] },
+            { model: units, as: 'billed_unit', attributes: ['unit_id', 'unit_name'] }
+          ]
         },
         {
           model: customers,

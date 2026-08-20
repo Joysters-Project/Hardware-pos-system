@@ -120,7 +120,7 @@ export default function SupplierServiceTracking() {
                 <div style={{ fontSize: '13px', color: '#555', background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
                   <div><strong>Supplier:</strong> {supplier?.supplier_name || `Supplier #${item.supplier_id}`}</div>
                   <div><strong>Service Type:</strong> {item.service_type || 'REPAIR'}</div>
-                  <div><strong>Quantity:</strong> {parseFloat(returnItem?.return_quantity || returnItem?.quantity || 1)} units ({returnItem?.condition || 'DEFECTIVE'})</div>
+                  <div><strong>Quantity:</strong> {parseFloat(returnItem?.return_quantity || returnItem?.quantity || 1)} {returnItem?.unit_name || 'units'} ({returnItem?.condition || 'DEFECTIVE'})</div>
                 </div>
 
                 <div style={{ fontSize: '13px', color: '#333' }}>

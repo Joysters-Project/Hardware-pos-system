@@ -21,7 +21,8 @@ module.exports = (sequelize) => {
     return_reason: { type: DataTypes.STRING(255), allowNull: true },
     destination: { type: DataTypes.STRING(50), allowNull: false, defaultValue: 'STOCK' },
     destination_note: { type: DataTypes.TEXT, allowNull: true },
-    exchange_product_id: { type: DataTypes.INTEGER, allowNull: true }
+    exchange_product_id: { type: DataTypes.INTEGER, allowNull: true },
+    unit_name: { type: DataTypes.STRING(50), allowNull: true }
   }, { tableName: 'return_items', timestamps: false });
 };
 

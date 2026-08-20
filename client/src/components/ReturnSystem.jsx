@@ -18,11 +18,22 @@ const ReturnSystem = () => {
   // Return Form State
   const [selectedProduct, setSelectedProduct] = useState("");
   const [returnQuantity, setReturnQuantity] = useState(1);
+  const [returnUnit, setReturnUnit] = useState("Pcs");
+  const [unitsList, setUnitsList] = useState([]);
   const [destination, setDestination] = useState("STOCK");
   const [reason, setReason] = useState("");
   const [poId, setPoId] = useState("");
   const [supplierId, setSupplierId] = useState("");
   const [suggestedSupplierInfo, setSuggestedSupplierInfo] = useState(null);
+
+  useEffect(() => {
+    api.get("/units")
+      .then(res => {
+        const data = res.data;
+        setUnitsList(Array.isArray(data) ? data : (data.data || []));
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (selectedProduct && destination === "SUPPLIER") {
@@ -111,6 +122,7 @@ const ReturnSystem = () => {
       bill_id: billData.bill_id,
       product_id: item.product_id,
       return_quantity: qty,
+      unit_name: returnUnit || 'Pcs',
       refund_amount: refundAmnt,
       destination,
       reason,
@@ -230,24 +242,39 @@ const ReturnSystem = () => {
             <p className="placeholder-text">Please search a bill and select an item to return.</p>
           ) : (
             <form onSubmit={processReturn} className="return-form">
-              <div className="form-group">
-                <label>Return Quantity</label>
-                {selectedProduct && billData?.bill_items && (
-                  (() => {
-                    const item = billData.bill_items.find(i => i.product_id === parseInt(selectedProduct));
-                    return item ? (
-                      <input id="returnQuantity" name="returnQuantity" 
-                        type="number" 
-                        step="any"
-                        min="0.01" 
-                        max={item.quantity}
-                        value={returnQuantity} 
-                        onChange={(e) => setReturnQuantity(e.target.value)}
-                        required 
-                      />
-                    ) : null;
-                  })()
-                )}
+              <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: '12px' }}>
+                <div>
+                  <label>Return Quantity</label>
+                  {selectedProduct && billData?.bill_items && (
+                    (() => {
+                      const item = billData.bill_items.find(i => i.product_id === parseInt(selectedProduct));
+                      return item ? (
+                        <input id="returnQuantity" name="returnQuantity" 
+                          type="number" 
+                          step="any"
+                          min="0.01" 
+                          max={item.quantity}
+                          value={returnQuantity} 
+                          onChange={(e) => setReturnQuantity(e.target.value)}
+                          required 
+                        />
+                      ) : null;
+                    })()
+                  )}
+                </div>
+                <div>
+                  <label>Unit</label>
+                  <select id="returnUnit" name="returnUnit"
+                    value={returnUnit}
+                    onChange={(e) => setReturnUnit(e.target.value)}
+                    style={{ padding: '8px 10px', borderRadius: '6px', border: '1px solid #ccc', width: '100%', height: '42px', fontSize: '14px' }}
+                  >
+                    {(unitsList.length > 0 ? unitsList : ['Pcs', 'Kg', 'g', 'm', 'cm', 'mm', 'l', 'ml', 'number', 'Tipper load', 'Tractor load', 'landmaster load', 'Box', 'Pack', 'Roll', 'Set', 'Sq Ft']).map(u => {
+                      const uName = typeof u === 'string' ? u : (u.unit_name || u.name);
+                      return <option key={uName} value={uName}>{uName}</option>;
+                    })}
+                  </select>
+                </div>
               </div>
 
               <div className="form-group">
@@ -279,7 +306,7 @@ const ReturnSystem = () => {
                 <textarea id="reason" name="reason" 
                   value={reason} 
                   onChange={(e) => setReason(e.target.value)} 
-                  placeholder="E.g. Wrong item, damaged box..."
+                  placeholder="E.g. Excess quantity bought, wrong item, damaged box..."
                   required
                 />
               </div>

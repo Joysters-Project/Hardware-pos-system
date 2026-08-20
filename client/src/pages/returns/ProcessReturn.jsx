@@ -92,7 +92,7 @@ function ValidationHint({ condition, action }) {
 }
 
 // ─── Return Item Card ────────────────────────────────────────────────────────
-function ReturnItemCard({ item, onToggle, onFieldChange, calcPayment }) {
+function ReturnItemCard({ item, onToggle, onFieldChange, calcPayment, unitsList }) {
   const validActions = getValidActions(item.condition);
   const hint = getValidationHint(item.condition, item.action);
   const needsApproval = requiresManagerApproval(item.condition, item.action);
@@ -152,27 +152,42 @@ function ReturnItemCard({ item, onToggle, onFieldChange, calcPayment }) {
       {item.selected && (
         <div className="ret-item-fields">
 
-          {/* Step 2: Quantity */}
-          <div>
-            <label>Return Quantity</label>
-            <input id="return_quantity" name="return_quantity"
-              type="number"
-              step="any"
-              min="0.01"
-              max={item.max_quantity}
-              value={item.return_quantity}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (val === '') {
-                  onFieldChange('return_quantity', '');
-                } else {
-                  const num = parseFloat(val);
-                  onFieldChange('return_quantity', isNaN(num) ? '' : Math.min(item.max_quantity, Math.max(0.0001, num)));
-                }
-              }}
-            />
+          {/* Step 2: Quantity & Unit */}
+          <div className="span-full" style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: '12px', alignItems: 'flex-start' }}>
+            <div>
+              <label>Return Quantity</label>
+              <input id={`return_quantity_${item.product_id}`} name="return_quantity"
+                type="number"
+                step="any"
+                min="0.01"
+                max={item.max_quantity}
+                value={item.return_quantity}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '') {
+                    onFieldChange('return_quantity', '');
+                  } else {
+                    const num = parseFloat(val);
+                    onFieldChange('return_quantity', isNaN(num) ? '' : Math.min(item.max_quantity, Math.max(0.0001, num)));
+                  }
+                }}
+              />
+            </div>
+            <div>
+              <label>Unit</label>
+              <select id={`unit_${item.product_id}`} name="unit_name"
+                value={item.unit_name || 'Pcs'}
+                onChange={(e) => onFieldChange('unit_name', e.target.value)}
+                style={{ padding: '8px 10px', borderRadius: '6px', border: '1px solid #ccc', width: '100%', height: '38px', fontSize: '13px' }}
+              >
+                {(unitsList && unitsList.length > 0 ? unitsList : ['Pcs', 'Kg', 'g', 'm', 'cm', 'mm', 'l', 'ml', 'number', 'Tipper load', 'Tractor load', 'landmaster load', 'Box', 'Pack', 'Roll', 'Set', 'Sq Ft']).map(u => {
+                  const uName = typeof u === 'string' ? u : (u.unit_name || u.name);
+                  return <option key={uName} value={uName}>{uName}</option>;
+                })}
+              </select>
+            </div>
             {(parseFloat(item.return_quantity) || 0) > item.max_quantity && (
-              <div className="ret-field-error">⚠️ Cannot exceed billed quantity ({item.max_quantity})</div>
+              <div className="ret-field-error span-full">⚠️ Cannot exceed billed quantity ({item.max_quantity})</div>
             )}
           </div>
 
@@ -193,6 +208,7 @@ function ReturnItemCard({ item, onToggle, onFieldChange, calcPayment }) {
               <option value="Wrong Product Delivered">Wrong Product Delivered</option>
               <option value="Warranty Claim">Warranty Claim</option>
               <option value="Customer Changed Mind">Customer Changed Mind</option>
+              <option value="Excess Quantity Bought">Excess Quantity Bought</option>
               <option value="Quality Issue">Quality Issue</option>
               <option value="Missing Accessories">Missing Accessories</option>
               <option value="Not As Described">Not As Described</option>
@@ -568,11 +584,21 @@ export default function ProcessReturn() {
   const selectedList = Object.values(selectedItems).filter(i => i.selected);
   const currentStep = !selectedBill ? 1 : selectedList.length === 0 ? 2 : 3;
 
+  const [unitsList, setUnitsList] = useState([]);
+
   useEffect(() => {
     api.get('/suppliers')
       .then(res => {
         const data = res.data;
         setSuppliers(Array.isArray(data) ? data : (data.data || []));
+      })
+      .catch(() => {});
+
+    api.get('/units')
+      .then(res => {
+        const data = res.data;
+        const list = Array.isArray(data) ? data : (data.data || []);
+        setUnitsList(list);
       })
       .catch(() => {});
   }, []);
@@ -620,6 +646,7 @@ export default function ProcessReturn() {
         price_per_unit: parseFloat(item.price_per_unit) || 0,
         max_quantity: item.quantity,
         return_quantity: 1,
+        unit_name: item.billed_unit?.unit_name || item.product?.unit?.unit_name || 'Pcs',
         condition: defaultCondition,
         action: defaultAction,
         stock_movement: getDefaultStockMovementKey(defaultAction),
@@ -704,6 +731,7 @@ export default function ProcessReturn() {
             product_id: item.product_id,
             return_quantity: parseFloat(item.return_quantity) || 0,
             quantity: parseFloat(item.return_quantity) || 0,
+            unit_name: item.unit_name || 'Pcs',
             condition: (() => {
               // Map extended conditions to backend-accepted ENUM values
               const map = {
@@ -906,6 +934,7 @@ export default function ProcessReturn() {
                   onToggle={() => toggleItem(item.product_id)}
                   onFieldChange={(f, v) => changeItemField(item.product_id, f, v)}
                   calcPayment={calcCustomerPayment}
+                  unitsList={unitsList}
                 />
               ))}
             </div>

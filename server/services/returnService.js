@@ -155,7 +155,8 @@ class ReturnService {
           return_reason: itemReason,
           destination,
           destination_note: item.destination_note || null,
-          exchange_product_id: item.exchange_product_id || null
+          exchange_product_id: item.exchange_product_id || null,
+          unit_name: item.unit_name || item.unit || item.selected_unit || null
         }, { transaction: t });
 
         // Update bill item quantity and total
