@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useParams, useNavigate, Link, Navigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
+import api from "../api/axios";
 import "../styles/Login.css";
 import logo from "../assets/logo.png";
 
@@ -33,54 +34,36 @@ function Login() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
+      const { data } = await api.post("/auth/login", {
           user_name: userName,
           password: password,
           role: roleParam
-        })
       });
 
-      const rawBody = await response.text();
-      let data = {};
-      try {
-        data = rawBody ? JSON.parse(rawBody) : {};
-      } catch (parseError) {
-        data = { message: rawBody || 'Unexpected server response' };
-      }
+      toast.success("Login successful!");
 
-      if (response.ok) {
-        toast.success("Login successful!");
+      if (data.token && data.user) {
+        const userRoleName = (data.user.role || roleParam).toLowerCase();
+        // Store all user information in sessionStorage & localStorage
+        sessionStorage.setItem('userId', data.user.user_id);
+        sessionStorage.setItem('userName', data.user.user_name);
+        sessionStorage.setItem('userFirstName', data.user.first_name);
+        sessionStorage.setItem('userLastName', data.user.last_name);
+        sessionStorage.setItem('userFullName', `${data.user.first_name} ${data.user.last_name}`);
+        
+        localStorage.setItem('userId', data.user.user_id);
+        localStorage.setItem('userName', data.user.user_name);
+        localStorage.setItem('userFirstName', data.user.first_name);
+        localStorage.setItem('userLastName', data.user.last_name);
+        localStorage.setItem('userFullName', `${data.user.first_name} ${data.user.last_name}`);
 
-        if (data.token && data.user) {
-          const userRoleName = (data.user.role || roleParam).toLowerCase();
-          // Store all user information in sessionStorage & localStorage
-          sessionStorage.setItem('userId', data.user.user_id);
-          sessionStorage.setItem('userName', data.user.user_name);
-          sessionStorage.setItem('userFirstName', data.user.first_name);
-          sessionStorage.setItem('userLastName', data.user.last_name);
-          sessionStorage.setItem('userFullName', `${data.user.first_name} ${data.user.last_name}`);
-          
-          localStorage.setItem('userId', data.user.user_id);
-          localStorage.setItem('userName', data.user.user_name);
-          localStorage.setItem('userFirstName', data.user.first_name);
-          localStorage.setItem('userLastName', data.user.last_name);
-          localStorage.setItem('userFullName', `${data.user.first_name} ${data.user.last_name}`);
-
-          login(data.user.user_name, data.token, userRoleName);
-          navigate("/dashboard/" + userRoleName, { replace: true });
-        } else {
-          navigate("/dashboard/" + roleParam.toLowerCase(), { replace: true });
-        }
+        login(data.user.user_name, data.token, userRoleName);
+        navigate("/dashboard/" + userRoleName, { replace: true });
       } else {
-        toast.error(data.message || 'Login failed');
+        navigate("/dashboard/" + roleParam.toLowerCase(), { replace: true });
       }
     } catch (error) {
-      toast.error("Connection error: " + error.message);
+      toast.error(error.response?.data?.message || "Connection error: " + error.message);
       console.error("Login error:", error);
     } finally {
       setLoading(false);
