@@ -37,7 +37,7 @@ exports.getAllSupplierServices = async (req, res) => {
     const services = await supplier_services.findAll({
       where: whereClause,
       include: includeArr,
-      order: [['createdAt', 'DESC']]
+      order: [['id', 'DESC']]
     });
 
     res.status(200).json({ success: true, data: services });
