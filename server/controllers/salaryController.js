@@ -1,5 +1,5 @@
 const db   = require('../models');
-const { Op } = require('sequelize');
+const Op   = db.Sequelize.Op;
 const { sendPayslipEmail } = require('../services/salaryService');
 const { logActivity } = require('../services/auditService');
 const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
@@ -15,29 +15,27 @@ const empInclude = {
 // GET /api/salary
 const getAllPayments = async (req, res) => {
   try {
-    const { employee_id, payment_month, payment_year, status, salary_category, search } = req.query;
+    const { employee_id, payment_month, payment_year, status, payment_status, salary_category, search } = req.query;
     const where = {};
-    if (employee_id)     where.employee_id     = employee_id;
-    if (payment_month)   where.payment_month   = payment_month;
-    if (payment_year)    where.payment_year    = payment_year;
-    if (status)          where.payment_status  = status;
-    if (salary_category) where.salary_category = salary_category;
+    if (employee_id)        where.employee_id     = employee_id;
+    if (payment_month)      where.payment_month   = payment_month;
+    if (payment_year)       where.payment_year    = payment_year;
+    if (status || payment_status) where.payment_status  = status || payment_status;
+    if (salary_category)    where.salary_category = salary_category;
 
-    const empWhere = {};
-    if (search) {
-      const searchPattern = `%${search}%`;
-      empWhere$or = [
-        { first_name: { $like: searchPattern } },
-        { last_name:  { $like: searchPattern } },
-        { email:      { $like: searchPattern } },
-        { phone_no:   { $like: searchPattern } }
-      ];
-    }
+    const empWhere = search ? {
+      [Op.or]: [
+        { first_name: { [Op.like]: `%${search}%` } },
+        { last_name:  { [Op.like]: `%${search}%` } },
+        { email:      { [Op.like]: `%${search}%` } },
+        { phone_no:   { [Op.like]: `%${search}%` } }
+      ]
+    } : undefined;
 
     const list = await db.salary_payments.findAll({
       where,
       subQuery: false,
-      include: [{ ...empInclude, where: Object.keys(empWhere).length ? empWhere : undefined }],
+      include: [{ ...empInclude, where: empWhere }],
       order: [['created_at', 'DESC']]
     });
     res.status(200).json(list);
@@ -50,7 +48,7 @@ const getAllPayments = async (req, res) => {
 // GET /api/salary/:id
 const getPaymentById = async (req, res) => {
   try {
-    const record = await db.salary_payments.findById(req.params.id, { include: [empInclude] });
+    const record = await db.salary_payments.findByPk(req.params.id, { include: [empInclude] });
     if (!record) return res.status(404).json({ message: 'Salary record not found' });
     res.status(200).json(record);
   } catch (error) {
@@ -78,7 +76,7 @@ const getEmployeeSalarySummary = async (req, res) => {
     const empId = req.params.employee_id;
     const currentYear = new Date().getFullYear();
     const [emp, lastPaid, totalPaidYear] = await Promise.all([
-      db.employees.findById(empId, { include: [{ model: db.departments, attributes: ['department_name'] }] }),
+      db.employees.findByPk(empId, { include: [{ model: db.departments, attributes: ['department_name'] }] }),
       db.salary_payments.findOne({
         where: { employee_id: empId, payment_status: 'Paid' },
         order: [['created_at', 'DESC']]
@@ -110,7 +108,7 @@ const createPayment = async (req, res) => {
       payment_method, remarks
     } = req.body;
 
-    const employee = await db.employees.findById(employee_id);
+    const employee = await db.employees.findByPk(employee_id);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found.' });
 
     const resolvedCategory = (salary_category || employee.salary_category || 'monthly').toLowerCase();
@@ -119,8 +117,17 @@ const createPayment = async (req, res) => {
     const parsedDeduction = parseFloat(deduction_amount || 0);
     const final_salary = parsedBasicSalary + parsedBonus - parsedDeduction;
 
+    const parsedPaymentDate = payment_date ? new Date(payment_date) : null;
+    const dateForPeriod = parsedPaymentDate && !Number.isNaN(parsedPaymentDate.getTime()) ? parsedPaymentDate : new Date();
+    const resolvedPaymentMonth = payment_month != null && payment_month !== '' ? Number(payment_month) : dateForPeriod.getMonth() + 1;
+    const resolvedPaymentYear = payment_year != null && payment_year !== '' ? Number(payment_year) : dateForPeriod.getFullYear();
+
     if (!employee_id || !parsedBasicSalary || !payment_date) {
       return res.status(400).json({ success: false, message: 'employee_id, basic_salary, and payment_date are required' });
+    }
+
+    if (parsedBonus < 0 || parsedDeduction < 0) {
+      return res.status(400).json({ success: false, message: 'Bonus and deduction must be zero or greater.' });
     }
 
     if (final_salary < 0) return res.status(400).json({ success: false, message: 'Final salary cannot be negative.' });
@@ -151,10 +158,10 @@ const createPayment = async (req, res) => {
       bonus_amount: parsedBonus,
       deduction_amount: parsedDeduction,
       final_salary,
-      payment_month: resolvedCategory === 'monthly' ? payment_month : null,
-      payment_year:  resolvedCategory === 'monthly' ? payment_year  : null,
+      payment_month: resolvedPaymentMonth,
+      payment_year: resolvedPaymentYear,
       payment_date: payment_date || null,
-      payment_status: 'Paid',
+      payment_status: 'Pending',
       payment_method: payment_method || null,
       remarks: remarks || null
     });
@@ -162,7 +169,7 @@ const createPayment = async (req, res) => {
     await logActivity(req.user?.user_id, req.user?.role, 'SALARY_SLIP_CREATED',
       `Salary paid for Employee ID ${employee_id}. Category: ${salary_category}, Amount: ${final_salary}`, getIp(req));
 
-    const full = await db.salary_payments.findById(record.salary_payment_id, { include: [empInclude] });
+    const full = await db.salary_payments.findByPk(record.salary_payment_id, { include: [empInclude] });
 
     if (full.employee?.email) {
       sendPayslipEmail(full.employee.email, `${full.employee.first_name} ${full.employee.last_name}`, full.toJSON(), null)
@@ -179,7 +186,7 @@ const createPayment = async (req, res) => {
 // PUT /api/salary/:id/pay
 const paySalary = async (req, res) => {
   try {
-    const record = await db.salary_payments.findById(req.params.id, { include: [empInclude] });
+    const record = await db.salary_payments.findByPk(req.params.id, { include: [empInclude] });
     if (!record) return res.status(404).json({ message: 'Salary record not found' });
     if (record.payment_status === 'Paid') return res.status(400).json({ message: 'Already paid' });
 
@@ -203,7 +210,7 @@ const paySalary = async (req, res) => {
 // PUT /api/salary/:id
 const updatePayment = async (req, res) => {
   try {
-    const record = await db.salary_payments.findById(req.params.id);
+    const record = await db.salary_payments.findByPk(req.params.id);
     if (!record) return res.status(404).json({ message: 'Salary record not found' });
     const { basic_salary, bonus_amount, deduction_amount, payment_method, remarks } = req.body;
     const bs = parseFloat(basic_salary ?? record.basic_salary);
@@ -216,10 +223,22 @@ const updatePayment = async (req, res) => {
   }
 };
 
+// DELETE /api/salary/:id
+const deletePayment = async (req, res) => {
+  try {
+    const record = await db.salary_payments.findByPk(req.params.id);
+    if (!record) return res.status(404).json({ message: 'Salary record not found' });
+    await record.destroy();
+    res.status(200).json({ message: 'Salary record deleted' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // GET /api/salary/:id/download
 const downloadPayslip = async (req, res) => {
   try {
-    const record = await db.salary_payments.findById(req.params.id);
+    const record = await db.salary_payments.findByPk(req.params.id);
     if (!record) return res.status(404).json({ message: 'Record not found' });
     res.status(404).json({ message: 'Payslip downloads are disabled.' });
   } catch (error) {
@@ -237,7 +256,7 @@ const getDashboardStats = async (req, res) => {
     const [pendingRow, paidRow, activeRow] = await Promise.all([
       db.sequelize.query("SELECT COUNT(*) AS count FROM salary_payments WHERE payment_status = 'Pending'",
         { type: db.Sequelize.QueryTypes.SELECT }),
-      db.sequelize.query("SELECT COUNT(*) AS count FROM salary_payments WHERE payment_status = 'Paid' AND payment_month = ? AND payment_year = ?",
+      db.sequelize.query("SELECT COUNT(*) AS count FROM salary_payments WHERE payment_status = 'Paid' AND MONTH(payment_date) = ? AND YEAR(payment_date) = ?",
         { replacements: [month, year], type: db.Sequelize.QueryTypes.SELECT }),
       db.sequelize.query("SELECT COUNT(*) AS count FROM employees WHERE status = 'Active'",
         { type: db.Sequelize.QueryTypes.SELECT })
@@ -259,7 +278,7 @@ const getDashboardStats = async (req, res) => {
 // POST /api/salary/:id/resend-email
 const resendPayslipEmail = async (req, res) => {
   try {
-    const record = await db.salary_payments.findById(req.params.id, { include: [empInclude] });
+    const record = await db.salary_payments.findByPk(req.params.id, { include: [empInclude] });
     if (!record) return res.status(404).json({ message: 'Salary record not found' });
     if (record.payment_status !== 'Paid') return res.status(400).json({ message: 'Can only resend for paid records' });
     if (!record.employee?.email) return res.status(400).json({ message: 'Employee has no email address on file' });
@@ -274,4 +293,16 @@ const resendPayslipEmail = async (req, res) => {
   }
 };
 
-module.exports = { getAllPayments, getPaymentById, getEmployeeSalaryHistory, getEmployeeSalarySummary, createPayment, paySalary, updatePayment, downloadPayslip, getDashboardStats, resendPayslipEmail };
+module.exports = {
+  getAllPayments,
+  getPaymentById,
+  getEmployeeSalaryHistory,
+  getEmployeeSalarySummary,
+  createPayment,
+  paySalary,
+  updatePayment,
+  deletePayment,
+  downloadPayslip,
+  getDashboardStats,
+  resendPayslipEmail
+};

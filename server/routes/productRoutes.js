@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const productController = require('../controllers/productController');
+const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../models');
 const { Op } = require('sequelize');
 
@@ -13,31 +14,27 @@ router.get('/search', async (req, res) => {
       return res.json([]);
     }
 
-    const lowerQuery = query.toLowerCase();
-    const searchClauses = [
-      db.Sequelize.where(
-        db.Sequelize.fn('LOWER', db.Sequelize.col('product_name')),
-        { [Op.like]: `%${lowerQuery}%` }
-      ),
-      db.Sequelize.where(
-        db.Sequelize.fn('LOWER', db.Sequelize.col('type')),
-        { [Op.like]: `%${lowerQuery}%` }
-      ),
-      db.Sequelize.where(
-        db.Sequelize.fn('LOWER', db.Sequelize.col('batch_no')),
-        { [Op.like]: `%${lowerQuery}%` }
-      )
-    ];
+    const pattern = `%${query}%`;
 
-    const productId = parseInt(query, 10);
-    if (!Number.isNaN(productId)) {
-      searchClauses.push({ product_id: productId });
-    }
+    // Use raw query to find matching product IDs including barcode search (avoids Sequelize v3 fn/like incompatibility)
+    const rows = await db.sequelize.query(
+      `SELECT DISTINCT p.product_id FROM products p
+       LEFT JOIN product_units pu ON p.product_id = pu.product_id
+       WHERE p.product_name LIKE :pattern
+          OR p.type LIKE :pattern
+          OR p.batch_no LIKE :pattern
+          OR p.barcode LIKE :pattern
+          OR pu.barcode LIKE :pattern
+          OR CAST(p.product_id AS CHAR) = :exact
+       LIMIT 50`,
+      { replacements: { pattern, exact: query }, type: db.Sequelize.QueryTypes.SELECT }
+    );
+
+    const ids = rows.map(r => r.product_id);
+    if (ids.length === 0) return res.json([]);
 
     const results = await db.products.findAll({
-      where: {
-        [Op.or]: searchClauses
-      },
+      where: { product_id: ids },
       include: [
         { model: db.units, attributes: ['unit_id', 'unit_name'] },
         {
@@ -48,7 +45,6 @@ router.get('/search', async (req, res) => {
           ]
         }
       ],
-      limit: 50,
       order: [['product_name', 'ASC']]
     });
 
@@ -62,7 +58,7 @@ router.get('/search', async (req, res) => {
 // --- STANDARD CRUD (From Developer Branch) ---
 
 // CREATE Product
-router.post('/', productController.createProduct);
+router.post('/', authMiddleware, productController.createProduct);
 
 // GET All Products
 router.get('/', (req, res, next) => {
@@ -74,9 +70,9 @@ router.get('/', (req, res, next) => {
 router.get('/:id', productController.getProductById);
 
 // UPDATE Product
-router.put('/:id', productController.updateProduct);
+router.put('/:id', authMiddleware, productController.updateProduct);
 
 // DELETE Product
-router.delete('/:id', productController.deleteProduct);
+router.delete('/:id', authMiddleware, productController.deleteProduct);
 
 module.exports = router;

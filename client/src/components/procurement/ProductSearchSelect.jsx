@@ -99,17 +99,11 @@ export function ProductSearchSelect({
 
       {/* Dropdown */}
       {isOpen && (
-        <div style={{
-          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
-          background: '#fff', border: '1.5px solid #e0e0e0', borderRadius: 10,
-          boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 9999,
-          overflow: 'hidden',
-        }}>
-          {/* Search input */}
-          <div style={{ padding: '8px 10px', borderBottom: '1px solid #f0f0f0' }}>
-            <div style={{ position: 'relative' }}>
-              <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: '#aaa' }} />
-              <input
+        <div className="absolute z-[10000] w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-2xl overflow-hidden" style={{ boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}>
+          <div className="p-2 border-b border-slate-100">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input id="searchTerm" name="searchTerm"
                 ref={inputRef}
                 type="text"
                 value={searchTerm}

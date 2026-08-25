@@ -158,9 +158,9 @@ export default function ForecastDashboard() {
                 <span className="proc-badge-count">{filtered.length} products</span>
               </div>
               <div className="pp-table-toolbar">
-                <input className="proc-search" style={{ flex: 1 }}
+                <input id="search" name="search" className="proc-search" style={{ flex: 1 }}
                   placeholder="Search product..." value={search} onChange={e => setSearch(e.target.value)} />
-                <select className="proc-select" value={sevFilter} onChange={e => setSevFilter(e.target.value)}>
+                <select id="sevFilter" name="sevFilter" className="proc-select" value={sevFilter} onChange={e => setSevFilter(e.target.value)}>
                   <option value="">All Severity</option>
                   <option value="Critical">Critical</option>
                   <option value="Low">Low</option>

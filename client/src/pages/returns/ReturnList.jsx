@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
+import api from '../../api/axios';
 import '../../styles/Returns.css';
 
 export default function ReturnList() {
@@ -14,22 +15,19 @@ export default function ReturnList() {
   const fetchReturns = async () => {
     try {
       setLoading(true);
-      const query = new URLSearchParams();
-      if (filterStatus) query.append('status', filterStatus);
-      if (filterType) query.append('return_type', filterType);
+      const params = {};
+      if (filterStatus) params.status = filterStatus;
+      if (filterType) params.return_type = filterType;
 
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/returns?${query.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
+      const res = await api.get('/returns', { params });
+      const data = res.data;
       if (data.success) {
         setReturnsList(data.data || []);
       } else {
         toast.error(data.error || 'Failed to fetch returns');
       }
     } catch (err) {
-      toast.error('Network error fetching returns history');
+      toast.error(err.response?.data?.error || 'Network error fetching returns history');
     } finally {
       setLoading(false);
     }
@@ -41,16 +39,8 @@ export default function ReturnList() {
 
   const handleStatusChange = async (returnId, newStatus) => {
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/returns/${returnId}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ status: newStatus })
-      });
-      const data = await res.json();
+      const res = await api.put(`/returns/${returnId}/status`, { status: newStatus });
+      const data = res.data;
       if (data.success) {
         toast.success(`Return status updated to ${newStatus}`);
         fetchReturns();
@@ -61,7 +51,7 @@ export default function ReturnList() {
         toast.error(data.error || 'Failed to update status');
       }
     } catch (err) {
-      toast.error('Error updating status');
+      toast.error(err.response?.data?.error || 'Error updating status');
     }
   };
 
@@ -89,7 +79,7 @@ export default function ReturnList() {
       <div className="retlog-filters" style={{ marginTop: '16px' }}>
         <label>
           Filter Status:
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+          <select id="filterStatus" name="filterStatus" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
             <option value="">All Statuses</option>
             <option value="REQUESTED">REQUESTED</option>
             <option value="APPROVED">APPROVED</option>
@@ -102,7 +92,7 @@ export default function ReturnList() {
 
         <label>
           Filter Type:
-          <select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
+          <select id="filterType" name="filterType" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
             <option value="">All Types</option>
             <option value="REFUND">REFUND</option>
             <option value="REPAIR">REPAIR</option>
@@ -159,7 +149,7 @@ export default function ReturnList() {
                   </div>
                   <div style={{ fontSize: '13px', color: '#777', marginTop: '4px' }}>
                     <strong>Items Returned:</strong>{' '}
-                    {ret.items?.map(i => `${i.product?.product_name || 'Product'} (x${i.return_quantity || i.quantity || 1}) - ${i.action || 'REFUND'}`).join(', ')}
+                    {ret.items?.map(i => `${i.product?.product_name || 'Product'} (x${parseFloat(i.return_quantity || i.quantity || 1)}) - ${i.action || 'REFUND'}`).join(', ')}
                   </div>
                 </div>
 
@@ -248,7 +238,7 @@ export default function ReturnList() {
                   {selectedReturn.items?.map((item) => (
                     <tr key={item.return_item_id} style={{ borderTop: '1px solid #eee' }}>
                       <td style={{ padding: '8px 12px', fontWeight: '500' }}>{item.product?.product_name || `Product #${item.product_id}`}</td>
-                      <td style={{ padding: '8px 12px' }}>{item.return_quantity || item.quantity || 1}</td>
+                      <td style={{ padding: '8px 12px' }}>{parseFloat(item.return_quantity || item.quantity || 1)}</td>
                       <td style={{ padding: '8px 12px' }}>{item.condition || 'DEFECTIVE'}</td>
                       <td style={{ padding: '8px 12px' }}>
                         <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>

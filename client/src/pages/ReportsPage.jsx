@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import api from '../api/axios';
-import { jsPDF } from 'jspdf';
+import { buildTableHtml, escapeHtml, printWithTemplate } from '../utils/printTemplate';
 import { useAuth } from '../context/AuthContext';
 import '../styles/ReportsPage.css';
 import '../styles/Returns.css';
@@ -14,57 +14,18 @@ const fmt = (v) => `Rs. ${Number(v ?? 0).toFixed(2)}`;
 const fmtNum = (v) => Number(v ?? 0).toFixed(2);
 const csvEscape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 const dateStamp = () => new Date().toISOString().slice(0, 10);
-const textRowsToPdf = (pdf, headers, rows, left, top, widths, pageWidth, pageHeight) => {
-  const rowHeight = 18;
-  let y = top;
-  const totalWidth = widths.reduce((sum, w) => sum + w, 0);
-
-  const drawHeader = () => {
-    pdf.setFillColor(248, 228, 229);
-    pdf.rect(left, y - 14, totalWidth, rowHeight, 'F');
-    pdf.setFontSize(10);
-    pdf.setTextColor('#800000');
-    let x = left + 4;
-    headers.forEach((label, index) => {
-      pdf.text(String(label), x, y);
-      x += widths[index];
-    });
-    y += rowHeight;
-  };
-
-  drawHeader();
-
-  rows.forEach((row, index) => {
-    if (y + rowHeight > pageHeight - 40) {
-      pdf.addPage();
-      y = 40;
-      drawHeader();
-    }
-    pdf.setFontSize(9);
-    pdf.setTextColor('#333');
-    let x = left + 4;
-    row.forEach((cell, colIndex) => {
-      const text = String(cell ?? '–');
-      pdf.text(text, x, y);
-      x += widths[colIndex];
-    });
-    y += rowHeight;
+const printReportWithTemplate = (title, headers, rows, subtitle = '') => {
+  const tableHtml = buildTableHtml({
+    columns: headers,
+    rows: rows.map((row) => row.map((cell) => escapeHtml(cell))),
+    emptyMessage: 'No records found',
   });
-};
-const createReportPdf = (title, headers, rows) => {
-  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-  pdf.setFontSize(16);
-  pdf.setTextColor('#800000');
-  pdf.text(title, 40, 40);
-  pdf.setFontSize(10);
-  pdf.setTextColor('#555');
-  pdf.text(`Generated on ${new Date().toLocaleString()}`, 40, 58);
 
-  const widths = headers.map(() => Math.floor((pageWidth - 80) / headers.length));
-  textRowsToPdf(pdf, headers, rows, 40, 90, widths, pageWidth, pageHeight);
-  return pdf;
+  return printWithTemplate({
+    title,
+    subtitle,
+    contentHtml: tableHtml,
+  });
 };
 const downloadBlob = (filename, data, type) => {
   const blob = new Blob([data], { type });
@@ -361,8 +322,8 @@ function SalesReport() {
       b.status || '–',
       b.bill_items?.length || 0,
     ]);
-    const pdf = createReportPdf('Sales Report – All Bills', pdfHeaders, pdfRows);
-    pdf.save(`sales-report-${dateStamp()}.pdf`);
+    const opened = printReportWithTemplate('Sales Report - All Bills', pdfHeaders, pdfRows, `Export Date: ${dateStamp()}`);
+    if (!opened) window.alert('Allow pop-ups to export the report as PDF.');
   };
 
   return (
@@ -378,7 +339,7 @@ function SalesReport() {
       </div>
       {/* Sales Revenue Chart */}
       <div className="chart-container" style={{ height: '300px', marginBottom: '20px' }}>
-        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
+        <ResponsiveContainer width="100%" height={300}>
           <LineChart data={salesChartData} margin={{ top: 8, right: 20, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
             <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#2c2c2c', fontSize: 11, fontWeight: 600 }} />
@@ -415,20 +376,20 @@ function SalesReport() {
 
       {/* Filters */}
       <div className="rp-filters">
-        <input placeholder="Search Bill No / Customer / Phone" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+        <input id="search" name="search" placeholder="Search Bill No / Customer / Phone" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
         {!isCashier && (
           <>
             <div className="rp-date-group">
               <label>From</label>
-              <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} />
+              <input id="dateFrom" name="dateFrom" type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} />
             </div>
             <div className="rp-date-group">
               <label>To</label>
-              <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} />
+              <input id="dateTo" name="dateTo" type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} />
             </div>
           </>
         )}
-        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
+        <select id="statusFilter" name="statusFilter" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
           <option value="">All Status</option>
           <option value="PAID">Paid</option>
           <option value="PARTIAL">Partial (Borrowed)</option>
@@ -664,6 +625,26 @@ function ReturnsReport() {
 
   const reset = () => { setFilter(''); setSearch(''); if (!isCashier) setDateFilter('all'); setTimeframe(initialTimeframe); setPage(1); };
 
+  // Filter returns based on search query — must be before any conditional return
+  const filteredReturns = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    return returnsData.filter((r) => {
+      const matchSearch = !q ||
+        String(r.return_id || '').includes(q) ||
+        (r.bill?.bill_no || r.bills?.bill_no || r.bill_number || '').toLowerCase().includes(q) ||
+        (r.bill?.customer?.customer_name || '').toLowerCase().includes(q) ||
+        (r.bill?.customer?.phone_no || '').includes(q);
+      const destinationValue = (r.destination || '').toUpperCase();
+      const hasDestinationMatch = !filter || destinationValue === filter || (r.items || []).some((item) => (item.destination || '').toUpperCase() === filter);
+      const matchTimeframe = matchesTimeframe(r.return_date, timeframe);
+      return matchSearch && hasDestinationMatch && matchTimeframe;
+    });
+  }, [returnsData, search, filter, timeframe]);
+
+  const returnsChartData = useMemo(() => {
+    return buildTimeSeriesData(filteredReturns, timeframe, (r) => r.return_date, (r) => r.total_refund_amount);
+  }, [filteredReturns, timeframe]);
+
   if (!isAuthorized) {
     return (
       <div className="rp-section">
@@ -674,26 +655,6 @@ function ReturnsReport() {
       </div>
     );
   }
-
-  // Filter returns based on search query
-const filteredReturns = useMemo(() => {
-  const q = search.toLowerCase().trim();
-  return returnsData.filter((r) => {
-    const matchSearch = !q ||
-      String(r.return_id || '').includes(q) ||
-      (r.bill?.bill_no || r.bills?.bill_no || r.bill_number || '').toLowerCase().includes(q) ||
-      (r.bill?.customer?.customer_name || '').toLowerCase().includes(q) ||
-      (r.bill?.customer?.phone_no || '').includes(q);
-    const destinationValue = (r.destination || '').toUpperCase();
-    const hasDestinationMatch = !filter || destinationValue === filter || (r.items || []).some((item) => (item.destination || '').toUpperCase() === filter);
-    const matchTimeframe = matchesTimeframe(r.return_date, timeframe);
-    return matchSearch && hasDestinationMatch && matchTimeframe;
-  });
-}, [returnsData, search, filter, timeframe]);
-
-  const returnsChartData = useMemo(() => {
-    return buildTimeSeriesData(filteredReturns, timeframe, (r) => r.return_date, (r) => r.total_refund_amount);
-  }, [filteredReturns, timeframe]);
 
   const totalRefunded = filteredReturns.reduce((s, r) => s + Number(r.total_refund_amount || 0), 0);
   const totalItems = filteredReturns.reduce((s, r) => s + (r.items?.length || 0), 0);
@@ -750,7 +711,7 @@ const filteredReturns = useMemo(() => {
             fmt(fs?.refundable_amount || 0),
             fmt(remainingBalance),
             item.product?.product_name || `Product #${item.product_id}`,
-            item.return_quantity,
+            parseFloat(item.return_quantity || item.quantity || 0),
             fmt(item.refund_amount),
             item.return_reason || '–',
             item.destination,
@@ -775,7 +736,7 @@ const filteredReturns = useMemo(() => {
       const remainingBalance = Math.max(0, (originalBill - paidAmount) - r.total_refund_amount);
 
       const productsStr = r.items && r.items.length > 0
-        ? r.items.map(item => `${item.product?.product_name || `Product #${item.product_id}`} (${item.return_quantity})`).join(', ')
+        ? r.items.map(item => `${item.product?.product_name || `Product #${item.product_id}`} (${parseFloat(item.return_quantity || item.quantity || 0)})`).join(', ')
         : '–';
 
       return [
@@ -790,8 +751,8 @@ const filteredReturns = useMemo(() => {
       ];
     });
 
-    const pdf = createReportPdf('Returns Logs', pdfHeaders, pdfRows);
-    pdf.save(`returns-logs-${dateStamp()}.pdf`);
+    const opened = printReportWithTemplate('Returns Logs', pdfHeaders, pdfRows, `Export Date: ${dateStamp()}`);
+    if (!opened) window.alert('Allow pop-ups to export the report as PDF.');
   };
 
   // Helper for displaying time in return logs cards
@@ -829,7 +790,7 @@ const filteredReturns = useMemo(() => {
       </div>
       {/* Returns Refund Chart */}
       <div className="chart-container" style={{ height: '300px', marginBottom: '20px' }}>
-        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
+        <ResponsiveContainer width="100%" height={300}>
           <BarChart data={returnsChartData} margin={{ top: 8, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
             <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#2c2c2c', fontSize: 11, fontWeight: 600 }} />
@@ -843,13 +804,13 @@ const filteredReturns = useMemo(() => {
 
       {/* Filters */}
       <div className="rp-filters">
-        <input
+        <input id="search" name="search"
           placeholder="Search Return ID / Bill No / Customer"
           value={search}
           onChange={e => { setSearch(e.target.value); setPage(1); }}
           style={{ minWidth: '260px' }}
         />
-        <select value={filter} onChange={e => { setFilter(e.target.value); setPage(1); }}>
+        <select id="filter" name="filter" value={filter} onChange={e => { setFilter(e.target.value); setPage(1); }}>
           <option value="">All Destinations</option>
           <option value="STOCK">Stock</option>
           <option value="REPAIR">Repair</option>
@@ -858,7 +819,7 @@ const filteredReturns = useMemo(() => {
         </select>
 
         {isManagerOrAdmin && (
-          <select value={dateFilter} onChange={e => { setDateFilter(e.target.value); setPage(1); }}>
+          <select id="dateFilter" name="dateFilter" value={dateFilter} onChange={e => { setDateFilter(e.target.value); setPage(1); }}>
             <option value="all">All Time</option>
             <option value="today">Today</option>
             <option value="this_month">This Month</option>
@@ -988,7 +949,7 @@ const filteredReturns = useMemo(() => {
                                         <tr key={item.return_item_id || idx}>
                                           <td className="muted">{idx + 1}</td>
                                           <td className="bold">{item.product?.product_name || `Product #${item.product_id}`}</td>
-                                          <td className="center">{item.return_quantity}</td>
+                                          <td className="center">{parseFloat(item.return_quantity || item.quantity || 0)}</td>
                                           <td className="right green">{fmtNum(item.refund_amount)}</td>
                                           <td>{item.return_reason || '–'}</td>
                                           <td><span className="rp-dest-badge">{item.destination}</span></td>
@@ -1158,8 +1119,8 @@ function BorrowReport() {
   };
 
   const handleDownloadBorrowPdf = () => {
-    const pdf = createReportPdf('Borrow Report - Partially Paid Bills', borrowHeaders, borrowRows);
-    pdf.save(`borrow-report-${dateStamp()}.pdf`);
+    const opened = printReportWithTemplate('Borrow Report - Partially Paid Bills', borrowHeaders, borrowRows, `Export Date: ${dateStamp()}`);
+    if (!opened) window.alert('Allow pop-ups to export the report as PDF.');
   };
 
   return (
@@ -1178,7 +1139,7 @@ function BorrowReport() {
         <h3 style={{ textAlign: 'center', marginBottom: '8px', fontSize: '14px', color: '#800000', fontWeight: '700', letterSpacing: '0.4px' }}>
           📊 Monthly Sales Revenue vs Borrow Outstanding (Rs.)
         </h3>
-        <ResponsiveContainer width="100%" height="90%" minWidth={0} minHeight={320}>
+        <ResponsiveContainer width="100%" height={280}>
           <BarChart data={salesVsBorrowChartData} margin={{ top: 8, right: 30, left: 20, bottom: 5 }} barCategoryGap="28%" barGap={4}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f5e6e6" />
             <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#666', fontWeight: 600 }} />
@@ -1213,16 +1174,16 @@ function BorrowReport() {
       </div>
 
       <div className="rp-filters">
-        <input placeholder="Search Bill No / Customer / Phone" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+        <input id="search" name="search" placeholder="Search Bill No / Customer / Phone" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
         {!isCashier && (
           <>
             <div className="rp-date-group">
               <label>From</label>
-              <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} />
+              <input id="dateFrom" name="dateFrom" type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} />
             </div>
             <div className="rp-date-group">
               <label>To</label>
-              <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} />
+              <input id="dateTo" name="dateTo" type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} />
             </div>
           </>
         )}

@@ -18,5 +18,6 @@ module.exports = (sequelize) => {
       allowNull: false, 
       defaultValue: 'PENDING' 
     }
-  }, { tableName: 'supplier_services', timestamps: true });
+  }, { tableName: 'supplier_services', timestamps: false });
 };
+

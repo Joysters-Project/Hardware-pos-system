@@ -72,7 +72,7 @@ function BatchInventoryPage() {
       </div>
 
       <div className="search-bar-wrap">
-        <input
+        <input id="search" name="search"
           className="search"
           placeholder="Search by batch number, product, PO, supplier, or status..."
           value={search}

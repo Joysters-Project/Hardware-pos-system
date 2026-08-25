@@ -63,7 +63,7 @@ function OtpInput({ value, onChange }) {
   return (
     <div className="fp-otp-grid">
       {Array.from({ length: 6 }).map((_, i) => (
-        <input
+        <input id="input_field" name="input_field"
           key={i}
           ref={(el) => (inputsRef.current[i] = el)}
           type="text"
@@ -211,7 +211,7 @@ function ForgotPassword() {
           <form onSubmit={handleSendOtp} className="fp-form">
             <p className="fp-hint">Enter your registered email address and we'll send you a one-time password.</p>
             <div className="input-box">
-              <input
+              <input id="email" name="email"
                 type="email"
                 placeholder="Enter your registered email"
                 value={email}
@@ -254,7 +254,7 @@ function ForgotPassword() {
             <p className="fp-hint">Choose a strong new password (min. 6 characters).</p>
             <div className="input-box">
               <div className="fp-pw-wrap">
-                <input
+                <input id="newPassword" name="newPassword"
                   type={showPw ? "text" : "password"}
                   placeholder="New password"
                   value={newPassword}
@@ -269,7 +269,7 @@ function ForgotPassword() {
               </div>
             </div>
             <div className="input-box">
-              <input
+              <input id="confirmPassword" name="confirmPassword"
                 type={showPw ? "text" : "password"}
                 placeholder="Confirm new password"
                 value={confirmPassword}

@@ -242,6 +242,10 @@ const resetPassword = async (req, res) => {
       return res.status(400).json({ message: 'Reset session expired. Please start over.' });
     }
 
+    if (user.password && await bcrypt.compare(newPassword, user.password)) {
+      return res.status(400).json({ message: 'New password cannot be the same as your current password' });
+    }
+
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await user.update({ password: hashedPassword, reset_token: null, reset_token_expiry: null, failed_attempts: 0, is_locked: false, lock_time: null });
 

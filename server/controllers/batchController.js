@@ -4,11 +4,11 @@ const { syncProductFromBatches, refreshBatchStatuses } = require('../services/ba
 const { syncAlertsForProduct } = require('../services/alertService');
 
 // POST /api/batch-inventory/receive
-// Body: { po_id, po_item_id, product_id, supplier_batch_number, expiry_date, received_date, received_quantity }
+// Body: { po_id, product_id, supplier_batch_number, expiry_date, received_date, received_quantity }
 exports.receiveOrderItem = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
-    const { po_id, po_item_id, product_id, supplier_batch_number, expiry_date, received_date, received_quantity } = req.body;
+    const { po_id, product_id, supplier_batch_number, expiry_date, received_date, received_quantity } = req.body;
 
     // --- Validation ---
     if (!supplier_batch_number?.trim())
@@ -26,17 +26,11 @@ exports.receiveOrderItem = async (req, res) => {
     if (duplicate)
       return res.status(400).json({ error: `Batch number "${supplier_batch_number.trim()}" already exists for this product.` });
 
-    // Fetch PO and item
-    const po = await purchase_orders.findByPk(po_id, {
-      include: [{ model: po_items }], transaction, lock: transaction.LOCK.UPDATE,
-    });
+    // Fetch PO and item — look up by product_id (composite PK: po_id + product_id)
+    const po = await purchase_orders.findByPk(po_id, { include: [{ model: po_items }] });
     if (!po) return res.status(404).json({ error: 'Purchase Order not found.' });
 
-    // Legacy databases may not yet have po_items.id. Product ids are unique
-    // within newly created orders, so they provide a safe compatibility fallback.
-    const poItem = po.po_items?.find((item) =>
-      item.id === Number(po_item_id) || (!po_item_id && Number(item.product_id) === Number(product_id))
-    );
+    const poItem = po.po_items?.find(i => i.product_id === Number(product_id));
     if (!poItem) return res.status(404).json({ error: 'PO line item not found.' });
     if (Number(poItem.product_id) !== Number(product_id)) {
       await transaction.rollback();
@@ -67,7 +61,14 @@ exports.receiveOrderItem = async (req, res) => {
     }, { transaction });
 
     // --- Sync product stock + expiry ---
-    await syncProductFromBatches(product_id, transaction);
+    await syncProductFromBatches(product_id);
+
+    // --- Sync alerts ---
+    const updatedProduct = await products.findByPk(product_id);
+    if (updatedProduct) await syncAlertsForProduct(updatedProduct).catch(() => {});
+
+    const io = req.app.get('io');
+    if (io) io.emit('products:updated');
 
     // --- Mark PO as Received if all items fully received ---
     const totalOrdered = po.po_items.reduce((sum, item) => sum + Number(item.quantity), 0);
@@ -160,6 +161,8 @@ exports.disposeBatch = async (req, res) => {
     }
     await batch.update({ status: 'Disposed', remaining_quantity: 0, disposed_at: new Date() });
     await syncProductFromBatches(batch.product_id);
+    const io = req.app.get('io');
+    if (io) io.emit('products:updated');
     res.json({ message: 'Batch disposed successfully', batch });
   } catch (err) {
     res.status(500).json({ error: err.message });

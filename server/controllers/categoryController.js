@@ -1,30 +1,43 @@
 const { category, products } = require('../models');
+const { logActivity } = require('../services/auditService');
+
+const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
+const toTitleCase = (str) => str.trim().charAt(0).toUpperCase() + str.trim().slice(1).toLowerCase();
 
 // CREATE Category
 exports.createCategory = async (req, res) => {
+  const ip = getIp(req);
   try {
     const { category_name } = req.body;
 
-    // Check if category_name is provided
     if (!category_name || !category_name.trim()) {
       return res.status(400).json({ error: "Category name is required" });
     }
 
-    // Check for duplicate category name (case-insensitive)
+    if (!/^[A-Za-z\s]+$/.test(category_name.trim())) {
+      return res.status(400).json({ error: "Category name can contain letters and spaces only. Numbers and symbols are not allowed." });
+    }
+
+    if (category_name.trim().length > 50) {
+      return res.status(400).json({ error: "Category name must be 50 characters or fewer." });
+    }
+
+    const normalized = toTitleCase(category_name);
+
     const existingCategory = await category.findOne({
-      where: { category_name: category_name.trim() }
+      where: { category_name: normalized }
     });
 
     if (existingCategory) {
       return res.status(409).json({ 
         error: "Category name already exists",
-        message: `A category with name "${category_name}" already exists`
+        message: `A category with name "${normalized}" already exists`
       });
     }
 
-    const newCategory = await category.create({ 
-      category_name: category_name.trim() 
-    });
+    const newCategory = await category.create({ category_name: normalized });
+    await logActivity(req.user?.user_id, req.user?.role, 'CREATE_CATEGORY',
+      `Category created: "${normalized}" (ID: ${newCategory.category_id})`, ip);
 
     res.status(201).json({
       message: "Category created successfully",
@@ -65,6 +78,7 @@ exports.getCategoryById = async (req, res) => {
 
 // UPDATE Category
 exports.updateCategory = async (req, res) => {
+  const ip = getIp(req);
   try {
     const Category = await category.findById(req.params.id);
 
@@ -73,25 +87,35 @@ exports.updateCategory = async (req, res) => {
     }
 
     const { category_name } = req.body;
+    const oldName = Category.category_name;
 
     // Check if category_name is provided
     if (category_name && category_name.trim()) {
-      // Check for duplicate category name (excluding current category)
+      if (!/^[A-Za-z\s]+$/.test(category_name.trim())) {
+        return res.status(400).json({ error: "Category name can contain letters and spaces only. Numbers and symbols are not allowed." });
+      }
+      if (category_name.trim().length > 50) {
+        return res.status(400).json({ error: "Category name must be 50 characters or fewer." });
+      }
+      const normalized = toTitleCase(category_name);
+
       const existingCategory = await category.findOne({
         where: { 
-          category_name: category_name.trim(),
-          category_id: { $ne: req.params.id }
+          category_name: normalized,
+          category_id: { [require('sequelize').Op.ne]: req.params.id }
         }
       });
 
       if (existingCategory) {
         return res.status(409).json({ 
           error: "Category name already exists",
-          message: `A category with name "${category_name}" already exists`
+          message: `A category with name "${normalized}" already exists`
         });
       }
 
-      await Category.update({ category_name: category_name.trim() });
+      await Category.update({ category_name: normalized });
+      await logActivity(req.user?.user_id, req.user?.role, 'UPDATE_CATEGORY',
+        `Category ID ${req.params.id} updated: "${oldName}" -> "${normalized}"`, ip);
     }
 
     res.status(200).json({
@@ -105,6 +129,7 @@ exports.updateCategory = async (req, res) => {
 
 // DELETE Category (with product check)
 exports.deleteCategory = async (req, res) => {
+  const ip = getIp(req);
   try {
     const Category = await category.findById(req.params.id);
 
@@ -125,7 +150,10 @@ exports.deleteCategory = async (req, res) => {
       });
     }
 
+    const name = Category.category_name;
     await Category.destroy();
+    await logActivity(req.user?.user_id, req.user?.role, 'DELETE_CATEGORY',
+      `Category deleted: "${name}" (ID: ${req.params.id})`, ip);
 
     res.status(200).json({
       message: "Category deleted successfully"

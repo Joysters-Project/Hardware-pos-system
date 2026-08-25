@@ -151,7 +151,7 @@ export default function NotificationCenter() {
                   transition={{ delay: i * 0.025 }}
                   style={{ borderLeft: `3px solid ${!n.is_read ? meta.color : '#e0e0e0'}` }}
                   onClick={() => toggleSelect(n.notification_id)}>
-                  <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(n.notification_id)}
+                  <input id="checkbox_field" name="checkbox_field" type="checkbox" checked={isSelected} onChange={() => toggleSelect(n.notification_id)}
                     onClick={e => e.stopPropagation()}
                     style={{ flexShrink: 0, accentColor: '#8b3a3a', cursor: 'pointer' }} />
                   <div className="pp-notif-icon" style={{ background: `${meta.color}18`, color: meta.color }}>

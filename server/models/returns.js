@@ -21,5 +21,5 @@ module.exports = (sequelize) => {
     processed_by: { type: DataTypes.INTEGER, allowNull: true },
     po_id: { type: DataTypes.INTEGER, allowNull: true },
     supplier_id: { type: DataTypes.INTEGER, allowNull: true }
-  }, { tableName: 'returns', timestamps: true });
-};
+  }, { tableName: 'returns', timestamps: false });
+};

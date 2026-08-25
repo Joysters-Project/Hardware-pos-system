@@ -74,6 +74,7 @@ exports.getAllPayments = async (req, res) => {
     if (payment_method)  whereClause.payment_method  = payment_method;
     if (cheque_status)   whereClause.cheque_status   = cheque_status;
     if (start_date && end_date) {
+      const { Op } = require('sequelize');
       whereClause.due_date = { [Op.between]: [start_date, end_date] };
     }
 
@@ -145,6 +146,7 @@ exports.getPaymentDashboard = async (req, res) => {
     const currentMonthStart = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`;
     const nearDueDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
+    const { Op } = require('sequelize');
     const allInvoices = await supplier_payments.findAll({
       where: { payment_status: { [Op.ne]: 'Cancelled' } },
       include: [{ model: suppliers, attributes: ['supplier_name'] }]
@@ -263,6 +265,10 @@ exports.updateChequeStatus = async (req, res) => {
 
     await payment.update(updateFields);
 
+    // Notify all connected clients so Alert Center / bell refresh immediately
+    const io = req.app.get('io');
+    if (io) io.emit('cheque:alerts:updated');
+
     const chequeRef = payment.cheque_number || `PAY-${payment.payment_id}`;
     const supplierName = payment.supplier?.supplier_name || 'supplier';
     const notifMap = {
@@ -278,6 +284,97 @@ exports.updateChequeStatus = async (req, res) => {
     }
 
     res.json({ message: `Cheque status updated to ${cheque_status}`, payment });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/**
+ * getChequeAlerts
+ * GET /api/procurement/payments/cheque-alerts
+ * Returns active cheque alerts based on clearing date (pending_cheque_date) and cheque_status
+ */
+exports.getChequeAlerts = async (req, res) => {
+  try {
+    const { Op } = require('sequelize');
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split('T')[0];
+
+    // Fetch all cheque payments that are Pending or Bounced
+    const rows = await supplier_payments.findAll({
+      where: {
+        payment_method: 'Cheque',
+        cheque_status: { [Op.in]: ['Pending', 'Bounced'] },
+      },
+      include: [
+        { model: suppliers, attributes: ['supplier_name'] },
+        { model: purchase_orders, attributes: ['po_number'] },
+      ],
+      order: [['pending_cheque_date', 'ASC']],
+    });
+
+    const DUE_SOON_DAYS = 3;
+    const alerts = [];
+
+    for (const row of rows) {
+      const cs = row.cheque_status;
+
+      // Bounced — always an active alert regardless of date
+      if (cs === 'Bounced') {
+        alerts.push({
+          payment_id:          row.payment_id,
+          supplier_name:       row.supplier?.supplier_name || '—',
+          cheque_number:       row.cheque_number,
+          bank_name:           row.bank_name,
+          cheque_date:         row.cheque_date,
+          clearing_date:       row.pending_cheque_date,
+          amount:              row.paid_amount,
+          cheque_status:       cs,
+          alert_type:          'Bounced',
+          days_remaining:      null,
+          po_number:           row.purchase_order?.po_number || null,
+        });
+        continue;
+      }
+
+      // Pending — classify by clearing date
+      if (cs === 'Pending' && row.pending_cheque_date) {
+        const clearingDate = new Date(row.pending_cheque_date); clearingDate.setHours(0, 0, 0, 0);
+        const diffMs   = clearingDate - today;
+        const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+        let alert_type;
+        if (diffDays < 0)       alert_type = 'Overdue';
+        else if (diffDays === 0) alert_type = 'Due Today';
+        else if (diffDays <= DUE_SOON_DAYS) alert_type = 'Due Soon';
+        else continue; // not yet alertable
+
+        alerts.push({
+          payment_id:    row.payment_id,
+          supplier_name: row.supplier?.supplier_name || '—',
+          cheque_number: row.cheque_number,
+          bank_name:     row.bank_name,
+          cheque_date:   row.cheque_date,
+          clearing_date: row.pending_cheque_date,
+          amount:        row.paid_amount,
+          cheque_status: cs,
+          alert_type,
+          days_remaining: diffDays,
+          po_number:     row.purchase_order?.po_number || null,
+        });
+      }
+    }
+
+    // Summary counts
+    const summary = {
+      dueSoon:  alerts.filter(a => a.alert_type === 'Due Soon').length,
+      dueToday: alerts.filter(a => a.alert_type === 'Due Today').length,
+      overdue:  alerts.filter(a => a.alert_type === 'Overdue').length,
+      bounced:  alerts.filter(a => a.alert_type === 'Bounced').length,
+      total:    alerts.length,
+    };
+
+    res.json({ alerts, summary });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

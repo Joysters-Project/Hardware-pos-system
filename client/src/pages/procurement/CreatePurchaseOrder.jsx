@@ -137,16 +137,16 @@ export default function CreatePurchaseOrder() {
               <div className="proc-form-grid">
                 <div className="proc-field">
                   <label>PO Date</label>
-                  <input className="proc-input proc-input-readonly" value={today} readOnly />
+                  <input id="today" name="today" className="proc-input proc-input-readonly" value={today} readOnly />
                 </div>
                 <div className="proc-field">
                   <label>Expected Delivery</label>
-                  <input type="date" className="proc-input" min={today}
+                  <input id="expectedDelivery" name="expectedDelivery" type="date" className="proc-input" min={today}
                     value={expectedDelivery} onChange={e => setExpectedDelivery(e.target.value)} />
                 </div>
                 <div className="proc-field proc-field-full">
                   <label>Supplier <span className="req">*</span></label>
-                  <select className="proc-input proc-select" value={supplierId} onChange={e => setSupplierId(e.target.value)}>
+                  <select id="supplierId" name="supplierId" className="proc-input" value={supplierId} onChange={e => setSupplierId(e.target.value)}>
                     <option value="">-- Select Supplier --</option>
                     {suppliers.map(s => (
                       <option key={s.supplier_id} value={s.supplier_id}>
@@ -157,7 +157,7 @@ export default function CreatePurchaseOrder() {
                 </div>
                 <div className="proc-field proc-field-full">
                   <label>Notes</label>
-                  <textarea className="proc-input proc-textarea" rows={3} value={notes}
+                  <textarea id="notes" name="notes" className="proc-input proc-textarea" rows={3} value={notes}
                     onChange={e => setNotes(e.target.value)} placeholder="Additional notes or instructions..." />
                 </div>
               </div>
@@ -197,16 +197,18 @@ export default function CreatePurchaseOrder() {
                         transition={{ duration: 0.22 }}>
                         <td><span className="proc-row-num">{index + 1}</span></td>
                         <td>
-                          <ProductSearchSelect
-                            products={products}
-                            value={item.product_id}
-                            onSelect={(productId, product) => handleProductChange(index, productId, product)}
-                            placeholder="Search products..."
-                            emptyMessage="No products found."
-                          />
+                          <select id="product_id" name="product_id" className="proc-input proc-input-sm" value={item.product_id}
+                            onChange={e => handleProductChange(index, e.target.value)}>
+                            <option value="">-- Select Product --</option>
+                            {products.map(p => (
+                              <option key={p.product_id} value={p.product_id}>
+                                {p.product_name} (Stock: {p.stock_quantity})
+                              </option>
+                            ))}
+                          </select>
                         </td>
                         <td>
-                          <input type="number" min="1" className="proc-input proc-input-qty"
+                          <input id="quantity" name="quantity" type="number" min="1" className="proc-input proc-input-qty"
                             value={item.quantity} onChange={e => handleQtyChange(index, e.target.value)} />
                         </td>
                         <td style={{ textAlign: 'right' }}>

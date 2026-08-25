@@ -1,5 +1,8 @@
 const db = require('../models');
 const { Op } = require('sequelize');
+const { logActivity } = require('../services/auditService');
+
+const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
 
 const getAllAssets = async (req, res) => {
   try {
@@ -24,7 +27,7 @@ const getAllAssets = async (req, res) => {
 
 const getAssetById = async (req, res) => {
   try {
-    const asset = await db.assets.findById(req.params.id, {
+    const asset = await db.assets.findByPk(req.params.id, {
       include: [
         { model: db.departments, attributes: ['department_name'] },
         { model: db.expenses, attributes: ['expense_id', 'expense_type', 'amount', 'expense_date'] }
@@ -38,6 +41,7 @@ const getAssetById = async (req, res) => {
 };
 
 const createAsset = async (req, res) => {
+  const ip = getIp(req);
   try {
     console.log('Asset Create Request Body:', req.body);
 
@@ -56,14 +60,15 @@ const createAsset = async (req, res) => {
       return res.status(400).json({ message: 'department_id must be an integer' });
     }
 
-    const dept = await db.departments.findById(parsedDepartmentId);
+    const dept = await db.departments.findByPk(parsedDepartmentId);
     if (!dept) return res.status(400).json({ message: 'Department not found' });
 
     const assetCost = parseFloat(cost || 0);
     const deptBudget = parseFloat(dept.budget || 0);
-    const activeCost = await db.assets.sum('cost', {
-      where: { department_id: parsedDepartmentId, status: { $ne: 'Disposed' } }
-    }) || 0;
+    const deptAssets = await db.assets.findAll({ where: { department_id: parsedDepartmentId } });
+    const activeCost = deptAssets
+      .filter(a => a.status !== 'Disposed')
+      .reduce((sum, a) => sum + parseFloat(a.cost || 0), 0);
 
     if (deptBudget > 0 && activeCost + assetCost > deptBudget) {
       return res.status(400).json({
@@ -96,6 +101,9 @@ const createAsset = async (req, res) => {
       });
     }
 
+    await logActivity(req.user?.user_id, req.user?.role, 'CREATE_ASSET',
+      `Asset created: "${asset_name}" (ID: ${asset.asset_id}), Cost: ${assetCost}`, ip);
+
     res.status(201).json({
       message: 'Asset created successfully',
       data: asset,
@@ -108,10 +116,11 @@ const createAsset = async (req, res) => {
 };
 
 const updateAsset = async (req, res) => {
+  const ip = getIp(req);
   try {
     console.log('Asset Update Request Body:', req.body);
 
-    const asset = await db.assets.findById(req.params.id);
+    const asset = await db.assets.findByPk(req.params.id);
     if (!asset) return res.status(404).json({ message: 'Asset not found' });
 
     const oldCost   = parseFloat(asset.cost || 0);
@@ -130,7 +139,7 @@ const updateAsset = async (req, res) => {
       return res.status(400).json({ message: 'department_id must be an integer' });
     }
 
-    const dept = await db.departments.findById(newDeptId);
+    const dept = await db.departments.findByPk(newDeptId);
     if (!dept) return res.status(400).json({ message: 'Department not found' });
 
     await asset.update({
@@ -159,6 +168,9 @@ const updateAsset = async (req, res) => {
     await recalcDeptBudget(oldDeptId);
     if (newDeptId !== oldDeptId) await recalcDeptBudget(newDeptId);
 
+    await logActivity(req.user?.user_id, req.user?.role, 'UPDATE_ASSET',
+      `Asset ID ${req.params.id} ("${asset.asset_name}") updated`, ip);
+
     res.status(200).json({ message: 'Asset updated successfully', data: asset });
   } catch (error) {
     console.error('Asset Update Error:', error);
@@ -167,12 +179,16 @@ const updateAsset = async (req, res) => {
 };
 
 const disposeAsset = async (req, res) => {
+  const ip = getIp(req);
   try {
-    const asset = await db.assets.findById(req.params.id);
+    const asset = await db.assets.findByPk(req.params.id);
     if (!asset) return res.status(404).json({ message: 'Asset not found' });
 
     await asset.update({ status: 'Disposed' });
     await recalcDeptBudget(asset.department_id);
+
+    await logActivity(req.user?.user_id, req.user?.role, 'DISPOSE_ASSET',
+      `Asset marked as Disposed: "${asset.asset_name}" (ID: ${asset.asset_id})`, ip);
 
     res.status(200).json({ message: 'Asset marked as Disposed', data: asset });
   } catch (error) {
@@ -181,17 +197,22 @@ const disposeAsset = async (req, res) => {
 };
 
 const deleteAsset = async (req, res) => {
+  const ip = getIp(req);
   try {
-    const asset = await db.assets.findById(req.params.id);
+    const asset = await db.assets.findByPk(req.params.id);
     if (!asset) return res.status(404).json({ message: 'Asset not found' });
 
     if (asset.status !== 'Disposed') {
       return res.status(400).json({ message: 'Only Disposed assets can be permanently deleted. Use dispose endpoint first.' });
     }
 
+    const name = asset.asset_name;
     const deptId = asset.department_id;
     await asset.destroy();
     await recalcDeptBudget(deptId);
+
+    await logActivity(req.user?.user_id, req.user?.role, 'DELETE_ASSET',
+      `Asset deleted: "${name}" (ID: ${req.params.id})`, ip);
 
     res.status(200).json({ message: 'Asset deleted successfully' });
   } catch (error) {
@@ -201,9 +222,10 @@ const deleteAsset = async (req, res) => {
 
 // Helper: recalculate department used_budget
 async function recalcDeptBudget(department_id) {
-  const total = await db.assets.sum('cost', {
-    where: { department_id, status: { $ne: 'Disposed' } }
-  }) || 0;
+  const deptAssets = await db.assets.findAll({ where: { department_id } });
+  const total = deptAssets
+    .filter(a => a.status !== 'Disposed')
+    .reduce((sum, a) => sum + parseFloat(a.cost || 0), 0);
   await db.departments.update({ used_budget: total }, { where: { department_id } });
 }
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
+import api from '../../api/axios';
 import '../../styles/Returns.css';
 
 export default function SupplierServiceTracking() {
@@ -14,21 +15,18 @@ export default function SupplierServiceTracking() {
   const fetchServices = async () => {
     try {
       setLoading(true);
-      const query = new URLSearchParams();
-      if (filterStatus) query.append('status', filterStatus);
+      const params = {};
+      if (filterStatus) params.status = filterStatus;
 
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/supplier-services?${query.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
+      const res = await api.get('/supplier-services', { params });
+      const data = res.data;
       if (data.success) {
         setServices(data.data || []);
       } else {
         toast.error(data.error || 'Failed to fetch supplier service records');
       }
     } catch (err) {
-      toast.error('Network error fetching supplier services');
+      toast.error(err.response?.data?.error || 'Network error fetching supplier services');
     } finally {
       setLoading(false);
     }
@@ -40,19 +38,11 @@ export default function SupplierServiceTracking() {
 
   const handleUpdateStatus = async (serviceId, newStatus) => {
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/supplier-services/${serviceId}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          status: newStatus,
-          return_to_stock: returnToStock
-        })
+      const res = await api.put(`/supplier-services/${serviceId}/status`, {
+        status: newStatus,
+        return_to_stock: returnToStock
       });
-      const data = await res.json();
+      const data = res.data;
       if (data.success) {
         toast.success(`Service status updated to ${newStatus}`);
         setSelectedService(null);
@@ -61,7 +51,7 @@ export default function SupplierServiceTracking() {
         toast.error(data.error || 'Failed to update service status');
       }
     } catch (err) {
-      toast.error('Error updating supplier service status');
+      toast.error(err.response?.data?.error || 'Error updating supplier service status');
     }
   };
 
@@ -92,7 +82,7 @@ export default function SupplierServiceTracking() {
         <div className="retlog-filters">
           <label>
             Filter Status:
-            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+            <select id="filterStatus" name="filterStatus" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
               <option value="">All Services</option>
               <option value="PENDING">PENDING</option>
               <option value="SENT">SENT</option>
@@ -130,7 +120,7 @@ export default function SupplierServiceTracking() {
                 <div style={{ fontSize: '13px', color: '#555', background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
                   <div><strong>Supplier:</strong> {supplier?.supplier_name || `Supplier #${item.supplier_id}`}</div>
                   <div><strong>Service Type:</strong> {item.service_type || 'REPAIR'}</div>
-                  <div><strong>Quantity:</strong> {returnItem?.return_quantity || returnItem?.quantity || 1} units ({returnItem?.condition || 'DEFECTIVE'})</div>
+                  <div><strong>Quantity:</strong> {parseFloat(returnItem?.return_quantity || returnItem?.quantity || 1)} units ({returnItem?.condition || 'DEFECTIVE'})</div>
                 </div>
 
                 <div style={{ fontSize: '13px', color: '#333' }}>
@@ -187,7 +177,7 @@ export default function SupplierServiceTracking() {
 
             <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '6px', marginBottom: '16px', border: '1px solid #e2e8f0' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px', color: '#333', cursor: 'pointer' }}>
-                <input
+                <input id="checkbox_field" name="checkbox_field"
                   type="checkbox"
                   checked={returnToStock}
                   onChange={(e) => setReturnToStock(e.target.checked)}

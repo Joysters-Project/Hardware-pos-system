@@ -25,7 +25,7 @@ exports.createProduct = async (req, res) => {
 
     await syncAlertsForProduct(product);
     const io = req.app.get('io');
-    if (io) io.emit('alerts:updated');
+    if (io) { io.emit('alerts:updated'); io.emit('products:updated'); }
     await logActivity(req.user?.user_id, req.user?.role, 'INVENTORY_ADD',
       `Product added: "${product.product_name}" (ID: ${product.product_id}), Stock: ${product.stock_quantity}, Price: ${product.unit_price}`, ip);
     res.status(201).json({ message: 'Product created successfully', data: product });
@@ -128,7 +128,7 @@ exports.updateProduct = async (req, res) => {
 
     await syncAlertsForProduct(product);
     const io = req.app.get('io');
-    if (io) io.emit('alerts:updated');
+    if (io) { io.emit('alerts:updated'); io.emit('products:updated'); }
     await logActivity(req.user?.user_id, req.user?.role, 'INVENTORY_UPDATE',
       `Product ID ${product.product_id} ("${product.product_name}") updated.${changes.length ? ' ' + changes.join('. ') : ''}`, ip);
     res.status(200).json({ message: 'Product updated successfully', data: product });

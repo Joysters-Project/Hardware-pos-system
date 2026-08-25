@@ -1,4 +1,5 @@
 const { alerts, products, batch_inventory } = require('../models');
+const db = require('../models');
 const { Op } = require('sequelize');
 const { syncAlertsForProduct, generateAllAlerts } = require('../services/alertService');
 
@@ -65,8 +66,14 @@ exports.getAllAlerts = async (req, res) => {
 
     if (search) {
       where[Op.or] = [
-        { alert_type: { [Op.like]: `%${search}%` } },
-        { '$product.product_name$': { [Op.like]: `%${search}%` } },
+        db.Sequelize.where(
+          db.Sequelize.fn('LOWER', db.Sequelize.col('alert_type')),
+          { like: `%${search.toLowerCase()}%` }
+        ),
+        db.Sequelize.where(
+          db.Sequelize.fn('LOWER', db.Sequelize.col('product.product_name')),
+          { like: `%${search.toLowerCase()}%` }
+        ),
       ];
     }
 

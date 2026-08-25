@@ -19,12 +19,20 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import DashboardLayout from "../components/DashboardLayout";
+import { buildTableHtml, escapeHtml, printWithTemplate } from "../utils/printTemplate";
 import "../styles/Catalog.css";
 
 const API_BASE = "http://localhost:5000/api";
 
-// Validation helper for unit names (letters and spaces only)
-const validateUnitName = (name) => /^[A-Za-z\s]+$/.test(name);
+const MAX_LENGTHS = { categories: 50, brands: 50, units: 50 };
+
+// Validation helpers for catalog items (categories, brands, units - letters and spaces only)
+const validateCatalogName = (name, tab) => {
+  if (!/^[A-Za-z\s]+$/.test(name)) return "letters-only";
+  if (name.length > MAX_LENGTHS[tab]) return "too-long";
+  return null;
+};
+const sanitizeCatalogName = (name) => name.replace(/[^A-Za-z\s]/g, "");
 
 function Catalog() {
   const { user } = useAuth();
@@ -150,14 +158,17 @@ function Catalog() {
   const handleAdd = async (e) => {
     e.preventDefault();
     const name = formData.name.trim();
+    const maxLen = MAX_LENGTHS[activeTab];
 
-    if (!name) {
-      toast.error("Name is required");
+    if (!name) { toast.error("Name is required"); return; }
+
+    const err = validateCatalogName(name, activeTab);
+    if (err === "letters-only") {
+      toast.error(`${getSingularCapitalized(activeTab)} name can contain letters and spaces only.`);
       return;
     }
-
-    if (activeTab === "units" && !validateUnitName(name)) {
-      toast.error("Unit name can contain letters only");
+    if (err === "too-long") {
+      toast.error(`${getSingularCapitalized(activeTab)} name must be ${maxLen} characters or fewer.`);
       return;
     }
 
@@ -194,13 +205,18 @@ function Catalog() {
 
   // Save edit
   const handleSaveEdit = async (id) => {
-    if (!editingName.trim()) {
-      toast.error("Name is required");
+    const name = editingName.trim();
+    const maxLen = MAX_LENGTHS[activeTab];
+
+    if (!name) { toast.error("Name is required"); return; }
+
+    const err = validateCatalogName(name, activeTab);
+    if (err === "letters-only") {
+      toast.error(`${getSingularCapitalized(activeTab)} name can contain letters and spaces only.`);
       return;
     }
-
-    if (activeTab === "units" && !validateUnitName(editingName.trim())) {
-      toast.error("Unit name can contain letters only");
+    if (err === "too-long") {
+      toast.error(`${getSingularCapitalized(activeTab)} name must be ${maxLen} characters or fewer.`);
       return;
     }
 
@@ -252,7 +268,25 @@ function Catalog() {
   };
 
   const handleExportPDF = () => {
-    window.print();
+    const rows = filteredData.map((item) => ([
+      escapeHtml(item[fieldNames.id]),
+      escapeHtml(item[fieldNames.name]),
+      escapeHtml(item.status || "Active"),
+    ]));
+
+    const contentHtml = buildTableHtml({
+      columns: ["ID", "Name", "Status"],
+      rows,
+      emptyMessage: "No catalog records found"
+    });
+
+    const opened = printWithTemplate({
+      title: `${activeTab.charAt(0).toUpperCase()}${activeTab.slice(1)} Catalog`,
+      subtitle: `Total records: ${filteredData.length}`,
+      contentHtml,
+    });
+
+    if (!opened) toast.error("Allow pop-ups to export the report as PDF.");
   };
 
   // Process search and sorting
@@ -330,23 +364,27 @@ function Catalog() {
             <h3>Add New {getSingularCapitalized(activeTab)}</h3>
             <form onSubmit={handleAdd} className="add-form">
               <div className="add-input-wrapper">
-                <input
-  type="text"
-  placeholder={`Enter new ${getSingular(activeTab)} name...`}
-  value={formData.name}
-  onChange={(e) => {
-    const value = e.target.value;
-
-    if (activeTab === "units") {
-      if (/^[A-Za-z\s]*$/.test(value)) {
-        setFormData({ name: value });
-      }
-    } else {
-      setFormData({ name: value });
-    }
-  }}
-  disabled={loading}
-/>
+                <input id="name" name="name"
+                  type="text"
+                  placeholder={`Enter new ${getSingular(activeTab)} name...`}
+                  value={formData.name}
+                  maxLength={MAX_LENGTHS[activeTab]}
+                  onChange={(e) => {
+                    const rawValue = e.target.value;
+                    const sanitized = sanitizeCatalogName(rawValue);
+                    if (rawValue !== sanitized) {
+                      toast.error("Numbers and symbols are not allowed", { id: "catalog-add-error" });
+                    }
+                    setFormData({ name: sanitized });
+                  }}
+                  disabled={loading}
+                />
+                <span className={`catalog-char-counter ${
+                  formData.name.length >= MAX_LENGTHS[activeTab] ? "catalog-char-counter--limit" :
+                  formData.name.length >= MAX_LENGTHS[activeTab] * 0.85 ? "catalog-char-counter--warn" : ""
+                }`}>
+                  {formData.name.length}/{MAX_LENGTHS[activeTab]}
+                </span>
               </div>
               <button type="submit" disabled={loading || !formData.name.trim()} className="add-btn">
                 <Plus size={18} />
@@ -360,12 +398,17 @@ function Catalog() {
             <div className="controller-left">
               <div className="search-box-wrapper">
                 <Search className="search-icon" size={18} />
-                <input
+                <input id="searchQuery" name="searchQuery"
                   type="text"
                   placeholder={`Filter ${activeTab}...`}
                   value={searchQuery}
                   onChange={(e) => {
-                    setSearchQuery(e.target.value);
+                    const rawValue = e.target.value;
+                    const sanitized = sanitizeCatalogName(rawValue);
+                    if (rawValue !== sanitized) {
+                      toast.error("Numbers and symbols are not allowed when filtering", { id: "catalog-filter-error" });
+                    }
+                    setSearchQuery(sanitized);
                     setCurrentPage(1);
                   }}
                 />
@@ -392,7 +435,7 @@ function Catalog() {
               </span>
 
               <div className="page-size-selector">
-                <select
+                <select id="pageSize" name="pageSize"
                   value={pageSize}
                   onChange={(e) => {
                     setPageSize(Number(e.target.value));
@@ -454,13 +497,33 @@ function Catalog() {
                       <div className="card-info-left">
                         <span className="card-badge-id">ID #{itemId}</span>
                         {isEditing ? (
-                          <input
+                          <>
+                          <input id="editingName" name="editingName"
                             type="text"
                             value={editingName}
-                            onChange={(e) => setEditingName(e.target.value)}
+                            maxLength={MAX_LENGTHS[activeTab]}
+                            onChange={(e) => {
+                              const rawValue = e.target.value;
+                              const sanitized = sanitizeCatalogName(rawValue);
+                              if (rawValue !== sanitized) {
+                                toast.error("Numbers and symbols are not allowed", { id: "catalog-edit-error" });
+                              }
+                              setEditingName(sanitized);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleSaveEdit(itemId);
+                              if (e.key === "Escape") handleCancelEdit();
+                            }}
                             className="edit-input-inline"
                             autoFocus
                           />
+                          <span className={`catalog-char-counter catalog-char-counter--inline ${
+                            editingName.length >= MAX_LENGTHS[activeTab] ? "catalog-char-counter--limit" :
+                            editingName.length >= MAX_LENGTHS[activeTab] * 0.85 ? "catalog-char-counter--warn" : ""
+                          }`}>
+                            {editingName.length}/{MAX_LENGTHS[activeTab]}
+                          </span>
+                          </>
                         ) : (
                           <span
                             className="card-item-name"
@@ -483,7 +546,6 @@ function Catalog() {
                               title="Save Changes"
                             >
                               <Check size={16} />
-                              <span>Save</span>
                             </button>
                             <button
                               type="button"
@@ -493,7 +555,6 @@ function Catalog() {
                               title="Cancel Editing"
                             >
                               <X size={16} />
-                              <span>Cancel</span>
                             </button>
                           </>
                         ) : (
@@ -506,7 +567,6 @@ function Catalog() {
                               title="Edit Item"
                             >
                               <Edit2 size={15} />
-                              <span>Edit</span>
                             </button>
                             <button
                               type="button"
@@ -516,7 +576,6 @@ function Catalog() {
                               title="Delete Item"
                             >
                               <Trash2 size={15} />
-                              <span>Delete</span>
                             </button>
                           </>
                         )}

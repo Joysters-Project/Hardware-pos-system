@@ -29,7 +29,7 @@ exports.previewRefund = async (req, res) => {
     const result = await ReturnService.previewRefund(
       Number(bill_id),
       Number(product_id),
-      Number(return_qty)
+      parseFloat(return_qty)
     );
 
     res.status(200).json(result);
@@ -170,6 +170,10 @@ exports.lookupBill = async (req, res) => {
           {
             model: customers,
             attributes: ['customer_id', 'customer_name', 'phone_no']
+          },
+          {
+            model: payments,
+            attributes: ['amount_paid', 'payment_method']
           }
         ],
         order: [['bill_date', 'DESC']]
@@ -205,6 +209,10 @@ exports.lookupBill = async (req, res) => {
         {
           model: customers,
           attributes: ['customer_id', 'customer_name', 'phone_no']
+        },
+        {
+          model: payments,
+          attributes: ['amount_paid', 'payment_method']
         }
       ]
     });
@@ -312,7 +320,7 @@ exports.getAllReturns = async (req, res) => {
           };
         }
         
-        productTotals[productName].total_returned_qty += (item.return_quantity || item.quantity || 1);
+        productTotals[productName].total_returned_qty = parseFloat((productTotals[productName].total_returned_qty + (parseFloat(item.return_quantity || item.quantity) || 1)).toFixed(2));
         productTotals[productName].total_amount_per_product += refundAmount;
         grandTotalReturned += refundAmount;
       });

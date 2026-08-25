@@ -421,11 +421,13 @@
 .action-btn-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
   border: 1.5px solid #d1d5db;
   background: #ffffff;
-  border-radius: 20px;
+  border-radius: 8px;
   font-size: 0.8rem;
   font-weight: 700;
   cursor: pointer;
@@ -437,6 +439,19 @@
   border-color: #8b3a3a;
   color: #8b3a3a !important;
   background: rgba(139, 58, 58, 0.02);
+}
+
+.action-btn-pill.edit-btn {
+  background: #fff3e0;
+  color: #e65100 !important;
+  border-color: #fff3e0;
+}
+
+.action-btn-pill.edit-btn:hover {
+  background: #e65100;
+  border-color: #e65100;
+  color: #ffffff !important;
+  transform: translateY(-1px);
 }
 
 .action-btn-pill.save-btn {
@@ -461,10 +476,17 @@
   border-color: #ccc;
 }
 
+.action-btn-pill.delete-btn {
+  background: #fdecea;
+  color: #c62828 !important;
+  border-color: #fdecea;
+}
+
 .action-btn-pill.delete-btn:hover {
-  background: #fef2f2;
-  color: #dc2626 !important;
-  border-color: #fca5a5;
+  background: #c62828;
+  border-color: #c62828;
+  color: #ffffff !important;
+  transform: translateY(-1px);
 }
 
 /* ---------- Database Schema Drawer ---------- */
@@ -669,4 +691,35 @@
     width: 100%;
     justify-content: center;
   }
+}
+
+/* ---------- Character Counter ---------- */
+.catalog-char-counter {
+  display: block;
+  text-align: right;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #aaa;
+  margin-top: 4px;
+  transition: color 0.2s;
+  user-select: none;
+}
+
+.catalog-char-counter--warn {
+  color: #d97706;
+}
+
+.catalog-char-counter--limit {
+  color: #c62828;
+  font-weight: 700;
+}
+
+/* Inline edit counter sits beside the input */
+.catalog-char-counter--inline {
+  display: inline-block;
+  margin-top: 0;
+  margin-left: 6px;
+  font-size: 0.72rem;
+  vertical-align: middle;
+  white-space: nowrap;
 }

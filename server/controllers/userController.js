@@ -7,7 +7,7 @@ const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
 
 exports.getOwnProfile = async (req, res) => {
   try {
-    const user = await db.users.findById(req.user.user_id, {
+    const user = await db.users.findByPk(req.user.user_id, {
       attributes: { exclude: ['password', 'reset_token', 'reset_token_expiry'] },
       include: [{
         model: db.employees,
@@ -44,7 +44,7 @@ exports.updateOwnProfile = async (req, res) => {
   const ip = getIp(req);
   try {
     const { first_name, last_name, email, phone_no, address } = req.body;
-    const user = await db.users.findById(req.user.user_id, {
+    const user = await db.users.findByPk(req.user.user_id, {
       include: [{
         model: db.employees,
         include: [{ model: db.departments, attributes: ['department_name'] }]
@@ -84,7 +84,7 @@ exports.updateOwnProfile = async (req, res) => {
     await logActivity(req.user.user_id, req.user.role, 'USER_PROFILE_UPDATED',
       `User profile updated for ${user.user_name} (ID: ${user.user_id})`, ip);
 
-    const updatedUser = await db.users.findById(req.user.user_id, {
+    const updatedUser = await db.users.findByPk(req.user.user_id, {
       attributes: { exclude: ['password', 'reset_token', 'reset_token_expiry'] },
       include: [{
         model: db.employees,
@@ -127,12 +127,20 @@ exports.changePassword = async (req, res) => {
     if (new_password.length < 6) {
       return res.status(400).json({ message: 'New password must be at least 6 characters' });
     }
+    if (current_password === new_password) {
+      return res.status(400).json({ message: 'New password must be different from current password' });
+    }
 
-    const user = await db.users.findById(req.user.user_id);
+    const user = await db.users.findByPk(req.user.user_id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const isMatch = await bcrypt.compare(current_password, user.password);
     if (!isMatch) return res.status(400).json({ message: 'Current password is incorrect' });
+
+    const isSameAsOld = await bcrypt.compare(new_password, user.password);
+    if (isSameAsOld) {
+      return res.status(400).json({ message: 'New password must be different from current password' });
+    }
 
     await user.update({ password: await bcrypt.hash(new_password, 10) });
     await logActivity(req.user.user_id, req.user.role, 'USER_PASSWORD_CHANGED',
@@ -147,7 +155,7 @@ exports.changePassword = async (req, res) => {
 exports.deleteProfilePhoto = async (req, res) => {
   const ip = getIp(req);
   try {
-    const user = await db.users.findById(req.user.user_id, { include: [{ model: db.employees }] });
+    const user = await db.users.findByPk(req.user.user_id, { include: [{ model: db.employees }] });
     if (!user) return res.status(404).json({ message: 'User not found' });
     const employee = user.employee;
     if (!employee?.profile_photo) return res.status(400).json({ message: 'No profile photo to remove' });
@@ -190,7 +198,7 @@ exports.getAllUsers = async (req, res) => {
 
 exports.getUserById = async (req, res) => {
   try {
-    const user = await db.users.findById(req.params.id, { attributes: { exclude: ['password', 'reset_token', 'reset_token_expiry'] } });
+    const user = await db.users.findByPk(req.params.id, { attributes: { exclude: ['password', 'reset_token', 'reset_token_expiry'] } });
     if (!user) return res.status(404).json({ message: 'User not found' });
     res.status(200).json(user);
   } catch (error) {
@@ -201,7 +209,7 @@ exports.getUserById = async (req, res) => {
 exports.updateUser = async (req, res) => {
   const ip = getIp(req);
   try {
-    const user = await db.users.findById(req.params.id);
+    const user = await db.users.findByPk(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
     const updateData = { ...req.body };
     if (updateData.password) updateData.password = await bcrypt.hash(updateData.password, 10);
@@ -223,7 +231,7 @@ exports.updateUser = async (req, res) => {
 exports.deleteUser = async (req, res) => {
   const ip = getIp(req);
   try {
-    const user = await db.users.findById(req.params.id);
+    const user = await db.users.findByPk(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
     const name = user.user_name;
     await user.destroy();

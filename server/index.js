@@ -1,23 +1,23 @@
 require('dotenv').config({ path: __dirname + '/.env' });
 const express = require('express');
-const cors    = require('cors');
-const path    = require('path');
-const http    = require('http');
+const cors = require('cors');
+const path = require('path');
+const http = require('http');
 const { Server } = require('socket.io');
-const cron    = require('node-cron');
+const cron = require('node-cron');
 
-const db               = require('./models');
-const authRoutes       = require('./routes/auth');
-const authMiddleware   = require('./middleware/authMiddleware');
+const db = require('./models');
+const authRoutes = require('./routes/auth');
+const authMiddleware = require('./middleware/authMiddleware');
 const seedDefaultAdmin = require('./scripts/seedDefaultAdmin');
 const ensureSupplierSchema = require('./scripts/ensureSupplierSchema');
 const ensureProjectSchema = require('./scripts/ensureProjectSchema');
 const ensureMultiUnitSchema = require('./scripts/ensureMultiUnitSchema');
 const ensureReturnSchema = require('./scripts/ensureReturnSchema');
 const ensureEmployeeSchema = require('./scripts/ensureEmployeeSchema');
-const ensureAlertsSchema   = require('./scripts/ensureAlertsSchema');
-const ensureSupplierPaymentsSchema = require('./scripts/ensureSupplierPaymentsSchema');
-const fixProcurementSchema = require('./scripts/fixProcurementSchema');
+const ensureAlertSchema = require('./scripts/ensureAlertSchema');
+const ensureUserSchema  = require('./scripts/ensureUserSchema');
+const ensureChequeExchangeSchema = require('./scripts/ensureChequeExchangeSchema');
 const { startNearExpiryCron } = require('./cron/nearExpiryCron');
 
 const app    = express();
@@ -63,9 +63,9 @@ db.sequelize.sync({ force: false })
     await ensureMultiUnitSchema();
     await ensureReturnSchema();
     await ensureEmployeeSchema();
-    await ensureAlertsSchema();
-    await ensureSupplierPaymentsSchema();
-    await fixProcurementSchema();
+    await ensureAlertSchema();
+    await ensureUserSchema();
+    await ensureChequeExchangeSchema();
     await seedDefaultAdmin();
     startNearExpiryCron();
     startServer();
@@ -112,47 +112,49 @@ const autoReorderRoutes             = require('./routes/autoReorderRoutes');
 const forecastRoutes                = require('./routes/forecastRoutes');
 const procurementNotificationRoutes = require('./routes/procurementNotificationRoutes');
 const supplierPerformanceRoutes     = require('./routes/supplierPerformanceRoutes');
-const batchRoutes                   = require('./routes/batchRoutes');
+const batchRoutes = require('./routes/batchRoutes');
+const chequeExchangeRoutes = require('./routes/chequeExchangeRoutes');
 
-app.use('/api/departments',    departmentRoutes);
-app.use('/api/employees',      employeeRoutes);
-app.use('/api/users',          userRoutes);
-app.use('/api/profile',        profileRoutes);
-app.use('/api/audit_log',      auditLogRoutes);
-app.use('/api/category',       categoryRoutes);
-app.use('/api/brands',         brandRoutes);
-app.use('/api/units',          unitRoutes);
-app.use('/api/products',       productRoutes);
-app.use('/api/suppliers',      supplierRoutes);
-app.use('/api/customers',      customerRoutes);
-app.use('/api/bills',          authMiddleware, billRoutes);
-app.use('/api/bill_items',     billItemsRoutes);
-app.use('/api/payments',       authMiddleware, paymentRoutes);
-app.use('/api/returns',        authMiddleware, returnRoutes);
+app.use('/api/departments',   departmentRoutes);
+app.use('/api/employees',     employeeRoutes);
+app.use('/api/users',         userRoutes);
+app.use('/api/profile',       profileRoutes);
+app.use('/api/audit_log',     auditLogRoutes);
+app.use('/api/category',      categoryRoutes);
+app.use('/api/brands',        brandRoutes);
+app.use('/api/units',         unitRoutes);
+app.use('/api/products',      productRoutes);
+app.use('/api/suppliers',     supplierRoutes);
+app.use('/api/customers',     customerRoutes);
+app.use('/api/bills',         authMiddleware, billRoutes);
+app.use('/api/bill_items',    billItemsRoutes);
+app.use('/api/payments',      authMiddleware, paymentRoutes);
+app.use('/api/returns',       authMiddleware, returnRoutes);
 app.use('/api/supplier-services', authMiddleware, supplierServiceRoutes);
-app.use('/api/alerts',         alertRoutes);
+app.use('/api/alerts',        alertRoutes);
 app.use('/api/purchase_orders', purchaseOrderRoutes);
-app.use('/api/po_items',       poItemsRoutes);
-app.use('/api/schema',         schemaRoutes);
-app.use('/api/dashboard',      authMiddleware, dashboardRoutes);
-app.use('/api/assets',         assetRoutes);
-app.use('/api/expenses',       expenseRoutes);
-app.use('/api/salary',         salaryRoutes);
-app.use('/api/projects',       projectRoutes);
+app.use('/api/po_items',      poItemsRoutes);
+app.use('/api/schema',        schemaRoutes);
+app.use('/api/dashboard',     authMiddleware, dashboardRoutes);
+app.use('/api/assets',        assetRoutes);
+app.use('/api/expenses',      expenseRoutes);
+app.use('/api/salary',        salaryRoutes);
+app.use('/api/projects',      projectRoutes);
 
 // Procurement module
-app.use('/api/procurement/suppliers',       RR_supplierRoutes);
+app.use('/api/procurement/suppliers',     RR_supplierRoutes);
 app.use('/api/procurement/purchase-orders', RR_purchaseOrderRoutes);
-app.use('/api/procurement/dashboard',       procurementDashboardRoutes);
-app.use('/api/procurement/reports',         procurementReportsRoutes);
-app.use('/api/procurement/payments',        procurementPaymentRoutes);
-app.use('/api/procurement/reorder',         autoReorderRoutes);
-app.use('/api/procurement/forecast',        forecastRoutes);
-app.use('/api/procurement/notifications',   procurementNotificationRoutes);
-app.use('/api/procurement/performance',     supplierPerformanceRoutes);
-app.use('/api/RR_suppliers',        RR_supplierRoutes);
-app.use('/api/RR_purchase_orders',  RR_purchaseOrderRoutes);
-app.use('/api/batch-inventory',     batchRoutes);
+app.use('/api/procurement/dashboard',     procurementDashboardRoutes);
+app.use('/api/procurement/reports',       procurementReportsRoutes);
+app.use('/api/procurement/payments',      procurementPaymentRoutes);
+app.use('/api/procurement/reorder',       autoReorderRoutes);
+app.use('/api/procurement/forecast',      forecastRoutes);
+app.use('/api/procurement/notifications', procurementNotificationRoutes);
+app.use('/api/procurement/performance',   supplierPerformanceRoutes);
+app.use('/api/RR_suppliers',              RR_supplierRoutes);
+app.use('/api/RR_purchase_orders',        RR_purchaseOrderRoutes);
+app.use('/api/batch-inventory',           batchRoutes);
+app.use('/api/cheque-exchange',            chequeExchangeRoutes);
 
 // ── Cron Jobs ─────────────────────────────────────────────────────────────────
 
@@ -192,8 +194,8 @@ cron.schedule('0 8 * * *', async () => {
   } catch (e) { console.error('[Cron] Overdue payment error:', e.message); }
 
   try {
-    const now      = new Date();
-    const dueDay   = 30;
+    const now = new Date();
+    const dueDay = 30;
     const daysLeft = dueDay - now.getDate();
     if (daysLeft >= 0 && daysLeft <= 5) {
       const pending = await db.salary_payments.count({ where: { payment_status: 'Pending' } });

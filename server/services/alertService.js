@@ -64,10 +64,16 @@ async function syncAlertsForProduct(product) {
 
     for (const alert_type of applicable) {
       const exists = await alerts.findOne({
-        where: { product_id: product.product_id, alert_type, is_resolved: false }
+        where: { product_id: product.product_id, alert_type, is_resolved: false, status: 'Active' }
       });
       if (!exists) {
-        await alerts.create({ product_id: product.product_id, alert_type, is_resolved: false });
+        // Don't create a duplicate if a Purchase Ordered alert already exists for this type
+        const poAlert = await alerts.findOne({
+          where: { product_id: product.product_id, alert_type, is_resolved: false, status: 'Purchase Ordered' }
+        });
+        if (!poAlert) {
+          await alerts.create({ product_id: product.product_id, alert_type, is_resolved: false });
+        }
       }
     }
 
@@ -75,7 +81,7 @@ async function syncAlertsForProduct(product) {
     for (const alert_type of toResolve) {
       await alerts.update(
         { is_resolved: true, resolved_date: new Date() },
-        { where: { product_id: product.product_id, alert_type, is_resolved: false } }
+        { where: { product_id: product.product_id, alert_type, is_resolved: false, status: 'Active' } }
       );
     }
   } catch (err) {
@@ -97,11 +103,16 @@ async function generateAllAlerts() {
 
     for (const alert_type of applicable) {
       const exists = await alerts.findOne({
-        where: { product_id: product.product_id, alert_type, is_resolved: false }
+        where: { product_id: product.product_id, alert_type, is_resolved: false, status: 'Active' }
       });
       if (!exists) {
-        await alerts.create({ product_id: product.product_id, alert_type, is_resolved: false });
-        created++;
+        const poAlert = await alerts.findOne({
+          where: { product_id: product.product_id, alert_type, is_resolved: false, status: 'Purchase Ordered' }
+        });
+        if (!poAlert) {
+          await alerts.create({ product_id: product.product_id, alert_type, is_resolved: false });
+          created++;
+        }
       }
     }
 
@@ -109,7 +120,7 @@ async function generateAllAlerts() {
     for (const alert_type of toResolve) {
       const [count] = await alerts.update(
         { is_resolved: true, resolved_date: new Date() },
-        { where: { product_id: product.product_id, alert_type, is_resolved: false } }
+        { where: { product_id: product.product_id, alert_type, is_resolved: false, status: 'Active' } }
       );
       autoResolved += count;
     }

@@ -1,7 +1,10 @@
 const { Op } = require('sequelize');
 const db = require('../models');
 const emailService = require('../services/emailService');
+const { logActivity } = require('../services/auditService');
 const { normalizeDepartmentSelection, serializeDepartmentSelection } = require('../utils/projectDepartmentUtils');
+
+const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
 
 const getDayBounds = (dateValue = new Date()) => {
   const targetDate = dateValue instanceof Date ? new Date(dateValue) : new Date(dateValue);
@@ -78,6 +81,7 @@ exports.getProjectById = async (req, res) => {
 
 // ── CREATE project (admin/manager only) ──────────────────────────────────────
 exports.createProject = async (req, res) => {
+  const ip = getIp(req);
   try {
     const { project_name, project_owner, location, project_type, project_departments, description, status, start_date, deadline, end_date } = req.body;
 
@@ -103,6 +107,9 @@ exports.createProject = async (req, res) => {
 
     const project = await db.projects.create(payload);
     console.log(`[Projects] ✅ Created project "${project_name}" by user_id: ${payload.created_by}`);
+    await logActivity(req.user?.user_id, req.user?.role, 'CREATE_PROJECT',
+      `Project created: "${project_name}" (ID: ${project.project_id}), Type: ${project_type || 'Hardware'}`, ip);
+
     res.status(201).json(project);
   } catch (err) {
     console.error('[Projects] createProject error:', err.message);
@@ -115,6 +122,7 @@ exports.createProject = async (req, res) => {
 
 // ── UPDATE project status/details (admin/manager only) ───────────────────────
 exports.updateProject = async (req, res) => {
+  const ip = getIp(req);
   try {
     const project = await db.projects.findById(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
@@ -161,6 +169,9 @@ exports.updateProject = async (req, res) => {
     });
 
     console.log(`[Projects] ✅ Updated project_id: ${req.params.id}`);
+    await logActivity(req.user?.user_id, req.user?.role, 'UPDATE_PROJECT',
+      `Project ID ${req.params.id} ("${project.project_name}") updated. Status: ${nextStatus}`, ip);
+
     res.json({ project, estimated_cost: estimatedCost, final_payment: resolvedFinalPayment });
   } catch (err) {
     console.error('[Projects] updateProject error:', err.message);
@@ -189,12 +200,17 @@ exports.addPayment = async (req, res) => {
 
 // ── DELETE project (admin only) ───────────────────────────────────────────────
 exports.deleteProject = async (req, res) => {
+  const ip = getIp(req);
   try {
     const project = await db.projects.findById(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
+    const name = project.project_name;
     await db.project_items.destroy({ where: { project_id: req.params.id } });
     await project.destroy();
     console.log(`[Projects] 🗑️  Deleted project_id: ${req.params.id}`);
+    await logActivity(req.user?.user_id, req.user?.role, 'DELETE_PROJECT',
+      `Project deleted: "${name}" (ID: ${req.params.id})`, ip);
+
     res.json({ message: 'Project deleted successfully' });
   } catch (err) {
     console.error('[Projects] deleteProject error:', err.message);
@@ -268,6 +284,9 @@ exports.addProjectItem = async (req, res) => {
 
     await t.commit();
 
+    const io = req.app.get('io');
+    if (io) io.emit('products:updated');
+
     // Return item(s) with product details
     const fullItems = await db.project_items.findAll({
       where: { transaction_ref: transactionRef },
@@ -325,6 +344,8 @@ exports.deleteTodayProductSales = async (req, res) => {
     }
 
     await t.commit();
+    const io = req.app.get('io');
+    if (io) io.emit('products:updated');
     res.json({ message: 'Product sales removed for today', removed: items.length });
   } catch (err) {
     await t.rollback();
@@ -381,6 +402,9 @@ exports.deleteProjectItem = async (req, res) => {
     await item.destroy({ transaction: t });
     await t.commit();
     console.log(`[Projects] ↩️  Removed item_id: ${req.params.itemId}, stock restored`);
+
+    const io = req.app.get('io');
+    if (io) io.emit('products:updated');
 
     // Notify Admin via Email asynchronously
     emailService.sendProjectItemRemovedNotification(itemDetails).catch((err) => {

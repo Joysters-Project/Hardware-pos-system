@@ -1,5 +1,9 @@
 const db = require('../models');
 const { Op } = require('sequelize');
+const { logActivity } = require('../services/auditService');
+
+const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
+const DEPT_NAME_REGEX = /^[A-Za-z0-9 ]+$/;
 
 const getAllDepartments = async (req, res) => {
   try {
@@ -38,12 +42,14 @@ const getAllDepartments = async (req, res) => {
   }
 };
 
+const MAX_DEPARTMENT_BUDGET = 100000000; // 10 crore
+
 const getDepartmentById = async (req, res) => {
   try {
     console.error('Department Error:', 'GET department request');
     console.error('Department ID:', req.params.id);
 
-    const dept = await db.departments.findById(req.params.id, {
+    const dept = await db.departments.findByPk(req.params.id, {
       include: [
         {
           model: db.employees,
@@ -86,20 +92,35 @@ const getDepartmentById = async (req, res) => {
 };
 
 const createDepartment = async (req, res) => {
+  const ip = getIp(req);
   try {
     const { department_name, budget, description, status } = req.body;
     if (!department_name) return res.status(400).json({ message: 'Department name is required' });
+    if (String(department_name).length > 100) return res.status(400).json({ message: 'Department name cannot exceed 100 characters' });
+    if (!DEPT_NAME_REGEX.test(String(department_name))) return res.status(400).json({ message: 'Department name can only contain letters, numbers and spaces' });
 
     const exists = await db.departments.findOne({ where: { department_name } });
     if (exists) return res.status(400).json({ message: 'Department name already exists' });
 
+    const parsedBudget = parseFloat(budget || 0);
+    if (!Number.isFinite(parsedBudget) || parsedBudget < 0) {
+      return res.status(400).json({ message: 'Invalid budget value' });
+    }
+
+    if (parsedBudget > MAX_DEPARTMENT_BUDGET) {
+      return res.status(400).json({ message: `Budget cannot exceed ${MAX_DEPARTMENT_BUDGET}` });
+    }
+
     const dept = await db.departments.create({
       department_name,
-      budget: budget || 0,
+      budget: parsedBudget,
       description: description || null,
       status: status || 'Active',
       used_budget: 0
     });
+
+    await logActivity(req.user?.user_id, req.user?.role, 'CREATE_DEPARTMENT',
+      `Department created: "${department_name}" (ID: ${dept.department_id}), Budget: ${parsedBudget}`, ip);
 
     res.status(201).json({ message: 'Department created successfully', data: dept });
   } catch (error) {
@@ -108,12 +129,13 @@ const createDepartment = async (req, res) => {
 };
 
 const updateDepartment = async (req, res) => {
+  const ip = getIp(req);
   try {
     console.error('Department Error:', 'PUT department request');
     console.error('Department ID:', req.params.id);
     console.error('Request Body:', req.body);
 
-    const dept = await db.departments.findById(req.params.id);
+    const dept = await db.departments.findByPk(req.params.id);
     if (!dept) {
       return res.status(404).json({ success: false, message: 'Department not found' });
     }
@@ -121,6 +143,12 @@ const updateDepartment = async (req, res) => {
     const { department_name, budget, description, status } = req.body;
 
     if (department_name && department_name !== dept.department_name) {
+      if (String(department_name).length > 100) {
+        return res.status(400).json({ success: false, message: 'Department name cannot exceed 100 characters' });
+      }
+      if (!DEPT_NAME_REGEX.test(String(department_name))) {
+        return res.status(400).json({ success: false, message: 'Department name can only contain letters, numbers and spaces' });
+      }
       const exists = await db.departments.findOne({ where: { department_name } });
       if (exists) {
         return res.status(400).json({ success: false, message: 'Department name already exists' });
@@ -129,11 +157,47 @@ const updateDepartment = async (req, res) => {
 
     const updatePayload = {};
     if (department_name !== undefined) updatePayload.department_name = department_name;
-    if (budget !== undefined) updatePayload.budget = budget;
+    if (budget !== undefined) {
+      const parsedBudget = parseFloat(budget);
+      if (!Number.isFinite(parsedBudget) || parsedBudget < 0) {
+        return res.status(400).json({ success: false, message: 'Invalid budget value' });
+      }
+      if (parsedBudget > MAX_DEPARTMENT_BUDGET) {
+        return res.status(400).json({ success: false, message: `Budget cannot exceed ${MAX_DEPARTMENT_BUDGET}` });
+      }
+      updatePayload.budget = parsedBudget;
+    }
     if (description !== undefined) updatePayload.description = description;
-    if (status !== undefined) updatePayload.status = status;
+    if (status !== undefined) {
+      const normalizedStatus = String(status).trim();
+      const isInactiveStatus = normalizedStatus.toLowerCase() === 'inactive';
+
+      if (isInactiveStatus) {
+        const employees = await db.employees.findAll({
+          where: { department_id: req.params.id },
+          attributes: ['status']
+        });
+
+        const hasActiveEmployee = employees.some(employee =>
+          String(employee.status || '').toLowerCase() === 'active'
+        );
+
+        if (hasActiveEmployee) {
+          return res.status(400).json({
+            success: false,
+            message: 'Cannot make department inactive while it has active employees.'
+          });
+        }
+      }
+
+      updatePayload.status = normalizedStatus;
+    }
 
     await dept.update(updatePayload);
+
+    await logActivity(req.user?.user_id, req.user?.role, 'UPDATE_DEPARTMENT',
+      `Department ID ${req.params.id} ("${dept.department_name}") updated`, ip);
+
     return res.status(200).json({ success: true, message: 'Department updated successfully', data: dept });
   } catch (error) {
     console.error('Department Error:', error);
@@ -145,14 +209,20 @@ const updateDepartment = async (req, res) => {
 };
 
 const deleteDepartment = async (req, res) => {
+  const ip = getIp(req);
   try {
-    const dept = await db.departments.findById(req.params.id);
+    const dept = await db.departments.findByPk(req.params.id);
     if (!dept) return res.status(404).json({ message: 'Department not found' });
 
     const empCount = await db.employees.count({ where: { department_id: req.params.id } });
     if (empCount > 0) return res.status(400).json({ message: 'Cannot delete department with active employees' });
 
+    const name = dept.department_name;
     await dept.destroy();
+
+    await logActivity(req.user?.user_id, req.user?.role, 'DELETE_DEPARTMENT',
+      `Department deleted: "${name}" (ID: ${req.params.id})`, ip);
+
     res.status(200).json({ message: 'Department deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });

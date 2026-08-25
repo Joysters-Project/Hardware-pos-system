@@ -15,6 +15,7 @@ const INITIAL_FORM = {
 	reorder_level: "",
 	type: "",
 	batch_no: "",
+	barcode: "",
 	expiry_date: "",
 	status: "active",
 	category_id: "",
@@ -25,6 +26,12 @@ const INITIAL_FORM = {
 const toNumberOrNull = (value, parser = Number) => {
 	if (value === "" || value === null || value === undefined) return null;
 	return parser(value);
+};
+
+const generateBarcode = () => {
+	const timePart = Date.now().toString().slice(-8);
+	const randomPart = Math.random().toString().slice(2, 6).padStart(4, "0");
+	return `${timePart}${randomPart}`;
 };
 
 function AddProductPage() {
@@ -124,6 +131,7 @@ function AddProductPage() {
 				reorder_level: toNumberOrNull(form.reorder_level, parseFloat),
 				type: form.type.trim(),
 				batch_no: form.batch_no.trim() || null,
+				barcode: form.barcode.trim() || null,
 				expiry_date: form.expiry_date || null,
 				status: form.status || "active",
 				category_id: toNumberOrNull(form.category_id, parseInt),
@@ -170,6 +178,25 @@ function AddProductPage() {
 						<div className="field-group">
 							<label>Batch No</label>
 							<input name="batch_no" placeholder="Optional" value={form.batch_no} onChange={handleChange} />
+						</div>
+						<div className="field-group">
+							<label>Barcode (Optional)</label>
+							<div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+								<input name="barcode" placeholder="Optional" value={form.barcode} onChange={handleChange} style={{ flex: 1 }} />
+								<button
+									type="button"
+									className="submit-btn"
+									onClick={() => setForm((prev) => ({ ...prev, barcode: generateBarcode() }))}
+									style={{
+										padding: "8px 12px",
+										fontSize: "12px",
+										minWidth: "unset",
+										whiteSpace: "nowrap",
+									}}
+								>
+									Auto Generate
+								</button>
+							</div>
 						</div>
 						<div className="field-group">
 							<label>Expiry Date</label>
@@ -260,7 +287,7 @@ function AddProductPage() {
 						<div key={idx} className="form-grid alt-unit-row" style={{ border: "1px solid #efe2e2", padding: "20px 16px 16px", borderRadius: "12px", marginBottom: "16px", background: "#fcf9f9", position: "relative" }}>
 							<div className="field-group">
 								<label>Alternative Unit <span className="req">*</span></label>
-								<select value={item.unit_id} onChange={(e) => handleAltUnitChange(idx, "unit_id", e.target.value)}>
+								<select id="unit_id" name="unit_id" value={item.unit_id} onChange={(e) => handleAltUnitChange(idx, "unit_id", e.target.value)}>
 									<option value="">Select Unit</option>
 									{units.map((u) => (
 										<option key={u.unit_id} value={u.unit_id} disabled={parseInt(u.unit_id) === parseInt(form.unit_id)}>{u.unit_name}</option>
@@ -269,19 +296,19 @@ function AddProductPage() {
 							</div>
 							<div className="field-group">
 								<label>Conversion Factor (1 Alt Unit = X Base Units) <span className="req">*</span></label>
-								<input type="number" placeholder="e.g. 50" min="0.0001" step="0.0001" value={item.conversion_factor} onChange={(e) => handleAltUnitChange(idx, "conversion_factor", e.target.value)} />
+								<input id="conversion_factor" name="conversion_factor" type="number" placeholder="e.g. 50" min="0.0001" step="0.0001" value={item.conversion_factor} onChange={(e) => handleAltUnitChange(idx, "conversion_factor", e.target.value)} />
 							</div>
 							<div className="field-group">
 								<label>Custom Selling Price (Optional)</label>
-								<input type="number" placeholder="Defaults to Base * Factor" min="0" step="0.01" value={item.unit_price} onChange={(e) => handleAltUnitChange(idx, "unit_price", e.target.value)} />
+								<input id="unit_price" name="unit_price" type="number" placeholder="Defaults to Base * Factor" min="0" step="0.01" value={item.unit_price} onChange={(e) => handleAltUnitChange(idx, "unit_price", e.target.value)} />
 							</div>
 							<div className="field-group">
 								<label>Custom Cost Price (Optional)</label>
-								<input type="number" placeholder="Defaults to Base * Factor" min="0" step="0.01" value={item.cost_price} onChange={(e) => handleAltUnitChange(idx, "cost_price", e.target.value)} />
+								<input id="cost_price" name="cost_price" type="number" placeholder="Defaults to Base * Factor" min="0" step="0.01" value={item.cost_price} onChange={(e) => handleAltUnitChange(idx, "cost_price", e.target.value)} />
 							</div>
 							<div className="field-group">
 								<label>Barcode (Optional)</label>
-								<input type="text" placeholder="e.g. 123456789" value={item.barcode} onChange={(e) => handleAltUnitChange(idx, "barcode", e.target.value)} />
+								<input id="barcode" name="barcode" type="text" placeholder="e.g. 123456789" value={item.barcode} onChange={(e) => handleAltUnitChange(idx, "barcode", e.target.value)} />
 							</div>
 							<button type="button" onClick={() => removeAlternativeUnitRow(idx)} style={{ position: "absolute", right: "12px", top: "12px", background: "none", border: "none", color: "#dc2626", fontWeight: "600", cursor: "pointer", fontSize: "13px" }}>
 								Remove

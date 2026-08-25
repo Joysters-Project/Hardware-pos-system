@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Search, CreditCard, Receipt, FolderOpen } from "lucide-react";
 import api from "../api/axios";
 import toast from "react-hot-toast";
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from "../utils/phoneValidation";
@@ -7,6 +9,7 @@ import DashboardLayout from "./DashboardLayout";
 import "../styles/DueCollection.css";
 
 const DueCollection = () => {
+  const navigate = useNavigate();
   const [activeView, setActiveView] = useState("checking");
   const [searchQuery, setSearchQuery] = useState("");
   const [customer, setCustomer] = useState(null);
@@ -112,28 +115,18 @@ const DueCollection = () => {
 
   const handleDueCheckSearch = async () => {
     if (!dueCheckQuery.trim()) {
-      return toast.error("Enter a customer name or phone number");
+      return toast.error("Enter a phone number");
+    }
+
+    const phoneValidation = validateSriLankanPhone(dueCheckQuery);
+    if (!phoneValidation.isValid) {
+      return toast.error(phoneValidation.message);
     }
 
     setDueCheckLoading(true);
     try {
-      const trimmedQuery = dueCheckQuery.trim();
-      const phoneValidation = validateSriLankanPhone(trimmedQuery);
-      let customerData = null;
-
-      if (phoneValidation.isValid) {
-        const cusRes = await api.get(`/customers?phone=${encodeURIComponent(phoneValidation.formatted)}`);
-        customerData = cusRes.data?.data || cusRes.data;
-      } else {
-        const cusRes = await api.get("/customers");
-        const customerList = Array.isArray(cusRes.data) ? cusRes.data : cusRes.data?.data || [];
-        const target = trimmedQuery.toLowerCase();
-        customerData = customerList.find((item) => {
-          const name = (item.customer_name || item.name || "").toLowerCase();
-          const phone = (item.phone_no || item.phone || "").toString();
-          return name.includes(target) || phone.includes(target.replace(/\D/g, ""));
-        });
-      }
+      const cusRes = await api.get(`/customers?phone=${encodeURIComponent(phoneValidation.formatted)}`);
+      const customerData = cusRes.data?.data || cusRes.data;
 
       if (!customerData || !customerData.customer_id) {
         setDueCheckCustomer(null);
@@ -243,13 +236,19 @@ const DueCollection = () => {
     <div className="due-content" style={{ marginTop: "8px" }}>
       <div className="due-left">
         <div className="due-search-box">
+          <label htmlFor="due-collection-search" className="sr-only">
+            Search by phone number
+          </label>
           <input
+            id="due-collection-search"
+            name="due-collection-search"
             type="tel"
             placeholder="Search by 10-digit phone number (070-078)..."
             value={searchQuery}
             onChange={(event) => setSearchQuery(filterSriLankanPhoneInput(event.target.value))}
             onKeyDown={(event) => event.key === "Enter" && handleSearch()}
             maxLength="10"
+            autoComplete="tel"
           />
           <button type="button" onClick={handleSearch}>Search</button>
         </div>
@@ -286,7 +285,7 @@ const DueCollection = () => {
               <thead>
                 <tr>
                   <th style={{ width: 40 }}>
-                    <input
+                    <input id="checkbox_field" name="checkbox_field"
                       type="checkbox"
                       checked={selectedBills.length === bills.length && bills.length > 0}
                       onChange={(event) => {
@@ -322,7 +321,7 @@ const DueCollection = () => {
                       onClick={() => handleSelectBill(bill)}
                     >
                       <td>
-                        <input type="checkbox" checked={isSelected} readOnly />
+                        <input id="checkbox_field" name="checkbox_field" type="checkbox" checked={isSelected} readOnly />
                       </td>
                       <td>
                         <span style={{ fontWeight: "bold", color: "#333" }}>{bill.bill_no}</span>
@@ -390,10 +389,12 @@ const DueCollection = () => {
         </div>
 
         <div className="amount-input-group">
-          <label>Amount collecting now</label>
+          <label htmlFor="due-amount">Amount collecting now</label>
           <div>
             <span className="amount-symbol"><strong>Rs.</strong></span>
             <input
+              id="due-amount"
+              name="due-amount"
               type="number"
               style={{ paddingLeft: "50px" }}
               value={amountInput}
@@ -438,12 +439,19 @@ const DueCollection = () => {
     <div className="due-content" style={{ marginTop: "8px" }}>
       <div className="due-left">
         <div className="due-search-box">
+          <label htmlFor="due-check-search" className="sr-only">
+            Search due by phone number
+          </label>
           <input
-            type="text"
-            placeholder="Search by customer name or phone number"
+            id="due-check-search"
+            name="due-check-search"
+            type="tel"
+            placeholder="Search by phone number"
             value={dueCheckQuery}
-            onChange={(event) => setDueCheckQuery(event.target.value)}
+            onChange={(event) => setDueCheckQuery(filterSriLankanPhoneInput(event.target.value))}
             onKeyDown={(event) => event.key === "Enter" && handleDueCheckSearch()}
+            maxLength="10"
+            autoComplete="tel"
           />
           <button type="button" onClick={handleDueCheckSearch} disabled={dueCheckLoading}>
             {dueCheckLoading ? "Checking..." : "Check Due"}
@@ -587,26 +595,52 @@ const DueCollection = () => {
       <div className="cashier-page-shell">
         <div className="admin-page-header">
         <div>
-          <h1 className="admin-page-title">💼 Due</h1>
+           <h1 className="admin-page-title">💼 Due Management</h1>
           <p className="admin-page-subtitle">Track dues and collect outstanding balances with a clear customer view</p>
         </div>
       </div>
 
-      <div className="due-nav-tabs">
-        <button
-          type="button"
-          className={`due-nav-tab${activeView === "checking" ? " active" : ""}`}
-          onClick={() => setActiveView("checking")}
-        >
-          Due Checking
-        </button>
-        <button
-          type="button"
-          className={`due-nav-tab${activeView === "collection" ? " active" : ""}`}
-          onClick={() => setActiveView("collection")}
-        >
-          Due Collection
-        </button>
+      <div className="pos-tab-switcher due-tab-switcher">
+        <div className="due-tabs-group">
+          <button
+            type="button"
+            className={`pos-tab-btn${activeView === "checking" ? " active" : ""}`}
+            onClick={() => setActiveView("checking")}
+          >
+            <Search size={16} />
+            <span>Due Checking</span>
+          </button>
+          <button
+            type="button"
+            className={`pos-tab-btn${activeView === "collection" ? " active" : ""}`}
+            onClick={() => setActiveView("collection")}
+          >
+            <CreditCard size={16} />
+            <span>Due Collection</span>
+          </button>
+        </div>
+
+        {/* ── Navigation Links (Billing Counter Style) ── */}
+        <div className="due-nav-links-group">
+          <button
+            type="button"
+            className="pos-tab-btn due-nav-link"
+            onClick={() => navigate('/billing')}
+            title="Navigate to Billing Counter"
+          >
+            <Receipt size={16} />
+            <span>Billing Counter</span>
+          </button>
+          <button
+            type="button"
+            className="pos-tab-btn due-nav-link accent"
+            onClick={() => navigate('/billing', { state: { tab: 'projects' } })}
+            title="Navigate to Project Billing Counter"
+          >
+            <FolderOpen size={16} />
+            <span>Project Billing Counter</span>
+          </button>
+        </div>
       </div>
 
       <div className={`due-view-shell ${viewEnter ? "due-view-shell-active" : ""}`}>

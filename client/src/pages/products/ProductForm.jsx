@@ -11,6 +11,12 @@ const fieldVariants = {
   visible: { opacity: 1, x: 0 },
 };
 
+const generateBarcode = () => {
+  const timePart = Date.now().toString().slice(-8);
+  const randomPart = Math.random().toString().slice(2, 6).padStart(4, '0');
+  return `${timePart}${randomPart}`;
+};
+
 export default function ProductForm() {
   const navigate = useNavigate();
   const { id }   = useParams();
@@ -19,7 +25,7 @@ export default function ProductForm() {
   const [formData, setFormData] = useState({
     product_name: '', unit_price: '', cost_price: '',
     stock_quantity: '0', min_stock_quantity: '0', reorder_level: '',
-    type: '', batch_no: '', expiry_date: '',
+    type: '', batch_no: '', barcode: '', expiry_date: '',
     category_id: '', brand_id: '', unit_id: '',
   });
   const [categories, setCategories] = useState([]);
@@ -79,6 +85,7 @@ export default function ProductForm() {
         reorder_level:      p.reorder_level?.toString()      || '',
         type:               p.type      || '',
         batch_no:           p.batch_no  || '',
+        barcode:            p.barcode   || '',
         expiry_date:        p.expiry_date ? String(p.expiry_date).slice(0, 10) : '',
         category_id:        p.category_id?.toString() || '',
         brand_id:           p.brand_id?.toString()   || '',
@@ -139,6 +146,7 @@ export default function ProductForm() {
         reorder_level:      parseFloat(formData.reorder_level)      || 0,
         type:               formData.type,
         batch_no:           formData.batch_no    || null,
+        barcode:            formData.barcode     || null,
         expiry_date:        formData.expiry_date || null,
         category_id:        parseInt(formData.category_id),
         brand_id:           formData.brand_id ? parseInt(formData.brand_id) : null,
@@ -262,6 +270,31 @@ export default function ProductForm() {
               </div>
             </motion.div>
 
+            <motion.div className="pf-field" variants={fieldVariants} initial="hidden" animate="visible" transition={{ delay: 0.22 }}>
+              <label className="pf-label">Barcode (Optional)</label>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input className="pf-input" name="barcode" value={formData.barcode}
+                  onChange={handleChange} placeholder="Optional" style={{ flex: 1 }} />
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, barcode: generateBarcode() }))}
+                  style={{
+                    border: '1px solid #d1d5db',
+                    background: '#f8fafc',
+                    color: '#1f2937',
+                    borderRadius: '8px',
+                    padding: '9px 14px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    fontSize: '12px'
+                  }}
+                >
+                  Auto Generate
+                </button>
+              </div>
+            </motion.div>
+
             {/* Category, Brand, Unit */}
             <motion.div className="pf-grid-3" variants={fieldVariants} initial="hidden" animate="visible" transition={{ delay: 0.24 }}>
               <div className="pf-field">
@@ -327,7 +360,7 @@ export default function ProductForm() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                   <div className="pf-field">
                     <label className="pf-label">Alternative Unit <span className="pf-req">*</span></label>
-                    <select className="pf-select" value={item.unit_id} onChange={(e) => handleAltUnitChange(idx, "unit_id", e.target.value)}>
+                    <select id="unit_id" name="unit_id" className="pf-select" value={item.unit_id} onChange={(e) => handleAltUnitChange(idx, "unit_id", e.target.value)}>
                       <option value="">Select Unit</option>
                       {units.map(u => (
                         <option key={u.unit_id} value={u.unit_id} disabled={parseInt(u.unit_id) === parseInt(formData.unit_id)}>{u.unit_name}</option>
@@ -337,22 +370,41 @@ export default function ProductForm() {
 
                   <div className="pf-field">
                     <label className="pf-label">Conversion Factor <span className="pf-req">*</span></label>
-                    <input className="pf-input" type="number" min="0.0001" step="0.0001" placeholder="e.g. 50" value={item.conversion_factor} onChange={(e) => handleAltUnitChange(idx, "conversion_factor", e.target.value)} />
+                    <input id="conversion_factor" name="conversion_factor" className="pf-input" type="number" min="0.0001" step="0.0001" placeholder="e.g. 50" value={item.conversion_factor} onChange={(e) => handleAltUnitChange(idx, "conversion_factor", e.target.value)} />
                   </div>
 
                   <div className="pf-field">
                     <label className="pf-label">Custom Price (Optional)</label>
-                    <input className="pf-input" type="number" min="0" step="0.01" placeholder="Defaults to Base * Factor" value={item.unit_price} onChange={(e) => handleAltUnitChange(idx, "unit_price", e.target.value)} />
+                    <input id="unit_price" name="unit_price" className="pf-input" type="number" min="0" step="0.01" placeholder="Defaults to Base * Factor" value={item.unit_price} onChange={(e) => handleAltUnitChange(idx, "unit_price", e.target.value)} />
                   </div>
 
                   <div className="pf-field">
                     <label className="pf-label">Custom Cost (Optional)</label>
-                    <input className="pf-input" type="number" min="0" step="0.01" placeholder="Defaults to Base * Factor" value={item.cost_price} onChange={(e) => handleAltUnitChange(idx, "cost_price", e.target.value)} />
+                    <input id="cost_price" name="cost_price" className="pf-input" type="number" min="0" step="0.01" placeholder="Defaults to Base * Factor" value={item.cost_price} onChange={(e) => handleAltUnitChange(idx, "cost_price", e.target.value)} />
                   </div>
 
                   <div className="pf-field">
                     <label className="pf-label">Barcode (Optional)</label>
-                    <input className="pf-input" type="text" placeholder="e.g. 123456789" value={item.barcode} onChange={(e) => handleAltUnitChange(idx, "barcode", e.target.value)} />
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <input className="pf-input" type="text" placeholder="e.g. 123456789" value={item.barcode} onChange={(e) => handleAltUnitChange(idx, "barcode", e.target.value)} style={{ flex: 1 }} />
+                      <button
+                        type="button"
+                        onClick={() => handleAltUnitChange(idx, "barcode", generateBarcode())}
+                        style={{
+                          border: '1px solid #d1d5db',
+                          background: '#f8fafc',
+                          color: '#1f2937',
+                          borderRadius: '8px',
+                          padding: '8px 10px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                          fontSize: '11px'
+                        }}
+                      >
+                        Auto
+                      </button>
+                    </div>
                   </div>
                 </div>
 

@@ -1,5 +1,7 @@
 const nodemailer = require('nodemailer');
-const { email_logs } = require('../models');
+const { Op } = require('sequelize');
+const db = require('../models');
+const { email_logs } = db;
 const pdfService = require('./pdfService');
 
 const COMPANY = {
@@ -565,12 +567,20 @@ const sendItemCommentEmail = async ({ supplier, poNumber, productName, quantity,
  */
 const sendProjectItemRemovedNotification = async (details) => {
   try {
-    const { users } = require('../models');
-    const adminUsers = await users.findAll({ where: { role: ['Admin', 'admin'] } });
-    let adminEmails = adminUsers.map(u => u.email).filter(Boolean);
+    const adminUsers = await db.users.findAll({
+      where: {
+        role: { [Op.in]: ['Admin', 'admin'] },
+      },
+      include: [{ model: db.employees, attributes: ['email'] }],
+      attributes: ['user_id', 'user_name', 'role', 'employee_id'],
+    });
+
+    const adminEmails = [...new Set(adminUsers
+      .map((user) => user.employee?.email)
+      .filter(Boolean))];
 
     if (adminEmails.length === 0) {
-      adminEmails = [process.env.ADMIN_EMAIL || process.env.SMTP_EMAIL || 'admin@mathumithanhardware.lk'];
+      adminEmails.push(process.env.ADMIN_EMAIL || process.env.SMTP_EMAIL || 'admin@mathumithanhardware.lk');
     }
 
     const recipientEmail = adminEmails.join(', ');
