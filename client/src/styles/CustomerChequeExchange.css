@@ -117,8 +117,11 @@
   box-shadow: 0 1px 4px rgba(139,58,58,.06);
 }
 .cce-table { min-width: 1200px; width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-.cce-table thead tr { background: linear-gradient(135deg, #8b3a3a, #a84545); }
-.cce-table th { padding: 11px 12px; color: #fff; font-weight: 600; text-align: left; white-space: nowrap; }
+.cce-table thead th {
+  background: linear-gradient(135deg, #8b3a3a, #a84545);
+  color: #fff; font-size: 0.82rem; font-weight: 600;
+  padding: 0.85rem 1rem; text-align: left; white-space: nowrap;
+}
 .cce-table td { padding: 10px 12px; border-bottom: 1px solid #f8f0f0; color: #333; vertical-align: middle; }
 .cce-table tbody tr:hover { background: #fdf8f8; }
 .cce-table tbody tr:last-child td { border-bottom: none; }
