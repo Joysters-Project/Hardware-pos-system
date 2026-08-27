@@ -12,7 +12,8 @@ import '@/styles/Procurement.css';
 const STEPS = ['Pending', 'Approved', 'Shipped', 'Received'];
 
 function StatusStepper({ status }) {
-  const idx = STEPS.indexOf(status);
+  const idx = STEPS.findIndex((step) => step.toLowerCase() === String(status || '').toLowerCase());
+  const isTerminal = status?.toLowerCase() === 'received';
   if (status === 'Cancelled') return (
     <div className="proc-stepper-cancelled">
       <XCircle size={20} /> Order Cancelled — cannot be modified
@@ -21,8 +22,8 @@ function StatusStepper({ status }) {
   return (
     <div className="proc-stepper">
       {STEPS.map((step, i) => (
-        <div key={step} className={`proc-step ${i < idx ? 'done' : i === idx ? 'current' : 'pending'}`}>
-          <div className="proc-step-dot">{i < idx ? '✓' : i + 1}</div>
+        <div key={step} className={`proc-step ${i < idx ? 'done' : i === idx && !isTerminal ? 'current' : i <= idx ? 'done' : 'pending'}`}>
+          <div className="proc-step-dot">{i <= idx ? '✓' : i + 1}</div>
           <div className="proc-step-label">{step}</div>
           {i < STEPS.length - 1 && <div className="proc-step-line" />}
         </div>

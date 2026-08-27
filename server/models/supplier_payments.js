@@ -19,6 +19,7 @@ module.exports = (sequelize) => {
     cheque_date: { type: DataTypes.DATEONLY, allowNull: true },
     pending_cheque_date: { type: DataTypes.DATEONLY, allowNull: true },
     cheque_status: { type: DataTypes.STRING(30), allowNull: true, defaultValue: null },
+    clearing_date: { type: DataTypes.DATEONLY, allowNull: true },
   }, {
     tableName: 'supplier_payments',
     timestamps: true,

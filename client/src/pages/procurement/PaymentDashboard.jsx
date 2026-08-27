@@ -52,6 +52,7 @@ export default function PaymentDashboard() {
   const [chequeNumber, setChequeNumber] = useState('');
   const [bankName, setBankName] = useState('');
   const [chequeDate, setChequeDate] = useState('');
+  const [clearingDate, setClearingDate] = useState('');
   const [repayMode, setRepayMode] = useState(false);
 
   const { data: dash, isLoading: dl, refetch: rd } = usePaymentDashboard();
@@ -84,6 +85,7 @@ export default function PaymentDashboard() {
     setChequeNumber(isRepay ? '' : (pay.cheque_number || ''));
     setBankName(isRepay ? '' : (pay.bank_name || ''));
     setChequeDate(isRepay ? '' : (pay.cheque_date ? pay.cheque_date.split('T')[0] : ''));
+    setClearingDate(isRepay ? '' : (pay.clearing_date ? pay.clearing_date.split('T')[0] : ''));
     setShowModal(true);
   };
 
@@ -106,15 +108,16 @@ export default function PaymentDashboard() {
     };
 
     if (payMethod === 'Cheque') {
-      const DEFAULT_PENDING_DAYS = 3;
-      const computedPendingDate = chequeDate ? new Date(new Date(chequeDate).getTime() + DEFAULT_PENDING_DAYS * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : undefined;
+      if (clearingDate && chequeDate && clearingDate < chequeDate) {
+        return alert('Clearing Date cannot be earlier than Cheque Date');
+      }
       Object.assign(payload, {
         cheque_number: chequeNumber,
         bank_name: bankName,
         cheque_date: chequeDate,
+        clearing_date: clearingDate || undefined,
         cheque_status: 'Pending',
-        pending_cheque_date: computedPendingDate,
-        pending_days: DEFAULT_PENDING_DAYS,
+        pending_cheque_date: clearingDate || undefined,
       });
     }
 
@@ -545,6 +548,10 @@ export default function PaymentDashboard() {
                     <div className="proc-field" style={{ marginTop: '0.75rem' }}>
                       <label>Cheque Date</label>
                       <input id="chequeDate" name="chequeDate" type="date" className="proc-input" value={chequeDate} onChange={e => setChequeDate(e.target.value)} />
+                    </div>
+                    <div className="proc-field" style={{ marginTop: '0.75rem' }}>
+                      <label>Clearing Date</label>
+                      <input id="clearingDate" name="clearingDate" type="date" className="proc-input" value={clearingDate} onChange={e => setClearingDate(e.target.value)} min={chequeDate || undefined} />
                     </div>
                   </>
                 )}
