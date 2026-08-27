@@ -37,6 +37,7 @@ const dashboardApi = {
 
 const reportsApi = {
   supplierPerformance: () => api.get('/procurement/reports/supplier-performance'),
+  supplierReportPDF: () => api.get('/procurement/reports/supplier-report/pdf', { responseType: 'blob' }),
   purchases:     (from, to) => api.get('/procurement/reports/purchases', { params: { from, to } }),
   outstanding:   ()         => api.get('/procurement/reports/outstanding'),
 };
@@ -361,6 +362,7 @@ export function useRecordPayment() {
       qc.invalidateQueries({ queryKey: ['procurement-payment'] });
       qc.invalidateQueries({ queryKey: ['procurement-payment-dashboard'] });
       qc.invalidateQueries({ queryKey: ['procurementDashboard'] });
+      qc.invalidateQueries({ queryKey: ['cheque-alerts'] });
       toast.success('Payment recorded successfully!');
     },
     onError: (e) => toast.error(e.response?.data?.error || 'Failed to record payment')
@@ -631,6 +633,24 @@ export function useDownloadPerformanceReportPDF() {
   });
 }
 
+export function useDownloadSupplierReportPDF() {
+  return useMutation({
+    mutationFn: () => reportsApi.supplierReportPDF(),
+    onSuccess: (response) => {
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'Supplier_Report.pdf');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success('Supplier report PDF downloaded!');
+    },
+    onError: () => toast.error('Failed to download supplier report PDF')
+  });
+}
+
 export function useChequeAlerts() {
   const qc = useQueryClient();
 
@@ -655,6 +675,7 @@ export function useUpdateChequeStatus() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['procurement-payments'] });
       qc.invalidateQueries({ queryKey: ['procurement-payment-dashboard'] });
+      qc.invalidateQueries({ queryKey: ['cheque-alerts'] });
       toast.success('Cheque status updated!');
     },
     onError: (e) => toast.error(e.response?.data?.error || 'Failed to update cheque status'),

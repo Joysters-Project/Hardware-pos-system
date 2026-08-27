@@ -18,6 +18,7 @@ const ensureEmployeeSchema = require('./scripts/ensureEmployeeSchema');
 const ensureAlertSchema = require('./scripts/ensureAlertSchema');
 const ensureUserSchema  = require('./scripts/ensureUserSchema');
 const ensureChequeExchangeSchema = require('./scripts/ensureChequeExchangeSchema');
+const ensureSupplierPaymentSchema = require('./scripts/ensureSupplierPaymentSchema');
 const { startNearExpiryCron } = require('./cron/nearExpiryCron');
 
 const app    = express();
@@ -51,6 +52,7 @@ db.sequelize.sync({ force: false })
     await ensureAlertSchema();
     await ensureUserSchema();
     await ensureChequeExchangeSchema();
+    await ensureSupplierPaymentSchema();
     await seedDefaultAdmin();
     startNearExpiryCron();
   })
@@ -166,6 +168,15 @@ cron.schedule('0 7 * * *', async () => {
     const count = await svc.checkAndGenerateSuggestions();
     console.log(`[Cron] Auto-reorder generated ${count} suggestions.`);
   } catch (e) { console.error('[Cron] Auto-reorder error:', e.message); }
+});
+
+// Daily 07:30 — Cheque due/overdue alerts (customer cheques due within 7 days)
+cron.schedule('30 7 * * *', async () => {
+  try {
+    const { checkChequeDueAlerts } = require('./services/chequeExchangeNotificationService');
+    const count = await checkChequeDueAlerts(io);
+    console.log(`[Cron] Cheque due alerts checked for ${count} pending cheque(s).`);
+  } catch (e) { console.error('[Cron] Cheque due alert error:', e.message); }
 });
 
 // Daily 08:00 — Mark overdue payments + salary reminder

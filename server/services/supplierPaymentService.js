@@ -2,7 +2,7 @@ const { supplier_payments, suppliers, purchase_orders } = require('../models');
 const { Op } = require('sequelize');
 const emailService = require('./emailService');
 const notificationService = require('./procurementNotificationService');
-const { normalizeChequeDetails, calculatePendingChequeDate } = require('../utils/chequeLogic');
+const { normalizeChequeDetails } = require('../utils/chequeLogic');
 
 /**
  * createPaymentRecord
@@ -75,7 +75,6 @@ const processPayment = async (paymentId, amountPaid, paymentMethod, paidDate, no
 
     if (isChequePayment) {
       const pendingDate = normalizedCheque.pending_cheque_date ||
-        calculatePendingChequeDate(normalizedCheque.cheque_date, normalizedCheque.pending_days) ||
         payment.pending_cheque_date;
 
       // For a replacement payment after Bounced/Cancelled, always start fresh as Pending
@@ -90,6 +89,7 @@ const processPayment = async (paymentId, amountPaid, paymentMethod, paidDate, no
         cheque_date:         normalizedCheque.cheque_date         ?? (prevFailed ? null : payment.cheque_date)         ?? null,
         pending_cheque_date: pendingDate                          ?? (prevFailed ? null : payment.pending_cheque_date) ?? null,
         cheque_status:       resolvedChequeStatus,
+        clearing_date:       chequeDetails.clearing_date          ?? (prevFailed ? null : payment.clearing_date)       ?? null,
       });
     } else {
       Object.assign(updateData, {
@@ -97,7 +97,8 @@ const processPayment = async (paymentId, amountPaid, paymentMethod, paidDate, no
         bank_name: null,
         cheque_date: null,
         pending_cheque_date: null,
-        cheque_status: null
+        cheque_status: null,
+        clearing_date: null,
       });
     }
 

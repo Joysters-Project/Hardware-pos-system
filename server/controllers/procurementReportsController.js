@@ -1,5 +1,74 @@
 const { purchase_orders, suppliers, sequelize } = require('../models');
-const { fn, col, literal } = require('sequelize');
+const { fn, col, literal, Op } = require('sequelize');
+
+const getSupplierReportData = async () => {
+  const supplierRows = await suppliers.findAll({
+    order: [['supplier_name', 'ASC']],
+    attributes: ['supplier_id', 'supplier_name', 'contact_person', 'phone', 'email', 'address', 'status'],
+  });
+
+  const supplierIds = supplierRows.map((s) => s.supplier_id);
+  const orderRows = await purchase_orders.findAll({
+    where: supplierIds.length ? { supplier_id: { [Op.in]: supplierIds } } : { supplier_id: { [Op.in]: [0] } },
+    include: [{ model: suppliers, attributes: ['supplier_name'] }],
+    order: [['po_date', 'DESC']],
+  });
+
+  const supplierMap = new Map(supplierRows.map((supplier) => [supplier.supplier_id, supplier]));
+  const orderCounts = new Map();
+  const purchaseTotals = new Map();
+  const lastPurchaseDates = new Map();
+
+  orderRows.forEach((order) => {
+    const supplierId = order.supplier_id;
+    orderCounts.set(supplierId, (orderCounts.get(supplierId) || 0) + 1);
+    purchaseTotals.set(supplierId, (purchaseTotals.get(supplierId) || 0) + Number(order.total_amount || 0));
+    if (!lastPurchaseDates.has(supplierId) || new Date(order.po_date) > new Date(lastPurchaseDates.get(supplierId))) {
+      lastPurchaseDates.set(supplierId, order.po_date);
+    }
+  });
+
+  const supplierReportRows = supplierRows.map((supplier) => ({
+    supplier_id: supplier.supplier_id,
+    supplier_name: supplier.supplier_name,
+    contact_person: supplier.contact_person,
+    phone: supplier.phone,
+    email: supplier.email,
+    address: supplier.address,
+    status: supplier.status,
+    total_orders: orderCounts.get(supplier.supplier_id) || 0,
+    total_purchase_value: purchaseTotals.get(supplier.supplier_id) || 0,
+    last_purchase_date: lastPurchaseDates.get(supplier.supplier_id) || null,
+  }));
+
+  const orderDetails = orderRows.map((order) => ({
+    po_id: order.po_id,
+    po_number: order.po_number,
+    supplier_name: order.supplier?.supplier_name || supplierMap.get(order.supplier_id)?.supplier_name || '—',
+    po_date: order.po_date,
+    products: 'Purchase Order',
+    quantity: '—',
+    unit_price: order.total_amount || 0,
+    total_amount: order.total_amount || 0,
+    expected_delivery: order.expected_delivery,
+    actual_delivery_date: order.actual_delivery_date,
+    payment_status: '—',
+    status: order.status,
+  }));
+
+  return {
+    summary: {
+      totalSuppliers: supplierRows.length,
+      activeSuppliers: supplierRows.filter((s) => String(s.status).toLowerCase() === 'active').length,
+      inactiveSuppliers: supplierRows.filter((s) => String(s.status).toLowerCase() === 'inactive').length,
+      totalPurchaseOrders: orderRows.length,
+      totalProcurementValue: orderRows.reduce((sum, order) => sum + Number(order.total_amount || 0), 0),
+      generatedAt: new Date().toISOString(),
+    },
+    suppliers: supplierReportRows,
+    orders: orderDetails,
+  };
+};
 
 // GET /api/procurement/reports/supplier-performance
 exports.supplierPerformance = async (req, res) => {
@@ -150,6 +219,21 @@ exports.downloadPerformanceReportPDF = async (req, res) => {
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=Supplier_Performance_Report.pdf');
+    res.send(pdfBuffer);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// GET /api/procurement/reports/supplier-report/pdf
+exports.downloadSupplierReportPDF = async (req, res) => {
+  try {
+    const report = await getSupplierReportData();
+    const pdfService = require('../services/pdfService');
+    const pdfBuffer = await pdfService.generateSupplierReportPDF(report);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=Supplier_Report.pdf');
     res.send(pdfBuffer);
   } catch (error) {
     res.status(500).json({ error: error.message });
