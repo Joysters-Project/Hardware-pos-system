@@ -1,6 +1,5 @@
 const { Op } = require('sequelize');
 const db = require('../models');
-const { Op } = require('sequelize');
 const PDFDocument = require('pdfkit');
 
 exports.getCashierStats = async (req, res) => {

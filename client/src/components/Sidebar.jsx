@@ -25,7 +25,6 @@ import {
   Bell,
   FolderOpen,
   Archive,
-  FolderOpen,
   Banknote,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
