@@ -16,7 +16,7 @@ const SL_PHONE  = /^(?:\+94|0)?7(?:0|1|2|4|5|6|7|8)\d{7}$/;
 const EMAIL_RE  = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const getInitials = (v) =>
-  v ? v.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2) : "US";
+  v ? v.trim().charAt(0).toUpperCase() : "U";
 
 export default function MyProfile() {
   const navigate = useNavigate();
@@ -30,6 +30,7 @@ export default function MyProfile() {
   const [saving,       setSaving]       = useState(false);
   const [pwdLoading,   setPwdLoading]   = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [photoImageFailed, setPhotoImageFailed] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // Crop state — fixed circle, user pans/zooms the image
@@ -79,6 +80,7 @@ export default function MyProfile() {
       address: p.address || "", profile_photo: null,
     });
     setPhotoPreview(p.profile_photo ? `${BASE_URL}/${p.profile_photo}` : null);
+    setPhotoImageFailed(false);
   };
 
   useEffect(() => { loadProfile(); }, []);
@@ -324,6 +326,7 @@ export default function MyProfile() {
   }
 
   const fullName = `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() || profile?.username;
+  const profileName = fullName || "User";
 
   return (
     <DashboardLayout active="profile">
@@ -424,9 +427,16 @@ export default function MyProfile() {
           {/* Photo block */}
           <div className="pf-photo-block">
             <div className="pf-photo-ring">
-              {photoPreview
-                ? <img src={photoPreview} alt="Profile" className="pf-photo-img" />
-                : <div className="pf-photo-initials">{getInitials(fullName)}</div>
+              {photoPreview && !photoImageFailed
+                ? <img
+                    src={photoPreview}
+                    alt={`${profileName} profile photo`}
+                    className="pf-photo-img"
+                    onError={() => setPhotoImageFailed(true)}
+                  />
+                : <div className="pf-photo-initials" aria-label={`${profileName} profile initial`}>
+                    {getInitials(profileName)}
+                  </div>
               }
               <button
                 type="button"

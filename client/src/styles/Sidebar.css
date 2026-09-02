@@ -320,17 +320,23 @@
 
 .sidebar-float__avatar {
   flex-shrink: 0;
-  width: 34px;
-  height: 34px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #8b3a3a 0%, #a84545 100%);
+  background: #f3d6cf;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  font-weight: 700;
-  font-size: 13px;
+  color: #74312f;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: 0;
   overflow: hidden;
+}
+
+.sidebar-float__avatar--fallback {
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 2px 8px rgba(50, 18, 18, 0.18);
 }
 
 .sidebar-float__avatar-img {
