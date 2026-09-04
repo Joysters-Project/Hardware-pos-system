@@ -106,17 +106,24 @@ export const buildTableHtml = ({ columns = [], rows = [], emptyMessage = 'No dat
     </table>`;
 };
 
-const paginateContentHtml = ({ title, subtitle, contentHtml, formattedDate }) => {
+const paginateContentHtml = ({ title, subtitle, contentHtml, formattedDate, useTemplate = true, headerTitle = '' }) => {
+  const displayTitle = headerTitle || title;
   const tableRegex = /<table[^>]*class="[^"]*tpl-table[^"]*"[^>]*>([\s\S]*?)<\/table>/i;
   const tableMatch = contentHtml.match(tableRegex);
 
+  const pageClass = useTemplate ? 'tpl-page' : 'tpl-page tpl-page-plain';
+  const contentClass = useTemplate ? 'tpl-content' : 'tpl-content tpl-content-plain';
+  const headerBlockClass = useTemplate ? 'tpl-header-block' : 'tpl-header-block tpl-header-plain';
+  const headlineClass = useTemplate ? 'tpl-headline' : 'tpl-headline tpl-headline-store';
+  const sublineClass = useTemplate ? 'tpl-subline' : 'tpl-subline tpl-subline-store';
+
   if (!tableMatch) {
     return `
-      <div class="tpl-page">
-        <div class="tpl-content">
-          <div class="tpl-header-block">
-            <h1 class="tpl-headline">${escapeHtml(title)}</h1>
-            ${subtitle ? `<div class="tpl-subline">${escapeHtml(subtitle)}</div>` : ''}
+      <div class="${pageClass}">
+        <div class="${contentClass}">
+          <div class="${headerBlockClass}">
+            <h1 class="${headlineClass}">${escapeHtml(displayTitle)}</h1>
+            ${subtitle ? `<div class="${sublineClass}">${escapeHtml(subtitle)}</div>` : ''}
             <div class="tpl-meta">Generated: ${escapeHtml(formattedDate)}</div>
           </div>
           <div class="tpl-body-content">
@@ -135,11 +142,11 @@ const paginateContentHtml = ({ title, subtitle, contentHtml, formattedDate }) =>
 
   if (!tbodyMatch) {
     return `
-      <div class="tpl-page">
-        <div class="tpl-content">
-          <div class="tpl-header-block">
-            <h1 class="tpl-headline">${escapeHtml(title)}</h1>
-            ${subtitle ? `<div class="tpl-subline">${escapeHtml(subtitle)}</div>` : ''}
+      <div class="${pageClass}">
+        <div class="${contentClass}">
+          <div class="${headerBlockClass}">
+            <h1 class="${headlineClass}">${escapeHtml(displayTitle)}</h1>
+            ${subtitle ? `<div class="${sublineClass}">${escapeHtml(subtitle)}</div>` : ''}
             <div class="tpl-meta">Generated: ${escapeHtml(formattedDate)}</div>
           </div>
           <div class="tpl-body-content">
@@ -158,16 +165,16 @@ const paginateContentHtml = ({ title, subtitle, contentHtml, formattedDate }) =>
   const beforeTable = contentHtml.substring(0, tableIndex);
   const afterTable = contentHtml.substring(tableIndex + fullTableMatch.length);
 
-  const FIRST_PAGE_MAX_ROWS = 12;
-  const OTHER_PAGE_MAX_ROWS = 14;
+  const FIRST_PAGE_MAX_ROWS = useTemplate ? 12 : 20;
+  const OTHER_PAGE_MAX_ROWS = useTemplate ? 14 : 24;
 
   if (rowMatches.length <= FIRST_PAGE_MAX_ROWS) {
     return `
-      <div class="tpl-page">
-        <div class="tpl-content">
-          <div class="tpl-header-block">
-            <h1 class="tpl-headline">${escapeHtml(title)}</h1>
-            ${subtitle ? `<div class="tpl-subline">${escapeHtml(subtitle)}</div>` : ''}
+      <div class="${pageClass}">
+        <div class="${contentClass}">
+          <div class="${headerBlockClass}">
+            <h1 class="${headlineClass}">${escapeHtml(displayTitle)}</h1>
+            ${subtitle ? `<div class="${sublineClass}">${escapeHtml(subtitle)}</div>` : ''}
             <div class="tpl-meta">Generated: ${escapeHtml(formattedDate)}</div>
           </div>
           <div class="tpl-body-content">
@@ -205,11 +212,11 @@ const paginateContentHtml = ({ title, subtitle, contentHtml, formattedDate }) =>
       </table>`;
 
     return `
-      <div class="tpl-page">
-        <div class="tpl-content">
-          <div class="tpl-header-block">
-            <h1 class="tpl-headline">${escapeHtml(title)}${totalPages > 1 ? ` <span class="tpl-page-indicator">(Page ${pageNum} of ${totalPages})</span>` : ''}</h1>
-            ${subtitle ? `<div class="tpl-subline">${escapeHtml(subtitle)}</div>` : ''}
+      <div class="${pageClass}">
+        <div class="${contentClass}">
+          <div class="${headerBlockClass}">
+            <h1 class="${headlineClass}">${escapeHtml(displayTitle)}${totalPages > 1 ? ` <span class="tpl-page-indicator">(Page ${pageNum} of ${totalPages})</span>` : ''}</h1>
+            ${subtitle ? `<div class="${sublineClass}">${escapeHtml(subtitle)}</div>` : ''}
             <div class="tpl-meta">Generated: ${escapeHtml(formattedDate)}</div>
           </div>
           <div class="tpl-body-content">
@@ -228,6 +235,8 @@ export const printWithTemplate = ({
   contentHtml = '',
   autoClose   = false,
   pageSize    = 'A4 portrait',
+  useTemplate = true,
+  headerTitle = '',
 } = {}) => {
   const popup = window.open('', '_blank', 'width=950,height=850');
   if (!popup) return false;
@@ -241,7 +250,7 @@ export const printWithTemplate = ({
   const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
   const formattedDate = `${day}/${month}/${year}, ${timeStr}`;
 
-  const pagesBodyHtml = paginateContentHtml({ title, subtitle, contentHtml, formattedDate });
+  const pagesBodyHtml = paginateContentHtml({ title, subtitle, contentHtml, formattedDate, useTemplate, headerTitle });
 
   popup.document.write(`<!DOCTYPE html>
 <html lang="en">
@@ -311,6 +320,12 @@ export const printWithTemplate = ({
       break-after: avoid !important;
     }
 
+    /* Plain style when template is removed (e.g. for Bill Printing) */
+    .tpl-page.tpl-page-plain {
+      background-image: none !important;
+      background-color: #ffffff !important;
+    }
+
     /* ── content sits cleanly between the PNG header and footer bands ──
        Templet.png header ends at ~69mm -> top: 72mm
        Templet.png footer starts at ~271mm -> bottom: 30mm
@@ -329,16 +344,38 @@ export const printWithTemplate = ({
       flex-direction: column;
     }
 
+    .tpl-content.tpl-content-plain {
+      top: 15mm;
+      bottom: 15mm;
+      max-height: calc(297mm - 30mm);
+    }
+
     .tpl-header-block {
       margin-bottom: 10px;
       border-bottom: 2px solid #7f1d24;
       padding-bottom: 6px;
     }
 
+    .tpl-header-plain {
+      text-align: center;
+      border-bottom: 2px solid #7f1d24;
+      padding-bottom: 10px;
+      margin-bottom: 14px;
+    }
+
     .tpl-headline {
       font-size: 17px;
       font-weight: 700;
       color: #7f1d24;
+      line-height: 1.2;
+    }
+
+    .tpl-headline-store {
+      font-size: 22px;
+      font-weight: 800;
+      color: #7f1d24;
+      letter-spacing: 1px;
+      text-transform: uppercase;
       line-height: 1.2;
     }
 
@@ -354,6 +391,14 @@ export const printWithTemplate = ({
       color: #475569;
       margin-top: 3px;
       font-weight: 500;
+    }
+
+    .tpl-subline-store {
+      font-size: 13px;
+      font-weight: 600;
+      color: #334155;
+      margin-top: 4px;
+      letter-spacing: 0.5px;
     }
 
     .tpl-meta {
@@ -522,6 +567,11 @@ export const printWithTemplate = ({
         page-break-inside: avoid !important;
         break-inside: avoid !important;
         overflow: hidden !important;
+      }
+
+      .tpl-page.tpl-page-plain {
+        background-image: none !important;
+        background-color: #ffffff !important;
       }
 
       .tpl-page:last-child {

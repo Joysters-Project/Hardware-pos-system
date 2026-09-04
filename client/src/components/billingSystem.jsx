@@ -12,7 +12,7 @@ import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phon
 import { subscribeToEvent } from '../services/socketSingleton';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-import { printWithTemplate } from '../utils/printTemplate';
+import { printWithTemplate, escapeHtml } from '../utils/printTemplate';
 import SuccessAnim from './SuccessAnim';
 import DashboardLayout from './DashboardLayout';
 import ProjectsTab from './ProjectsTab';
@@ -210,8 +210,8 @@ const BillingSystem = () => {
 <body>
   <div class="invoice-wrapper">
     <div class="invoice-header">
-      <h2>MATHUMITHAN</h2>
-      <p>HARDWARE & CONSTRUCTION</p>
+      <h2>MATHUMITHAN HARDWARE AND TIMPERDEPOT</h2>
+      <p>HARDWARE & TIMBER DEPOT</p>
       <div class="badge">TAX INVOICE</div>
     </div>
     <div class="invoice-body">
@@ -272,47 +272,65 @@ const BillingSystem = () => {
         const productName = item.product_name || item.product?.product_name || 'Product';
         return `
           <tr>
-            <td>${productName}</td>
-            <td>${qty} ${unitName}</td>
-            <td>Rs. ${unitPrice.toFixed(2)}</td>
-            <td>${itemDiscount > 0 ? `Rs. ${itemDiscount.toFixed(2)}` : 'Rs. 0.00'}</td>
-            <td><strong>Rs. ${lineTotal.toFixed(2)}</strong></td>
+            <td>${escapeHtml(productName)}</td>
+            <td style="text-align: center;">${qty} ${escapeHtml(unitName)}</td>
+            <td style="text-align: right;">Rs. ${unitPrice.toFixed(2)}</td>
+            <td style="text-align: right;">${itemDiscount > 0 ? `Rs. ${itemDiscount.toFixed(2)}` : 'Rs. 0.00'}</td>
+            <td style="text-align: right;"><strong>Rs. ${lineTotal.toFixed(2)}</strong></td>
           </tr>
         `;
       }).join('');
 
       const contentHtml = `
-        <table class="tpl-table" style="margin-bottom:10px;">
-          <tr><td>Bill No</td><td>${lastBill.bill_no || '—'}</td></tr>
-          <tr><td>Date</td><td>${formatDateTime(lastBill.bill_date)}</td></tr>
-          <tr><td>Customer</td><td>${lastBill.customer?.name || 'Walk-in'}</td></tr>
-          <tr><td>Phone</td><td>${lastBill.customer?.phone || '—'}</td></tr>
-          <tr><td>Cashier</td><td>${lastBill.cashier_name || '—'} (${lastBill.cashier_id || '—'})</td></tr>
-        </table>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; padding: 12px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 12px; line-height: 1.6;">
+          <div>
+            <div><strong>Bill No:</strong> <span style="font-weight: 600; color: #7f1d24;">${escapeHtml(lastBill.bill_no || '—')}</span></div>
+            <div><strong>Date / Time:</strong> ${escapeHtml(formatDateTime(lastBill.bill_date))}</div>
+            <div><strong>Cashier:</strong> ${escapeHtml(lastBill.cashier_name || '—')} (${escapeHtml(lastBill.cashier_id || '—')})</div>
+          </div>
+          <div style="text-align: right;">
+            <div><strong>Customer:</strong> ${escapeHtml(lastBill.customer?.name || 'Walk-in Customer')}</div>
+            <div><strong>Phone:</strong> ${escapeHtml(lastBill.customer?.phone || '—')}</div>
+          </div>
+        </div>
 
         <table class="tpl-table">
           <thead>
-            <tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Discount</th><th>Total</th></tr>
+            <tr>
+              <th style="text-align: left; width: 42%;">Item</th>
+              <th style="text-align: center; width: 14%;">Qty</th>
+              <th style="text-align: right; width: 15%;">Unit Price</th>
+              <th style="text-align: right; width: 14%;">Discount</th>
+              <th style="text-align: right; width: 15%;">Total</th>
+            </tr>
           </thead>
           <tbody>
             ${invoiceRows || '<tr><td colspan="5" class="tpl-empty">No items</td></tr>'}
           </tbody>
         </table>
 
-        <table class="tpl-table" style="margin-top:10px;">
-          <tr><td>Subtotal</td><td>Rs. ${(lastBill.subtotal ?? 0).toFixed(2)}</td></tr>
-          <tr><td>Discount</td><td>Rs. ${(lastBill.discount ?? 0).toFixed(2)}</td></tr>
-          <tr><td><strong>Total Amount</strong></td><td><strong>Rs. ${(lastBill.total_amount ?? 0).toFixed(2)}</strong></td></tr>
-          <tr><td>Amount Paid</td><td>Rs. ${(lastBill.amount_paid ?? 0).toFixed(2)}</td></tr>
-          <tr><td>Change Returned</td><td>Rs. ${(lastBill.change_returned ?? 0).toFixed(2)}</td></tr>
-          ${lastBill.due_amount > 0 ? `<tr><td>Due Balance</td><td>Rs. ${lastBill.due_amount.toFixed(2)}</td></tr>` : ''}
-        </table>
+        <div style="display: flex; justify-content: flex-end; margin-top: 14px;">
+          <table style="width: 300px; border-collapse: collapse; font-size: 12px;">
+            <tr><td style="padding: 4px 8px; color: #64748b;">Subtotal:</td><td style="padding: 4px 8px; text-align: right; font-weight: 600;">Rs. ${(lastBill.subtotal ?? 0).toFixed(2)}</td></tr>
+            <tr><td style="padding: 4px 8px; color: #64748b;">Discount:</td><td style="padding: 4px 8px; text-align: right; font-weight: 600;">Rs. ${(lastBill.discount ?? 0).toFixed(2)}</td></tr>
+            <tr style="border-top: 2px solid #7f1d24; border-bottom: 2px solid #7f1d24;"><td style="padding: 6px 8px; font-size: 14px; font-weight: 700; color: #7f1d24;">Total Amount:</td><td style="padding: 6px 8px; text-align: right; font-size: 14px; font-weight: 700; color: #7f1d24;">Rs. ${(lastBill.total_amount ?? 0).toFixed(2)}</td></tr>
+            <tr><td style="padding: 4px 8px; color: #64748b;">Amount Paid:</td><td style="padding: 4px 8px; text-align: right; font-weight: 600;">Rs. ${(lastBill.amount_paid ?? 0).toFixed(2)}</td></tr>
+            <tr><td style="padding: 4px 8px; color: #64748b;">Change Returned:</td><td style="padding: 4px 8px; text-align: right; font-weight: 600;">Rs. ${(lastBill.change_returned ?? 0).toFixed(2)}</td></tr>
+            ${lastBill.due_amount > 0 ? `<tr><td style="padding: 4px 8px; color: #dc2626; font-weight: 600;">Due Balance:</td><td style="padding: 4px 8px; text-align: right; color: #dc2626; font-weight: 700;">Rs. ${lastBill.due_amount.toFixed(2)}</td></tr>` : ''}
+          </table>
+        </div>
+
+        <div style="margin-top: 24px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px dashed #cbd5e1; padding-top: 10px;">
+          <p style="font-weight: 500;">Thank you for shopping with us!</p>
+        </div>
       `;
 
       const opened = printWithTemplate({
-        title: `Invoice ${lastBill.bill_no || ''}`.trim(),
-        subtitle: 'Customer Bill',
+        title: 'MATHUMITHAN HARDWARE AND TIMPERDEPOT',
+        subtitle: `TAX INVOICE - ${lastBill.bill_no || ''}`.trim(),
         contentHtml,
+        useTemplate: false,
+        headerTitle: 'MATHUMITHAN HARDWARE AND TIMPERDEPOT',
       });
 
       if (!opened) {
@@ -1311,7 +1329,7 @@ const BillingSystem = () => {
         <div className="receipt-overlay-modern" onClick={(e) => { if (e.target === e.currentTarget) setLastBill(null); }}>
           <div className="receipt-modal-modern">
             <div className="receipt-header">
-              <div className="receipt-store">MATHUMITHAN HARDWARE</div>
+              <div className="receipt-store">MATHUMITHAN HARDWARE AND TIMPERDEPOT</div>
               <div className="receipt-subtitle">Sales Receipt</div>
             </div>
 
