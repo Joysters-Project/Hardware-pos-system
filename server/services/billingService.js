@@ -51,12 +51,24 @@ class BillingService {
             }
 
             // 2. Pre-Check Stock & Active Status
-            for (const item of saleData.items) {
-                const product = await products.findByPk(item.product_id, { transaction: t });
+            const requestedBaseQtyMap = {};
+            for (const item of (saleData.items || [])) {
+                const factor = Number(item.conversion_factor) || 1.0;
+                const qty = Number(item.quantity) || 0;
+                const baseQty = qty * factor;
+                requestedBaseQtyMap[item.product_id] = (requestedBaseQtyMap[item.product_id] || 0) + baseQty;
+            }
+
+            for (const [productId, totalRequestedQty] of Object.entries(requestedBaseQtyMap)) {
+                const product = await products.findByPk(productId, { transaction: t });
                 const isActiveStatus = [0, '0', 'active', 'Active', 'ACTIVE'].includes(product?.status);
-                if (!product || !isActiveStatus) throw new Error(`Product ${item.product_id} is unavailable.`);
-                const baseQuantity = Number(item.quantity) * Number(item.conversion_factor || 1);
-                if (product.stock_quantity < baseQuantity) throw new Error(`Low stock for ${product.product_name}.`);
+                if (!product || !isActiveStatus) {
+                    throw new Error(`Product "${product?.product_name || productId}" is unavailable or inactive.`);
+                }
+                const availableStock = Number(product.stock_quantity ?? 0);
+                if (availableStock < totalRequestedQty) {
+                    throw new Error(`Insufficient stock for "${product.product_name}". Available stock is ${availableStock}, but requested selling quantity is ${totalRequestedQty}.`);
+                }
             }
 
             // 3. Generate Sequential Bill No (INV-YYYY-NNNN)

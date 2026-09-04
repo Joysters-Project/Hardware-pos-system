@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { Toaster } from "react-hot-toast";
+import toast, { Toaster, ToastBar } from "react-hot-toast";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -48,7 +48,7 @@ import SupplierList from "./pages/suppliers/SupplierList";
 import SupplierForm from "./pages/suppliers/SupplierForm";
 import SupplierDetail from "./pages/suppliers/SupplierDetail";
 import PurchaseOrderList from "./pages/procurement/PurchaseOrderList";
-import CreatePurchaseOrder from "./pages/procurement/CreatePurchaseOrder";
+import CreatePurchaseOrder from "./pages/procurement/ProductSearchSelect";
 import PurchaseOrderDetail from "./pages/procurement/PurchaseOrderDetail";
 import ProcurementDashboard from "./pages/procurement/ProcurementDashboard";
 import PaymentDashboard from "./pages/procurement/PaymentDashboard";
@@ -183,7 +183,47 @@ function AppRoutes() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Toaster position="top-center" reverseOrder={false} />
+      <Toaster position="top-center" reverseOrder={false}>
+        {(t) => (
+          <ToastBar toast={t}>
+            {({ icon, message }) => (
+              <>
+                {icon}
+                {message}
+                {t.type !== "loading" && (
+                  <button
+                    type="button"
+                    className="toast-close-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toast.dismiss(t.id);
+                    }}
+                    style={{
+                      marginLeft: "8px",
+                      border: "none",
+                      background: "transparent",
+                      cursor: "pointer",
+                      fontSize: "16px",
+                      fontWeight: "600",
+                      lineHeight: "1",
+                      padding: "2px 4px",
+                      color: "inherit",
+                      opacity: 0.6,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderRadius: "4px",
+                    }}
+                    aria-label="Close"
+                  >
+                    ×
+                  </button>
+                )}
+              </>
+            )}
+          </ToastBar>
+        )}
+      </Toaster>
       <BrowserRouter>
         <AuthProvider>
           <AppRoutes />

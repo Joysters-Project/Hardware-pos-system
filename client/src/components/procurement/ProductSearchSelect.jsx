@@ -1,136 +1,172 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, ChevronDown, ChevronUp, Package, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Search, Package, X } from 'lucide-react';
+import '@/styles/BillingSystem.css';
 
-export function ProductSearchSelect({ products, value, onSelect, placeholder = 'Search product...' }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+export function ProductSearchSelect({
+  products = [],
+  value,
+  onSelect,
+  placeholder = 'Search products by name, barcode, SKU...',
+  onEnter,
+}) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showResults, setShowResults] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
   const containerRef = useRef(null);
   const inputRef = useRef(null);
 
   const selectedProduct = products.find(p => p.product_id === value);
 
-  const filteredProducts = products.filter(product =>
-    product.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (product.batch_no && product.batch_no.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // Sync display with selected product if passed externally
+  useEffect(() => {
+    if (selectedProduct) {
+      setSearchQuery(selectedProduct.product_name);
+    } else if (!value) {
+      setSearchQuery('');
+    }
+  }, [value, selectedProduct]);
 
   useEffect(() => {
     function handleClickOutside(event) {
       if (containerRef.current && !containerRef.current.contains(event.target)) {
-        setIsOpen(false);
+        setShowResults(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    if (isOpen && inputRef.current) {
-      inputRef.current.focus();
+  const handleSearch = (query) => {
+    setSearchQuery(query);
+    const trimmed = query.trim().toLowerCase();
+    if (!trimmed) {
+      setSearchResults([]);
+      setShowResults(false);
+      onSelect(null, null);
+      return;
     }
-  }, [isOpen]);
 
-  const handleSelect = (product) => {
-    onSelect(product.product_id, product);
-    setIsOpen(false);
-    setSearchTerm('');
+    const filtered = products.filter(p =>
+      (p.product_name && p.product_name.toLowerCase().includes(trimmed)) ||
+      (p.barcode && p.barcode.toLowerCase().includes(trimmed)) ||
+      (p.sku && p.sku.toLowerCase().includes(trimmed)) ||
+      (p.product_code && p.product_code.toLowerCase().includes(trimmed)) ||
+      (p.batch_no && p.batch_no.toLowerCase().includes(trimmed))
+    );
+
+    setSearchResults(filtered);
+    setShowResults(filtered.length > 0);
   };
 
-  const handleClear = (e) => {
-    e.stopPropagation();
+  const handleSelectProduct = (product) => {
+    setSearchQuery(product.product_name);
+    setShowResults(false);
+    setSearchResults([]);
+    onSelect(product.product_id, product);
+  };
+
+  const handleClear = () => {
+    setSearchQuery('');
+    setShowResults(false);
+    setSearchResults([]);
     onSelect(null, null);
-    setSearchTerm('');
+    if (inputRef.current) inputRef.current.focus();
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (showResults && searchResults.length > 0) {
+        handleSelectProduct(searchResults[0]);
+      } else if (selectedProduct && onEnter) {
+        onEnter();
+      }
+    } else if (e.key === 'Escape') {
+      setShowResults(false);
+    }
   };
 
   return (
-    <div ref={containerRef} className="relative">
-      <div
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          "flex h-10 w-full items-center justify-between rounded-lg border bg-white px-3 py-2 text-sm cursor-pointer",
-          "hover:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all",
-          isOpen ? "border-blue-500 ring-2 ring-blue-500/20" : "border-slate-200"
+    <div ref={containerRef} className="pos-search-container-modern" style={{ margin: 0, width: '100%' }}>
+      <div className="pos-search-bar-modern">
+        <Search size={18} className="pos-search-icon-modern" />
+        <input
+          id="pos-search-input"
+          name="pos-search-input"
+          ref={inputRef}
+          className="pos-search-input-modern"
+          placeholder={placeholder}
+          value={searchQuery}
+          onChange={(e) => handleSearch(e.target.value)}
+          onFocus={() => {
+            if (searchQuery.trim() && searchResults.length > 0) {
+              setShowResults(true);
+            }
+          }}
+          onKeyDown={handleKeyDown}
+        />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={handleClear}
+            className="pos-search-clear"
+            title="Clear product search"
+          >
+            <X size={16} />
+          </button>
         )}
-      >
-        {selectedProduct ? (
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <Package className="h-4 w-4 text-blue-500 flex-shrink-0" />
-            <span className="truncate font-medium">{selectedProduct.product_name}</span>
-            <span className="text-slate-400 text-xs ml-auto flex-shrink-0">
-              LKR{Number(selectedProduct.cost_price).toFixed(2)}
-            </span>
-          </div>
-        ) : (
-          <span className="text-slate-400 flex items-center gap-2">
-            <Search className="h-4 w-4" />
-            {placeholder}
-          </span>
-        )}
-        <div className="flex items-center gap-1 ml-2">
-          {selectedProduct && (
-            <button
-              type="button"
-              onClick={handleClear}
-              className="p-1 hover:bg-slate-100 rounded"
-            >
-              <X className="h-3 w-3 text-slate-400" />
-            </button>
-          )}
-          {isOpen ? (
-            <ChevronUp className="h-4 w-4 text-slate-400" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-slate-400" />
-          )}
-        </div>
       </div>
 
-      {isOpen && (
-        <div className="absolute z-[10000] w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-2xl overflow-hidden" style={{ boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}>
-          <div className="p-2 border-b border-slate-100">
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <input id="searchTerm" name="searchTerm"
-                ref={inputRef}
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Type to search..."
-                className="w-full pl-8 pr-3 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
+      {/* Search Results Dropdown */}
+      {showResults && (
+        <div className="pos-search-dropdown-modern">
+          <div className="search-results-header">
+            <span>Products found ({searchResults.length})</span>
+            <span className="hint-text">Click or Press Enter to select</span>
           </div>
-          <div className="max-h-60 overflow-y-auto">
-            {filteredProducts.length === 0 ? (
-              <div className="p-4 text-center text-slate-500 text-sm">
-                No products found
-              </div>
-            ) : (
-              filteredProducts.map((product) => (
-                <div
-                  key={product.product_id}
-                  onClick={() => handleSelect(product)}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors",
-                    "hover:bg-blue-50",
-                    value === product.product_id && "bg-blue-50"
-                  )}
-                >
-                  <Package className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{product.product_name}</p>
-                    <p className="text-xs text-slate-500">
-                      Stock: {product.stock_quantity} | Cost: LKR{Number(product.cost_price).toFixed(2)}
-                    </p>
-                  </div>
-                  <span className="text-xs font-mono text-slate-400">
-                    {product.batch_no || '-'}
-                  </span>
+          {searchResults.map((product) => {
+            const allBarcodes = Array.from(new Set([
+              product.barcode,
+              product.product_code,
+              product.sku,
+              product.batch_no,
+              ...(product.alternative_units || []).map(au => au.barcode)
+            ].filter(Boolean))).join(' · ');
+
+            return (
+              <div
+                key={product.product_id}
+                className="pos-search-result-modern"
+                onClick={() => handleSelectProduct(product)}
+              >
+                <div className="result-icon">
+                  <Package size={18} />
                 </div>
-              ))
-            )}
-          </div>
+                <div className="result-info">
+                  <div className="result-name">{product.product_name}</div>
+                  <div className="result-meta">
+                    {allBarcodes ? allBarcodes : `ID: ${product.product_id}`}
+                  </div>
+                </div>
+                <div className="result-right">
+                  <div className="result-price">
+                    LKR {parseFloat(product.cost_price ?? product.unit_price ?? 0).toFixed(2)}
+                  </div>
+                  <div className={`result-stock ${Number(product.stock_quantity ?? 0) <= 10 ? 'low' : ''}`}>
+                    Stock: {product.stock_quantity ?? 0}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {searchQuery.trim() && !showResults && searchResults.length === 0 && !selectedProduct && (
+        <div className="pos-search-dropdown-modern no-results">
+          <div className="no-results-icon">📦</div>
+          <div>No products found for "{searchQuery.trim()}"</div>
+          <div className="no-results-hint">Try searching by name, barcode or SKU</div>
         </div>
       )}
     </div>

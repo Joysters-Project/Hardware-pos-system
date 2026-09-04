@@ -470,15 +470,51 @@ const BillingSystem = () => {
     // 1. Block only explicitly inactive products
     const isInactive = String(product.status).toLowerCase() === 'inactive';
     if (isInactive) {
-      alert(`"${product.product_name}" is inactive and cannot be sold.`);
+      toast.error(`"${product.product_name}" is inactive and cannot be sold.`);
       return;
     }
 
-    // 2. Check cart-adjusted available stock
-    const inCart = cart.find(i => i.product_id === product.product_id)?.quantity || 0;
-    const available = (product.stock_quantity ?? 0) - inCart;
-    if (available <= 0) {
-      alert('This product is out of stock and cannot be sold.');
+    // Resolve base unit and alt units first to accurately check conversion factors
+    const baseUnitName = product.unit?.unit_name || product.unit_name || 'Unit';
+    const baseUnit = {
+      unit_id: parseInt(product.unit_id),
+      unit_name: baseUnitName,
+      conversion_factor: 1.0,
+      unit_price: parseFloat(product.unit_price)
+    };
+
+    const altUnits = (product.alternative_units || []).map(au => ({
+      unit_id: parseInt(au.unit_id),
+      unit_name: au.unit_details?.unit_name || au.unit?.unit_name || au.unit_name || 'Alt Unit',
+      conversion_factor: parseFloat(au.conversion_factor),
+      unit_price: parseFloat(au.unit_price || (product.unit_price * au.conversion_factor))
+    }));
+
+    const availableUnits = [baseUnit, ...altUnits];
+
+    // Determine target unit
+    const chosenUnit = targetUnitId
+      ? (availableUnits.find(u => u.unit_id === parseInt(targetUnitId)) || baseUnit)
+      : baseUnit;
+
+    const unitFactor = chosenUnit.conversion_factor || 1.0;
+
+    // 2. Check cart-adjusted available base stock
+    const inCartBaseQty = cart
+      .filter(i => i.product_id === product.product_id)
+      .reduce((sum, i) => sum + ((i.quantity || 0) * (i.conversion_factor || 1.0)), 0);
+
+    const availableBaseStock = (product.stock_quantity ?? 0) - inCartBaseQty;
+    if (availableBaseStock < unitFactor) {
+      toast.error(
+        <div>
+          <div style={{ fontWeight: 600 }}>Insufficient stock</div>
+          <div style={{ fontSize: '0.875rem' }}>
+            Only <strong>{product.stock_quantity ?? 0}</strong> base unit(s) available for <strong>{product.product_name}</strong>.
+          </div>
+        </div>,
+        { duration: 3500 }
+      );
       return;
     }
 
@@ -508,7 +544,7 @@ const BillingSystem = () => {
           return;
         }
         if (!hasValidBatch) {
-          alert('No valid batch is available for this product.');
+          toast.error('No valid batch is available for this product.');
           return;
         }
       }
@@ -516,37 +552,13 @@ const BillingSystem = () => {
       // Batch API unavailable — fall through and allow the sale; server will validate
     }
 
-    // Resolve base unit name robustly
-    const baseUnitName = product.unit?.unit_name || product.unit_name || 'Unit';
-
-    const baseUnit = {
-      unit_id: parseInt(product.unit_id),
-      unit_name: baseUnitName,
-      conversion_factor: 1.0,
-      unit_price: parseFloat(product.unit_price)
-    };
-
-    const altUnits = (product.alternative_units || []).map(au => ({
-      unit_id: parseInt(au.unit_id),
-      unit_name: au.unit_details?.unit_name || au.unit?.unit_name || au.unit_name || 'Alt Unit',
-      conversion_factor: parseFloat(au.conversion_factor),
-      unit_price: parseFloat(au.unit_price || (product.unit_price * au.conversion_factor))
-    }));
-
-    const availableUnits = [baseUnit, ...altUnits];
-
-    // Determine target unit
-    const chosenUnit = targetUnitId
-      ? (availableUnits.find(u => u.unit_id === parseInt(targetUnitId)) || baseUnit)
-      : baseUnit;
-
     // Check if item exists in the cart with the same selected_unit_id
     const existingItem = cart.find(item => item.product_id === product.product_id && item.selected_unit_id === chosenUnit.unit_id);
 
     if (existingItem) {
       setCart(cart.map(item =>
         item.product_id === product.product_id && item.selected_unit_id === chosenUnit.unit_id
-          ? { ...item, quantity: item.quantity + 1 }
+          ? { ...item, quantity: item.quantity + 1, stock_quantity: Number(product.stock_quantity ?? item.stock_quantity ?? 0) }
           : item
       ));
     } else {
@@ -556,6 +568,7 @@ const BillingSystem = () => {
         unit_price: parseFloat(chosenUnit.unit_price),
         price: parseFloat(chosenUnit.unit_price),
         cost_price: parseFloat(product.cost_price || 0),
+        stock_quantity: Number(product.stock_quantity ?? 0),
         quantity: 1,
         selected_unit_id: chosenUnit.unit_id,
         selected_unit_name: chosenUnit.unit_name,
@@ -589,15 +602,45 @@ const BillingSystem = () => {
     setCart(cart.filter((_, i) => i !== index));
   };
 
-  // Update quantity
+  // Update quantity — caps at available stock and shows a warning toast if exceeded
   const handleUpdateQty = (index, newQty) => {
     const qty = parseFloat(newQty);
     if (!Number.isFinite(qty) || qty <= 0) {
       handleRemoveFromCart(index);
       return;
     }
-    setCart(cart.map((item, i) =>
-      i === index ? { ...item, quantity: qty } : item
+    const item = cart[index];
+    const catalogItem = catalogProducts.find(p => p.product_id === item.product_id);
+    const stockQty = Number(catalogItem?.stock_quantity ?? item.stock_quantity ?? 0);
+    const factor = Number(item.conversion_factor || 1.0);
+    
+    // Total base quantity used by OTHER lines of the same product in the cart
+    const otherLinesBaseQty = cart
+      .filter((cItem, i) => i !== index && cItem.product_id === item.product_id)
+      .reduce((sum, cItem) => sum + ((Number(cItem.quantity) || 0) * (Number(cItem.conversion_factor) || 1.0)), 0);
+
+    const remainingBaseStock = Math.max(0, stockQty - otherLinesBaseQty);
+    const maxInUnit = factor > 1 ? Math.floor(remainingBaseStock / factor) : remainingBaseStock;
+
+    if (qty > maxInUnit) {
+      toast.error(
+        <div>
+          <div style={{ fontWeight: 600 }}>Insufficient stock</div>
+          <div style={{ fontSize: '0.875rem' }}>
+            Only <strong>{maxInUnit}</strong> {item.selected_unit_name || 'unit(s)'} of <strong>{item.product_name}</strong> available (Total Stock: {stockQty}).
+          </div>
+        </div>,
+        { duration: 3500 }
+      );
+      // Cap at max available so the cart is still usable
+      setCart(cart.map((cartItem, i) =>
+        i === index ? { ...cartItem, quantity: maxInUnit > 0 ? maxInUnit : 1, stock_quantity: stockQty } : cartItem
+      ));
+      return;
+    }
+
+    setCart(cart.map((cartItem, i) =>
+      i === index ? { ...cartItem, quantity: qty, stock_quantity: stockQty } : cartItem
     ));
   };
 
@@ -632,17 +675,48 @@ const BillingSystem = () => {
   const showCustomerDetails = isPartial || saveCustomer || customerExists;
 
   const handleCheckout = async () => {
-    if (cart.length === 0) return alert("Cart is empty!");
-    if (cartHasInvalidDiscount) {
-      return alert("One or more items have a discount that makes final price lower than cost price. Please adjust discount.");
+    if (cart.length === 0) {
+      toast.error("Cart is empty!");
+      return;
     }
-    if (amountPaidValue <= 0) return alert("Enter the amount received before completing transaction!");
+
+    // Client-side pre-validation for stock quantities
+    for (const item of cart) {
+      const catalogItem = catalogProducts.find(p => p.product_id === item.product_id);
+      const availableStock = Number(catalogItem?.stock_quantity ?? item.stock_quantity ?? 0);
+      const totalRequestedBaseQty = cart
+        .filter(i => i.product_id === item.product_id)
+        .reduce((sum, i) => sum + ((Number(i.quantity) || 0) * (Number(i.conversion_factor) || 1.0)), 0);
+
+      if (totalRequestedBaseQty > availableStock) {
+        toast.error(
+          <div>
+            <div style={{ fontWeight: 600 }}>Insufficient Stock Error</div>
+            <div style={{ fontSize: '0.875rem' }}>
+              Selling quantity for <strong>{item.product_name}</strong> exceeds available stock ({availableStock} in stock). Please adjust cart quantity.
+            </div>
+          </div>,
+          { duration: 5000 }
+        );
+        return;
+      }
+    }
+
+    if (cartHasInvalidDiscount) {
+      toast.error("One or more items have a discount that makes final price lower than cost price. Please adjust discount.");
+      return;
+    }
+    if (amountPaidValue <= 0) {
+      toast.error("Enter the amount received before completing transaction!");
+      return;
+    }
     // Validate phone number if provided
     if (payData.customerPhone.trim()) {
       const phoneValidation = validateSriLankanPhone(payData.customerPhone);
       if (!phoneValidation.isValid) {
         setPhoneError(phoneValidation.message);
-        return alert(`Invalid phone number: ${phoneValidation.message}`);
+        toast.error(`Invalid phone number: ${phoneValidation.message}`);
+        return;
       }
       setPhoneError('');
       // Use formatted phone number
@@ -650,9 +724,18 @@ const BillingSystem = () => {
     }
 
     if (saveCustomer || customerExists || isPartial) {
-      if (!payData.customerPhone.trim()) return alert('Phone required to save customer!');
-      if (!customerExists && !payData.customerName.trim()) return alert('Customer name required to save customer!');
-      if (isPartial && !customerExists && !payData.customerAddress.trim()) return alert('Customer address required for new customer partial payment!');
+      if (!payData.customerPhone.trim()) {
+        toast.error('Phone number required to save customer!');
+        return;
+      }
+      if (!customerExists && !payData.customerName.trim()) {
+        toast.error('Customer name required to save customer!');
+        return;
+      }
+      if (isPartial && !customerExists && !payData.customerAddress.trim()) {
+        toast.error('Customer address required for new customer partial payment!');
+        return;
+      }
     }
 
     try {
@@ -701,7 +784,19 @@ const BillingSystem = () => {
       setCustomerExists(false);
       setCustomerLookupMessage('');
       setPhoneError('');
-    } catch (err) { alert(err.response?.data?.error || "Error"); }
+      refreshCatalog();
+    } catch (err) {
+      const msg = err.response?.data?.error || err.message || 'Checkout failed. Please try again.';
+      // Highlight stock shortage messages prominently
+      const isStockError = msg.toLowerCase().includes('stock') || msg.toLowerCase().includes('unavailable');
+      toast.error(
+        <div>
+          <div style={{ fontWeight: 600 }}>{isStockError ? 'Stock shortage' : 'Checkout failed'}</div>
+          <div style={{ fontSize: '0.875rem' }}>{msg}</div>
+        </div>,
+        { duration: 5000 }
+      );
+    }
   };
 
   const getStockClass = (qty) => {
