@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { RefreshCw, Download, AlertTriangle, Clock, CheckCircle, TrendingDown } from 'lucide-react';
+import { Download, AlertTriangle, Clock, CheckCircle, TrendingDown } from 'lucide-react';
 import {
   useForecasts, useDownloadForecastReport,
   useReorderSuggestions, useConvertSuggestionToPO, useTriggerReorderCheck,
@@ -24,7 +24,7 @@ function SeverityBadge({ severity }) {
 }
 
 function DaysBar({ days }) {
-  if (!isFinite(days)) return <span style={{ color: '#1d7e42', fontWeight: 700 }}>∞</span>;
+  if (days === null || days === undefined) return <span style={{ color: '#888', fontWeight: 700 }}>N/A</span>;
   const pct = Math.min((days / 60) * 100, 100);
   const color = days <= 7 ? '#c62828' : days <= 14 ? '#e65100' : '#1d7e42';
   return (
@@ -42,8 +42,8 @@ export default function ForecastDashboard() {
   const [sevFilter, setSevFilter] = useState('');
   const [activeTab, setTab]       = useState('forecast');
 
-  const { data: forecasts = [], isLoading: fl, refetch: rf } = useForecasts();
-  const { data: suggestions = [], isLoading: sl, refetch: rs } = useReorderSuggestions();
+  const { data: forecasts = [], isLoading: fl } = useForecasts();
+  const { data: suggestions = [], isLoading: sl } = useReorderSuggestions();
   const downloadMutation = useDownloadForecastReport();
   const convertMutation  = useConvertSuggestionToPO();
   const triggerMutation  = useTriggerReorderCheck();
@@ -64,7 +64,7 @@ export default function ForecastDashboard() {
   }), [forecasts]);
 
   const chartData = useMemo(() =>
-    filtered.filter(f => isFinite(f.days_remaining)).slice(0, 12).map(f => ({
+    filtered.filter(f => f.days_remaining !== null && f.days_remaining !== undefined).slice(0, 12).map(f => ({
       name: f.product_name.length > 14 ? f.product_name.slice(0, 14) + '…' : f.product_name,
       days: Math.round(f.days_remaining),
       severity: f.severity,
@@ -80,10 +80,6 @@ export default function ForecastDashboard() {
           <p>Inventory depletion forecasts, stockout predictions and auto-reorder suggestions</p>
         </div>
         <div className="proc-header-actions">
-          <motion.button className="proc-btn-outline" whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-            onClick={() => { rf(); rs(); }} disabled={fl || sl}>
-            <RefreshCw size={14} className={fl ? 'proc-spin' : ''} /> Refresh
-          </motion.button>
           <motion.button className="proc-btn-outline" whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
             onClick={() => downloadMutation.mutate()} disabled={downloadMutation.isPending}>
             <Download size={14} /> {downloadMutation.isPending ? 'Exporting...' : 'Export PDF'}
@@ -193,7 +189,7 @@ export default function ForecastDashboard() {
                         <td style={{ textAlign: 'center' }}>{Number(f.avg_daily_sales).toFixed(2)}</td>
                         <td><DaysBar days={f.days_remaining} /></td>
                         <td style={{ color: f.severity === 'Critical' ? '#c62828' : '#333', fontWeight: f.severity === 'Critical' ? 700 : 400 }}>
-                          {fmt(f.stockout_date)}
+                          {f.days_remaining === null ? '—' : fmt(f.stockout_date)}
                         </td>
                         <td><SeverityBadge severity={f.severity} /></td>
                       </motion.tr>

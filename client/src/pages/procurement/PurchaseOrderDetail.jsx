@@ -7,6 +7,7 @@ import {
   useExportPurchaseOrderPDF, useActiveSuppliers, useSendPOEmail,
   useUpdateItemComment, useSendItemCommentEmail, useReceiveOrderItem,
 } from '@/services/procurementApi';
+import { formatPurchaseOrderNumber } from '@/utils/purchaseOrderNumber';
 import '@/styles/Procurement.css';
 
 const STEPS = ['Pending', 'Approved', 'Shipped', 'Received'];
@@ -142,8 +143,11 @@ function ReceiveItemModal({ item, po, onClose }) {
     e.preventDefault();
     setError('');
     if (!form.supplier_batch_number.trim()) return setError('Supplier Batch Number is required.');
-    if (!form.expiry_date) return setError('Expiry Date is required.');
     if (!form.received_quantity || Number(form.received_quantity) <= 0) return setError('Received Quantity must be greater than zero.');
+    if (Number(form.received_quantity) > item.quantity) return setError(`Received Quantity cannot exceed ordered quantity (${item.quantity}).`);
+    if (!form.received_date) return setError('Received Date is required.');
+    if (!form.expiry_date) return setError('Expiry Date is required.');
+    if (new Date(form.expiry_date) < new Date(form.received_date)) return setError('Expiry Date cannot be earlier than Received Date.');
 
     try {
       await receiveMutation.mutateAsync({
@@ -186,7 +190,7 @@ function ReceiveItemModal({ item, po, onClose }) {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
                 <span style={{ color: '#666', fontWeight: 600 }}>PO Number</span>
-                <span style={{ fontWeight: 700, color: '#8b3a3a', fontFamily: 'monospace' }}>{po.po_number}</span>
+                <span style={{ fontWeight: 700, color: '#8b3a3a', fontFamily: 'monospace' }}>{formatPurchaseOrderNumber(po.po_number, po.po_id)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
                 <span style={{ color: '#666', fontWeight: 600 }}>Ordered Quantity</span>
@@ -235,6 +239,7 @@ function ReceiveItemModal({ item, po, onClose }) {
                 <input id="expiry_date" name="expiry_date"
                   className="proc-input"
                   type="date"
+                  min={form.received_date || undefined}
                   value={form.expiry_date}
                   onChange={e => set('expiry_date', e.target.value)}
                 />
@@ -301,7 +306,7 @@ export default function PurchaseOrderDetail() {
           </motion.button>
           <div>
             <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              {po.po_number}
+              {formatPurchaseOrderNumber(po.po_number, po.po_id)}
               <span className={`proc-status-pill ${po.status?.toLowerCase()}`}>{po.status}</span>
               {isOverdue && <span className="proc-status-pill cancelled">Overdue</span>}
             </h1>
@@ -372,7 +377,7 @@ export default function PurchaseOrderDetail() {
             <div className="proc-card-body">
               <div className="proc-info-grid">
                 {[
-                  ['PO Number',        <span className="proc-po-number">{po.po_number}</span>],
+                  ['PO Number',        <span className="proc-po-number">{formatPurchaseOrderNumber(po.po_number, po.po_id)}</span>],
                   ['PO Date',          fmt(po.po_date)],
                   ['Expected Delivery', <span style={{ color: isOverdue ? '#c62828' : '#2c2c2c', fontWeight: isOverdue ? 700 : 400 }}>
                     {fmt(po.expected_delivery)}{isOverdue ? ' ⚠ Overdue' : ''}
@@ -551,7 +556,7 @@ export default function PurchaseOrderDetail() {
               </div>
               <div className="proc-modal-body">
                 <p style={{ color: '#666', fontSize: '14px', marginBottom: '4px' }}>
-                  Are you sure you want to cancel <strong>{po.po_number}</strong>? This cannot be undone.
+                  Are you sure you want to cancel <strong>{formatPurchaseOrderNumber(po.po_number, po.po_id)}</strong>? This cannot be undone.
                 </p>
                 {supplierHasEmail && (
                   <p style={{ color: '#8b3a3a', fontSize: '13px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>

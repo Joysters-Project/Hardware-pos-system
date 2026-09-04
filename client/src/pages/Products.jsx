@@ -5,6 +5,7 @@ import { Pencil, Trash2, Eye, Plus, RefreshCw, FileDown, Layers, Settings, Check
 import toast from "react-hot-toast";
 import api from "../api/axios";
 import { escapeHtml, printWithTemplate } from "../utils/printTemplate";
+import { formatPurchaseOrderNumber } from "../utils/purchaseOrderNumber";
 import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
 import ModuleWorkspace from "../components/navigation/ModuleWorkspace";
@@ -934,7 +935,7 @@ function ProductsPage() {
                           <tr key={b.batch_id} style={{ background: i % 2 === 0 ? "#fff" : "#fdf8f8", borderTop: "1px solid #f5f0f0" }}>
                             <td style={{ padding: "5px 8px", fontWeight: 600 }}>{b.batch_number}</td>
                             <td style={{ padding: "5px 8px" }}>{b.supplier?.supplier_name || "—"}</td>
-                            <td style={{ padding: "5px 8px" }}>{b.purchase_order?.po_number || "—"}</td>
+                            <td style={{ padding: "5px 8px" }}>{formatPurchaseOrderNumber(b.purchase_order?.po_number, b.purchase_order?.po_id) || "—"}</td>
                             <td style={{ padding: "5px 8px" }}>Rs.{Number(b.purchase_price || 0).toFixed(2)}</td>
                             <td style={{ padding: "5px 8px" }}>{b.received_quantity}</td>
                             <td style={{ padding: "5px 8px", fontWeight: 700 }}>{b.remaining_quantity}</td>

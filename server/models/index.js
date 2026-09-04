@@ -19,11 +19,11 @@ if (databaseUrl) {
 }
 
 let dbConfig = {
-  database: urlConfig.database || process.env.MYSQLDATABASE,
-  username: urlConfig.username || process.env.MYSQLUSER,
-  password: urlConfig.password || process.env.MYSQLPASSWORD,
-  host: urlConfig.host || process.env.MYSQLHOST,
-  port: urlConfig.port || process.env.MYSQLPORT || 3306,
+  database: urlConfig.database || process.env.MYSQLDATABASE || process.env.DB_NAME,
+  username: urlConfig.username || process.env.MYSQLUSER || process.env.DB_USER,
+  password: urlConfig.password || process.env.MYSQLPASSWORD || process.env.DB_PASSWORD || process.env.DB_PASS,
+  host: urlConfig.host || process.env.MYSQLHOST || process.env.DB_HOST,
+  port: urlConfig.port || process.env.MYSQLPORT || process.env.DB_PORT || 3306,
   dialect: 'mysql',
   logging: false,
 };

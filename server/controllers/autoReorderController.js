@@ -79,10 +79,9 @@ exports.convertToPO = async (req, res) => {
       return res.status(400).json({ error: 'Suggestion has already been converted to a PO' });
     }
 
-    // 1. Generate PO Number format PO-YYYY-NNNN
+    // 1. Generate PO Number (numeric only)
     const maxId = (await purchase_orders.max('po_id', { transaction })) || 0;
-    const year = new Date().getFullYear();
-    const poNumber = `PO-${year}-${String(maxId + 1).padStart(4, '0')}`;
+    const poNumber = String(maxId + 1).padStart(4, '0');
 
     // 2. Create the Purchase Order
     const po = await purchase_orders.create({

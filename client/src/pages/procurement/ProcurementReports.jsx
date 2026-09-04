@@ -4,10 +4,11 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, Legend,
 } from 'recharts';
-import { RefreshCw, TrendingUp, ShoppingCart, Users, AlertTriangle, CheckCircle } from 'lucide-react';
+import { TrendingUp, ShoppingCart, Users, AlertTriangle, CheckCircle } from 'lucide-react';
 import {
   useSupplierPerformanceReport, usePurchaseSummaryReport, useOutstandingOrdersReport,
 } from '../../services/procurementApi';
+import { formatPurchaseOrderNumber } from '../../utils/purchaseOrderNumber';
 import '../../styles/Procurement.css';
 import '../../styles/ProcurementPages.css';
 
@@ -38,9 +39,9 @@ function SummaryCard({ icon: Icon, label, value, color, delay }) {
 export default function ProcurementReports() {
   const [tab, setTab] = useState('performance');
 
-  const { data: performance = [], isLoading: pl, refetch: rp } = useSupplierPerformanceReport();
-  const { data: purchases   = [], isLoading: ql, refetch: rq } = usePurchaseSummaryReport();
-  const { data: outstanding = [], isLoading: ol, refetch: ro } = useOutstandingOrdersReport();
+  const { data: performance = [], isLoading: pl } = useSupplierPerformanceReport();
+  const { data: purchases   = [], isLoading: ql } = usePurchaseSummaryReport();
+  const { data: outstanding = [], isLoading: ol } = useOutstandingOrdersReport();
 
   const fmt  = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
   const fmtN = (n) => `LKR ${Number(n || 0).toLocaleString('en-LK', { minimumFractionDigits: 2 })}`;
@@ -70,10 +71,6 @@ export default function ProcurementReports() {
           <h1>Procurement Reports</h1>
           <p>Supplier performance, purchase analysis and outstanding overdue orders</p>
         </div>
-        <motion.button className="proc-btn-outline" whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-          onClick={() => { rp(); rq(); ro(); }}>
-          <RefreshCw size={14} /> Refresh All
-        </motion.button>
       </motion.div>
 
       {/* Tabs */}
@@ -372,7 +369,7 @@ export default function ProcurementReports() {
                         <motion.tr key={po.po_id}
                           initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: i * 0.04 }}>
-                          <td><span className="proc-po-number">{po.po_number || `#${po.po_id}`}</span></td>
+                          <td><span className="proc-po-number">{formatPurchaseOrderNumber(po.po_number, po.po_id)}</span></td>
                           <td>
                             <div className="proc-name-cell">{po.supplier?.supplier_name || '—'}</div>
                             {po.supplier?.phone && <div style={{ fontSize: '11px', color: '#888' }}>{po.supplier.phone}</div>}
