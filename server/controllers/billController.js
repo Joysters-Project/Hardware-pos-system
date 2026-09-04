@@ -27,7 +27,12 @@ exports.createBill = async (req, res) => {
     });
   } catch (error) {
     console.error('Billing createBill error:', error);
-    res.status(500).json({ error: error.message });
+    // Known business-logic errors (stock shortage, inactive product, invalid phone…)
+    // are thrown as plain Error objects by BillingService.createInvoice.
+    // Return 400 so the client can display the exact message; use 500 only for
+    // unexpected infrastructure failures (DB connection down, etc.).
+    const isBusinessError = error.message && !error.stack?.includes('SequelizeDatabaseError');
+    res.status(isBusinessError ? 400 : 500).json({ error: error.message });
   }
 };
 
