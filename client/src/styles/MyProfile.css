@@ -77,10 +77,11 @@
 .pf-photo-initials {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #8b3a3a, #a84545);
-  color: #fff;
-  font-size: 1.9rem;
-  font-weight: 700;
+  background: #f3d6cf;
+  color: #74312f;
+  font-size: 2.35rem;
+  font-weight: 800;
+  letter-spacing: 0;
   display: flex;
   align-items: center;
   justify-content: center;

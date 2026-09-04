@@ -14,6 +14,7 @@ exports.createSupplier = async (req, res) => {
 
     const supplier = await suppliers.create({
       ...req.body,
+      contact: req.body.contact || '',
       supplier_code: supplierCode,
       status: req.body.status || 'Active',
     });

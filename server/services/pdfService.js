@@ -1,10 +1,77 @@
+const fs = require('fs');
+const path = require('path');
 const PDFDocument = require('pdfkit');
 
+const LOGO_PATH = path.join(__dirname, '..', '..', 'client', 'src', 'assets', 'logo.png');
+
 const COMPANY = {
-  name:    'Mathumithan Hardware',
-  address: '123 Main Street, Colombo, Sri Lanka',
-  phone:   '+94 11 234 5678',
+  name:    'Mathumithan',
+  subtitle: 'Hardware and Lumber and Furniture Dealer',
+  address: 'A9 Road, School Near, Kanagarayankulam South, Vavuniya',
+  phone:   '077 2521943',
+  regNo:   'TD693V',
   email:   'info@mathumithanhardware.lk'
+};
+
+const money = (value) => {
+  const numeric = Number(value || 0);
+  return `LKR ${numeric.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
+const safeText = (value, fallback = '—') => {
+  if (value === null || value === undefined || value === '') return fallback;
+  return String(value);
+};
+
+const drawPageHeader = (doc, title, generatedText) => {
+  const pageWidth = doc.page.width;
+
+  doc.rect(0, 0, pageWidth, 112).fill('#7d1f2a');
+  if (fs.existsSync(LOGO_PATH)) {
+    doc.image(LOGO_PATH, 42, 15, { width: 80, height: 80 });
+  }
+
+  doc.fillColor('#fff').fontSize(22).font('Helvetica-Bold').text('Mathumithan', 135, 22, { width: 260 });
+  doc.fillColor('#f2d79b').fontSize(9).font('Helvetica').text('Hardware and Lumber and Furniture Dealer', 135, 48);
+  doc.fillColor('#fff').fontSize(8).font('Helvetica').text(COMPANY.address, 135, 68);
+  doc.fillColor('#fff').fontSize(8).font('Helvetica').text(`Reg. No: ${COMPANY.regNo}   |   Tel: ${COMPANY.phone}`, 135, 84);
+
+  doc.fillColor('#fff').fontSize(15).font('Helvetica-Bold').text(title, 50, 128, { align: 'left' });
+  doc.fillColor('#f2d79b').fontSize(8).font('Helvetica').text(generatedText, 0, 132, { align: 'right', width: pageWidth - 50 });
+
+  doc.moveTo(50, 152).lineTo(545, 152).strokeColor('#d7b37a').stroke();
+  doc.y = 168;
+};
+
+const drawFooter = (doc) => {
+  doc.fillColor('#7d1f2a').fontSize(8).font('Helvetica').text(`Page ${doc.page.number}`, 0, doc.page.height - 28, { align: 'center', width: doc.page.width });
+};
+
+const addSummaryCard = (doc, x, y, label, value, color = '#7d1f2a') => {
+  doc.roundedRect(x, y, 160, 56, 8).fill('#fff6f5');
+  doc.strokeColor('#e9d0cc').lineWidth(1).stroke();
+  doc.fillColor(color).fontSize(8).font('Helvetica-Bold').text(label.toUpperCase(), x + 12, y + 12, { width: 136 });
+  doc.fillColor('#2f2f2f').fontSize(16).font('Helvetica-Bold').text(value, x + 12, y + 25, { width: 136 });
+};
+
+const addTableHeader = (doc, columns, startY) => {
+  const xPositions = columns.map((col, idx) => ({ ...col, x: col.x }));
+  doc.y = startY;
+  doc.fillColor('#7d1f2a').fontSize(7.5).font('Helvetica-Bold');
+  xPositions.forEach((col) => doc.text(col.title, col.x, doc.y, { width: col.width, align: col.align || 'left' }));
+  doc.y += 14;
+  doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#d8d8d8').stroke();
+  doc.y += 8;
+  doc.fillColor('#2f2f2f').font('Helvetica');
+};
+
+const ensurePageSpace = (doc, neededRows, tableStartY) => {
+  if (doc.y + neededRows * 20 > 760) {
+    doc.addPage();
+    drawPageHeader(doc, 'Supplier Report', `Generated: ${new Date().toLocaleString('en-LK')}`);
+    return tableStartY + 12;
+  }
+  return tableStartY;
 };
 
 /**
@@ -528,11 +595,139 @@ const generateSupplierPerformanceReportPDF = (performances) => {
   });
 };
 
+const generateSupplierReportPDF = (report) => {
+  return generatePDFBuffer((doc) => {
+    const summary = report?.summary || {};
+    const suppliers = Array.isArray(report?.suppliers) ? report.suppliers : [];
+    const orders = Array.isArray(report?.orders) ? report.orders : [];
+
+    drawPageHeader(doc, 'Supplier Report', `Generated: ${safeText(summary.generatedAt ? new Date(summary.generatedAt).toLocaleString('en-LK') : new Date().toLocaleString('en-LK'))}`);
+
+    addSummaryCard(doc, 50, 170, 'Total Suppliers', safeText(summary.totalSuppliers ?? suppliers.length ?? 0), '#7d1f2a');
+    addSummaryCard(doc, 220, 170, 'Active Suppliers', safeText(summary.activeSuppliers ?? suppliers.filter((s) => String(s.status).toLowerCase() === 'active').length), '#0f7a3f');
+    addSummaryCard(doc, 390, 170, 'Inactive Suppliers', safeText(summary.inactiveSuppliers ?? suppliers.filter((s) => String(s.status).toLowerCase() === 'inactive').length), '#8a5d2a');
+    addSummaryCard(doc, 50, 238, 'Total Purchase Orders', safeText(summary.totalPurchaseOrders ?? orders.length), '#1d4b88');
+    addSummaryCard(doc, 220, 238, 'Total Procurement Value', money(summary.totalProcurementValue ?? orders.reduce((sum, order) => sum + Number(order.total_amount || 0), 0)), '#7d1f2a');
+    addSummaryCard(doc, 390, 238, 'Report Date & Time', safeText(summary.generatedAt ? new Date(summary.generatedAt).toLocaleString('en-LK') : new Date().toLocaleString('en-LK')), '#4a4a4a');
+
+    doc.y = 318;
+    doc.fillColor('#7d1f2a').fontSize(12).font('Helvetica-Bold').text('Main Supplier List', 50, doc.y);
+    doc.y += 22;
+
+    const supplierColumns = [
+      { title: 'ID', x: 50, width: 34 },
+      { title: 'Supplier Name', x: 90, width: 86 },
+      { title: 'Contact Person', x: 180, width: 68 },
+      { title: 'Phone', x: 252, width: 58, align: 'left' },
+      { title: 'Email', x: 314, width: 85 },
+      { title: 'Orders', x: 404, width: 32, align: 'right' },
+      { title: 'Purchase Value', x: 440, width: 56, align: 'right' },
+      { title: 'Status', x: 500, width: 45, align: 'right' },
+    ];
+
+    let supplierStartY = doc.y;
+    doc.moveTo(50, supplierStartY).lineTo(545, supplierStartY).strokeColor('#d8d8d8').stroke();
+    addTableHeader(doc, supplierColumns, supplierStartY + 4);
+
+    const printSupplierRows = suppliers.length ? suppliers : [{ supplier_id: '—', supplier_name: 'No suppliers available', contact_person: '—', phone: '—', email: '—', status: '—', total_orders: 0, total_purchase_value: 0 }];
+
+    printSupplierRows.forEach((supplier, index) => {
+      const status = safeText(supplier.status, '—');
+      const rowY = doc.y;
+
+      doc.fillColor('#2f2f2f').fontSize(7.5).font('Helvetica');
+      doc.text(safeText(supplier.supplier_id, '—'), 50, rowY, { width: 34 });
+      doc.text(safeText(supplier.supplier_name, '—'), 90, rowY, { width: 86 });
+      doc.text(safeText(supplier.contact_person, '—'), 180, rowY, { width: 68 });
+      doc.text(safeText(supplier.phone, '—'), 252, rowY, { width: 58 });
+      doc.text(safeText(supplier.email, '—'), 314, rowY, { width: 85 });
+      doc.text(safeText(supplier.total_orders ?? 0, '0'), 404, rowY, { width: 32, align: 'right' });
+      doc.text(money(supplier.total_purchase_value ?? 0), 440, rowY, { width: 56, align: 'right' });
+      doc.text(status, 500, rowY, { width: 45, align: 'right' });
+
+      const extraLines = [];
+      if (supplier.address) extraLines.push(`Address: ${supplier.address}`);
+      if (supplier.last_purchase_date) extraLines.push(`Last Purchase: ${new Date(supplier.last_purchase_date).toLocaleDateString('en-LK')}`);
+
+      if (extraLines.length) {
+        doc.y += 14;
+        doc.fillColor('#666').fontSize(6.8).font('Helvetica');
+        doc.text(extraLines.join('  |  '), 90, doc.y, { width: 450 });
+      }
+
+      doc.y += 16;
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#efefef').stroke();
+
+      if (doc.y > 700) {
+        doc.addPage();
+        drawPageHeader(doc, 'Supplier Report', `Generated: ${new Date().toLocaleString('en-LK')}`);
+        doc.y = 168;
+        addTableHeader(doc, supplierColumns, doc.y);
+      }
+    });
+
+    doc.y += 18;
+    doc.fillColor('#7d1f2a').fontSize(12).font('Helvetica-Bold').text('Procurement Details', 50, doc.y);
+    doc.y += 18;
+
+    const orderColumns = [
+      { title: 'PO No.', x: 50, width: 55 },
+      { title: 'Supplier', x: 110, width: 80 },
+      { title: 'Order Date', x: 195, width: 52 },
+      { title: 'Products', x: 252, width: 76 },
+      { title: 'Qty', x: 335, width: 28, align: 'right' },
+      { title: 'Unit Price', x: 368, width: 52, align: 'right' },
+      { title: 'Total', x: 425, width: 54, align: 'right' },
+      { title: 'Status', x: 484, width: 60, align: 'right' },
+    ];
+
+    const detailRows = orders.length ? orders : [{ po_number: '—', supplier_name: 'No procurement records', po_date: '—', products: '—', quantity: '0', unit_price: '0', total_amount: '0', status: '—' }];
+
+    addTableHeader(doc, orderColumns, doc.y + 2);
+
+    detailRows.forEach((order) => {
+      const rowY = doc.y;
+      doc.fillColor('#2f2f2f').fontSize(7.1).font('Helvetica');
+      doc.text(safeText(order.po_number, '—'), 50, rowY, { width: 55 });
+      doc.text(safeText(order.supplier_name, '—'), 110, rowY, { width: 80 });
+      doc.text(order.po_date ? new Date(order.po_date).toLocaleDateString('en-LK') : '—', 195, rowY, { width: 52 });
+      doc.text(safeText(order.products, '—'), 252, rowY, { width: 76 });
+      doc.text(safeText(order.quantity, '0'), 335, rowY, { width: 28, align: 'right' });
+      doc.text(money(order.unit_price || 0), 368, rowY, { width: 52, align: 'right' });
+      doc.text(money(order.total_amount || 0), 425, rowY, { width: 54, align: 'right' });
+      doc.text(safeText(order.status, '—'), 484, rowY, { width: 60, align: 'right' });
+
+      const appendedMeta = [];
+      if (order.expected_delivery) appendedMeta.push(`Expected: ${new Date(order.expected_delivery).toLocaleDateString('en-LK')}`);
+      if (order.actual_delivery_date) appendedMeta.push(`Received: ${new Date(order.actual_delivery_date).toLocaleDateString('en-LK')}`);
+      if (order.payment_status) appendedMeta.push(`Payment: ${order.payment_status}`);
+      if (appendedMeta.length) {
+        doc.y += 14;
+        doc.fillColor('#666').fontSize(6.5).font('Helvetica');
+        doc.text(appendedMeta.join('  |  '), 110, doc.y, { width: 420 });
+      }
+
+      doc.y += 16;
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#efefef').stroke();
+
+      if (doc.y > 700) {
+        doc.addPage();
+        drawPageHeader(doc, 'Supplier Report', `Generated: ${new Date().toLocaleString('en-LK')}`);
+        doc.y = 168;
+        addTableHeader(doc, orderColumns, doc.y + 2);
+      }
+    });
+
+    drawFooter(doc);
+  });
+};
+
 module.exports = {
   generatePurchaseOrderPDF,
   generatePaymentReceiptPDF,
   generateSupplierStatementPDF,
   generateOutstandingBalanceReportPDF,
   generateForecastReportPDF,
-  generateSupplierPerformanceReportPDF
+  generateSupplierPerformanceReportPDF,
+  generateSupplierReportPDF
 };

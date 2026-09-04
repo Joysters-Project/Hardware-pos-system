@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 // Use the shared axios instance that already has the JWT interceptor
 import api from '../api/axios';
 import { subscribeToEvent } from './socketSingleton';
+import { printWithTemplate, buildTableHtml, escapeHtml } from '../utils/printTemplate';
 
 // ── API functions ────────────────────────────────────────────────────────────
 
@@ -37,6 +38,7 @@ const dashboardApi = {
 
 const reportsApi = {
   supplierPerformance: () => api.get('/procurement/reports/supplier-performance'),
+  supplierReportPDF: () => api.get('/procurement/reports/supplier-report/pdf', { responseType: 'blob' }),
   purchases:     (from, to) => api.get('/procurement/reports/purchases', { params: { from, to } }),
   outstanding:   ()         => api.get('/procurement/reports/outstanding'),
 };
@@ -229,12 +231,26 @@ export function useSendItemCommentEmail() {
 
 export function useExportPurchaseOrderPDF() {
   return useMutation({
-    mutationFn: (id) => poApi.exportPDF(id),
-    onSuccess: (response, id) => {
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url  = window.URL.createObjectURL(blob);
-      window.open(url, '_blank');
-      toast.success('PDF opened!');
+    mutationFn: (id) => poApi.getById(id),
+    onSuccess: (response) => {
+      const po = response.data;
+      const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB') : '—';
+      const rows = (po.po_items || []).map((item, i) => [
+        i + 1,
+        escapeHtml(item.product?.product_name || `Product #${item.product_id}`),
+        item.quantity,
+        `LKR ${Number(item.unit_price).toFixed(2)}`,
+        `LKR ${Number(item.total_price).toFixed(2)}`,
+        escapeHtml(item.comment || '—'),
+      ]);
+      const tableHtml = buildTableHtml({
+        columns: ['#', 'Product', 'Qty', 'Unit Price', 'Total', 'Comment'],
+        rows,
+        emptyMessage: 'No items found.',
+      });
+      const supplierName = po.supplier?.supplier_name || '—';
+      const subtitle = `PO: ${po.po_number} | Supplier: ${supplierName} | Date: ${fmtDate(po.po_date)} | Status: ${po.status} | Total: LKR ${Number(po.total_amount).toFixed(2)}`;
+      printWithTemplate({ title: 'Purchase Order', subtitle, contentHtml: tableHtml });
     },
     onError: () => toast.error('Failed to export PDF'),
   });
@@ -361,6 +377,7 @@ export function useRecordPayment() {
       qc.invalidateQueries({ queryKey: ['procurement-payment'] });
       qc.invalidateQueries({ queryKey: ['procurement-payment-dashboard'] });
       qc.invalidateQueries({ queryKey: ['procurementDashboard'] });
+      qc.invalidateQueries({ queryKey: ['cheque-alerts'] });
       toast.success('Payment recorded successfully!');
     },
     onError: (e) => toast.error(e.response?.data?.error || 'Failed to record payment')
@@ -384,17 +401,28 @@ export function useSupplierPayments(supplierId) {
 
 export function useDownloadPaymentReceipt() {
   return useMutation({
-    mutationFn: (id) => paymentApi.downloadReceipt(id),
-    onSuccess: (response, id) => {
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `Receipt_PAY-${id}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      toast.success('Receipt PDF downloaded!');
+    mutationFn: (id) => paymentApi.getById(id),
+    onSuccess: (response) => {
+      const p = response.data;
+      const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB') : '—';
+      const rows = [[
+        escapeHtml(p.payment_reference || `PAY-${p.payment_id}`),
+        escapeHtml(p.supplier?.supplier_name || '—'),
+        escapeHtml(p.payment_method || '—'),
+        `LKR ${Number(p.amount || 0).toFixed(2)}`,
+        fmtDate(p.payment_date),
+        escapeHtml(p.status || '—'),
+        escapeHtml(p.notes || '—'),
+      ]];
+      const tableHtml = buildTableHtml({
+        columns: ['Reference', 'Supplier', 'Method', 'Amount', 'Date', 'Status', 'Notes'],
+        rows,
+      });
+      printWithTemplate({
+        title: 'Payment Receipt',
+        subtitle: `Reference: ${p.payment_reference || `PAY-${p.payment_id}`} | Supplier: ${p.supplier?.supplier_name || '—'}`,
+        contentHtml: tableHtml,
+      });
     },
     onError: () => toast.error('Failed to download receipt PDF')
   });
@@ -469,17 +497,27 @@ export function useForecasts() {
 
 export function useDownloadForecastReport() {
   return useMutation({
-    mutationFn: () => forecastApi.downloadReport(),
+    mutationFn: () => forecastApi.getForecasts(),
     onSuccess: (response) => {
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'Inventory_Forecast_Report.pdf');
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      toast.success('Forecast report downloaded!');
+      const forecasts = Array.isArray(response.data) ? response.data : [];
+      const rows = forecasts.map((f) => [
+        escapeHtml(f.product_name || f.product?.product_name || '—'),
+        escapeHtml(f.category || '—'),
+        f.current_stock ?? '—',
+        f.reorder_point ?? '—',
+        f.suggested_order_qty ?? '—',
+        escapeHtml(f.forecast_status || f.status || '—'),
+      ]);
+      const tableHtml = buildTableHtml({
+        columns: ['Product', 'Category', 'Current Stock', 'Reorder Point', 'Suggested Qty', 'Status'],
+        rows,
+        emptyMessage: 'No forecast data available.',
+      });
+      printWithTemplate({
+        title: 'Inventory Forecast Report',
+        subtitle: `Total items: ${forecasts.length}`,
+        contentHtml: tableHtml,
+      });
     },
     onError: () => toast.error('Failed to download forecast report')
   });
@@ -535,17 +573,30 @@ export function useSupplierStatement(id, params) {
 
 export function useDownloadStatementPDF() {
   return useMutation({
-    mutationFn: ({ id, params }) => extraSupplierApi.downloadStatementPDF(id, params),
+    mutationFn: ({ id, params }) => extraSupplierApi.getStatement(id, params),
     onSuccess: (response, variables) => {
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `Statement_SUP-${variables.id}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      toast.success('Statement PDF downloaded!');
+      const data = response.data;
+      const supplier = data.supplier || {};
+      const transactions = Array.isArray(data.transactions) ? data.transactions : [];
+      const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB') : '—';
+      const rows = transactions.map((t) => [
+        fmtDate(t.date || t.payment_date || t.po_date),
+        escapeHtml(t.reference || t.po_number || t.payment_reference || '—'),
+        escapeHtml(t.type || t.transaction_type || '—'),
+        `LKR ${Number(t.debit || 0).toFixed(2)}`,
+        `LKR ${Number(t.credit || 0).toFixed(2)}`,
+        `LKR ${Number(t.balance || 0).toFixed(2)}`,
+      ]);
+      const tableHtml = buildTableHtml({
+        columns: ['Date', 'Reference', 'Type', 'Debit', 'Credit', 'Balance'],
+        rows,
+        emptyMessage: 'No transactions found.',
+      });
+      printWithTemplate({
+        title: 'Supplier Statement',
+        subtitle: `Supplier: ${escapeHtml(supplier.supplier_name || `SUP-${variables.id}`)}`,
+        contentHtml: tableHtml,
+      });
     },
     onError: () => toast.error('Failed to download statement PDF')
   });
@@ -597,17 +648,33 @@ export function useDeleteSupplierDocument() {
 
 export function useDownloadOutstandingReportPDF() {
   return useMutation({
-    mutationFn: () => api.get('/procurement/reports/outstanding/pdf', { responseType: 'blob' }),
+    mutationFn: () => reportsApi.outstanding(),
     onSuccess: (response) => {
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'Outstanding_AP_Report.pdf');
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      toast.success('Outstanding Payables Report PDF downloaded!');
+      const orders = Array.isArray(response.data) ? response.data : [];
+      const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB') : '—';
+      const rows = orders.map((po) => {
+        const days = po.expected_delivery
+          ? Math.max(0, Math.floor((new Date() - new Date(po.expected_delivery)) / 86400000))
+          : 0;
+        return [
+          escapeHtml(po.po_number || `#${po.po_id}`),
+          escapeHtml(po.supplier?.supplier_name || '—'),
+          escapeHtml(po.status || '—'),
+          fmtDate(po.expected_delivery),
+          `${days}d overdue`,
+          `LKR ${Number(po.total_amount || 0).toFixed(2)}`,
+        ];
+      });
+      const tableHtml = buildTableHtml({
+        columns: ['PO Number', 'Supplier', 'Status', 'Expected Delivery', 'Days Overdue', 'Total Amount'],
+        rows,
+        emptyMessage: 'No outstanding orders found.',
+      });
+      printWithTemplate({
+        title: 'Outstanding Payables Report',
+        subtitle: `Total overdue orders: ${orders.length}`,
+        contentHtml: tableHtml,
+      });
     },
     onError: () => toast.error('Failed to download Outstanding Payables Report PDF')
   });
@@ -615,19 +682,58 @@ export function useDownloadOutstandingReportPDF() {
 
 export function useDownloadPerformanceReportPDF() {
   return useMutation({
-    mutationFn: () => api.get('/procurement/reports/supplier-performance/pdf', { responseType: 'blob' }),
+    mutationFn: () => reportsApi.supplierPerformance(),
     onSuccess: (response) => {
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'Supplier_Performance_Report.pdf');
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      toast.success('Supplier Performance Report PDF downloaded!');
+      const rows = (Array.isArray(response.data) ? response.data : []).map((r) => [
+        escapeHtml(r.supplier_name || '—'),
+        escapeHtml(r.supplier_code || '—'),
+        r.total_orders ?? '—',
+        r.received_orders ?? '—',
+        `${r.on_time_pct ?? 0}%`,
+        r.avg_delay_days > 0 ? `+${r.avg_delay_days}d` : '—',
+        r.performance_rating ? `${r.performance_rating}/5` : '—',
+      ]);
+      const tableHtml = buildTableHtml({
+        columns: ['Supplier', 'Code', 'Total Orders', 'Received', 'On-Time %', 'Avg Delay', 'Rating'],
+        rows,
+        emptyMessage: 'No performance data available.',
+      });
+      printWithTemplate({
+        title: 'Supplier Performance Report',
+        subtitle: `Total suppliers evaluated: ${Array.isArray(response.data) ? response.data.length : 0}`,
+        contentHtml: tableHtml,
+      });
     },
     onError: () => toast.error('Failed to download Supplier Performance Report PDF')
+  });
+}
+
+export function useDownloadSupplierReportPDF() {
+  return useMutation({
+    mutationFn: () => supplierApi.getAll(),
+    onSuccess: (response) => {
+      const suppliers = Array.isArray(response.data) ? response.data : [];
+      const rows = suppliers.map((s) => [
+        escapeHtml(s.supplier_code || `SUP-${s.supplier_id}`),
+        escapeHtml(s.supplier_name || '—'),
+        escapeHtml(s.contact_person || '—'),
+        escapeHtml(s.email || '—'),
+        escapeHtml(s.phone || '—'),
+        escapeHtml(s.status || '—'),
+        s.performance_rating ? `${s.performance_rating}/5` : '—',
+      ]);
+      const tableHtml = buildTableHtml({
+        columns: ['Code', 'Supplier Name', 'Contact', 'Email', 'Phone', 'Status', 'Rating'],
+        rows,
+        emptyMessage: 'No suppliers found.',
+      });
+      printWithTemplate({
+        title: 'Supplier Report',
+        subtitle: `Total suppliers: ${suppliers.length}`,
+        contentHtml: tableHtml,
+      });
+    },
+    onError: () => toast.error('Failed to download supplier report PDF')
   });
 }
 
@@ -655,6 +761,7 @@ export function useUpdateChequeStatus() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['procurement-payments'] });
       qc.invalidateQueries({ queryKey: ['procurement-payment-dashboard'] });
+      qc.invalidateQueries({ queryKey: ['cheque-alerts'] });
       toast.success('Cheque status updated!');
     },
     onError: (e) => toast.error(e.response?.data?.error || 'Failed to update cheque status'),

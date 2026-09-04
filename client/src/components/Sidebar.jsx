@@ -175,11 +175,16 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
   const { user, role, profilePhoto } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [avatarImageFailed, setAvatarImageFailed] = useState(false);
   const navRef = useRef(null);
 
   const userName = user?.name || "User";
   const displayRole = role || "admin";
   const navItems = getNavItems(displayRole);
+
+  useEffect(() => {
+    setAvatarImageFailed(false);
+  }, [profilePhoto]);
 
   /* Restore sidebar scroll position on mount and location changes */
   useLayoutEffect(() => {
@@ -227,12 +232,7 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
 
   const toggleMobile = useCallback(() => setMobileOpen((o) => !o), []);
 
-  const initials = userName
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+  const initial = userName.trim().charAt(0).toUpperCase() || "U";
 
   return (
     <>
@@ -320,10 +320,13 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
             }`}
             title={isCollapsed ? `${userName} (${displayRole})` : undefined}
           >
-            <div className="sidebar-float__avatar">
-              {profilePhoto
-                ? <img src={profilePhoto} alt={userName} className="sidebar-float__avatar-img" />
-                : initials
+            <div
+              className={`sidebar-float__avatar ${profilePhoto && !avatarImageFailed ? "" : "sidebar-float__avatar--fallback"}`}
+              aria-label={profilePhoto && !avatarImageFailed ? `${userName} profile photo` : `${userName} profile initial`}
+            >
+              {profilePhoto && !avatarImageFailed
+                ? <img src={profilePhoto} alt={userName} className="sidebar-float__avatar-img" onError={() => setAvatarImageFailed(true)} />
+                : initial
               }
             </div>
             <div className="sidebar-float__user-info">

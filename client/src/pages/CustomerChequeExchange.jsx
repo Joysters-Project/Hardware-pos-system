@@ -36,6 +36,13 @@ const fmtDate = (value) => {
 
 const getTodayDate = () => new Date().toISOString().split('T')[0];
 
+const getDaysUntilClearance = (dateStr) => {
+  if (!dateStr) return null;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const due = new Date(dateStr); due.setHours(0, 0, 0, 0);
+  return Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+};
+
 const getReportTitle = (reportType) => {
   switch (reportType) {
     case 'cleared': return 'Cleared cheques';
@@ -779,7 +786,16 @@ export default function CustomerChequeExchange() {
                   <td>{currency.format(cheque.amount_paid_to_customer || 0)}</td>
                   <td>{fmtDate(cheque.received_date)}</td>
                   <td>{fmtDate(cheque.cheque_date)}</td>
-                  <td>{fmtDate(cheque.expected_clearance_date)}</td>
+                  <td>
+                    {fmtDate(cheque.expected_clearance_date)}
+                    {cheque.cheque_status === 'Pending' && (() => {
+                      const days = getDaysUntilClearance(cheque.expected_clearance_date);
+                      if (days === null) return null;
+                      if (days < 0) return <span className="cce-badge cce-badge-bounced" style={{ marginLeft: 6 }}>Overdue</span>;
+                      if (days <= 7) return <span className="cce-badge cce-badge-pending" style={{ marginLeft: 6 }}>Due in {days}d</span>;
+                      return null;
+                    })()}
+                  </td>
                   <td><span className={`cce-badge ${statusBadgeClass(cheque.cheque_status)}`}>{cheque.cheque_status}</span></td>
                   <td><span className={`cce-badge ${repaymentBadgeClass(cheque.repayment_status)}`}>{cheque.repayment_status || 'Not Required'}</span></td>
                   <td>

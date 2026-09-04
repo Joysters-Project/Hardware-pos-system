@@ -2,15 +2,18 @@ import { useEffect, useState, useMemo } from "react";
 import { Package, CreditCard } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import { createPortal } from "react-dom";
 import api from "../api/axios";
 import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
 import { useLocation } from "react-router-dom";
 import "../styles/Alerts.css";
+import "../styles/Procurement.css";
+import "../styles/ProcurementPages.css";
 import DetailModal from "../components/DetailModal";
 import ProductDetailContent from "../components/ProductDetailContent";
 import PODetailContent from "../components/PODetailContent";
-import { useChequeAlerts } from "../services/procurementApi";
+import { useChequeAlerts, useUpdateChequeStatus, useRecordPayment } from "../services/procurementApi";
 import { subscribeToEvent } from "../services/socketSingleton";
 
 const THEME = "#8b3a3a";
@@ -154,11 +157,267 @@ function ChequeDetailContent({ cheque }) {
   );
 }
 
+const CHEQUE_COLORS = {
+  Pending:   { bg: "#fff8e1", color: "#b45309", border: "#fde68a" },
+  Cleared:   { bg: "#f0fdf4", color: "#1d7e42", border: "#bbf7d0" },
+  Bounced:   { bg: "#fff1f2", color: "#c62828", border: "#fecaca" },
+  Cancelled: { bg: "#f5f5f5", color: "#666",    border: "#e0e0e0" },
+};
+
+function resolvePaymentAlertAction(payment) {
+  if (!payment) return "view-only";
+
+  const paymentMethod = String(payment.payment_method || "").trim();
+  const paymentStatus = String(payment.payment_status || "").trim();
+  const chequeStatus = String(payment.cheque_status || "").trim();
+  const alertStatus = String(payment.alert_status || "").trim();
+
+  if (alertStatus === "Resolved" || alertStatus === "Closed" || alertStatus === "Completed") {
+    return "view-only";
+  }
+
+  if (paymentMethod === "Cheque") {
+    if (chequeStatus === "Bounced") return "resolve-bounced";
+    if (paymentStatus === "Paid" || chequeStatus === "Cleared") return "view-only";
+    if (paymentStatus === "Pending" || chequeStatus === "Pending" || !chequeStatus) return "mark-cleared";
+    return "view-only";
+  }
+
+  if (paymentStatus === "Paid" || paymentStatus === "Completed") return "view-only";
+  if (paymentStatus === "Pending Confirmation" || paymentStatus === "Pending" || paymentStatus === "Partially Paid") {
+    return "confirm-payment";
+  }
+
+  return "view-only";
+}
+
+/**
+ * Inline payment modal — reuses the same logic as PaymentDashboard.
+ * For Pending cheques: marks cheque as Cleared (= paid).
+ * For Bounced cheques: records a replacement payment.
+ */
+function PayNowModal({ alert, onClose }) {
+  const actionType = resolvePaymentAlertAction(alert);
+  const isBounced = actionType === "resolve-bounced";
+  const isViewOnly = actionType === "view-only";
+  const isConfirmPayment = actionType === "confirm-payment";
+  const [payMethod, setPayMethod] = useState("Bank Transfer");
+  const [payNote, setPayNote]     = useState("");
+  const [chequeNumber, setChequeNumber] = useState("");
+  const [bankName, setBankName]         = useState("");
+  const [chequeDate, setChequeDate]     = useState("");
+  const [clearingDate, setClearingDate] = useState("");
+
+  const updateChequeMutation = useUpdateChequeStatus();
+  const recordMutation       = useRecordPayment();
+  const isPending = updateChequeMutation.isPending || recordMutation.isPending;
+
+  const fmt = (n) => `LKR ${Number(n || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}`;
+
+  const handleConfirm = async () => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+
+      if (isBounced) {
+        const replacementAmount = Number(alert.amount ?? alert.invoice_amount ?? alert.balance_amount ?? 0);
+        if (!(replacementAmount > 0)) {
+          toast.error("Original cheque amount is invalid. Please check the payment record.");
+          return;
+        }
+
+        const payload = {
+          payment_id: alert.payment_id,
+          paid_amount: replacementAmount,
+          payment_method: payMethod,
+          paid_date: today,
+          notes: payNote,
+        };
+        if (payMethod === "Cheque") {
+          if (clearingDate && chequeDate && clearingDate < chequeDate) {
+            toast.error("Clearing date cannot be earlier than cheque date");
+            return;
+          }
+          Object.assign(payload, {
+            cheque_number: chequeNumber,
+            bank_name: bankName,
+            cheque_date: chequeDate,
+            clearing_date: clearingDate || undefined,
+            cheque_status: "Pending",
+            pending_cheque_date: clearingDate || undefined,
+          });
+        }
+        await recordMutation.mutateAsync(payload);
+        toast.success("Replacement payment recorded");
+      } else if (isConfirmPayment) {
+        const payAmt = parseFloat(alert.balance_amount ?? alert.amount ?? alert.invoice_amount ?? 0) || 0;
+        if (payAmt <= 0) {
+          toast.error("Invalid payment amount");
+          return;
+        }
+
+        await recordMutation.mutateAsync({
+          payment_id: alert.payment_id,
+          paid_amount: payAmt,
+          payment_method: alert.payment_method || "Cash",
+          paid_date: today,
+          notes: payNote || `Confirmed payment for ${alert.supplier_name}`,
+        });
+        toast.success("Payment confirmed");
+      } else {
+        const payAmt = parseFloat(alert.balance_amount ?? alert.amount ?? 0) || 0;
+        if (payAmt <= 0) {
+          toast.error("Invalid payment amount");
+          return;
+        }
+
+        const payload = {
+          payment_id: alert.payment_id,
+          paid_amount: payAmt,
+          payment_method: "Cheque",
+          paid_date: today,
+          notes: payNote,
+          cheque_number: alert.cheque_number || undefined,
+          bank_name: alert.bank_name || undefined,
+          cheque_date: alert.cheque_date || undefined,
+          clearing_date: today,
+        };
+
+        await recordMutation.mutateAsync(payload);
+        await updateChequeMutation.mutateAsync({ id: alert.payment_id, cheque_status: "Cleared" });
+        toast.success("Cheque marked as Cleared");
+      }
+      onClose();
+    } catch (err) {
+      toast.error(err?.response?.data?.error || err?.message || "Failed to process payment");
+    }
+  };
+
+  const cc = CHEQUE_COLORS[alert.cheque_status] || CHEQUE_COLORS.Pending;
+  const modalTitle = isViewOnly ? "Payment Details" : isBounced ? "Resolve Bounced Cheque" : isConfirmPayment ? "Confirm Payment" : "Confirm Cheque Cleared";
+  const primaryActionText = isViewOnly ? "Close" : isBounced ? "Record Replacement Payment" : isConfirmPayment ? "Confirm Payment" : "Mark as Cleared";
+
+  return createPortal(
+    <div className="proc-modal-overlay" onClick={onClose}>
+      <div className="proc-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+        <div className="proc-modal-header">
+          <h2 style={{ color: "#8b3a3a", margin: 0, fontSize: "1rem", fontWeight: 700 }}>
+            {modalTitle}
+          </h2>
+          <button className="proc-modal-close" onClick={onClose} disabled={isPending}>✕</button>
+        </div>
+        <div className="proc-modal-body">
+          <div style={{
+            background: cc.bg, border: `1.5px solid ${cc.border}`,
+            borderRadius: 10, padding: "0.85rem 1rem", marginBottom: "1rem",
+          }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem 1rem" }}>
+              <div>
+                <div style={{ fontSize: "0.7rem", color: "#888" }}>Supplier</div>
+                <div style={{ fontWeight: 700, fontSize: "0.9rem" }}>{alert.supplier_name}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: "0.7rem", color: "#888" }}>Cheque No.</div>
+                <div style={{ fontWeight: 700, fontSize: "0.9rem", color: cc.color }}>{alert.cheque_number || "—"}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: "0.7rem", color: "#888" }}>Bank</div>
+                <div style={{ fontWeight: 600, fontSize: "0.88rem" }}>{alert.bank_name || "—"}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: "0.7rem", color: "#888" }}>{alert.payment_method === "Cheque" ? "Amount" : "Amount"}</div>
+                <div style={{ fontWeight: 700, fontSize: "0.9rem", color: cc.color }}>{fmt(alert.amount)}</div>
+              </div>
+              {(alert.clearing_date || alert.due_date) && (
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <div style={{ fontSize: "0.7rem", color: "#888" }}>Due Date</div>
+                  <div style={{ fontWeight: 600, fontSize: "0.88rem" }}>{new Date(alert.clearing_date || alert.due_date).toLocaleDateString("en-GB")}</div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {isViewOnly ? (
+            <div>
+              <p style={{ fontSize: "0.88rem", color: "#555", margin: "0 0 0.5rem" }}>
+                Payment already completed. Current status: <strong>{alert.payment_status || alert.cheque_status || "Completed"}</strong>.
+              </p>
+            </div>
+          ) : !isBounced && !isConfirmPayment ? (
+            <p style={{ fontSize: "0.88rem", color: "#555", margin: "0 0 0.5rem" }}>
+              Confirm that this cheque has been cleared by the bank. The payment status will be updated to <strong>Paid</strong>.
+            </p>
+          ) : isConfirmPayment ? (
+            <p style={{ fontSize: "0.88rem", color: "#555", margin: "0 0 0.5rem" }}>
+              This payment is still pending. Confirm the payment to complete the transaction.
+            </p>
+          ) : (
+            <>
+              <div style={{
+                background: cc.bg, border: `1.5px solid ${cc.border}`,
+                borderRadius: 8, padding: "0.6rem 0.9rem", marginBottom: "0.9rem",
+                fontSize: "0.82rem", color: cc.color,
+              }}>
+                <strong>Bounced cheque:</strong> This cheque was bounced and requires a replacement or resolution before the payment can be completed.
+              </div>
+              <div className="proc-field" style={{ marginBottom: "0.75rem" }}>
+                <label>Payment Method</label>
+                <select id="payMethod" name="payMethod" className="proc-input" value={payMethod} onChange={(e) => setPayMethod(e.target.value)}>
+                  {["Bank Transfer", "Cash", "Cheque", "Online"].map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+              {payMethod === "Cheque" && (
+                <>
+                  <div className="proc-field" style={{ marginBottom: "0.75rem" }}>
+                    <label>Cheque Number</label>
+                    <input id="chequeNumber" name="chequeNumber" className="proc-input" value={chequeNumber} onChange={(e) => setChequeNumber(e.target.value)} placeholder="e.g. CHQ-1001" />
+                  </div>
+                  <div className="proc-field" style={{ marginBottom: "0.75rem" }}>
+                    <label>Bank Name</label>
+                    <input id="bankName" name="bankName" className="proc-input" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="e.g. Sampath Bank" />
+                  </div>
+                  <div className="proc-field" style={{ marginBottom: "0.75rem" }}>
+                    <label>Cheque Date</label>
+                    <input id="chequeDate" name="chequeDate" type="date" className="proc-input" value={chequeDate} onChange={(e) => setChequeDate(e.target.value)} />
+                  </div>
+                  <div className="proc-field" style={{ marginBottom: "0.75rem" }}>
+                    <label>Clearing Date</label>
+                    <input id="clearingDate" name="clearingDate" type="date" className="proc-input" value={clearingDate} onChange={(e) => setClearingDate(e.target.value)} min={chequeDate || undefined} />
+                  </div>
+                </>
+              )}
+              <div className="proc-field">
+                <label>Notes</label>
+                <textarea id="payNote" name="payNote" className="proc-input proc-textarea" rows={2} value={payNote}
+                  onChange={(e) => setPayNote(e.target.value)} placeholder="Reference number, remarks..." />
+              </div>
+            </>
+          )}
+        </div>
+        <div className="proc-modal-footer">
+          {isViewOnly ? (
+            <button className="proc-btn-primary" onClick={onClose} disabled={isPending}>Close</button>
+          ) : (
+            <>
+              <button className="proc-btn-outline" onClick={onClose} disabled={isPending}>Cancel</button>
+              <button className="proc-btn-primary" onClick={handleConfirm} disabled={isPending}>
+                {isPending ? "Processing..." : primaryActionText}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 function PaymentAlertsTab() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
   const activeType = searchParams.get("type") || "";
   const [viewCheque, setViewCheque] = useState(null);
+  const [payAlert, setPayAlert]     = useState(null);
 
   const { data, isLoading, refetch } = useChequeAlerts();
   const allAlerts = data?.alerts || [];
@@ -201,6 +460,9 @@ function PaymentAlertsTab() {
         <DetailModal title="Cheque Alert Details" onClose={() => setViewCheque(null)}>
           <ChequeDetailContent cheque={viewCheque} />
         </DetailModal>
+      )}
+      {payAlert && (
+        <PayNowModal alert={payAlert} onClose={() => setPayAlert(null)} />
       )}
 
       <div className="alert-chips">
@@ -249,6 +511,15 @@ function PaymentAlertsTab() {
               <tr className="empty-row"><td colSpan={9}>No payment alerts found.</td></tr>
             ) : filtered.map((a) => {
               const color = PAYMENT_ALERT_COLORS[a.alert_type] || "#6b7280";
+              const alertAction = resolvePaymentAlertAction(a);
+              const actionLabel = alertAction === "mark-cleared"
+                ? "Mark as Cleared"
+                : alertAction === "resolve-bounced"
+                  ? "Resolve Bounced Cheque"
+                  : alertAction === "confirm-payment"
+                    ? "Confirm Payment"
+                    : "Payment Details";
+
               return (
                 <tr key={a.payment_id}>
                   <td>{a.payment_id}</td>
@@ -264,14 +535,9 @@ function PaymentAlertsTab() {
                     <span className="alert-type-pill" style={{ background: color }}>{a.alert_type}</span>
                   </td>
                   <td>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button className="action-btn action-btn--view" onClick={() => setViewCheque(a)}>
-                        👁 View
-                      </button>
-                      <button className="action-btn action-btn--po" onClick={() => navigate("/procurement/payments")}>
-                        💳 Payments
-                      </button>
-                    </div>
+                    <button className="action-btn action-btn--po" onClick={() => setPayAlert(a)}>
+                      {alertAction === "view-only" ? "💳 Payment Details" : alertAction === "confirm-payment" ? "💳 Confirm Payment" : alertAction === "resolve-bounced" ? "💳 Resolve Bounced Cheque" : "💳 Mark as Cleared"}
+                    </button>
                   </td>
                 </tr>
               );

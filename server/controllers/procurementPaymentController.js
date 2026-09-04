@@ -4,6 +4,7 @@ const pdfService = require('../services/pdfService');
 const notificationService = require('../services/procurementNotificationService');
 const { fn, col, literal } = require('sequelize');
 const { CHEQUE_CLEARING_DAYS } = require('../utils/chequeLogic');
+const { canMarkChequeCleared } = require('../utils/paymentAlertDecision');
 
 /**
  * recordPayment
@@ -21,6 +22,7 @@ exports.recordPayment = async (req, res) => {
       cheque_number,
       bank_name,
       cheque_date,
+      clearing_date,
       pending_cheque_date,
       cheque_status,
       pending_days
@@ -40,6 +42,7 @@ exports.recordPayment = async (req, res) => {
         cheque_number,
         bank_name,
         cheque_date,
+        clearing_date,
         pending_cheque_date,
         cheque_status,
         pending_days
@@ -233,22 +236,47 @@ exports.getPaymentDashboard = async (req, res) => {
  * PATCH /api/procurement/payments/:id/cheque-status
  */
 exports.updateChequeStatus = async (req, res) => {
+  const transaction = await supplier_payments.sequelize.transaction();
   try {
     const { cheque_status } = req.body;
     const VALID = ['Pending', 'Cleared', 'Bounced', 'Cancelled'];
     if (!VALID.includes(cheque_status)) {
+      await transaction.rollback();
       return res.status(400).json({ error: `cheque_status must be one of: ${VALID.join(', ')}` });
     }
 
     const payment = await supplier_payments.findByPk(req.params.id, {
-      include: [{ model: suppliers, attributes: ['supplier_name'] }]
+      include: [{ model: suppliers, attributes: ['supplier_name'] }],
+      transaction,
     });
-    if (!payment) return res.status(404).json({ error: 'Payment record not found' });
+    if (!payment) {
+      await transaction.rollback();
+      return res.status(404).json({ error: 'Payment record not found' });
+    }
     if (payment.payment_method !== 'Cheque') {
+      await transaction.rollback();
       return res.status(400).json({ error: 'This payment is not a cheque payment' });
     }
 
     const prev = payment.cheque_status;
+
+    if (cheque_status === 'Cleared') {
+      if (!canMarkChequeCleared(payment)) {
+        await transaction.rollback();
+        if (payment.payment_status === 'Paid' || payment.cheque_status === 'Cleared') {
+          return res.status(409).json({ error: 'This payment is already completed and cannot be marked as cleared again.' });
+        }
+        if (payment.cheque_status === 'Bounced') {
+          return res.status(409).json({ error: 'A bounced cheque cannot be marked as cleared directly.' });
+        }
+        return res.status(409).json({ error: 'This cheque is not eligible to be marked as cleared.' });
+      }
+    }
+
+    if (cheque_status === 'Bounced' && payment.cheque_status === 'Bounced') {
+      await transaction.rollback();
+      return res.status(409).json({ error: 'This bounced cheque is already resolved as bounced.' });
+    }
 
     const totalAmount  = parseFloat(payment.invoice_amount || 0);
     const paidAmount   = parseFloat(payment.paid_amount    || 0);
@@ -263,7 +291,8 @@ exports.updateChequeStatus = async (req, res) => {
       updateFields.balance_amount = totalAmount;
     }
 
-    await payment.update(updateFields);
+    await payment.update(updateFields, { transaction });
+    await transaction.commit();
 
     // Notify all connected clients so Alert Center / bell refresh immediately
     const io = req.app.get('io');
@@ -283,8 +312,9 @@ exports.updateChequeStatus = async (req, res) => {
       );
     }
 
-    res.json({ message: `Cheque status updated to ${cheque_status}`, payment });
+    res.json({ message: `Cheque status updated to ${cheque_status}`, payment: { ...payment.toJSON(), ...updateFields } });
   } catch (error) {
+    await transaction.rollback();
     res.status(500).json({ error: error.message });
   }
 };
@@ -304,6 +334,7 @@ exports.getChequeAlerts = async (req, res) => {
     const rows = await supplier_payments.findAll({
       where: {
         payment_method: 'Cheque',
+        payment_status: { [Op.ne]: 'Paid' },
         cheque_status: { [Op.in]: ['Pending', 'Bounced'] },
       },
       include: [
@@ -321,15 +352,21 @@ exports.getChequeAlerts = async (req, res) => {
 
       // Bounced — always an active alert regardless of date
       if (cs === 'Bounced') {
+        const originalAmount = Number(row.invoice_amount ?? row.balance_amount ?? row.paid_amount ?? 0);
         alerts.push({
           payment_id:          row.payment_id,
+          payment_method:      row.payment_method,
+          payment_status:      row.payment_status,
+          cheque_status:       cs,
+          alert_status:        row.alert_status || null,
           supplier_name:       row.supplier?.supplier_name || '—',
           cheque_number:       row.cheque_number,
           bank_name:           row.bank_name,
           cheque_date:         row.cheque_date,
           clearing_date:       row.pending_cheque_date,
-          amount:              row.paid_amount,
-          cheque_status:       cs,
+          amount:              originalAmount,
+          invoice_amount:      row.invoice_amount,
+          balance_amount:      row.balance_amount,
           alert_type:          'Bounced',
           days_remaining:      null,
           po_number:           row.purchase_order?.po_number || null,
@@ -349,15 +386,21 @@ exports.getChequeAlerts = async (req, res) => {
         else if (diffDays <= DUE_SOON_DAYS) alert_type = 'Due Soon';
         else continue; // not yet alertable
 
+        const originalAmount = Number(row.invoice_amount ?? row.balance_amount ?? row.paid_amount ?? 0);
         alerts.push({
           payment_id:    row.payment_id,
+          payment_method: row.payment_method,
+          payment_status: row.payment_status,
+          cheque_status: cs,
+          alert_status: row.alert_status || null,
           supplier_name: row.supplier?.supplier_name || '—',
           cheque_number: row.cheque_number,
           bank_name:     row.bank_name,
           cheque_date:   row.cheque_date,
           clearing_date: row.pending_cheque_date,
-          amount:        row.paid_amount,
-          cheque_status: cs,
+          amount:        originalAmount,
+          invoice_amount: row.invoice_amount,
+          balance_amount: row.balance_amount,
           alert_type,
           days_remaining: diffDays,
           po_number:     row.purchase_order?.po_number || null,
