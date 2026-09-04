@@ -7,6 +7,8 @@ import api from "../utils/axios";
 import { buildTableHtml, escapeHtml, printWithTemplate } from "../utils/printTemplate";
 import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
+import ModuleWorkspace from "../components/navigation/ModuleWorkspace";
+import InventoryTopNav from "../components/navigation/InventoryTopNav";
 import "../styles/Assets.css";
 
 const CONDITION_TYPES = ["New", "Good", "Fair", "Poor", "Damaged", "Other"];
@@ -324,5 +326,11 @@ export default function Assets() {
   const role = (localStorage.getItem("role") || "admin").toLowerCase();
   const isManager = location.pathname.startsWith("/manager/") || role === "manager";
   const Layout = isManager ? ManagerDashboard : AdminDashboard;
-  return <Layout active="assets"><AssetsPage /></Layout>;
+  return (
+    <Layout active="assets">
+      <ModuleWorkspace nav={InventoryTopNav}>
+        <AssetsPage />
+      </ModuleWorkspace>
+    </Layout>
+  );
 }

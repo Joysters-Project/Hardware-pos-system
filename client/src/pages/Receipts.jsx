@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import DashboardLayout from '../components/DashboardLayout';
+import { Receipt } from 'lucide-react';
 import '../styles/Receipts.css';
+import '../styles/Procurement.css';
 
 const Receipts = () => {
   const navigate = useNavigate();
@@ -223,8 +225,8 @@ const Receipts = () => {
           <div className="receipt-empty">{emptyMessage}</div>
         ) : (
           <>
-            <div className="receipt-table-wrap">
-              <table className="receipt-table">
+            <div className="receipt-table-wrap proc-table-wrap">
+              <table className="receipt-table proc-table">
                 <thead>
                   <tr>
                     <th>Bill No</th>
@@ -266,9 +268,21 @@ const Receipts = () => {
     <DashboardLayout active="receipts">
       <div className="receipts-shell">
         <header className="receipts-hero" style={{ marginTop: '8px' }}>
-          <div>
-            <h1 style={{ margin: '0 0 8px', fontSize: '26px', fontWeight: '800', color: '#2b1515' }}>Receipt History</h1>
-            <p>Search by customer name, bill number, or date. Results are paginated so large histories stay fast to browse.</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{
+              width: 48, height: 48,
+              background: 'linear-gradient(135deg, #8b3a3a 0%, #a84545 100%)',
+              borderRadius: '10px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(139,58,58,0.25)',
+              flexShrink: 0,
+            }}>
+              <Receipt size={24} color="white" />
+            </div>
+            <div>
+              <h1 style={{ margin: '0 0 4px', fontSize: '1.5rem', fontWeight: 700, color: '#2b1515', lineHeight: 1.3 }}>Receipt History</h1>
+              <p style={{ margin: 0, fontSize: '0.875rem', color: '#6f5f5c' }}>Search by customer name, bill number, or date. Results are paginated so large histories stay fast to browse.</p>
+            </div>
           </div>
           <div className="receipts-stats">
             <button

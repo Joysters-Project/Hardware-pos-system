@@ -12,6 +12,8 @@ import api from "../utils/axios";
 import { buildTableHtml, escapeHtml, printWithTemplate } from "../utils/printTemplate";
 import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
+import ModuleWorkspace from "../components/navigation/ModuleWorkspace";
+import FinanceTopNav from "../components/navigation/FinanceTopNav";
 import "../styles/Salary.css";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -664,5 +666,11 @@ export default function SalaryManagement() {
   const role = (localStorage.getItem("role") || "admin").toLowerCase();
   const isManager = location.pathname.startsWith("/manager/") || role === "manager";
   const Layout = isManager ? ManagerDashboard : AdminDashboard;
-  return <Layout active="salary"><SalaryPage /></Layout>;
+  return (
+    <Layout active="salary">
+      <ModuleWorkspace nav={FinanceTopNav}>
+        <SalaryPage />
+      </ModuleWorkspace>
+    </Layout>
+  );
 }

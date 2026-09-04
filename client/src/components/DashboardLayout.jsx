@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
@@ -9,7 +9,15 @@ import LogoutConfirmModal from "./LogoutConfirmModal";
 import "../styles/DashboardLayout.css";
 import "../styles/Departments.css";
 
+export const DashboardLayoutContext = createContext(false);
+
 export default function DashboardLayout({ children, active }) {
+  const isNested = useContext(DashboardLayoutContext);
+
+  if (isNested) {
+    return <>{children}</>;
+  }
+
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, role } = useAuth();
@@ -76,40 +84,42 @@ export default function DashboardLayout({ children, active }) {
   };
 
   return (
-    <div className={`admin-shell ${isCollapsed ? "sidebar-collapsed" : ""}`}>
-      <Sidebar
-        active={active}
-        onLogout={handleLogoutClick}
-        isCollapsed={isCollapsed}
-        setIsCollapsed={handleCollapseToggle}
-      />
-      <main className="admin-content">
-        <div className="admin-topbar-header">
-          {location.pathname !== getDashboardPath() && (
-            <button
-              type="button"
-              className="admin-back-btn"
-              onClick={handleBackNavigation}
-              title="Back to Dashboard"
-              id="topbar-back-btn"
-            >
-              <ArrowLeft size={16} />
-              <span>Back to Dashboard</span>
-            </button>
-          )}
-          <div className="admin-topbar-bell">
-            <NavbarNotificationBell />
+    <DashboardLayoutContext.Provider value={true}>
+      <div className={`admin-shell ${isCollapsed ? "sidebar-collapsed" : ""}`}>
+        <Sidebar
+          active={active}
+          onLogout={handleLogoutClick}
+          isCollapsed={isCollapsed}
+          setIsCollapsed={handleCollapseToggle}
+        />
+        <main className="admin-content">
+          <div className="admin-topbar-header">
+            {location.pathname !== getDashboardPath() && (
+              <button
+                type="button"
+                className="admin-back-btn"
+                onClick={handleBackNavigation}
+                title="Back to Dashboard"
+                id="topbar-back-btn"
+              >
+                <ArrowLeft size={16} />
+                <span>Back to Dashboard</span>
+              </button>
+            )}
+            <div className="admin-topbar-bell">
+              <NavbarNotificationBell />
+            </div>
           </div>
-        </div>
-        {children}
-      </main>
+          {children}
+        </main>
 
-      <LogoutConfirmModal
-        isOpen={showLogoutModal}
-        onCancel={handleCancelLogout}
-        onLogout={handleConfirmLogout}
-      />
-    </div>
+        <LogoutConfirmModal
+          isOpen={showLogoutModal}
+          onCancel={handleCancelLogout}
+          onLogout={handleConfirmLogout}
+        />
+      </div>
+    </DashboardLayoutContext.Provider>
   );
 }
 

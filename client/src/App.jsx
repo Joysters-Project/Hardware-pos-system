@@ -41,6 +41,7 @@ import ReturnSystem from "./components/ReturnSystem";
 import Receipts from "./pages/Receipts";
 import ReportsPage from "./pages/ReportsPage";
 import CashierPanelPage from "./pages/CashierPanelPage";
+import CashierWorkspace from "./components/cashier/CashierWorkspace";
 import CustomerChequeExchange from "./pages/CustomerChequeExchange";
 
 import ProcurementWorkspace from "./components/procurement/ProcurementWorkspace";
@@ -100,21 +101,44 @@ function AppRoutes() {
       <Route path="/products/edit/:id" element={<ProtectedRoute><ProductForm /></ProtectedRoute>} />
       <Route path="/employees"      element={<ProtectedRoute><Employees /></ProtectedRoute>} />
       <Route path="/catalog"        element={<ProtectedRoute><Catalog /></ProtectedRoute>} />
-      <Route path="/billing"        element={<ProtectedRoute><BillingSystem /></ProtectedRoute>} />
-      <Route path="/due-collection" element={<ProtectedRoute><DueCollection /></ProtectedRoute>} />
-      <Route path="/returns" element={<ProtectedRoute><ReturnsLayout /></ProtectedRoute>}>
-        <Route index element={<Navigate to="process" replace />} />
-        <Route path="process" element={<ProcessReturn />} />
-        <Route path="history" element={<ReturnList />} />
-        <Route path="supplier-services" element={<SupplierServiceTracking />} />
-        <Route path="inventory" element={<ReturnInventory />} />
+      {/* Cashier Panel Module */}
+      <Route
+        path="/cashier-panel"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout active="cashier-panel">
+              <CashierWorkspace />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Navigate to="billing" replace />} />
+        <Route path="billing" element={<BillingSystem />} />
+        <Route path="due-collection" element={<DueCollection />} />
+        <Route path="cheque-exchange" element={<CustomerChequeExchange />} />
+        <Route path="returns" element={<ReturnsLayout />}>
+          <Route index element={<Navigate to="process" replace />} />
+          <Route path="process" element={<ProcessReturn />} />
+          <Route path="history" element={<ReturnList />} />
+          <Route path="supplier-services" element={<SupplierServiceTracking />} />
+          <Route path="inventory" element={<ReturnInventory />} />
+        </Route>
+        <Route path="receipts" element={<Receipts />} />
+        <Route path="reports" element={<ReportsPage />} />
       </Route>
-      {/* <Route path="/return-logs"    element={<ProtectedRoute><ReturnLogsPage /></ProtectedRoute>} /> */}
+
+      {/* Standalone redirects to maintain cashier top navbar */}
+      <Route path="/billing" element={<Navigate to="/cashier-panel/billing" replace />} />
+      <Route path="/due-collection" element={<Navigate to="/cashier-panel/due-collection" replace />} />
+      <Route path="/receipts" element={<Navigate to="/cashier-panel/receipts" replace />} />
+      <Route path="/returns" element={<Navigate to="/cashier-panel/returns" replace />} />
+      <Route path="/returns/*" element={<Navigate to="/cashier-panel/returns" replace />} />
+
+      {/* Standalone Reports */}
       <Route path="/reports"        element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
-      <Route path="/customer-cheque-exchange" element={<ProtectedRoute requiredRole="admin"><DashboardLayout active="customer-cheque-exchange"><CustomerChequeExchange /></DashboardLayout></ProtectedRoute>} />
+      <Route path="/customer-cheque-exchange" element={<ProtectedRoute><DashboardLayout active="customer-cheque-exchange"><CustomerChequeExchange /></DashboardLayout></ProtectedRoute>} />
       <Route path="/manager/customer-cheque-exchange" element={<ProtectedRoute requiredRole="manager"><DashboardLayout active="customer-cheque-exchange"><CustomerChequeExchange /></DashboardLayout></ProtectedRoute>} />
-      <Route path="/receipts"       element={<ProtectedRoute><Receipts /></ProtectedRoute>} />
-      <Route path="/cashier-panel"  element={<ProtectedRoute><CashierPanelPage /></ProtectedRoute>} />
+
       <Route path="/assets"         element={<ProtectedRoute><Assets /></ProtectedRoute>} />
       <Route path="/expenses"       element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
       <Route path="/salary"         element={<ProtectedRoute><SalaryManagement /></ProtectedRoute>} />

@@ -625,7 +625,7 @@ const DueCollection = () => {
           <button
             type="button"
             className="pos-tab-btn due-nav-link"
-            onClick={() => navigate('/billing')}
+            onClick={() => navigate('/cashier-panel/billing')}
             title="Navigate to Billing Counter"
           >
             <Receipt size={16} />
@@ -634,7 +634,7 @@ const DueCollection = () => {
           <button
             type="button"
             className="pos-tab-btn due-nav-link accent"
-            onClick={() => navigate('/billing', { state: { tab: 'projects' } })}
+            onClick={() => navigate('/cashier-panel/billing', { state: { tab: 'projects' } })}
             title="Navigate to Project Billing Counter"
           >
             <FolderOpen size={16} />

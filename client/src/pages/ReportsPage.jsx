@@ -6,6 +6,10 @@ import { buildTableHtml, escapeHtml, printWithTemplate } from '../utils/printTem
 import { useAuth } from '../context/AuthContext';
 import '../styles/ReportsPage.css';
 import '../styles/Returns.css';
+import '../styles/ProcurementWorkspace.css';
+import '../styles/Procurement.css';
+import '../styles/Catalog.css';
+import { CreditCard, RotateCcw, Package, ShoppingCart, BarChart3, Wallet, Truck } from 'lucide-react';
 import ProcurementReports from './procurement/ProcurementReports';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from 'recharts';
 
@@ -177,7 +181,7 @@ function TimeframeSelector({ value, onChange }) {
 function SalesReport() {
   const { role, isAuthenticated } = useAuth();
   const location = useLocation();
-  const isCashier = role?.toLowerCase() === 'cashier';
+  const isCashier = role?.toLowerCase() === 'cashier' || location.pathname.startsWith('/cashier-panel');
   const initialTimeframe = location.state?.initialTimeframe || (isCashier ? 'today' : 'this_month');
   const [bills, setBills] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -410,8 +414,8 @@ function SalesReport() {
       {loading && <div className="rp-status">Loading sales data…</div>}
       {error && <div className="rp-status error">{error}</div>}
       {!loading && !error && (
-        <div className="rp-table-wrap">
-          <table className="rp-table">
+        <div className="rp-table-wrap proc-table-wrap">
+          <table className="rp-table proc-table">
             <thead>
               <tr>
                 <th>Bill No</th><th>Date</th><th>Customer</th><th>Phone</th>
@@ -552,7 +556,7 @@ function SalesReport() {
 function ReturnsReport() {
   const { role, isAuthenticated } = useAuth();
   const location = useLocation();
-  const isCashier = role?.toLowerCase() === 'cashier';
+  const isCashier = role?.toLowerCase() === 'cashier' || location.pathname.startsWith('/cashier-panel');
   const initialTimeframe = location.state?.initialTimeframe || (isCashier ? 'today' : 'this_month');
   const [returnsData, setReturnsData] = useState([]);
   const [filter, setFilter] = useState('');
@@ -566,7 +570,7 @@ function ReturnsReport() {
   const PAGE = 10;
 
   const isManagerOrAdmin = ['manager', 'admin'].includes(role?.toLowerCase());
-  const isCashierRole = role?.toLowerCase() === 'cashier';
+  const isCashierRole = role?.toLowerCase() === 'cashier' || location.pathname.startsWith('/cashier-panel');
   const isAuthorized = isManagerOrAdmin || isCashierRole;
 
   useEffect(() => {
@@ -851,8 +855,8 @@ function ReturnsReport() {
       {/* Loading & Data Presentation */}
       {loading && <div className="rp-status">Loading return logs…</div>}
       {!loading && !error && (
-        <div className="rp-table-wrap">
-          <table className="rp-table">
+        <div className="rp-table-wrap proc-table-wrap">
+          <table className="rp-table proc-table">
             <thead>
               <tr>
                 <th>Return ID</th>
@@ -1203,8 +1207,8 @@ function BorrowReport() {
       {loading && <div className="rp-status">Loading partially paid bills…</div>}
       {error && <div className="rp-status error">{error}</div>}
       {!loading && !error && (
-        <div className="rp-table-wrap">
-          <table className="rp-table">
+        <div className="rp-table-wrap proc-table-wrap">
+          <table className="rp-table proc-table">
             <thead>
               <tr>
                 <th>Bill No</th><th>Date</th><th>Customer</th><th>Phone</th>
@@ -1334,16 +1338,17 @@ function BorrowReport() {
    MAIN REPORTS PAGE
 ═══════════════════════════════════════════════════════════ */
 const TABS = [
-  { key: 'sales', label: '💳 Sales Report' },
-  { key: 'returns', label: '↩️ Return Logs' },
-  { key: 'borrow', label: '📦 Borrow Report' },
-  { key: 'procurement', label: '🛒 Procurement Report' },
+  { key: 'sales', label: 'Sales Report', icon: CreditCard },
+  { key: 'returns', label: 'Return Logs', icon: RotateCcw },
+  { key: 'borrow', label: 'Borrow Report', icon: Wallet },
+  { key: 'procurement', label: 'Procurement Report', icon: Truck },
 ];
 
 function ReportsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { role } = useAuth();
-  const isCashier = role?.toLowerCase() === 'cashier';
+  const isCashier = role?.toLowerCase() === 'cashier' || location.pathname.startsWith('/cashier-panel');
   const [activeTab, setActiveTab] = useState('sales');
   const [tabEnter, setTabEnter] = useState(false);
 
@@ -1363,35 +1368,68 @@ function ReportsPage() {
 
   return (
     <DashboardLayout active="reports">
-      <div className="rp-container cashier-page-shell">
-        {/* Header */}
-        <div className="rp-header">
-          <div>
-            <h1>Reports &amp; Logs</h1>
-            <p>View detailed Sales and Borrow reports, and Return logs with filters</p>
+      <div className="procurement-workspace">
+        {/* Header bar — billing counter style */}
+        <div style={{
+          background: '#fff',
+          borderBottom: '2px solid #e5e7eb',
+          padding: '18px 24px 0',
+          position: 'sticky',
+          top: 0,
+          zIndex: 100,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+        }}>
+          {/* Title row with icon */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '16px' }}>
+            <div style={{
+              width: 48, height: 48,
+              background: 'linear-gradient(135deg, #8b3a3a 0%, #a84545 100%)',
+              borderRadius: '10px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(139,58,58,0.25)',
+              flexShrink: 0,
+            }}>
+              <BarChart3 size={24} color="white" />
+            </div>
+            <div>
+              <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#2b1515', margin: 0, lineHeight: 1.3 }}>
+                Reports &amp; Analytics
+              </h1>
+              <p style={{ fontSize: '0.875rem', color: '#666', margin: '2px 0 0' }}>
+                View detailed sales, return logs, borrow reports, and procurement analytics
+              </p>
+            </div>
           </div>
-          {/* <button className="rp-back-btn" onClick={() => navigate(-1)}>Back</button> */}
+
+          {/* Catalog-style tab nav */}
+          <nav style={{ display: 'flex', gap: '8px', paddingBottom: '0' }}>
+            {tabs.map((t) => {
+              const Icon = t.icon;
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  className={`tab-btn ${activeTab === t.key ? 'active' : ''}`}
+                  onClick={() => setActiveTab(t.key)}
+                >
+                  <Icon size={16} />
+                  <span>{t.label}</span>
+                </button>
+              );
+            })}
+          </nav>
         </div>
 
-        {/* Tab nav */}
-        <div className="rp-tabs">
-          {tabs.map(t => (
-            <button
-              key={t.key}
-              className={`rp-tab${activeTab === t.key ? ' active' : ''}`}
-              onClick={() => setActiveTab(t.key)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab content */}
-        <div className={`rp-body report-view-shell ${tabEnter ? "report-view-shell-active" : ""}`}>
-          {activeTab === 'sales' && <SalesReport />}
-          {activeTab === 'returns' && <ReturnsReport />}
-          {activeTab === 'borrow' && <BorrowReport />}
-          {!isCashier && activeTab === 'procurement' && <ProcurementReports />}
+        <div className="procurement-workspace-content" style={{ padding: '24px' }}>
+          <div className="rp-container" style={{ margin: 0 }}>
+            {/* Tab content */}
+            <div className={`rp-body report-view-shell ${tabEnter ? "report-view-shell-active" : ""}`}>
+              {activeTab === 'sales' && <SalesReport />}
+              {activeTab === 'returns' && <ReturnsReport />}
+              {activeTab === 'borrow' && <BorrowReport />}
+              {!isCashier && activeTab === 'procurement' && <ProcurementReports />}
+            </div>
+          </div>
         </div>
       </div>
     </DashboardLayout>

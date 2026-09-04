@@ -5,6 +5,8 @@ import toast from "react-hot-toast";
 import api from "../utils/axios";
 import { buildTableHtml, escapeHtml, printWithTemplate } from "../utils/printTemplate";
 import DashboardLayout from "../components/DashboardLayout";
+import ModuleWorkspace from "../components/navigation/ModuleWorkspace";
+import FinanceTopNav from "../components/navigation/FinanceTopNav";
 import "../styles/Expenses.css";
 
 const EXPENSE_TYPES = ["Asset Purchase", "Salary", "Utility Bills", "Maintenance", "Transport", "Office Supplies", "Other"];
@@ -138,7 +140,8 @@ function ExpensesPage() {
 
   return (
     <DashboardLayout active="expenses">
-    <div className="exp-container">
+      <ModuleWorkspace nav={FinanceTopNav}>
+        <div className="exp-container">
       <div className="exp-header">
         <div className="exp-header-left">
           <div className="exp-header-icon"><Receipt size={22} /></div>
@@ -283,7 +286,8 @@ function ExpensesPage() {
         </div>,
         document.body
       )}
-    </div>
+        </div>
+      </ModuleWorkspace>
     </DashboardLayout>
   );
 }

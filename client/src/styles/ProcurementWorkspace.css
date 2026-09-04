@@ -62,6 +62,10 @@
   border: 1px solid transparent;
   border-bottom: none;
   white-space: nowrap;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
 }
 .procurement-nav-item:hover {
   color: #8b3a3a;
@@ -80,6 +84,29 @@
   flex: 1;
   background: #f5f5f5;
   animation: fade-in-workspace 0.3s ease-out;
+}
+
+.cashier-workspace-content {
+  padding: 24px 32px;
+}
+
+.cashier-workspace-content > .pos-container,
+.cashier-workspace-content > .cashier-page-shell,
+.cashier-workspace-content > .receipts-shell {
+  width: 100%;
+}
+
+.cashier-workspace-content > .rp-container {
+  padding: 0;
+  min-height: auto;
+  background: transparent;
+}
+
+/* Reset for nested workspace layouts like returns inside cashier panel */
+.procurement-workspace .procurement-workspace {
+  margin: 0;
+  min-height: auto;
+  background: transparent;
 }
 
 @keyframes fade-in-workspace {

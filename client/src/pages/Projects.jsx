@@ -13,6 +13,7 @@ import AdminDashboard from './AdminDashboard';
 import ManagerDashboard from './ManagerDashboard';
 import ProjectsTab from '../components/ProjectsTab';
 import '../styles/Projects.css';
+import '../styles/ProcurementWorkspace.css';
 
 const STATUSES = ['Active', 'Completed', 'On Hold', 'Cancelled'];
 const MONTHS   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -325,37 +326,48 @@ function ProjectsPage() {
     return Array.from(monthSet).sort((a, b) => a - b);
   };
 
-  return (
-    <div className="proj-container">
+  const projNavItems = [
+    { key: 'projects',        label: 'Projects',                icon: FolderOpen },
+    { key: 'billing-counter', label: 'Project Billing Counter', icon: ShoppingCart },
+    { key: 'monthly',         label: 'Monthly Report',          icon: BarChart2 },
+    { key: 'yearly',          label: 'Yearly Report',           icon: TrendingUp },
+  ];
 
-      {/* ── Header ── */}
-      <div className="proj-header">
-        <div className="proj-header-left">
-          <div className="proj-header-icon"><FolderOpen size={22} /></div>
+  return (
+    <div className="procurement-workspace">
+
+      {/* ── Procurement-style Header + Nav ── */}
+      <header className="procurement-header">
+        <div className="procurement-title-block" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <h1>Project Management</h1>
             <p>Track items taken from shop for client projects</p>
           </div>
-        </div>
-        <button className="proj-btn-primary" onClick={openAdd}>
-          <Plus size={16} /> New Project
-        </button>
-      </div>
-
-      {/* ── Tabs ── */}
-      <div className="proj-tabs">
-        {[
-          { key: 'projects',        label: 'Projects',               icon: <FolderOpen size={15} /> },
-          { key: 'billing-counter', label: 'Project Billing Counter',icon: <ShoppingCart size={15} /> },
-          { key: 'monthly',         label: 'Monthly Report',         icon: <BarChart2 size={15} /> },
-          { key: 'yearly',          label: 'Yearly Report',          icon: <TrendingUp size={15} /> },
-        ].map(t => (
-          <button key={t.key} className={`proj-tab ${activeTab === t.key ? 'active' : ''}`}
-            onClick={() => setActiveTab(t.key)}>
-            {t.icon} {t.label}
+          <button className="proj-btn-primary" onClick={openAdd} style={{ marginBottom: '14px' }}>
+            <Plus size={16} /> New Project
           </button>
-        ))}
-      </div>
+        </div>
+
+        <nav className="procurement-top-nav">
+          {projNavItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.key}
+                className={`procurement-nav-item ${activeTab === item.key ? 'active' : ''}`}
+                onClick={() => setActiveTab(item.key)}
+              >
+                <Icon size={15} />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </header>
+
+      {/* ── Page Content ── */}
+      <div className="procurement-workspace-content" style={{ padding: '24px' }}>
+      <div className="proj-container" style={{ margin: 0 }}>
 
       {/* ══ PROJECT BILLING COUNTER ══ */}
       {activeTab === 'billing-counter' && (
@@ -569,7 +581,10 @@ function ProjectsPage() {
         </div>
       )}
 
-      {/* ══ CREATE / EDIT MODAL ══ */}
+      </div>{/* end proj-container */}
+      </div>{/* end procurement-workspace-content */}
+
+      {/* CREATE / EDIT MODAL portal */}
       {showModal && createPortal(
         <div className="proj-overlay" onClick={closeModal}>
           <div className="proj-modal" onClick={e => e.stopPropagation()}>
@@ -640,7 +655,7 @@ function ProjectsPage() {
         document.body
       )}
 
-      {/* ══ VIEW MODAL ══ */}
+      {/* VIEW MODAL portal */}
       {viewProject && createPortal(
         <div className="proj-overlay" onClick={() => setViewProject(null)}>
           <div className="proj-modal proj-modal-lg" onClick={e => e.stopPropagation()}>
@@ -758,6 +773,7 @@ function ProjectsPage() {
     </div>
   );
 }
+
 
 export default function Projects() {
   const location = useLocation();

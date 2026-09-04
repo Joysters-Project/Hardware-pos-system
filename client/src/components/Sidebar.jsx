@@ -19,6 +19,7 @@ import {
   RefreshCw,
   ShieldAlert,
   TrendingUp,
+  BarChart3,
   Truck,
   ClipboardList,
   UserCircle,
@@ -43,34 +44,16 @@ const getNavItems = (role) => {
         path: "/dashboard/cashier",
       },
       {
-        key: "billing",
-        label: "Point of Sale",
+        key: "sales",
+        label: "Sales",
         icon: ShoppingCart,
-        path: "/billing",
-      },
-      {
-        key: "due-collection",
-        label: "Due",
-        icon: Wallet,
-        path: "/due-collection",
-      },
-      {
-        key: "returns",
-        label: "Returns",
-        icon: RefreshCw,
-        path: "/returns",
-      },
-      {
-        key: "receipts",
-        label: "Receipts",
-        icon: Receipt,
-        path: "/receipts",
+        path: "/cashier-panel/billing",
       },
       {
         key: "reports",
         label: "Reports",
-        icon: TrendingUp,
-        path: "/reports",
+        icon: BarChart3,
+        path: "/cashier-panel/reports",
       },
     ];
   }
@@ -87,61 +70,53 @@ const getNavItems = (role) => {
       path: dashPath,
     },
     {
-      key: "cashier-panel",
-      label: "Cashier Panel",
+      key: "sales",
+      label: "Sales",
       icon: ShoppingCart,
       path: "/cashier-panel",
     },
     {
-      key: "departments",
-      label: "Departments",
-      icon: Building2,
-      path: `${prefix}/departments`,
-    },
-    {
-      key: "products",
-      label: "Products",
+      key: "inventory",
+      label: "Inventory",
       icon: Package,
       path: `${prefix}/products`,
     },
     {
-      key: "employees",
-      label: "Employees",
+      key: "procurement",
+      label: "Procurement",
+      icon: Truck,
+      path: "/procurement",
+    },
+    {
+      key: "people",
+      label: "People",
       icon: Users,
       path: `${prefix}/employees`,
     },
     {
-      key: "catalog",
-      label: "Catalog",
-      icon: Layers,
-      path: `${prefix || ""}/catalog`,
-    },
-    {
-      key: "assets",
-      label: "Assets",
-      icon: Briefcase,
-      path: `${prefix}/assets`,
+      key: "finance",
+      label: "Finance",
+      icon: Wallet,
+      path: `${prefix}/expenses`,
     },
     {
       key: "reports",
       label: "Reports",
-      icon: TrendingUp,
+      icon: BarChart3,
       path: "/reports",
     },
+    ...(normalizedRole === "admin"
+      ? [
+          {
+            key: "audit",
+            label: "Audit Logs",
+            icon: ShieldAlert,
+            path: "/audit-logs",
+          },
+        ]
+      : []),
     {
-      key: "customer-cheque-exchange",
-      label: "Cheque Exchange",
-      icon: Banknote,
-      path: `${prefix}/customer-cheque-exchange`,
-    },
-    {
-      key: "expenses",
-      label: "Expenses",
-      icon: Receipt,
-      path: `${prefix}/expenses`,
-    },
-    {
-      key: "projects-mgmt",
+      key: "projects",
       label: "Projects",
       icon: FolderOpen,
       path: `${prefix}/projects`,
@@ -152,22 +127,6 @@ const getNavItems = (role) => {
       icon: Bell,
       path: `${prefix}/alerts`,
     },
-    // Batch Inventory — Admin and Manager
-    ...(normalizedRole !== "cashier"
-      ? [{ key: "batch-inventory", label: "Batch Inventory", icon: Archive, path: `${prefix}/inventory/batches` }]
-      : []),
-    // Salary is Admin-only — hidden for manager role
-    ...(role !== "manager"
-      ? [{ key: "salary", label: "Salary", icon: Wallet, path: "/salary" }]
-      : []),
-    // Audit Logs is Admin-only
-    ...(normalizedRole === "admin"
-      ? [{ key: "audit", label: "Audit Logs", icon: ShieldAlert, path: "/audit-logs" }]
-      : []),
-    // Procurement — Admin and Manager
-    ...(normalizedRole !== "cashier"
-      ? [{ key: "procurement", label: "Procurement", icon: Truck, path: "/procurement" }]
-      : []),
   ];
 };
 
@@ -180,7 +139,89 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
 
   const userName = user?.name || "User";
   const displayRole = role || "admin";
+  const normalizedRole = displayRole.toLowerCase();
   const navItems = getNavItems(displayRole);
+
+  const isItemActive = (item) => {
+    if (active === item.key) return true;
+    const path = location.pathname;
+
+    switch (item.key) {
+      case "home":
+        return (
+          active === "home" ||
+          path === "/dashboard/admin" ||
+          path === "/dashboard/manager" ||
+          path === "/dashboard/cashier"
+        );
+      case "sales":
+        return (
+          [
+            "sales",
+            "cashier-panel",
+            "billing",
+            "due-collection",
+            "returns",
+            "receipts",
+          ].includes(active) ||
+          path.startsWith("/cashier-panel") ||
+          path.startsWith("/billing") ||
+          path.startsWith("/due-collection") ||
+          path.startsWith("/returns") ||
+          path.startsWith("/receipts")
+        );
+      case "inventory":
+        return (
+          [
+            "inventory",
+            "products",
+            "catalog",
+            "batch-inventory",
+            "assets",
+          ].includes(active) ||
+          path.includes("/products") ||
+          path.includes("/catalog") ||
+          path.includes("/inventory") ||
+          path.includes("/assets")
+        );
+      case "procurement":
+        return active === "procurement" || path.startsWith("/procurement");
+      case "people":
+        return (
+          ["people", "employees", "departments"].includes(active) ||
+          path.includes("/employees") ||
+          path.includes("/departments")
+        );
+      case "finance":
+        return (
+          [
+            "finance",
+            "expenses",
+            "customer-cheque-exchange",
+            "salary",
+          ].includes(active) ||
+          path.includes("/expenses") ||
+          path.includes("/customer-cheque-exchange") ||
+          path.includes("/salary")
+        );
+      case "reports":
+        return (
+          (active === "reports" || path === "/reports") &&
+          !path.startsWith("/cashier-panel")
+        );
+      case "audit":
+        return active === "audit" || path.startsWith("/audit-logs");
+      case "projects":
+        return (
+          ["projects", "projects-mgmt"].includes(active) ||
+          path.includes("/projects")
+        );
+      case "alerts":
+        return active === "alerts" || path.includes("/alerts");
+      default:
+        return false;
+    }
+  };
 
   useEffect(() => {
     setAvatarImageFailed(false);
@@ -291,7 +332,7 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
           )}
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = active === item.key;
+            const isActive = isItemActive(item);
             return (
               <Link
                 key={item.key}

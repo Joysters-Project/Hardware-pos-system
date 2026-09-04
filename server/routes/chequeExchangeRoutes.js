@@ -4,9 +4,9 @@ const authMiddleware = require('../middleware/authMiddleware');
 const roleGuard      = require('../middleware/roleGuard');
 const ctrl = require('../controllers/chequeExchangeController');
 
-// All routes require authentication + admin or manager role
+// All routes require authentication + admin, manager, or cashier role
 router.use(authMiddleware);
-router.use(roleGuard(['admin', 'manager']));
+router.use(roleGuard(['admin', 'manager', 'cashier']));
 
 // Dashboard
 router.get('/dashboard', ctrl.getDashboard);
