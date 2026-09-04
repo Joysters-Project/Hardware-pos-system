@@ -8,8 +8,15 @@ const forecastService = require('../services/forecastService');
 const supplierPerformanceService = require('../services/supplierPerformanceService');
 const { syncAlertsForProduct } = require('../services/alertService');
 const { createBatchFromPOItem } = require('../services/batchService');
+const { formatPurchaseOrderNumber } = require('../utils/purchaseOrderNumber');
 
 const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0] || req.socket?.remoteAddress || null;
+
+const serializePurchaseOrder = (purchaseOrder) => {
+  const data = purchaseOrder.toJSON ? purchaseOrder.toJSON() : { ...purchaseOrder };
+  data.po_number = formatPurchaseOrderNumber(data.po_number, data.po_id);
+  return data;
+};
 
 // Valid status transitions
 const TRANSITIONS = {
@@ -33,10 +40,9 @@ exports.createPurchaseOrder = async (req, res) => {
       return res.status(400).json({ error: 'At least one line item is required' });
     }
 
-    // Auto-generate PO number PO-YYYY-NNNN
+    // Auto-generate PO number (numeric only)
     const maxId = (await purchase_orders.max('po_id', { transaction })) || 0;
-    const year  = new Date().getFullYear();
-    const poNumber = `PO-${year}-${String(maxId + 1).padStart(4, '0')}`;
+    const poNumber = String(maxId + 1).padStart(4, '0');
 
     // Calculate total from items
     const totalAmount = items.reduce((sum, i) => sum + (Number(i.unit_price) * Number(i.quantity)), 0);
@@ -105,8 +111,8 @@ exports.createPurchaseOrder = async (req, res) => {
       // Create Notification
       await procurementNotificationService.createNotification(
         'PO_CREATED',
-        `New Purchase Order: ${fullPO.po_number}`,
-        `Purchase order ${fullPO.po_number} created for supplier ${fullPO.supplier?.supplier_name || 'unknown'} of LKR ${Number(fullPO.total_amount).toLocaleString()}`,
+        `New Purchase Order: ${formatPurchaseOrderNumber(fullPO.po_number, fullPO.po_id)}`,
+        `Purchase order ${formatPurchaseOrderNumber(fullPO.po_number, fullPO.po_id)} created for supplier ${fullPO.supplier?.supplier_name || 'unknown'} of LKR ${Number(fullPO.total_amount).toLocaleString()}`,
         'purchase_order',
         fullPO.po_id,
         'info'
@@ -120,7 +126,7 @@ exports.createPurchaseOrder = async (req, res) => {
       getIp(req)
     );
 
-    res.status(201).json({ message: 'Purchase Order created successfully', data: po });
+    res.status(201).json({ message: 'Purchase Order created successfully', data: serializePurchaseOrder(po) });
   } catch (error) {
     await transaction.rollback();
     res.status(500).json({ error: error.message });
@@ -137,7 +143,7 @@ exports.getAllPurchaseOrders = async (req, res) => {
       ],
       order: [['po_date', 'DESC']],
     });
-    res.status(200).json(pos);
+    res.status(200).json(pos.map(serializePurchaseOrder));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -153,7 +159,7 @@ exports.getPurchaseOrderById = async (req, res) => {
       ],
     });
     if (!po) return res.status(404).json({ message: 'Purchase Order not found' });
-    res.status(200).json(po);
+    res.status(200).json(serializePurchaseOrder(po));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -234,7 +240,7 @@ exports.updateStatus = async (req, res) => {
         await logActivity(
           req.user?.user_id, req.user?.role,
           'INVENTORY_MOVEMENT',
-          `Received ${item.quantity} units of product_id=${item.product_id} from PO ${po.po_number || '#' + po.po_id}`,
+          `Received ${item.quantity} units of product_id=${item.product_id} from PO ${formatPurchaseOrderNumber(po.po_number, po.po_id)}`,
           getIp(req)
         ).catch(() => {});
 
@@ -306,8 +312,8 @@ exports.updateStatus = async (req, res) => {
         
         await procurementNotificationService.createNotification(
           `PO_${status.toUpperCase()}`,
-          `Purchase Order ${fullPO.po_number} is ${status}`,
-          `The status of Purchase Order ${fullPO.po_number} for ${fullPO.supplier?.supplier_name} has been updated to ${status}.`,
+          `Purchase Order ${formatPurchaseOrderNumber(fullPO.po_number, fullPO.po_id)} is ${status}`,
+          `The status of Purchase Order ${formatPurchaseOrderNumber(fullPO.po_number, fullPO.po_id)} for ${fullPO.supplier?.supplier_name} has been updated to ${status}.`,
           'purchase_order',
           fullPO.po_id,
           severity
@@ -320,11 +326,11 @@ exports.updateStatus = async (req, res) => {
     await logActivity(
       req.user?.user_id, req.user?.role,
       'UPDATE_PO_STATUS',
-      `PO ${po.po_number} status changed from ${currentStatus} → ${status}`,
+      `PO ${formatPurchaseOrderNumber(po.po_number, po.po_id)} status changed from ${currentStatus} → ${status}`,
       getIp(req)
     );
 
-    res.status(200).json({ message: `Purchase Order ${status.toLowerCase()} successfully`, data: po });
+    res.status(200).json({ message: `Purchase Order ${status.toLowerCase()} successfully`, data: serializePurchaseOrder(po) });
   } catch (error) {
     await transaction.rollback();
     res.status(500).json({ error: error.message });
@@ -363,7 +369,7 @@ exports.deletePurchaseOrder = async (req, res) => {
     await logActivity(
       req.user?.user_id, req.user?.role,
       'DELETE_PURCHASE_ORDER',
-      `Deleted PO ${po.po_number}`,
+      `Deleted PO ${formatPurchaseOrderNumber(po.po_number, po.po_id)}`,
       getIp(req)
     );
 
@@ -407,7 +413,7 @@ exports.sendItemCommentEmail = async (req, res) => {
 
     await emailService.sendItemCommentEmail({
       supplier:    po.supplier,
-      poNumber:    po.po_number || `#${po.po_id}`,
+      poNumber:    formatPurchaseOrderNumber(po.po_number, po.po_id),
       productName: item.product?.product_name || `Product #${item.product_id}`,
       quantity:    item.quantity,
       unitPrice:   item.unit_price,
@@ -449,7 +455,7 @@ exports.exportPurchaseOrderPDF = async (req, res) => {
     const pdfBuffer = await pdfService.generatePurchaseOrderPDF(po);
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=PurchaseOrder_${po.po_number || po.po_id}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=PurchaseOrder_${formatPurchaseOrderNumber(po.po_number, po.po_id)}.pdf`);
     res.send(pdfBuffer);
   } catch (error) {
     res.status(500).json({ error: error.message });

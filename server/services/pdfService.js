@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const PDFDocument = require('pdfkit');
+const { formatPurchaseOrderNumber } = require('../utils/purchaseOrderNumber');
 
 const LOGO_PATH = path.join(__dirname, '..', '..', 'client', 'src', 'assets', 'logo.png');
 
@@ -113,7 +114,7 @@ const generatePurchaseOrderPDF = (po) => {
     doc.y = 110;
 
     // PO Metadata
-    doc.fontSize(10).font('Helvetica-Bold').text(`PO Number: ${po.po_number || '#' + po.po_id}`, 50, doc.y);
+    doc.fontSize(10).font('Helvetica-Bold').text(`PO Number: ${formatPurchaseOrderNumber(po.po_number, po.po_id)}`, 50, doc.y);
     doc.font('Helvetica').text(`Date: ${po.po_date}`, 50, doc.y + 15);
     doc.text(`Expected Delivery: ${po.expected_delivery || 'N/A'}`, 50, doc.y + 30);
     doc.text(`Status: ${po.status}`, 50, doc.y + 45);
@@ -231,7 +232,7 @@ const generatePaymentReceiptPDF = (payment) => {
     doc.y += 20;
 
     const rows = [
-      ['Purchase Order No:', payment.purchase_order ? payment.purchase_order.po_number : `#${payment.po_id}`, false],
+      ['Purchase Order No:', formatPurchaseOrderNumber(payment.purchase_order?.po_number, payment.po_id), false],
       ['Invoice Number:', payment.invoice_number || 'N/A', false],
       ['Invoice Amount:', `LKR ${Number(payment.invoice_amount).toLocaleString('en-LK', { minimumFractionDigits: 2 })}`, false],
       ['Paid Amount:', `LKR ${Number(payment.paid_amount).toLocaleString('en-LK', { minimumFractionDigits: 2 })}`, true],
@@ -337,7 +338,7 @@ const generateSupplierStatementPDF = (supplier, payments, orders, dateRange) => 
       ledger.push({
         date: new Date(o.po_date),
         dateStr: o.po_date,
-        ref: o.po_number || `PO-${o.po_id}`,
+        ref: formatPurchaseOrderNumber(o.po_number, o.po_id),
         type: 'Purchase Order',
         debit: Number(o.total_amount),
         credit: 0
@@ -506,7 +507,7 @@ const generateForecastReportPDF = (forecasts) => {
       doc.text(f.product_name, 50, doc.y, { width: 180 });
       doc.text(f.stock_quantity.toString(), 240, doc.y, { width: 50, align: 'right' });
       doc.text(Number(f.avg_daily_sales).toFixed(2), 300, doc.y, { width: 60, align: 'right' });
-      doc.text(f.days_remaining === Infinity ? 'N/A' : Math.ceil(f.days_remaining).toString(), 370, doc.y, { width: 60, align: 'right' });
+      doc.text(f.days_remaining === null ? 'N/A' : Math.ceil(f.days_remaining).toString(), 370, doc.y, { width: 60, align: 'right' });
       
       let statusColor = '#388e3c'; // Safe green
       if (f.severity === 'Critical') statusColor = '#d32f2f'; // Critical red
@@ -688,7 +689,7 @@ const generateSupplierReportPDF = (report) => {
     detailRows.forEach((order) => {
       const rowY = doc.y;
       doc.fillColor('#2f2f2f').fontSize(7.1).font('Helvetica');
-      doc.text(safeText(order.po_number, '—'), 50, rowY, { width: 55 });
+      doc.text(safeText(formatPurchaseOrderNumber(order.po_number, order.po_id), '—'), 50, rowY, { width: 55 });
       doc.text(safeText(order.supplier_name, '—'), 110, rowY, { width: 80 });
       doc.text(order.po_date ? new Date(order.po_date).toLocaleDateString('en-LK') : '—', 195, rowY, { width: 52 });
       doc.text(safeText(order.products, '—'), 252, rowY, { width: 76 });

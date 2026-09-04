@@ -3,6 +3,7 @@ const { Op } = require('sequelize');
 const db = require('../models');
 const { email_logs } = db;
 const pdfService = require('./pdfService');
+const { formatPurchaseOrderNumber } = require('../utils/purchaseOrderNumber');
 
 const COMPANY = {
   name:    'Mathumithan Hardware',
@@ -51,7 +52,7 @@ const logEmail = async (recipient, subject, type, refType, refId, status, errorM
 const sendPOCreatedEmail = async (po) => {
   const supplier = po.supplier || {};
   const recipientEmail = supplier.email;
-  const poNum = po.po_number || `#${po.po_id}`;
+  const poNum = formatPurchaseOrderNumber(po.po_number, po.po_id);
   const subject = `Purchase Order Created — ${poNum}`;
   const type = 'PO_CREATED';
 
@@ -288,7 +289,7 @@ const sendPaymentOverdueEmail = async (payment) => {
 const sendPOStatusUpdateEmail = async (po) => {
   const supplier = po.supplier || {};
   const recipientEmail = supplier.email;
-  const poNum = po.po_number || `#${po.po_id}`;
+  const poNum = formatPurchaseOrderNumber(po.po_number, po.po_id);
   const subject = `Purchase Order Status Updated — ${poNum}`;
   const type = 'PO_STATUS_UPDATE';
 
@@ -420,7 +421,7 @@ const sendSupplierStatementEmail = async (supplier, pdfBuffer, dateRange = {}) =
 const sendPOCancelledEmail = async (po) => {
   const supplier = po.supplier || {};
   const recipientEmail = supplier.email;
-  const poNum = po.po_number || `#${po.po_id}`;
+  const poNum = formatPurchaseOrderNumber(po.po_number, po.po_id);
   const subject = `Purchase Order Cancelled — ${poNum}`;
   const type = 'PO_CANCELLED';
 

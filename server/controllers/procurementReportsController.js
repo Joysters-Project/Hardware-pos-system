@@ -1,5 +1,6 @@
 const { purchase_orders, suppliers, sequelize } = require('../models');
 const { fn, col, literal, Op } = require('sequelize');
+const { formatPurchaseOrderNumber } = require('../utils/purchaseOrderNumber');
 
 const getSupplierReportData = async () => {
   const supplierRows = await suppliers.findAll({
@@ -43,7 +44,7 @@ const getSupplierReportData = async () => {
 
   const orderDetails = orderRows.map((order) => ({
     po_id: order.po_id,
-    po_number: order.po_number,
+    po_number: formatPurchaseOrderNumber(order.po_number, order.po_id),
     supplier_name: order.supplier?.supplier_name || supplierMap.get(order.supplier_id)?.supplier_name || '—',
     po_date: order.po_date,
     products: 'Purchase Order',

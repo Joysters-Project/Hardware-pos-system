@@ -47,6 +47,31 @@ const productApi = {
   getAll: () => api.get('/products'),
 };
 
+const invalidatePurchaseOrderViews = (queryClient) => {
+  [
+    ['purchaseOrders'],
+    ['procurementDashboard'],
+    ['report-supplier-performance'],
+    ['report-purchases'],
+    ['report-outstanding'],
+    ['procurement-supplier'],
+    ['procurement-supplier-statement'],
+  ].forEach((queryKey) => queryClient.invalidateQueries({ queryKey }));
+};
+
+const invalidatePaymentViews = (queryClient) => {
+  [
+    ['procurement-payments'],
+    ['procurement-payment'],
+    ['procurement-payment-dashboard'],
+    ['procurement-supplier-payments'],
+    ['procurement-supplier'],
+    ['procurement-supplier-statement'],
+    ['procurementDashboard'],
+    ['cheque-alerts'],
+  ].forEach((queryKey) => queryClient.invalidateQueries({ queryKey }));
+};
+
 // ── Supplier Hooks ───────────────────────────────────────────────────────────
 
 export function useSuppliers() {
@@ -80,6 +105,8 @@ export function useCreateSupplier() {
     mutationFn: (data) => supplierApi.create(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['procurement-suppliers'] });
+      qc.invalidateQueries({ queryKey: ['procurement-suppliers-active'] });
+      qc.invalidateQueries({ queryKey: ['procurementDashboard'] });
       toast.success('Supplier created successfully!');
     },
     onError: (e) => toast.error(e.response?.data?.error || 'Failed to create supplier'),
@@ -90,8 +117,10 @@ export function useUpdateSupplier() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }) => supplierApi.update(id, data),
-    onSuccess: () => {
+    onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['procurement-suppliers'] });
+      qc.invalidateQueries({ queryKey: ['procurement-supplier', String(id)] });
+      qc.invalidateQueries({ queryKey: ['procurement-suppliers-active'] });
       toast.success('Supplier updated successfully!');
     },
     onError: (e) => toast.error(e.response?.data?.error || 'Failed to update supplier'),
@@ -102,8 +131,11 @@ export function useUpdateSupplierStatus() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, status }) => supplierApi.updateStatus(id, status),
-    onSuccess: () => {
+    onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['procurement-suppliers'] });
+      qc.invalidateQueries({ queryKey: ['procurement-supplier', String(id)] });
+      qc.invalidateQueries({ queryKey: ['procurement-suppliers-active'] });
+      qc.invalidateQueries({ queryKey: ['procurementDashboard'] });
       toast.success('Supplier status updated!');
     },
     onError: (e) => toast.error(e.response?.data?.error || 'Failed to update status'),
@@ -114,8 +146,9 @@ export function useUpdateSupplierRating() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, rating }) => supplierApi.updateRating(id, rating),
-    onSuccess: () => {
+    onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['procurement-suppliers'] });
+      qc.invalidateQueries({ queryKey: ['procurement-supplier', String(id)] });
       toast.success('Rating updated!');
     },
     onError: (e) => toast.error(e.response?.data?.error || 'Failed to update rating'),
@@ -128,6 +161,8 @@ export function useDeleteSupplier() {
     mutationFn: (id) => supplierApi.delete(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['procurement-suppliers'] });
+      qc.invalidateQueries({ queryKey: ['procurement-suppliers-active'] });
+      qc.invalidateQueries({ queryKey: ['procurementDashboard'] });
       toast.success('Supplier removed successfully!');
     },
     onError: (e) => toast.error(e.response?.data?.error || 'Failed to delete supplier'),
@@ -156,7 +191,7 @@ export function useCreatePurchaseOrder() {
   return useMutation({
     mutationFn: (data) => poApi.create(data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['purchaseOrders'] });
+      invalidatePurchaseOrderViews(qc);
       toast.success('Purchase Order created successfully!');
     },
     onError: (e) => toast.error(e.response?.data?.error || 'Failed to create Purchase Order'),
@@ -167,9 +202,9 @@ export function useUpdatePurchaseOrder() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }) => poApi.updateStatus(id, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['purchaseOrders'] });
-      qc.invalidateQueries({ queryKey: ['purchaseOrder'] });
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ['purchaseOrder', String(id)] });
+      invalidatePurchaseOrderViews(qc);
       toast.success('Purchase Order updated successfully!');
     },
     onError: (e) => toast.error(e.response?.data?.error || 'Failed to update Purchase Order'),
@@ -180,9 +215,9 @@ export function useCancelPurchaseOrder() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, notes }) => poApi.cancel(id, notes),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['purchaseOrders'] });
-      qc.invalidateQueries({ queryKey: ['purchaseOrder'] });
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ['purchaseOrder', String(id)] });
+      invalidatePurchaseOrderViews(qc);
       toast.success('Purchase Order cancelled successfully!');
     },
     onError: (e) => toast.error(e.response?.data?.error || 'Failed to cancel Purchase Order'),
@@ -194,7 +229,7 @@ export function useDeletePurchaseOrder() {
   return useMutation({
     mutationFn: (id) => poApi.delete(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['purchaseOrders'] });
+      invalidatePurchaseOrderViews(qc);
       toast.success('Purchase Order deleted successfully!');
     },
     onError: (e) => toast.error(e.response?.data?.error || 'Failed to delete Purchase Order'),
@@ -231,26 +266,12 @@ export function useSendItemCommentEmail() {
 
 export function useExportPurchaseOrderPDF() {
   return useMutation({
-    mutationFn: (id) => poApi.getById(id),
+    mutationFn: (id) => poApi.exportPDF(id),
     onSuccess: (response) => {
-      const po = response.data;
-      const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB') : '—';
-      const rows = (po.po_items || []).map((item, i) => [
-        i + 1,
-        escapeHtml(item.product?.product_name || `Product #${item.product_id}`),
-        item.quantity,
-        `LKR ${Number(item.unit_price).toFixed(2)}`,
-        `LKR ${Number(item.total_price).toFixed(2)}`,
-        escapeHtml(item.comment || '—'),
-      ]);
-      const tableHtml = buildTableHtml({
-        columns: ['#', 'Product', 'Qty', 'Unit Price', 'Total', 'Comment'],
-        rows,
-        emptyMessage: 'No items found.',
-      });
-      const supplierName = po.supplier?.supplier_name || '—';
-      const subtitle = `PO: ${po.po_number} | Supplier: ${supplierName} | Date: ${fmtDate(po.po_date)} | Status: ${po.status} | Total: LKR ${Number(po.total_amount).toFixed(2)}`;
-      printWithTemplate({ title: 'Purchase Order', subtitle, contentHtml: tableHtml });
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url  = window.URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      toast.success('PDF opened!');
     },
     onError: () => toast.error('Failed to export PDF'),
   });
@@ -305,7 +326,7 @@ export function useReceiveOrderItem() {
     mutationFn: (data) => api.post('/batch-inventory/receive', data),
     onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: ['purchaseOrder', String(variables.po_id)] });
-      qc.invalidateQueries({ queryKey: ['purchaseOrders'] });
+      invalidatePurchaseOrderViews(qc);
       qc.invalidateQueries({ queryKey: ['products'] });
       toast.success('Order received and batch created successfully!');
     },
@@ -373,11 +394,7 @@ export function useRecordPayment() {
   return useMutation({
     mutationFn: (data) => paymentApi.record(data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['procurement-payments'] });
-      qc.invalidateQueries({ queryKey: ['procurement-payment'] });
-      qc.invalidateQueries({ queryKey: ['procurement-payment-dashboard'] });
-      qc.invalidateQueries({ queryKey: ['procurementDashboard'] });
-      qc.invalidateQueries({ queryKey: ['cheque-alerts'] });
+      invalidatePaymentViews(qc);
       toast.success('Payment recorded successfully!');
     },
     onError: (e) => toast.error(e.response?.data?.error || 'Failed to record payment')
@@ -466,8 +483,7 @@ export function useConvertSuggestionToPO() {
     mutationFn: (id) => reorderApi.convertToPO(id),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['procurement-reorders'] });
-      qc.invalidateQueries({ queryKey: ['purchaseOrders'] });
-      qc.invalidateQueries({ queryKey: ['procurementDashboard'] });
+      invalidatePurchaseOrderViews(qc);
       toast.success(`Converted to Purchase Order ${res.data?.po_number || ''}!`);
     },
     onError: (e) => toast.error(e.response?.data?.error || 'Failed to convert suggestion')
@@ -759,9 +775,7 @@ export function useUpdateChequeStatus() {
   return useMutation({
     mutationFn: ({ id, cheque_status }) => paymentApi.updateChequeStatus(id, cheque_status),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['procurement-payments'] });
-      qc.invalidateQueries({ queryKey: ['procurement-payment-dashboard'] });
-      qc.invalidateQueries({ queryKey: ['cheque-alerts'] });
+      invalidatePaymentViews(qc);
       toast.success('Cheque status updated!');
     },
     onError: (e) => toast.error(e.response?.data?.error || 'Failed to update cheque status'),

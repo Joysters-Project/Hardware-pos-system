@@ -17,6 +17,7 @@ import {
   useDownloadPaymentReceipt,
   useExportPurchaseOrderPDF
 } from '../../services/procurementApi';
+import { formatPurchaseOrderNumber } from '../../utils/purchaseOrderNumber';
 import '../../styles/Procurement.css';
 
 function StarRating({ value, onChange, disabled }) {
@@ -57,9 +58,9 @@ export default function SupplierDetail() {
   const [selectedFile, setSelectedFile] = useState(null);
 
   // Queries
-  const { data: supplier, isLoading: supplierLoading, refetch: refetchSupplier } = useSupplier(id);
-  const { data: documents = [], isLoading: docsLoading, refetch: refetchDocs } = useSupplierDocuments(id);
-  const { data: statementData, isLoading: statementLoading, refetch: refetchStatement } = useSupplierStatement(id, {
+  const { data: supplier, isLoading: supplierLoading } = useSupplier(id);
+  const { data: documents = [], isLoading: docsLoading } = useSupplierDocuments(id);
+  const { data: statementData, isLoading: statementLoading } = useSupplierStatement(id, {
     startDate: statementStart || undefined,
     endDate: statementEnd || undefined
   });
@@ -95,16 +96,13 @@ export default function SupplierDetail() {
         setSelectedFile(null);
         // Clear input file
         e.target.reset();
-        refetchDocs();
       }
     });
   };
 
   const handleDeleteDoc = (docId) => {
     if (!window.confirm('Are you sure you want to delete this document? This cannot be undone.')) return;
-    deleteDocMutation.mutate({ id, docId }, {
-      onSuccess: () => refetchDocs()
-    });
+    deleteDocMutation.mutate({ id, docId });
   };
 
   // CSV Excel Export utilities
@@ -170,7 +168,7 @@ export default function SupplierDetail() {
     if (o.status !== 'Cancelled') {
       ledgerEntries.push({
         date: o.po_date,
-        ref: o.po_number || `PO-${o.po_id}`,
+        ref: formatPurchaseOrderNumber(o.po_number, o.po_id),
         type: 'Purchase Order',
         debit: Number(o.total_amount),
         credit: 0
@@ -237,9 +235,7 @@ export default function SupplierDetail() {
             whileHover={{ scale: 1.04 }} 
             whileTap={{ scale: 0.96 }}
             className={`proc-btn-outline ${supplier.status === 'Active' ? 'warn' : 'success'}`}
-            onClick={() => statusMutation.mutate({ id, status: supplier.status === 'Active' ? 'Inactive' : 'Active' }, {
-              onSuccess: () => refetchSupplier()
-            })}
+            onClick={() => statusMutation.mutate({ id, status: supplier.status === 'Active' ? 'Inactive' : 'Active' })}
             disabled={statusMutation.isPending}
           >
             {statusMutation.isPending ? 'Updating...' : supplier.status === 'Active' ? 'Deactivate' : 'Activate'}
@@ -359,9 +355,7 @@ export default function SupplierDetail() {
                   <div className="proc-card-body">
                     <StarRating 
                       value={supplier.performance_rating || 0}
-                      onChange={(rating) => ratingMutation.mutate({ id, rating }, {
-                        onSuccess: () => refetchSupplier()
-                      })}
+                      onChange={(rating) => ratingMutation.mutate({ id, rating })}
                       disabled={ratingMutation.isPending}
                     />
                     <div style={{ marginTop: '12px', borderTop: '1px solid #f0e0e0', paddingTop: '8px', fontSize: '11px', color: '#777' }}>
@@ -389,7 +383,7 @@ export default function SupplierDetail() {
                     className="proc-btn-outline white"
                     onClick={() => {
                       const headers = ['PO Number', 'Date', 'Status', 'Total Amount'];
-                      const data = purchaseOrders.map(o => [o.po_number || `#${o.po_id}`, o.po_date, o.status, o.total_amount]);
+                      const data = purchaseOrders.map(o => [formatPurchaseOrderNumber(o.po_number, o.po_id), o.po_date, o.status, o.total_amount]);
                       exportCSV(headers, data, `POs_${supplier.supplier_code}.csv`);
                     }}
                   >
@@ -415,7 +409,7 @@ export default function SupplierDetail() {
                     ) : (
                       purchaseOrders.map((po) => (
                         <tr key={po.po_id}>
-                          <td><span className="proc-po-number">{po.po_number || `#${po.po_id}`}</span></td>
+                          <td><span className="proc-po-number">{formatPurchaseOrderNumber(po.po_number, po.po_id)}</span></td>
                           <td>{po.po_date}</td>
                           <td>{po.expected_delivery || 'Immediate'}</td>
                           <td>
@@ -753,10 +747,7 @@ export default function SupplierDetail() {
                       type="date" 
                       className="inline-date" 
                       value={statementStart} 
-                      onChange={e => {
-                        setStatementStart(e.target.value);
-                        refetchStatement();
-                      }} 
+                      onChange={e => setStatementStart(e.target.value)}
                     />
                   </div>
                   <span className="color-grey">to</span>
@@ -766,10 +757,7 @@ export default function SupplierDetail() {
                       type="date" 
                       className="inline-date" 
                       value={statementEnd} 
-                      onChange={e => {
-                        setStatementEnd(e.target.value);
-                        refetchStatement();
-                      }} 
+                      onChange={e => setStatementEnd(e.target.value)}
                     />
                   </div>
                   <button className="proc-btn-outline" onClick={() => {

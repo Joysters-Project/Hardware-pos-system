@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ShoppingCart, Package, Calendar, DollarSign, Hash, Truck } from "lucide-react";
 import api from "../api/axios";
+import { formatPurchaseOrderNumber } from "../utils/purchaseOrderNumber";
 
 const fmt = (d) =>
   d ? new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : null;
@@ -59,7 +60,7 @@ export default function PODetailContent({ poId }) {
   return (
     <div className="dm-section">
       <div className="dm-grid-2">
-        <Field label="PO Number" icon={Hash}>{po.po_number}</Field>
+        <Field label="PO Number" icon={Hash}>{formatPurchaseOrderNumber(po.po_number, po.po_id)}</Field>
         <div className="dm-field">
           <span className="dm-label">Status</span>
           <div

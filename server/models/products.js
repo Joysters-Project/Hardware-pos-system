@@ -9,7 +9,6 @@ module.exports = (sequelize) => {
     stock_quantity: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0.00 },
     min_stock_quantity: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0.00 },
     reorder_level: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
-    reorder_quantity: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0.00 },
     preferred_supplier_id: { type: DataTypes.INTEGER, allowNull: true },
     avg_daily_sales: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0.00 },
     type: { type: DataTypes.STRING(50), allowNull: false },

@@ -12,10 +12,15 @@ exports.receiveOrderItem = async (req, res) => {
     // --- Validation ---
     if (!supplier_batch_number?.trim())
       return res.status(400).json({ error: 'Supplier Batch Number is required.' });
-    if (!expiry_date)
-      return res.status(400).json({ error: 'Expiry Date is required.' });
     if (!received_quantity || Number(received_quantity) <= 0)
       return res.status(400).json({ error: 'Received Quantity must be greater than zero.' });
+    if (!received_date)
+      return res.status(400).json({ error: 'Received Date is required.' });
+    if (!expiry_date)
+      return res.status(400).json({ error: 'Expiry Date is required.' });
+    // Compare as Date objects to avoid string comparison issues
+    if (new Date(expiry_date) < new Date(received_date))
+      return res.status(400).json({ error: 'Expiry Date cannot be earlier than Received Date.' });
 
     // Duplicate batch number check for same product
     const duplicate = await batch_inventory.findOne({

@@ -1,22 +1,23 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, RefreshCw, Eye, Trash2 } from 'lucide-react';
+import { Plus, Eye, Trash2 } from 'lucide-react';
 import { usePurchaseOrders, useDeletePurchaseOrder } from '../../services/procurementApi';
+import { formatPurchaseOrderNumber } from '../../utils/purchaseOrderNumber';
 import '../../styles/Procurement.css';
 
 export default function PurchaseOrderList() {
   const navigate = useNavigate();
   const [search, setSearch]             = useState('');
   const [filterStatus, setFilterStatus] = useState('');
-  const { data: orders = [], isLoading, refetch } = usePurchaseOrders();
+  const { data: orders = [], isLoading } = usePurchaseOrders();
   const deleteMutation = useDeletePurchaseOrder();
 
   const filtered = useMemo(() =>
     orders.filter(po => {
       const term = search.toLowerCase();
       const matchSearch = !term ||
-        (po.po_number || '').toLowerCase().includes(term) ||
+        formatPurchaseOrderNumber(po.po_number, po.po_id).toLowerCase().includes(term) ||
         (po.supplier?.supplier_name || '').toLowerCase().includes(term) ||
         (po.status || '').toLowerCase().includes(term);
       return matchSearch && (!filterStatus || po.status === filterStatus);
@@ -32,7 +33,7 @@ export default function PurchaseOrderList() {
   }), [orders]);
 
   const handleDelete = (id, num) => {
-    if (!window.confirm(`Delete ${num}? Only Pending orders can be deleted.`)) return;
+    if (!window.confirm(`Delete ${formatPurchaseOrderNumber(num, id)}? Only Pending orders can be deleted.`)) return;
     deleteMutation.mutate(id);
   };
 
@@ -57,12 +58,8 @@ export default function PurchaseOrderList() {
         </div>
         <div className="proc-header-actions">
           <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-            className="proc-btn-outline" onClick={() => refetch()} disabled={isLoading}>
-            <RefreshCw size={14} className={isLoading ? 'proc-spin' : ''} /> Refresh
-          </motion.button>
-          <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
             className="proc-btn-primary" onClick={() => navigate('/procurement/orders/create')}>
-            <Plus size={15} /> Create PO
+            <Plus size={15} /> Create
           </motion.button>
         </div>
       </motion.div>
@@ -128,7 +125,7 @@ export default function PurchaseOrderList() {
                     initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 16 }}
                     transition={{ duration: 0.22, delay: i * 0.04 }}>
-                    <td><span className="proc-po-number">{po.po_number || `#${po.po_id}`}</span></td>
+                    <td><span className="proc-po-number">{formatPurchaseOrderNumber(po.po_number, po.po_id)}</span></td>
                     <td className="proc-name-cell">{po.supplier?.supplier_name || '—'}</td>
                     <td>{fmt(po.po_date)}</td>
                     <td>{fmt(po.expected_delivery)}</td>

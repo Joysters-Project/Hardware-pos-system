@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, LineChart, Line,
 } from 'recharts';
-import { RefreshCw, TrendingUp, ShoppingCart, Users, Package } from 'lucide-react';
+import { TrendingUp, ShoppingCart, Users, Package } from 'lucide-react';
 import { useProcurementDashboard, useSupplierPerformanceReport, usePurchaseSummaryReport } from '../../services/procurementApi';
 import '../../styles/Procurement.css';
 import '../../styles/ProcurementPages.css';
@@ -32,9 +32,9 @@ function KpiCard({ icon: Icon, label, value, color, delay }) {
 }
 
 export default function AnalyticsDashboard() {
-  const { data, isLoading: dl, refetch: rd } = useProcurementDashboard();
-  const { data: performance = [], isLoading: pl, refetch: rp } = useSupplierPerformanceReport();
-  const { data: purchases = [], isLoading: ql, refetch: rq } = usePurchaseSummaryReport();
+  const { data } = useProcurementDashboard();
+  const { data: performance = [] } = useSupplierPerformanceReport();
+  const { data: purchases = [], isLoading: ql } = usePurchaseSummaryReport();
 
   const { cards = {}, statusChart, monthlyVolume, topSuppliers } = useMemo(() => {
     if (!data) return { cards: {}, statusChart: [], monthlyVolume: [], topSuppliers: [] };
@@ -65,16 +65,12 @@ export default function AnalyticsDashboard() {
           <h1>Procurement Analytics</h1>
           <p>Spend analysis, supplier performance and purchasing trends</p>
         </div>
-        <motion.button className="proc-btn-outline" whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-          onClick={() => { rd(); rp(); rq(); }} disabled={dl || pl || ql}>
-          <RefreshCw size={14} className={dl ? 'proc-spin' : ''} /> Refresh
-        </motion.button>
       </motion.div>
 
       {/* KPIs */}
       <div className="pp-kpi-grid">
         <KpiCard icon={Users}       label="Total Suppliers"   value={cards.totalSuppliers  ?? 0} color="#8b3a3a" delay={0.05} />
-        <KpiCard icon={ShoppingCart} label="Total Orders"     value={(cards.pendingOrders ?? 0) + (cards.receivedOrders ?? 0)} color="#1565c0" delay={0.1} />
+        <KpiCard icon={ShoppingCart} label="Total Orders"     value={cards.totalOrders ?? ((cards.pendingOrders ?? 0) + (cards.approvedOrders ?? 0) + (cards.shippedOrders ?? 0) + (cards.receivedOrders ?? 0))} color="#1565c0" delay={0.1} />
         <KpiCard icon={TrendingUp}  label="Total Spend"       value={fmt(totalSpend)}              color="#1d7e42" delay={0.15} />
         <KpiCard icon={Package}     label="Avg On-Time %"     value={`${avgOnTime}%`}              color="#e65100" delay={0.2} />
       </div>
@@ -94,10 +90,10 @@ export default function AnalyticsDashboard() {
                   <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                   <YAxis yAxisId="left"  tickFormatter={v => `LKR${(v/1000).toFixed(0)}k`} tick={{ fontSize: 10 }} />
                   <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} />
-                  <Tooltip formatter={(v, name) => name === 'total' ? [fmt(v), 'Value'] : [v, 'Orders']} />
+                  <Tooltip formatter={(v, name) => name === 'Purchase Value' ? [fmt(v), 'Purchase Value'] : [v, 'Orders']} />
                   <Legend />
-                  <Bar yAxisId="left"  dataKey="total" name="Purchase Value" fill="#8b3a3a" radius={[4,4,0,0]} />
-                  <Bar yAxisId="right" dataKey="count" name="Orders"         fill="#a84545" radius={[4,4,0,0]} />
+                  <Bar yAxisId="left"  dataKey="purchaseValue" name="Purchase Value" fill="#8b3a3a" radius={[4,4,0,0]} />
+                  <Bar yAxisId="right" dataKey="count"         name="Orders"         fill="#0f766e" radius={[4,4,0,0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}

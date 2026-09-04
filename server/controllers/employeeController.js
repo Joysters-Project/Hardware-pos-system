@@ -13,19 +13,20 @@ const getAllEmployees = async (req, res) => {
     if (status)        where.status        = status;
     if (department_id) where.department_id = department_id;
     if (search) {
-      where.$or = [
-        { first_name: { $like: `%${search}%` } },
-        { last_name:  { $like: `%${search}%` } },
-        { email:      { $like: `%${search}%` } },
-        { phone_no:   { $like: `%${search}%` } },
-        { nic:        { $like: `%${search}%` } },
+      const { Op } = require('sequelize');
+      where[Op.or] = [
+        { first_name: { [Op.like]: `%${search}%` } },
+        { last_name:  { [Op.like]: `%${search}%` } },
+        { email:      { [Op.like]: `%${search}%` } },
+        { phone_no:   { [Op.like]: `%${search}%` } },
+        { nic:        { [Op.like]: `%${search}%` } },
       ];
     }
     const list = await db.employees.findAll({
       where,
       subQuery: false,
       include: [{ model: db.departments, attributes: ['department_name'] }],
-      order: [[db.sequelize.col('employees.created_at'), 'DESC']],
+      order: [['employee_id', 'DESC']],
     });
     res.status(200).json(list);
   } catch (error) {

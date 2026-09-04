@@ -46,7 +46,7 @@ function KpiCard({ icon: Icon, label, value, color, sub, delay, onClick }) {
 export default function ProcurementDashboard() {
   const navigate = useNavigate();
 
-  const { data, isLoading: dl, refetch: rd } = useProcurementDashboard();
+  const { data } = useProcurementDashboard();
   const { data: suggestions = [], isLoading: sl } = useReorderSuggestions();
   const { data: forecasts = [], isLoading: fl }   = useForecasts();
   const { data: suppliers = [], isLoading: spl }  = useSuppliers();
@@ -100,7 +100,7 @@ export default function ProcurementDashboard() {
           </motion.button>
           <motion.button className="proc-btn-primary" whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
             onClick={() => navigate('/procurement/orders/create')}>
-            <Plus size={15} /> Create PO
+            <Plus size={15} /> Create
           </motion.button>
         </div>
       </motion.div>

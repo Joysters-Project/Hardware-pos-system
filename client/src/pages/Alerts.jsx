@@ -15,6 +15,7 @@ import ProductDetailContent from "../components/ProductDetailContent";
 import PODetailContent from "../components/PODetailContent";
 import { useChequeAlerts, useUpdateChequeStatus, useRecordPayment } from "../services/procurementApi";
 import { subscribeToEvent } from "../services/socketSingleton";
+import { formatPurchaseOrderNumber } from "../utils/purchaseOrderNumber";
 
 const THEME = "#8b3a3a";
 
@@ -146,7 +147,7 @@ function ChequeDetailContent({ cheque }) {
         ["Cheque Date",    fmtD(cheque.cheque_date)],
         ["Clearing Date",  fmtD(cheque.clearing_date)],
         ["Status",         cheque.cheque_status],
-        ["PO Reference",   cheque.po_number],
+        ["PO Reference",   formatPurchaseOrderNumber(cheque.po_number, cheque.po_id)],
       ].filter(([, v]) => v).map(([label, value]) => (
         <div key={label} style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f1e7e5", paddingBottom: "0.4rem" }}>
           <span style={{ color: "#5e4a48", fontWeight: 600 }}>{label}</span>

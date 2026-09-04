@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, RefreshCw, CheckCheck, Archive, AlertTriangle, Clock, Package, X, Info } from 'lucide-react';
+import { Bell, CheckCheck, Archive, AlertTriangle, Clock, Package, X, Info } from 'lucide-react';
 import {
   useNotifications, useMarkNotificationsRead, useArchiveNotifications,
 } from '../../services/procurementApi';
@@ -24,7 +24,7 @@ export default function NotificationCenter() {
   const [filter, setFilter]     = useState('unread');
   const [selected, setSelected] = useState(new Set());
 
-  const { data: notifs = [], isLoading: nl, refetch: rn } = useNotifications(filter === 'all' ? undefined : filter);
+  const { data: notifs = [], isLoading: nl } = useNotifications(filter === 'all' ? undefined : filter);
   const markReadMutation = useMarkNotificationsRead();
   const archiveMutation  = useArchiveNotifications();
 
@@ -47,12 +47,12 @@ export default function NotificationCenter() {
     const ids = selected.size
       ? [...selected]
       : sortedNotifs.filter(n => !n.is_read).map(n => n.notification_id);
-    if (ids.length) markReadMutation.mutate(ids, { onSuccess: () => { clearSel(); rn(); } });
+    if (ids.length) markReadMutation.mutate(ids, { onSuccess: clearSel });
   };
 
   const handleArchive = () => {
     const ids = [...selected];
-    if (ids.length) archiveMutation.mutate(ids, { onSuccess: () => { clearSel(); rn(); } });
+    if (ids.length) archiveMutation.mutate(ids, { onSuccess: clearSel });
   };
 
   const fmtDate = (d) => d
@@ -69,12 +69,6 @@ export default function NotificationCenter() {
         <div>
           <h1>Notification Center</h1>
           <p>Procurement alerts and workflow notifications</p>
-        </div>
-        <div className="proc-header-actions">
-          <motion.button className="proc-btn-outline" whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-            onClick={rn}>
-            <RefreshCw size={14} /> Refresh
-          </motion.button>
         </div>
       </motion.div>
 

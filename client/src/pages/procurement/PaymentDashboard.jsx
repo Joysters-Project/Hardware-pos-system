@@ -2,11 +2,12 @@ import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { RefreshCw, Plus, Download, DollarSign, Clock, AlertTriangle, CheckCircle, X, AlertCircle } from 'lucide-react';
+import { Plus, Download, DollarSign, Clock, AlertTriangle, CheckCircle, X, AlertCircle } from 'lucide-react';
 import {
   usePaymentDashboard, usePayments, useRecordPayment,
   useDownloadPaymentReceipt, useActiveSuppliers, useUpdateChequeStatus,
 } from '../../services/procurementApi';
+import { formatPurchaseOrderNumber } from '../../utils/purchaseOrderNumber';
 import '../../styles/Procurement.css';
 import '../../styles/ProcurementPages.css';
 
@@ -55,8 +56,8 @@ export default function PaymentDashboard() {
   const [clearingDate, setClearingDate] = useState('');
   const [repayMode, setRepayMode] = useState(false);
 
-  const { data: dash, isLoading: dl, refetch: rd } = usePaymentDashboard();
-  const { data: payments = [], isLoading: pl, refetch: rp } = usePayments({
+  const { data: dash } = usePaymentDashboard();
+  const { data: payments = [], isLoading: pl } = usePayments({
     status: filterStatus || undefined,
   });
   const { data: suppliers = [] } = useActiveSuppliers();
@@ -71,7 +72,7 @@ export default function PaymentDashboard() {
     payments.filter(p => {
       const term = search.toLowerCase();
       return !term || (p.supplier?.supplier_name || '').toLowerCase().includes(term) ||
-        (p.purchase_order?.po_number || '').toLowerCase().includes(term);
+        formatPurchaseOrderNumber(p.purchase_order?.po_number, p.po_id).toLowerCase().includes(term);
     }), [payments, search]);
 
   const openModal = (pay) => {
@@ -108,6 +109,9 @@ export default function PaymentDashboard() {
     };
 
     if (payMethod === 'Cheque') {
+      if (!chequeNumber.trim() || !bankName.trim() || !chequeDate || !clearingDate) {
+        return alert('Cheque Number, Bank Name, Cheque Date and Clearing Date are required');
+      }
       if (clearingDate && chequeDate && clearingDate < chequeDate) {
         return alert('Clearing Date cannot be earlier than Cheque Date');
       }
@@ -124,7 +128,6 @@ export default function PaymentDashboard() {
     try {
       await recordMutation.mutateAsync(payload);
       setShowModal(false);
-      rp();
     } catch (err) {
       const msg = err?.response?.data?.error || err?.message || 'Failed to record payment';
       alert(msg);
@@ -148,12 +151,6 @@ export default function PaymentDashboard() {
             <span className="proc-chip proc-chip-accent">Accounts payable</span>
             <span className="proc-chip proc-chip-success">Payment readiness</span>
           </div>
-        </div>
-        <div className="proc-header-actions">
-          <motion.button className="proc-btn-outline" whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-            onClick={() => { rd(); rp(); }} disabled={dl || pl}>
-            <RefreshCw size={14} className={dl || pl ? 'proc-spin' : ''} /> Refresh
-          </motion.button>
         </div>
       </motion.div>
 
@@ -331,7 +328,7 @@ export default function PaymentDashboard() {
                     initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.03 }}>
                     <td className="proc-name-cell">{p.supplier?.supplier_name || '—'}</td>
-                    <td><span className="proc-po-number">{p.purchase_order?.po_number || '—'}</span></td>
+                    <td><span className="proc-po-number">{formatPurchaseOrderNumber(p.purchase_order?.po_number, p.po_id) || '—'}</span></td>
                     <td style={{ color: isOverdue ? '#c62828' : '#333' }}>{fmtD(p.due_date)}</td>
                     <td style={{ textAlign: 'right' }}><span className="proc-amount">{fmt(p.total_amount)}</span></td>
                     <td style={{ textAlign: 'right', color: '#1d7e42' }}><span className="proc-amount">{fmt(p.paid_amount)}</span></td>
@@ -507,7 +504,7 @@ export default function PaymentDashboard() {
                 })()}
                 <div className="pp-pay-supplier-info">
                   <div className="pp-pay-supplier-name">{selectedPay.supplier?.supplier_name}</div>
-                  <div className="pp-pay-po">{selectedPay.purchase_order?.po_number}</div>
+                  <div className="pp-pay-po">{formatPurchaseOrderNumber(selectedPay.purchase_order?.po_number, selectedPay.po_id)}</div>
                 </div>
                 {Number(selectedPay.balance_amount || 0) > 0 && (
                   <div className="pp-pay-balance-row">
@@ -538,20 +535,20 @@ export default function PaymentDashboard() {
                 {payMethod === 'Cheque' && (
                   <>
                     <div className="proc-field" style={{ marginTop: '0.75rem' }}>
-                      <label>Cheque Number</label>
-                      <input id="chequeNumber" name="chequeNumber" className="proc-input" value={chequeNumber} onChange={e => setChequeNumber(e.target.value)} placeholder="e.g. CHQ-1001" />
+                      <label>Cheque Number <span className="req">*</span></label>
+                      <input id="chequeNumber" name="chequeNumber" required className="proc-input" value={chequeNumber} onChange={e => setChequeNumber(e.target.value)} placeholder="e.g. CHQ-1001" />
                     </div>
                     <div className="proc-field" style={{ marginTop: '0.75rem' }}>
-                      <label>Bank Name</label>
-                      <input id="bankName" name="bankName" className="proc-input" value={bankName} onChange={e => setBankName(e.target.value)} placeholder="e.g. Sampath Bank" />
+                      <label>Bank Name <span className="req">*</span></label>
+                      <input id="bankName" name="bankName" required className="proc-input" value={bankName} onChange={e => setBankName(e.target.value)} placeholder="e.g. Sampath Bank" />
                     </div>
                     <div className="proc-field" style={{ marginTop: '0.75rem' }}>
-                      <label>Cheque Date</label>
-                      <input id="chequeDate" name="chequeDate" type="date" className="proc-input" value={chequeDate} onChange={e => setChequeDate(e.target.value)} />
+                      <label>Cheque Date <span className="req">*</span></label>
+                      <input id="chequeDate" name="chequeDate" type="date" required className="proc-input" value={chequeDate} onChange={e => setChequeDate(e.target.value)} />
                     </div>
                     <div className="proc-field" style={{ marginTop: '0.75rem' }}>
-                      <label>Clearing Date</label>
-                      <input id="clearingDate" name="clearingDate" type="date" className="proc-input" value={clearingDate} onChange={e => setClearingDate(e.target.value)} min={chequeDate || undefined} />
+                      <label>Clearing Date <span className="req">*</span></label>
+                      <input id="clearingDate" name="clearingDate" type="date" required className="proc-input" value={clearingDate} onChange={e => setClearingDate(e.target.value)} min={chequeDate || undefined} />
                     </div>
                   </>
                 )}
