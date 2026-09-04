@@ -1,5 +1,6 @@
 const db = require('../models');
 const { products, bill_items, bills } = db;
+const { Op } = require('sequelize');
 
 /**
  * getProductForecast
@@ -20,7 +21,7 @@ const getProductForecast = async (productId) => {
       include: [{
         model: bills,
         where: {
-          bill_date: { $gte: thirtyDaysAgo }
+          bill_date: { [Op.gte]: thirtyDaysAgo }
         }
       }]
     });
@@ -31,7 +32,7 @@ const getProductForecast = async (productId) => {
     // Update cached average daily sales in product table
     await product.update({ avg_daily_sales: avgDailySales });
 
-    let daysRemaining = Infinity;
+    let daysRemaining = null;
     let stockoutDate = null;
     let severity = 'Safe';
 
@@ -85,6 +86,10 @@ const calculateForecasts = async () => {
       if (severityWeight[a.severity] !== severityWeight[b.severity]) {
         return severityWeight[a.severity] - severityWeight[b.severity];
       }
+      // null (N/A) days sort last within same severity
+      if (a.days_remaining === null && b.days_remaining === null) return 0;
+      if (a.days_remaining === null) return 1;
+      if (b.days_remaining === null) return -1;
       return a.days_remaining - b.days_remaining;
     });
 

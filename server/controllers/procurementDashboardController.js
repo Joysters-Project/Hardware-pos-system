@@ -83,7 +83,7 @@ exports.getDashboardStats = async (req, res) => {
         raw: true,
       }),
 
-      // Monthly purchase volume (last 6 months)
+      // Monthly purchase volume (last 6 months) — all statuses for consistency with totalOrders
       purchase_orders.findAll({
         attributes: [
           [fn('DATE_FORMAT', col('po_date'), '%Y-%m'), 'month'],
@@ -92,7 +92,6 @@ exports.getDashboardStats = async (req, res) => {
         ],
         where: {
           po_date: { [Sequelize.Op.gte]: literal('DATE_SUB(CURDATE(), INTERVAL 6 MONTH)') },
-          status: { [Sequelize.Op.ne]: 'Cancelled' }
         },
         group: [fn('DATE_FORMAT', col('po_date'), '%Y-%m')],
         order: [[fn('DATE_FORMAT', col('po_date'), '%Y-%m'), 'ASC']],
@@ -167,6 +166,7 @@ exports.getDashboardStats = async (req, res) => {
         else if (days <= 14) forecastLow++;
         else forecastSafe++;
       } else {
+        // avg_daily_sales = 0 means N/A — treat as Safe (no imminent stockout)
         forecastSafe++;
       }
     });
@@ -175,6 +175,8 @@ exports.getDashboardStats = async (req, res) => {
       cards: {
         totalSuppliers,
         activeSuppliers,
+        totalOrders: pendingOrders + approvedOrders + shippedOrders + receivedOrders +
+          (statusCounts.find(r => r.status === 'Cancelled') ? parseInt(statusCounts.find(r => r.status === 'Cancelled').count) : 0),
         pendingOrders,
         approvedOrders,
         shippedOrders,
@@ -190,7 +192,7 @@ exports.getDashboardStats = async (req, res) => {
         poStatusDistribution: statusCounts.map((r) => ({ name: r.status, value: parseInt(r.count) })),
         monthlyVolume: monthlyVolume.map((r) => ({
           month: r.month,
-          total: parseFloat(r.total) || 0,
+          purchaseValue: parseFloat(r.total) || 0,
           count: parseInt(r.count),
         })),
         topSuppliers: topSuppliers.map((r) => ({

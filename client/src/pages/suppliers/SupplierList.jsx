@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, RefreshCw, Eye, Pencil, ToggleLeft, ToggleRight, Trash2, X } from 'lucide-react';
+import { Plus, FileDown, Eye, Pencil, ToggleLeft, ToggleRight, Trash2, X } from 'lucide-react';
 import {
   useSuppliers, useUpdateSupplierStatus, useDeleteSupplier, useDownloadSupplierReportPDF,
 } from '../../services/procurementApi';
@@ -59,7 +59,7 @@ export default function SupplierList() {
   const [filterStatus, setFilterStatus] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  const { data: suppliers = [], isLoading, refetch } = useSuppliers();
+  const { data: suppliers = [], isLoading } = useSuppliers();
   const statusMutation = useUpdateSupplierStatus();
   const deleteMutation = useDeleteSupplier();
   const supplierReportMutation = useDownloadSupplierReportPDF();
@@ -103,12 +103,8 @@ export default function SupplierList() {
         <div className="proc-header-actions">
           <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
             className="proc-btn-outline" onClick={() => supplierReportMutation.mutate()} disabled={supplierReportMutation.isPending}>
-            <RefreshCw size={14} className={supplierReportMutation.isPending ? 'proc-spin' : ''} />
+            <FileDown size={14} className={supplierReportMutation.isPending ? 'proc-spin' : ''} />
             {supplierReportMutation.isPending ? 'Exporting...' : 'Export PDF'}
-          </motion.button>
-          <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-            className="proc-btn-outline" onClick={() => refetch()} disabled={isLoading}>
-            <RefreshCw size={14} className={isLoading ? 'proc-spin' : ''} /> Refresh
           </motion.button>
           <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
             className="proc-btn-primary" onClick={() => navigate('/procurement/suppliers/add')}>

@@ -279,7 +279,7 @@ export default function CreatePurchaseOrder() {
                   <Save size={14} /> {isBusy ? 'Saving...' : 'Save as Draft'}
                 </motion.button>
                 <motion.button whileHover={{ scale: isBusy ? 1 : 1.03 }} whileTap={{ scale: isBusy ? 1 : 0.97 }}
-                  className="proc-btn-approve proc-btn-full" onClick={() => submit('Approved')} disabled={isBusy}>
+                  className="proc-btn-receive proc-btn-full" onClick={() => submit('Approved')} disabled={isBusy}>
                   <Send size={14} /> {isBusy ? 'Processing...' : 'Approve & Send'}
                 </motion.button>
               </div>

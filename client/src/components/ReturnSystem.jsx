@@ -334,7 +334,7 @@ const ReturnSystem = () => {
 
                   {suggestedSupplierInfo && (
                     <div className="info-box">
-                      Suggested PO: #{suggestedSupplierInfo.po_id} / Supplier: #{suggestedSupplierInfo.supplier_id} {suggestedSupplierInfo.supplier_name ? `(${suggestedSupplierInfo.supplier_name})` : ''}
+                      Suggested PO: {String(suggestedSupplierInfo.po_id)} / Supplier: #{suggestedSupplierInfo.supplier_id} {suggestedSupplierInfo.supplier_name ? `(${suggestedSupplierInfo.supplier_name})` : ''}
                     </div>
                   )}
 

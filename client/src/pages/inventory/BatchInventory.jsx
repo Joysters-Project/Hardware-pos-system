@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { RefreshCw, Trash2, Eye } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../../api/axios";
+import { formatPurchaseOrderNumber } from "../../utils/purchaseOrderNumber";
 import AdminDashboard from "../AdminDashboard";
 import ManagerDashboard from "../ManagerDashboard";
 import "../../styles/Products.css";
@@ -42,7 +43,7 @@ function BatchInventoryPage() {
       !q ||
       String(b.batch_number).toLowerCase().includes(q) ||
       String(b.product?.product_name || "").toLowerCase().includes(q) ||
-      String(b.purchase_order?.po_number || "").toLowerCase().includes(q) ||
+      formatPurchaseOrderNumber(b.purchase_order?.po_number, b.purchase_order?.po_id).toLowerCase().includes(q) ||
       String(b.supplier?.supplier_name || "").toLowerCase().includes(q) ||
       String(b.status).toLowerCase().includes(q)
     );
@@ -108,7 +109,7 @@ function BatchInventoryPage() {
                 <tr key={b.batch_id}>
                   <td><span className="id-badge">{b.batch_number}</span></td>
                   <td className="name-cell">{b.product?.product_name || `#${b.product_id}`}</td>
-                  <td>{b.purchase_order?.po_number || "—"}</td>
+                  <td>{formatPurchaseOrderNumber(b.purchase_order?.po_number, b.purchase_order?.po_id) || "—"}</td>
                   <td>{b.supplier?.supplier_name || "—"}</td>
                   <td className="price-cell">Rs. {Number(b.purchase_price || 0).toFixed(2)}</td>
                   <td>{b.received_quantity}</td>
@@ -154,7 +155,7 @@ function BatchInventoryPage() {
                 {[
                   ["Batch Number",   viewBatch.batch_number],
                   ["Product",        viewBatch.product?.product_name || `#${viewBatch.product_id}`],
-                  ["Purchase Order", viewBatch.purchase_order?.po_number || "—"],
+                  ["Purchase Order", formatPurchaseOrderNumber(viewBatch.purchase_order?.po_number, viewBatch.purchase_order?.po_id) || "—"],
                   ["Supplier",       viewBatch.supplier?.supplier_name || "—"],
                   ["Purchase Price", `Rs. ${Number(viewBatch.purchase_price || 0).toFixed(2)}`],
                   ["Received Qty",   viewBatch.received_quantity],

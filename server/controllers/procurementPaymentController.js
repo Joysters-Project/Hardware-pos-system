@@ -5,6 +5,15 @@ const notificationService = require('../services/procurementNotificationService'
 const { fn, col, literal } = require('sequelize');
 const { CHEQUE_CLEARING_DAYS } = require('../utils/chequeLogic');
 const { canMarkChequeCleared } = require('../utils/paymentAlertDecision');
+const { formatPurchaseOrderNumber } = require('../utils/purchaseOrderNumber');
+
+const serializePayment = (payment) => {
+  const data = payment.toJSON ? payment.toJSON() : { ...payment };
+  if (data.purchase_order) {
+    data.purchase_order.po_number = formatPurchaseOrderNumber(data.purchase_order.po_number, data.po_id);
+  }
+  return data;
+};
 
 /**
  * recordPayment
@@ -90,7 +99,7 @@ exports.getAllPayments = async (req, res) => {
       order: [['due_date', 'ASC']]
     });
 
-    res.json(list);
+    res.json(list.map(serializePayment));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -113,7 +122,7 @@ exports.getPaymentById = async (req, res) => {
       return res.status(404).json({ error: 'Payment record not found' });
     }
 
-    res.json(item);
+    res.json(serializePayment(item));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -132,7 +141,7 @@ exports.getSupplierPayments = async (req, res) => {
       ],
       order: [['created_at', 'DESC']]
     });
-    res.json(list);
+    res.json(list.map(serializePayment));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -369,7 +378,7 @@ exports.getChequeAlerts = async (req, res) => {
           balance_amount:      row.balance_amount,
           alert_type:          'Bounced',
           days_remaining:      null,
-          po_number:           row.purchase_order?.po_number || null,
+          po_number:           formatPurchaseOrderNumber(row.purchase_order?.po_number, row.po_id) || null,
         });
         continue;
       }
@@ -403,7 +412,7 @@ exports.getChequeAlerts = async (req, res) => {
           balance_amount: row.balance_amount,
           alert_type,
           days_remaining: diffDays,
-          po_number:     row.purchase_order?.po_number || null,
+          po_number:     formatPurchaseOrderNumber(row.purchase_order?.po_number, row.po_id) || null,
         });
       }
     }
