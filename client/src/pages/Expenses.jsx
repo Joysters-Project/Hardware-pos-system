@@ -7,7 +7,7 @@ import { buildTableHtml, escapeHtml, printWithTemplate } from "../utils/printTem
 import DashboardLayout from "../components/DashboardLayout";
 import ModuleWorkspace from "../components/navigation/ModuleWorkspace";
 import FinanceTopNav from "../components/navigation/FinanceTopNav";
-import "../styles/Expenses.css";
+import "../styles/Procurement.css";
 
 const EXPENSE_TYPES = ["Asset Purchase", "Salary", "Utility Bills", "Maintenance", "Transport", "Office Supplies", "Other"];
 const EMPTY_FORM = { expense_type: "", amount: "", description: "", expense_date: "", department_id: "", asset_id: "" };
@@ -141,151 +141,201 @@ function ExpensesPage() {
   return (
     <DashboardLayout active="expenses">
       <ModuleWorkspace nav={FinanceTopNav}>
-        <div className="exp-container">
-      <div className="exp-header">
-        <div className="exp-header-left">
-          <div className="exp-header-icon"><Receipt size={22} /></div>
-          <div><h1>Expenses</h1><p>{expenses.length} total records</p></div>
-        </div>
-        <div className="exp-header-actions">
-          <button className="exp-btn-outline" onClick={exportPDF}><FileDown size={14} /> Export PDF</button>
-          <button className="exp-btn-primary" onClick={openAdd}><Plus size={14} /> Add Expense</button>
-        </div>
-      </div>
-
-      <div className="exp-stats">
-        <div className="exp-stat-card exp-stat-highlight">
-          <div className="exp-stat-value">LKR {Number(summary.total || 0).toLocaleString("en-US")}</div>
-          <div className="exp-stat-label">Total Expenses</div>
-        </div>
-        {(summary.by_type || []).slice(0, 3).map(t => (
-          <div className="exp-stat-card" key={t.expense_type}>
-            <div className="exp-stat-value" style={{ color: TYPE_COLORS[t.expense_type] || "#8b3a3a", fontSize: "1.1rem" }}>
-              LKR {Number(t.total || 0).toLocaleString("en-US")}
+        <div className="proc-container">
+          {/* Header */}
+          <div className="proc-header">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+              <div className="proc-header-icon"><Receipt size={22} /></div>
+              <div>
+                <h1>Expenses</h1>
+                <p>{expenses.length} total expense records</p>
+              </div>
             </div>
-            <div className="exp-stat-label">{t.expense_type}</div>
+            <div className="proc-header-actions">
+              <button className="proc-btn-outline info" onClick={exportPDF}><FileDown size={14} /> Export PDF</button>
+              <button className="proc-btn-primary" onClick={openAdd}><Plus size={14} /> Add Expense</button>
+            </div>
           </div>
-        ))}
-      </div>
 
-      <div className="exp-filters">
-        <div className="exp-search-wrap"><Search size={14} className="exp-search-icon" />
-          <input id="search" name="search" className="exp-search" placeholder="Search by type or description..." value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1); }} /></div>
-        <select id="filterType" name="filterType" className="exp-select" value={filterType} onChange={e => { setFilterType(e.target.value); setPage(1); }}>
-          <option value="">All Types</option>{EXPENSE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <select id="filterDept" name="filterDept" className="exp-select" value={filterDept} onChange={e => { setFilterDept(e.target.value); setPage(1); }}>
-          <option value="">All Departments</option>
-          {departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
-        </select>
-        <button className="exp-refresh-btn" onClick={loadAll} disabled={pageLoading}><RefreshCw size={14} className={pageLoading ? "spin" : ""} /></button>
-      </div>
-
-      <div className="exp-table-wrap">
-        <table className="exp-table">
-          <thead><tr>
-            <th>#</th><th>Type</th><th>Amount (LKR)</th><th>Date</th>
-            <th>Department</th><th>Linked Asset</th><th>Description</th><th>Actions</th>
-          </tr></thead>
-          <tbody>
-            {pageLoading ? <tr><td colSpan="8" className="exp-empty">Loading...</td></tr>
-              : paginated.length === 0 ? <tr><td colSpan="8" className="exp-empty">No expenses found</td></tr>
-                : paginated.map(exp => (
-                  <tr key={exp.expense_id}>
-                    <td><span className="exp-id-badge">#{exp.expense_id}</span></td>
-                    <td><span className="exp-type-pill" style={{ background: (TYPE_COLORS[exp.expense_type] || "#8b3a3a") + "18", color: TYPE_COLORS[exp.expense_type] || "#8b3a3a" }}>{exp.expense_type}</span></td>
-                    <td className="exp-amount-cell">LKR {Number(exp.amount || 0).toLocaleString("en-US")}</td>
-                    <td>{exp.expense_date ? new Date(exp.expense_date).toLocaleDateString() : "—"}</td>
-                    <td>{exp.department?.department_name || getDeptName(exp.department_id)}</td>
-                    <td>{exp.asset?.asset_name || (exp.asset_id ? getAssetName(exp.asset_id) : "—")}</td>
-                    <td className="exp-desc-cell">{exp.description || "—"}</td>
-                    <td><div className="exp-action-btns">
-                      <button className="exp-icon-btn btn-view" title="View" onClick={() => setViewExpense(exp)}><Eye size={14} /></button>
-                      <button className="exp-icon-btn btn-edit" title="Edit" onClick={() => openEdit(exp)}><Pencil size={14} /></button>
-                      <button className="exp-icon-btn btn-delete" title="Delete" onClick={() => handleDelete(exp.expense_id)}><Trash2 size={14} /></button>
-                    </div></td>
-                  </tr>
-                ))}
-          </tbody>
-        </table>
-      </div>
-
-      {totalPages > 1 && <div className="exp-pagination">
-        <button disabled={page === 1} onClick={() => setPage(p => p - 1)}><ChevronLeft size={14} /></button>
-        <span className="exp-page-info">Page {page} of {totalPages}</span>
-        {Array.from({ length: totalPages }, (_, i) => <button key={i + 1} className={page === i + 1 ? "active" : ""} onClick={() => setPage(i + 1)}>{i + 1}</button>)}
-        <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight size={14} /></button>
-      </div>}
-
-      {/* Add/Edit Modal */}
-      {showModal && createPortal(
-        <div className="exp-overlay" onClick={closeModal}>
-          <div className="exp-modal" onClick={e => e.stopPropagation()}>
-            <div className="exp-modal-header">
-              <h2>{editId ? "Edit Expense" : "Add Expense"}</h2>
-              <button className="exp-modal-close" onClick={closeModal}><X size={18} /></button>
+          {/* Stats */}
+          <div className="proc-stats">
+            <div className="proc-stat-card">
+              <div className="proc-stat-value" style={{ color: '#8b3a3a' }}>LKR {Number(summary.total || 0).toLocaleString('en-US')}</div>
+              <div className="proc-stat-label">Total Expenses</div>
             </div>
-            <form onSubmit={handleSubmit} className="exp-modal-form">
-              <div className="exp-form-grid">
-                <div className="exp-field"><label>Expense Type *</label>
-                  <select id="expense_type" name="expense_type" value={form.expense_type} onChange={e => setForm({ ...form, expense_type: e.target.value })} required>
-                    <option value="">Select Type</option>{EXPENSE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select></div>
-                <div className="exp-field"><label>Amount (LKR) *</label>
-                  <input id="amount" name="amount" type="number" min="0" step="0.01" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} required /></div>
-                <div className="exp-field"><label>Expense Date *</label>
-                  <input id="expense_date" name="expense_date" type="date" value={form.expense_date} onChange={e => setForm({ ...form, expense_date: e.target.value })} required /></div>
-                <div className="exp-field"><label>Department</label>
-                  <select id="department_id" name="department_id" value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })}>
-                    <option value="">None</option>{departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
-                  </select></div>
-                <div className="exp-field"><label>Linked Asset</label>
-                  <select id="asset_id" name="asset_id" value={form.asset_id} onChange={e => setForm({ ...form, asset_id: e.target.value })}>
-                    <option value="">None</option>{assets.map(a => <option key={a.asset_id} value={a.asset_id}>{a.asset_name}</option>)}
-                  </select></div>
-                <div className="exp-field exp-field-full">
-                  <label>Description {form.expense_type === "Other" ? <span style={{ color: "#c62828" }}>*</span> : "(Optional)"}</label>
-                  <textarea id="description" name="description"
-                    rows={3}
-                    value={form.description}
-                    onChange={e => setForm({ ...form, description: e.target.value })}
-                    placeholder={form.expense_type === "Other" ? "Description is required when type is 'Other'..." : "Optional notes..."}
-                    required={form.expense_type === "Other"}
-                  />
+            {(summary.by_type || []).slice(0, 3).map(t => (
+              <div className="proc-stat-card" key={t.expense_type}>
+                <div className="proc-stat-value" style={{ color: TYPE_COLORS[t.expense_type] || '#8b3a3a', fontSize: '1.1rem' }}>
+                  LKR {Number(t.total || 0).toLocaleString('en-US')}
+                </div>
+                <div className="proc-stat-label">{t.expense_type}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Filters */}
+          <div className="proc-filters-row">
+            <div className="proc-search-wrap">
+              <input id="search" name="search" className="proc-search" placeholder="Search by type or description..."
+                value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+            </div>
+            <select id="filterType" name="filterType" className="proc-select" value={filterType} onChange={e => { setFilterType(e.target.value); setPage(1); }}>
+              <option value="">All Types</option>
+              {EXPENSE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <select id="filterDept" name="filterDept" className="proc-select" value={filterDept} onChange={e => { setFilterDept(e.target.value); setPage(1); }}>
+              <option value="">All Departments</option>
+              {departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
+            </select>
+            <button className="proc-refresh-btn" onClick={loadAll} disabled={pageLoading}>
+              <RefreshCw size={14} className={pageLoading ? 'proc-spin-fast' : ''} />
+            </button>
+          </div>
+
+          {/* Table */}
+          <div className="proc-card">
+            <div className="proc-table-wrap">
+              <table className="proc-table">
+                <thead><tr>
+                  <th>#</th><th>Type</th><th>Amount (LKR)</th><th>Date</th>
+                  <th>Department</th><th>Linked Asset</th><th>Description</th><th>Actions</th>
+                </tr></thead>
+                <tbody>
+                  {pageLoading
+                    ? <tr><td colSpan="8" className="proc-empty">Loading...</td></tr>
+                    : paginated.length === 0
+                      ? <tr><td colSpan="8" className="proc-empty">No expenses found</td></tr>
+                      : paginated.map(exp => (
+                        <tr key={exp.expense_id}>
+                          <td><span className="proc-code-badge">#{exp.expense_id}</span></td>
+                          <td>
+                            <span className="proc-status-pill" style={{ background: (TYPE_COLORS[exp.expense_type] || '#8b3a3a') + '18', color: TYPE_COLORS[exp.expense_type] || '#8b3a3a' }}>
+                              {exp.expense_type}
+                            </span>
+                          </td>
+                          <td><span className="proc-amount">LKR {Number(exp.amount || 0).toLocaleString('en-US')}</span></td>
+                          <td style={{ fontSize: '0.85rem' }}>{exp.expense_date ? new Date(exp.expense_date).toLocaleDateString() : '—'}</td>
+                          <td style={{ fontSize: '0.85rem' }}>{exp.department?.department_name || getDeptName(exp.department_id)}</td>
+                          <td style={{ fontSize: '0.85rem' }}>{exp.asset?.asset_name || (exp.asset_id ? getAssetName(exp.asset_id) : '—')}</td>
+                          <td className="proc-cell-clamp" style={{ fontSize: '0.82rem', color: '#666' }}>{exp.description || '—'}</td>
+                          <td>
+                            <div className="proc-action-btns">
+                              <button className="proc-icon-btn view" title="View" onClick={() => setViewExpense(exp)}><Eye size={14} /></button>
+                              <button className="proc-icon-btn edit" title="Edit" onClick={() => openEdit(exp)}><Pencil size={14} /></button>
+                              <button className="proc-icon-btn delete" title="Delete" onClick={() => handleDelete(exp.expense_id)}><Trash2 size={14} /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                  }
+                </tbody>
+              </table>
+            </div>
+
+            {totalPages > 1 && (
+              <div className="proc-pagination">
+                <button disabled={page === 1} onClick={() => setPage(p => p - 1)}><ChevronLeft size={14} /></button>
+                <span className="proc-pagination-info">Page {page} of {totalPages}</span>
+                {Array.from({ length: totalPages }, (_, i) => (
+                  <button key={i + 1} className={page === i + 1 ? 'active' : ''} onClick={() => setPage(i + 1)}>{i + 1}</button>
+                ))}
+                <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight size={14} /></button>
+              </div>
+            )}
+          </div>
+
+          {/* Add/Edit Modal */}
+          {showModal && createPortal(
+            <div className="proc-modal-overlay" onClick={closeModal}>
+              <div className="proc-modal proc-modal-lg" onClick={e => e.stopPropagation()}>
+                <div className="proc-modal-header">
+                  <h2>{editId ? 'Edit Expense' : 'Add Expense'}</h2>
+                  <button className="proc-modal-close" onClick={closeModal}><X size={18} /></button>
+                </div>
+                <form onSubmit={handleSubmit}>
+                  <div className="proc-modal-body">
+                    <div className="proc-form-grid">
+                      <div className="proc-field">
+                        <label className="proc-field label">Expense Type <span className="req">*</span></label>
+                        <select className="proc-input" id="expense_type" name="expense_type" value={form.expense_type} onChange={e => setForm({ ...form, expense_type: e.target.value })} required>
+                          <option value="">Select Type</option>
+                          {EXPENSE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
+                      <div className="proc-field">
+                        <label>Amount (LKR) <span className="req">*</span></label>
+                        <input className="proc-input" id="amount" name="amount" type="number" min="0" step="0.01" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} required />
+                      </div>
+                      <div className="proc-field">
+                        <label>Expense Date <span className="req">*</span></label>
+                        <input className="proc-input" id="expense_date" name="expense_date" type="date" value={form.expense_date} onChange={e => setForm({ ...form, expense_date: e.target.value })} required />
+                      </div>
+                      <div className="proc-field">
+                        <label>Department</label>
+                        <select className="proc-input" id="department_id" name="department_id" value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })}>
+                          <option value="">None</option>
+                          {departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
+                        </select>
+                      </div>
+                      <div className="proc-field">
+                        <label>Linked Asset</label>
+                        <select className="proc-input" id="asset_id" name="asset_id" value={form.asset_id} onChange={e => setForm({ ...form, asset_id: e.target.value })}>
+                          <option value="">None</option>
+                          {assets.map(a => <option key={a.asset_id} value={a.asset_id}>{a.asset_name}</option>)}
+                        </select>
+                      </div>
+                      <div className="proc-field proc-field-full">
+                        <label>Description {form.expense_type === 'Other' ? <span className="req">*</span> : '(Optional)'}</label>
+                        <textarea className="proc-input proc-textarea" id="description" name="description"
+                          rows={3} value={form.description}
+                          onChange={e => setForm({ ...form, description: e.target.value })}
+                          placeholder={form.expense_type === 'Other' ? "Required when type is 'Other'..." : 'Optional notes...'}
+                          required={form.expense_type === 'Other'}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="proc-modal-footer">
+                    <button type="button" className="proc-btn-outline" onClick={closeModal}>Cancel</button>
+                    <button type="submit" className="proc-btn-primary" disabled={loading}>{loading ? 'Saving...' : editId ? 'Update' : 'Create'}</button>
+                  </div>
+                </form>
+              </div>
+            </div>,
+            document.body
+          )}
+
+          {/* View Modal */}
+          {viewExpense && createPortal(
+            <div className="proc-modal-overlay" onClick={() => setViewExpense(null)}>
+              <div className="proc-modal" onClick={e => e.stopPropagation()}>
+                <div className="proc-modal-header">
+                  <h2>Expense Details</h2>
+                  <button className="proc-modal-close" onClick={() => setViewExpense(null)}><X size={18} /></button>
+                </div>
+                <div className="proc-modal-body">
+                  <div className="proc-view-grid">
+                    {[['Type', <span className="proc-status-pill" style={{ background: (TYPE_COLORS[viewExpense.expense_type] || '#8b3a3a') + '18', color: TYPE_COLORS[viewExpense.expense_type] || '#8b3a3a' }}>{viewExpense.expense_type}</span>],
+                      ['Amount', `LKR ${Number(viewExpense.amount).toLocaleString('en-US')}`],
+                      ['Date', viewExpense.expense_date ? new Date(viewExpense.expense_date).toLocaleDateString() : '—'],
+                      ['Department', viewExpense.department?.department_name || getDeptName(viewExpense.department_id)],
+                      ['Linked Asset', viewExpense.asset?.asset_name || (viewExpense.asset_id ? getAssetName(viewExpense.asset_id) : '—')],
+                      ['Description', viewExpense.description || '—'],
+                    ].map(([l, v]) => (
+                      <div className="proc-view-row" key={l}>
+                        <span className="proc-view-label">{l}</span>
+                        <span className="proc-view-value">{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="proc-modal-footer">
+                  <button className="proc-btn-outline" onClick={() => setViewExpense(null)}>Close</button>
                 </div>
               </div>
-              <div className="exp-modal-footer">
-                <button type="button" className="exp-btn-cancel" onClick={closeModal}>Cancel</button>
-                <button type="submit" className="exp-btn-submit" disabled={loading}>{loading ? "Saving..." : editId ? "Update" : "Create"}</button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* View Modal */}
-      {viewExpense && createPortal(
-        <div className="exp-overlay" onClick={() => setViewExpense(null)}>
-          <div className="exp-modal" onClick={e => e.stopPropagation()}>
-            <div className="exp-modal-header">
-              <h2>Expense Details</h2>
-              <button className="exp-modal-close" onClick={() => setViewExpense(null)}><X size={18} /></button>
-            </div>
-            <div className="exp-view-grid">
-              {[["Type", <span className="exp-type-pill" style={{ background: (TYPE_COLORS[viewExpense.expense_type] || "#8b3a3a") + "18", color: TYPE_COLORS[viewExpense.expense_type] || "#8b3a3a" }}>{viewExpense.expense_type}</span>],
-              ["Amount", `LKR ${Number(viewExpense.amount).toLocaleString("en-US")}`],
-              ["Date", viewExpense.expense_date ? new Date(viewExpense.expense_date).toLocaleDateString() : "—"],
-              ["Department", viewExpense.department?.department_name || getDeptName(viewExpense.department_id)],
-              ["Linked Asset", viewExpense.asset?.asset_name || (viewExpense.asset_id ? getAssetName(viewExpense.asset_id) : "—")],
-              ["Description", viewExpense.description || "—"]
-              ].map(([l, v]) => <div className="exp-view-row" key={l}><span className="exp-view-label">{l}</span><span className="exp-view-value">{v}</span></div>)}
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+            </div>,
+            document.body
+          )}
         </div>
       </ModuleWorkspace>
     </DashboardLayout>

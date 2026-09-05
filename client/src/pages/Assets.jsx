@@ -9,7 +9,7 @@ import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
 import ModuleWorkspace from "../components/navigation/ModuleWorkspace";
 import InventoryTopNav from "../components/navigation/InventoryTopNav";
-import "../styles/Assets.css";
+import "../styles/Procurement.css";
 
 const CONDITION_TYPES = ["New", "Good", "Fair", "Poor", "Damaged", "Other"];
 const ASSET_STATUSES = ["Active", "Maintenance", "Damaged", "Lost", "Disposed"];
@@ -146,21 +146,29 @@ function AssetsPage() {
   const totalCost = assets.filter(a => a.status !== "Disposed").reduce((s, a) => s + parseFloat(a.cost || 0), 0);
 
   return (
-    <div className="asset-container">
-      <div className="asset-header">
-        <div className="asset-header-left">
-          <div className="asset-header-icon"><Package size={22} /></div>
-          <div><h1>Assets</h1><p>{assets.length} total assets</p></div>
+    <div className="proc-container">
+      <div className="proc-header">
+        <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+          <div className="proc-header-icon"><Package size={22} /></div>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <h1 style={{ margin: 0 }}>Assets</h1>
+              <span className="proc-count-badge">{assets.length}</span>
+            </div>
+            <p style={{ margin: 0, color: "var(--proc-text-muted, #666)", fontSize: "0.85rem" }}>
+              Track organization equipment, condition and maintenance lifecycle
+            </p>
+          </div>
         </div>
-        <div className="asset-header-actions">
-          <button className="asset-btn-outline" onClick={exportPDF}><FileDown size={14} /> Export PDF</button>
-          <button className="asset-btn-primary" onClick={openAdd}><Plus size={14} /> Add Asset</button>
+        <div className="proc-header-actions">
+          <button className="proc-btn-outline" onClick={exportPDF}><FileDown size={14} /> Export PDF</button>
+          <button className="proc-btn-primary" onClick={openAdd}><Plus size={14} /> Add Asset</button>
         </div>
       </div>
 
-      <div className="asset-stats">
+      <div className="proc-stats">
         {[
-          [assets.length, "#8b3a3a", "Total"],
+          [assets.length, "#8b3a3a", "Total Assets"],
           [assets.filter(a => a.status === "Active").length, "#2e7d32", "Active"],
           [assets.filter(a => a.status === "Maintenance").length, "#e65100", "Maintenance"],
           [assets.filter(a => a.status === "Damaged").length, "#c62828", "Damaged"],
@@ -168,118 +176,128 @@ function AssetsPage() {
           [assets.filter(a => a.status === "Disposed").length, "#616161", "Disposed Count"],
           [`LKR ${totalCost.toLocaleString("en-US")}`, "#1565c0", "Active Value"],
         ].map(([value, color, label], index) => (
-          <div className="asset-stat-card" key={index}>
-            <div className="asset-stat-value" style={{ color }}>{value}</div>
-            <div className="asset-stat-label">{label}</div>
+          <div className="proc-stat-card" key={index}>
+            <div className="proc-stat-value" style={{ color }}>{value}</div>
+            <div className="proc-stat-label">{label}</div>
           </div>
         ))}
       </div>
 
-      <div className="asset-filters">
-        <div className="asset-search-wrap"><Search size={14} className="asset-search-icon" />
-          <input id="search" name="search" className="asset-search" placeholder="Search asset name..." value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1); }} /></div>
-        <select id="filterStatus" name="filterStatus" className="asset-select" value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }}>
+      <div className="proc-filters-row">
+        <div className="proc-search-wrap">
+          <Search size={14} className="proc-search-icon" />
+          <input id="search" name="search" className="proc-search" placeholder="Search asset name..." value={search}
+            onChange={e => { setSearch(e.target.value); setPage(1); }} />
+        </div>
+        <select id="filterStatus" name="filterStatus" className="proc-select" value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }}>
           <option value="">All Status</option>{ASSET_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <select id="filterDept" name="filterDept" className="asset-select" value={filterDept} onChange={e => { setFilterDept(e.target.value); setPage(1); }}>
+        <select id="filterDept" name="filterDept" className="proc-select" value={filterDept} onChange={e => { setFilterDept(e.target.value); setPage(1); }}>
           <option value="">All Departments</option>
           {departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
         </select>
-        <button className="asset-refresh-btn" onClick={loadAll} disabled={pageLoading}><RefreshCw size={14} className={pageLoading ? "spin" : ""} /></button>
+        <button className="proc-refresh-btn" onClick={loadAll} disabled={pageLoading} title="Refresh">
+          <RefreshCw size={14} className={pageLoading ? "proc-spin-fast" : ""} />
+        </button>
       </div>
 
-      <div className="asset-table-wrap">
-        <table className="asset-table">
-          <thead><tr>
-            <th>#</th><th>Asset Name</th><th>Department</th><th>Cost (LKR)</th>
-            <th>Condition</th><th>Status</th><th>Purchased</th><th>Expires</th><th>Actions</th>
-          </tr></thead>
-          <tbody>
-            {pageLoading ? <tr><td colSpan="9" className="asset-empty">Loading...</td></tr>
-              : paginated.length === 0 ? <tr><td colSpan="9" className="asset-empty">No assets found</td></tr>
-                : paginated.map(a => (
-                  <tr key={a.asset_id}>
-                    <td><span className="asset-id-badge">#{a.asset_id}</span></td>
-                    <td className="asset-name-cell">{a.asset_name}</td>
-                    <td>{a.department?.department_name || getDeptName(a.department_id)}</td>
-                    <td className="asset-cost-cell">LKR {Number(a.cost || 0).toLocaleString("en-US")}</td>
-                    <td>{a.condition_type === "Other" ? a.custom_condition : a.condition_type}</td>
-                    <td><span className="asset-status-pill" style={{ background: STATUS_COLORS[a.status] + "18", color: STATUS_COLORS[a.status] || "#333" }}>{a.status}</span></td>
-                    <td>{a.purchase_date ? new Date(a.purchase_date).toLocaleDateString() : "—"}</td>
-                    <td>{a.expiration_date ? new Date(a.expiration_date).toLocaleDateString() : "—"}</td>
-                    <td><div className="asset-action-btns">
-                      <button className="asset-icon-btn btn-view" title="View" onClick={() => handleView(a)}><Eye size={14} /></button>
-                      {a.status !== "Disposed" && <button className="asset-icon-btn btn-edit" title="Edit" onClick={() => openEdit(a)}><Pencil size={14} /></button>}
-                      {a.status !== "Disposed" && <button className="asset-icon-btn btn-dispose" title="Dispose" onClick={() => handleDispose(a)}><Archive size={14} /></button>}
-                      {a.status === "Disposed" && <button className="asset-icon-btn btn-delete" title="Delete" onClick={() => handleDelete(a)}><Trash2 size={14} /></button>}
-                    </div></td>
-                  </tr>
-                ))}
-          </tbody>
-        </table>
-      </div>
+      <div className="proc-card">
+        <div className="proc-table-wrap">
+          <table className="proc-table">
+            <thead>
+              <tr>
+                <th>#</th><th>Asset Name</th><th>Department</th><th>Cost (LKR)</th>
+                <th>Condition</th><th>Status</th><th>Purchased</th><th>Expires</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pageLoading ? <tr><td colSpan="9" className="proc-empty">Loading assets...</td></tr>
+                : paginated.length === 0 ? <tr><td colSpan="9" className="proc-empty">No assets found</td></tr>
+                  : paginated.map(a => (
+                    <tr key={a.asset_id}>
+                      <td><span className="proc-code-badge">#{a.asset_id}</span></td>
+                      <td className="proc-name-cell">{a.asset_name}</td>
+                      <td>{a.department?.department_name || getDeptName(a.department_id)}</td>
+                      <td className="proc-amount">LKR {Number(a.cost || 0).toLocaleString("en-US")}</td>
+                      <td>{a.condition_type === "Other" ? a.custom_condition : a.condition_type}</td>
+                      <td><span className="proc-status-pill" style={{ background: STATUS_COLORS[a.status] + "18", color: STATUS_COLORS[a.status] || "#333" }}>{a.status}</span></td>
+                      <td>{a.purchase_date ? new Date(a.purchase_date).toLocaleDateString() : "—"}</td>
+                      <td>{a.expiration_date ? new Date(a.expiration_date).toLocaleDateString() : "—"}</td>
+                      <td><div className="proc-action-btns">
+                        <button className="proc-icon-btn view" title="View" onClick={() => handleView(a)}><Eye size={14} /></button>
+                        {a.status !== "Disposed" && <button className="proc-icon-btn edit" title="Edit" onClick={() => openEdit(a)}><Pencil size={14} /></button>}
+                        {a.status !== "Disposed" && <button className="proc-icon-btn" style={{ color: "#e65100" }} title="Dispose" onClick={() => handleDispose(a)}><Archive size={14} /></button>}
+                        {a.status === "Disposed" && <button className="proc-icon-btn delete" title="Delete" onClick={() => handleDelete(a)}><Trash2 size={14} /></button>}
+                      </div></td>
+                    </tr>
+                  ))}
+            </tbody>
+          </table>
+        </div>
 
-      {totalPages > 1 && <div className="asset-pagination">
-        <button disabled={page === 1} onClick={() => setPage(p => p - 1)}><ChevronLeft size={14} /></button>
-        <span className="asset-page-info">Page {page} of {totalPages}</span>
-        {Array.from({ length: totalPages }, (_, i) => <button key={i + 1} className={page === i + 1 ? "active" : ""} onClick={() => setPage(i + 1)}>{i + 1}</button>)}
-        <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight size={14} /></button>
-      </div>}
+        {totalPages > 1 && <div className="proc-pagination">
+          <button disabled={page === 1} onClick={() => setPage(p => p - 1)}><ChevronLeft size={14} /></button>
+          <span className="proc-pagination-info">Page {page} of {totalPages}</span>
+          {Array.from({ length: totalPages }, (_, i) => <button key={i + 1} className={page === i + 1 ? "active" : ""} onClick={() => setPage(i + 1)}>{i + 1}</button>)}
+          <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight size={14} /></button>
+        </div>}
+      </div>
 
       {/* Add/Edit Modal */}
       {showModal && createPortal(
-        <div className="asset-overlay" onClick={closeModal}>
-          <div className="asset-modal asset-modal-lg" onClick={e => e.stopPropagation()}>
-            <div className="asset-modal-header">
+        <div className="proc-modal-overlay" onClick={closeModal}>
+          <div className="proc-modal proc-modal-lg" onClick={e => e.stopPropagation()}>
+            <div className="proc-modal-header">
               <h2>{editId ? "Edit Asset" : "Add Asset"}</h2>
-              <button className="asset-modal-close" onClick={closeModal}><X size={18} /></button>
+              <button className="proc-modal-close" onClick={closeModal}><X size={18} /></button>
             </div>
-            <form onSubmit={handleSubmit} className="asset-modal-form">
-              <div className="asset-form-grid">
-                <div className="asset-field asset-field-full"><label>Asset Name *</label>
-                  <input id="asset_name" name="asset_name" value={form.asset_name} onChange={e => setForm({ ...form, asset_name: e.target.value })} required /></div>
-                <div className="asset-field"><label>Department *</label>
-                  <select value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })} required>
-                    <option value="">Select</option>{departments.filter(d => String(d.status || "").toLowerCase() === "active").map(d => <option key={d.department_id} value={d.department_id}>{getDeptLabel(d)}</option>)}
-                  </select></div>
-                <div className="asset-field"><label>Cost (LKR) *</label>
-                  <input id="cost" name="cost" type="number" min="0" step="0.01" value={form.cost}
-                    onChange={e => setForm({ ...form, cost: e.target.value, expense_amount: e.target.value })} required /></div>
-                <div className="asset-field"><label>Purchase Date *</label>
-                  <input id="purchase_date" name="purchase_date" type="date" value={form.purchase_date} max={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, purchase_date: e.target.value })} required /></div>
-                <div className="asset-field"><label>Expiration Date</label>
-                  <input id="expiration_date" name="expiration_date" type="date" value={form.expiration_date} min={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, expiration_date: e.target.value })} /></div>
-                <div className="asset-field"><label>Status</label>
-                  <select id="status" name="status" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
-                    {ASSET_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select></div>
-                <div className="asset-field"><label>Condition</label>
-                  <select id="condition_type" name="condition_type" value={form.condition_type} onChange={e => setForm({ ...form, condition_type: e.target.value })}>
-                    {CONDITION_TYPES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select></div>
-                {form.condition_type === "Other" && <div className="asset-field"><label>Custom Condition *</label>
-                  <input id="custom_condition" name="custom_condition" value={form.custom_condition} onChange={e => setForm({ ...form, custom_condition: e.target.value })} required /></div>}
-              </div>
-              {!editId && <div className="asset-expense-section">
-                <label className="asset-checkbox-label">
-                  <input id="checkbox_field" name="checkbox_field" type="checkbox" checked={form.add_as_expense} onChange={e => setForm({ ...form, add_as_expense: e.target.checked })} />
-                  <span>Also add as an expense record</span>
-                </label>
-                {form.add_as_expense && <div className="asset-form-grid asset-expense-fields">
-                  <div className="asset-field"><label>Expense Type</label>
-                    <select id="expense_type" name="expense_type" value={form.expense_type} onChange={e => setForm({ ...form, expense_type: e.target.value })}>
-                      {EXPENSE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            <form onSubmit={handleSubmit}>
+              <div className="proc-modal-body">
+                <div className="proc-form-grid">
+                  <div className="proc-field proc-field-full"><label>Asset Name *</label>
+                    <input id="asset_name" name="asset_name" className="proc-input" value={form.asset_name} onChange={e => setForm({ ...form, asset_name: e.target.value })} required /></div>
+                  <div className="proc-field"><label>Department *</label>
+                    <select className="proc-select" value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })} required>
+                      <option value="">Select</option>{departments.filter(d => String(d.status || "").toLowerCase() === "active").map(d => <option key={d.department_id} value={d.department_id}>{getDeptLabel(d)}</option>)}
                     </select></div>
-                  <div className="asset-field"><label>Expense Amount</label>
-                    <input id="expense_amount" name="expense_amount" type="number" min="0" value={form.expense_amount} onChange={e => setForm({ ...form, expense_amount: e.target.value })} /></div>
-                  <div className="asset-field asset-field-full"><label>Description</label>
-                    <input id="expense_description" name="expense_description" value={form.expense_description} onChange={e => setForm({ ...form, expense_description: e.target.value })} placeholder="Optional..." /></div>
+                  <div className="proc-field"><label>Cost (LKR) *</label>
+                    <input id="cost" name="cost" type="number" min="0" step="0.01" className="proc-input" value={form.cost}
+                      onChange={e => setForm({ ...form, cost: e.target.value, expense_amount: e.target.value })} required /></div>
+                  <div className="proc-field"><label>Purchase Date *</label>
+                    <input id="purchase_date" name="purchase_date" type="date" className="proc-date-input" value={form.purchase_date} max={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, purchase_date: e.target.value })} required /></div>
+                  <div className="proc-field"><label>Expiration Date</label>
+                    <input id="expiration_date" name="expiration_date" type="date" className="proc-date-input" value={form.expiration_date} min={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, expiration_date: e.target.value })} /></div>
+                  <div className="proc-field"><label>Status</label>
+                    <select id="status" name="status" className="proc-select" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+                      {ASSET_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select></div>
+                  <div className="proc-field"><label>Condition</label>
+                    <select id="condition_type" name="condition_type" className="proc-select" value={form.condition_type} onChange={e => setForm({ ...form, condition_type: e.target.value })}>
+                      {CONDITION_TYPES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select></div>
+                  {form.condition_type === "Other" && <div className="proc-field"><label>Custom Condition *</label>
+                    <input id="custom_condition" name="custom_condition" className="proc-input" value={form.custom_condition} onChange={e => setForm({ ...form, custom_condition: e.target.value })} required /></div>}
+                </div>
+                {!editId && <div style={{ marginTop: "1rem", paddingTop: "0.85rem", borderTop: "1px solid var(--proc-border, #e5e7eb)" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontWeight: 500, fontSize: "0.9rem" }}>
+                    <input id="checkbox_field" name="checkbox_field" type="checkbox" checked={form.add_as_expense} onChange={e => setForm({ ...form, add_as_expense: e.target.checked })} />
+                    <span>Also add as an expense record</span>
+                  </label>
+                  {form.add_as_expense && <div className="proc-form-grid" style={{ marginTop: "0.85rem" }}>
+                    <div className="proc-field"><label>Expense Type</label>
+                      <select id="expense_type" name="expense_type" className="proc-select" value={form.expense_type} onChange={e => setForm({ ...form, expense_type: e.target.value })}>
+                        {EXPENSE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select></div>
+                    <div className="proc-field"><label>Expense Amount</label>
+                      <input id="expense_amount" name="expense_amount" type="number" min="0" className="proc-input" value={form.expense_amount} onChange={e => setForm({ ...form, expense_amount: e.target.value })} /></div>
+                    <div className="proc-field proc-field-full"><label>Description</label>
+                      <input id="expense_description" name="expense_description" className="proc-input" value={form.expense_description} onChange={e => setForm({ ...form, expense_description: e.target.value })} placeholder="Optional..." /></div>
+                  </div>}
                 </div>}
-              </div>}
-              <div className="asset-modal-footer">
-                <button type="button" className="asset-btn-cancel" onClick={closeModal}>Cancel</button>
-                <button type="submit" className="asset-btn-submit" disabled={loading}>{loading ? "Saving..." : editId ? "Update" : "Create"}</button>
+              </div>
+              <div className="proc-modal-footer">
+                <button type="button" className="proc-btn-outline" onClick={closeModal}>Cancel</button>
+                <button type="submit" className="proc-btn-primary" disabled={loading}>{loading ? "Saving..." : editId ? "Update" : "Create"}</button>
               </div>
             </form>
           </div>
@@ -289,30 +307,35 @@ function AssetsPage() {
 
       {/* View Modal */}
       {viewAsset && createPortal(
-        <div className="asset-overlay" onClick={() => setViewAsset(null)}>
-          <div className="asset-modal" onClick={e => e.stopPropagation()}>
-            <div className="asset-modal-header">
+        <div className="proc-modal-overlay" onClick={() => setViewAsset(null)}>
+          <div className="proc-modal" onClick={e => e.stopPropagation()}>
+            <div className="proc-modal-header">
               <h2>Asset Details</h2>
-              <button className="asset-modal-close" onClick={() => setViewAsset(null)}><X size={18} /></button>
+              <button className="proc-modal-close" onClick={() => setViewAsset(null)}><X size={18} /></button>
             </div>
-            <div className="asset-view-grid">
-              {[["Asset Name", viewAsset.asset_name], ["Department", viewAsset.department?.department_name || getDeptName(viewAsset.department_id)],
-              ["Cost", `LKR ${Number(viewAsset.cost).toLocaleString("en-US")}`],
-              ["Condition", viewAsset.condition_type === "Other" ? viewAsset.custom_condition : viewAsset.condition_type],
-              ["Status", viewAsset.status], ["Purchase Date", viewAsset.purchase_date ? new Date(viewAsset.purchase_date).toLocaleDateString() : "—"],
-              ["Expiration", viewAsset.expiration_date ? new Date(viewAsset.expiration_date).toLocaleDateString() : "—"]
-              ].map(([l, v]) => <div className="asset-view-row" key={l}><span className="asset-view-label">{l}</span><span className="asset-view-value">{v}</span></div>)}
+            <div className="proc-modal-body">
+              <div className="proc-view-grid">
+                {[["Asset Name", viewAsset.asset_name], ["Department", viewAsset.department?.department_name || getDeptName(viewAsset.department_id)],
+                ["Cost", `LKR ${Number(viewAsset.cost).toLocaleString("en-US")}`],
+                ["Condition", viewAsset.condition_type === "Other" ? viewAsset.custom_condition : viewAsset.condition_type],
+                ["Status", viewAsset.status], ["Purchase Date", viewAsset.purchase_date ? new Date(viewAsset.purchase_date).toLocaleDateString() : "—"],
+                ["Expiration", viewAsset.expiration_date ? new Date(viewAsset.expiration_date).toLocaleDateString() : "—"]
+                ].map(([l, v]) => <div className="proc-view-row" key={l}><span className="proc-view-label">{l}</span><span className="proc-view-value">{v}</span></div>)}
+              </div>
+              {(viewAsset.expenses || []).length > 0 && <div style={{ marginTop: "1.25rem" }}>
+                <h3 style={{ fontSize: "0.95rem", fontWeight: 600, marginBottom: "0.5rem" }}>Linked Expenses</h3>
+                <div className="proc-table-wrap"><table className="proc-table">
+                  <thead><tr><th>Type</th><th>Amount</th><th>Date</th></tr></thead>
+                  <tbody>{viewAsset.expenses.map(exp => <tr key={exp.expense_id}>
+                    <td>{exp.expense_type}</td><td>LKR {Number(exp.amount).toLocaleString("en-US")}</td>
+                    <td>{exp.expense_date ? new Date(exp.expense_date).toLocaleDateString() : "—"}</td>
+                  </tr>)}</tbody>
+                </table></div>
+              </div>}
             </div>
-            {(viewAsset.expenses || []).length > 0 && <div className="asset-view-section">
-              <h3>Linked Expenses</h3>
-              <div className="asset-inner-wrap"><table className="asset-inner-table">
-                <thead><tr><th>Type</th><th>Amount</th><th>Date</th></tr></thead>
-                <tbody>{viewAsset.expenses.map(exp => <tr key={exp.expense_id}>
-                  <td>{exp.expense_type}</td><td>LKR {Number(exp.amount).toLocaleString("en-US")}</td>
-                  <td>{exp.expense_date ? new Date(exp.expense_date).toLocaleDateString() : "—"}</td>
-                </tr>)}</tbody>
-              </table></div>
-            </div>}
+            <div className="proc-modal-footer">
+              <button type="button" className="proc-btn-outline" onClick={() => setViewAsset(null)}>Close</button>
+            </div>
           </div>
         </div>,
         document.body

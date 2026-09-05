@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import api from "../../api/axios";
 import { escapeHtml, printWithTemplate } from "../../utils/printTemplate";
 import "../../styles/Products.css";
+import "../../styles/Procurement.css";
 
 const DESTINATION_META = {
   STOCK: {
@@ -371,83 +372,87 @@ export default function ReturnInventory() {
               No products returned to this destination yet.
             </div>
           ) : (
-            <div className="table-wrap">
-              <table className="products-table">
-                <thead>
-                  <tr>
-                    <th>Product ID</th>
-                    <th>Product Name</th>
-                    <th>Category</th>
-                    <th>Brand</th>
-                    <th>Unit</th>
-                    <th>Price</th>
-                    <th>Returned Qty</th>
-                    {selectedDestination === 'SUPPLIER' && <th>Supplier</th>}
-                    <th>Return Reasons</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {currentDestinationDetails.items.map((item) => {
-                    const fullProd = products.find((p) => p.product_id === item.product_id);
-                    return (
-                      <tr key={item.product_id}>
-                        <td><span className="id-badge">#{item.product_id}</span></td>
-                        <td className="name-cell">{item.product_name}</td>
-                        <td>{fullProd ? (categoryMap.get(Number(fullProd.category_id)) || "—") : "—"}</td>
-                        <td>{fullProd ? (brandMap.get(Number(fullProd.brand_id)) || "—") : "—"}</td>
-                        <td>{fullProd ? (unitMap.get(Number(fullProd.unit_id)) || "—") : "—"}</td>
-                        <td className="price-cell">
-                          {fullProd ? `Rs. ${Number(fullProd.unit_price || 0).toFixed(2)}` : "—"}
-                        </td>
-                        <td style={{ fontWeight: "bold" }}>{item.quantity}</td>
-                        {selectedDestination === 'SUPPLIER' && (
-                          <td>
-                            {item.supplier_ids && item.supplier_ids.length > 0 ? (
-                              <div className="supplier-tags">
-                                {item.supplier_ids.map(sid => (
-                                  <span key={sid} className="supplier-tag">
-                                    <span className="supplier-tag-id">#{sid}</span>
-                                    <span className="supplier-tag-name">
-                                      {supplierMap.get(sid) || `Supplier #${sid}`}
-                                    </span>
-                                  </span>
-                                ))}
-                              </div>
-                            ) : "—"}
+            <div className="proc-card">
+              <div className="proc-table-wrap">
+                <table className="proc-table">
+                  <thead>
+                    <tr>
+                      <th>Product ID</th>
+                      <th>Product Name</th>
+                      <th>Category</th>
+                      <th>Brand</th>
+                      <th>Unit</th>
+                      <th>Price</th>
+                      <th>Returned Qty</th>
+                      {selectedDestination === 'SUPPLIER' && <th>Supplier</th>}
+                      <th>Return Reasons</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentDestinationDetails.items.map((item) => {
+                      const fullProd = products.find((p) => p.product_id === item.product_id);
+                      return (
+                        <tr key={item.product_id}>
+                          <td><span className="proc-code-badge">#{item.product_id}</span></td>
+                          <td className="proc-name-cell">{item.product_name}</td>
+                          <td>{fullProd ? (categoryMap.get(Number(fullProd.category_id)) || "—") : "—"}</td>
+                          <td>{fullProd ? (brandMap.get(Number(fullProd.brand_id)) || "—") : "—"}</td>
+                          <td>{fullProd ? (unitMap.get(Number(fullProd.unit_id)) || "—") : "—"}</td>
+                          <td className="proc-amount">
+                            {fullProd ? `Rs. ${Number(fullProd.unit_price || 0).toFixed(2)}` : "—"}
                           </td>
-                        )}
-                        <td>
-                          <div className="reasons-list">
-                            {item.reasons.map((r, idx) => (
-                              <span key={idx} className="reason-tag">{r}</span>
-                            ))}
-                          </div>
-                        </td>
-                        <td>
-                          <button
-                            className="icon-btn view"
-                            title="View Product Details"
-                            onClick={() => {
-                              if (fullProd) {
-                                setViewProduct(fullProd);
-                              } else {
-                                setViewProduct({
-                                  product_id: item.product_id,
-                                  product_name: item.product_name,
-                                  status: "deleted"
-                                });
-                              }
-                            }}
-                          >
-                            <Eye size={15} />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          <td style={{ fontWeight: "bold" }}>{item.quantity}</td>
+                          {selectedDestination === 'SUPPLIER' && (
+                            <td>
+                              {item.supplier_ids && item.supplier_ids.length > 0 ? (
+                                <div className="supplier-tags">
+                                  {item.supplier_ids.map(sid => (
+                                    <span key={sid} className="supplier-tag">
+                                      <span className="supplier-tag-id">#{sid}</span>
+                                      <span className="supplier-tag-name">
+                                        {supplierMap.get(sid) || `Supplier #${sid}`}
+                                      </span>
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : "—"}
+                            </td>
+                          )}
+                          <td>
+                            <div className="reasons-list">
+                              {item.reasons.map((r, idx) => (
+                                <span key={idx} className="reason-tag">{r}</span>
+                              ))}
+                            </div>
+                          </td>
+                          <td>
+                            <div className="proc-action-btns">
+                              <button
+                                className="proc-icon-btn view"
+                                title="View Product Details"
+                                onClick={() => {
+                                  if (fullProd) {
+                                    setViewProduct(fullProd);
+                                  } else {
+                                    setViewProduct({
+                                      product_id: item.product_id,
+                                      product_name: item.product_name,
+                                      status: "deleted"
+                                    });
+                                  }
+                                }}
+                              >
+                                <Eye size={15} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>

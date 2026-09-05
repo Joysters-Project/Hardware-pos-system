@@ -689,3 +689,218 @@
   .kpi-row  { grid-template-columns: 1fr; }
   .header-buttons { flex-direction: column; width: 100%; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   UNIVERSAL UTILITY EXTENSIONS — used by all app pages
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Pagination ── */
+.proc-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 1rem 0 0.25rem;
+  flex-wrap: wrap;
+}
+.proc-pagination button {
+  min-width: 34px; height: 34px;
+  border-radius: 7px;
+  border: 1.5px solid #e6d8d8;
+  background: #fff;
+  color: #555;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s;
+  padding: 0 8px;
+}
+.proc-pagination button:hover:not(:disabled) { border-color: #8b3a3a; color: #8b3a3a; background: #fdf6f6; }
+.proc-pagination button.active  { background: #8b3a3a; color: #fff; border-color: #8b3a3a; }
+.proc-pagination button:disabled { opacity: 0.38; cursor: not-allowed; }
+.proc-pagination-info {
+  font-size: 0.82rem; color: #888; font-weight: 500;
+  padding: 0 0.5rem; white-space: nowrap;
+}
+
+/* ── Filters Row ── */
+.proc-filters-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  background: linear-gradient(135deg, #fff 0%, #fffaf9 100%);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  border: 1px solid #efe2e2;
+  box-shadow: 0 4px 12px rgba(139,58,58,0.04);
+}
+.proc-date-input {
+  padding: 0.6rem 0.85rem;
+  border: 1.5px solid #e6d8d8;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  color: #2c2c2c;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-family: inherit;
+}
+.proc-date-input:focus { outline: none; border-color: #8b3a3a; box-shadow: 0 0 0 3px rgba(139,58,58,0.08); }
+
+/* ── Large Modal variant ── */
+.proc-modal-lg { max-width: 680px; }
+.proc-modal-xl { max-width: 860px; }
+
+/* ── View Detail Grid (info rows in modals/detail pages) ── */
+.proc-view-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0.5rem 0;
+}
+.proc-view-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid #f5f0f0;
+}
+.proc-view-row:last-child { border-bottom: none; }
+.proc-view-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  min-width: 110px;
+  flex-shrink: 0;
+}
+.proc-view-value {
+  font-size: 0.88rem;
+  color: #2c2c2c;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+/* ── Clear/Reset button ── */
+.proc-btn-clear {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: transparent; color: #888; border: 1.5px solid #ddd;
+  border-radius: 8px; padding: 0.55rem 0.85rem;
+  font-weight: 600; font-size: 0.82rem; cursor: pointer; transition: all 0.18s;
+}
+.proc-btn-clear:hover { border-color: #c62828; color: #c62828; background: #fdecea; }
+
+/* ── Page-level loading state ── */
+.proc-page-loading {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 300px; color: #bbb; font-size: 0.95rem; gap: 8px;
+}
+
+/* ── Inner section heading ── */
+.proc-section-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  color: #8b3a3a;
+  padding: 0.65rem 0 0.4rem;
+  border-bottom: 2px solid #f5ecec;
+  margin-bottom: 0.75rem;
+}
+
+/* ── Header icon badge ── */
+.proc-header-icon {
+  width: 46px; height: 46px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #8b3a3a, #a84545);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 14px rgba(139,58,58,0.28);
+  flex-shrink: 0;
+}
+
+/* ── Summary count badge (e.g. "142 records") ── */
+.proc-count-badge {
+  background: #f5eaea;
+  color: #8b3a3a;
+  border-radius: 8px;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ── Refresh icon button ── */
+.proc-refresh-btn {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  border: 1.5px solid #e0e0e0;
+  background: #fff;
+  color: #666;
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: all 0.18s;
+}
+.proc-refresh-btn:hover { border-color: #8b3a3a; color: #8b3a3a; }
+.proc-refresh-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Export/Print icon button ── */
+.proc-export-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: transparent; color: #1565c0; border: 1.5px solid #1565c0;
+  border-radius: 8px; padding: 0.55rem 0.9rem;
+  font-weight: 600; font-size: 0.82rem; cursor: pointer; transition: all 0.2s;
+  white-space: nowrap;
+}
+.proc-export-btn:hover { background: #1565c0; color: #fff; }
+
+/* ── Color-coded action pill (for audit/activity type labels) ── */
+.proc-action-pill {
+  display: inline-flex; align-items: center;
+  padding: 0.2rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.15px;
+  white-space: nowrap;
+}
+
+/* ── Monospace/code cell ── */
+.proc-mono {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.82rem;
+  color: #555;
+}
+
+/* ── Ellipsis truncation for long text cells ── */
+.proc-cell-clamp {
+  max-width: 260px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Summary strip (KPI pills in header area) ── */
+.proc-kpi-strip {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  margin-top: 0.35rem;
+}
+.proc-kpi-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  border-radius: 999px; padding: 0.32rem 0.7rem;
+  font-size: 0.76rem; font-weight: 700;
+  border: 1px solid #efe2e2;
+  background: #fff; color: #555;
+}
+
+/* ── Spin util for refresh icons ── */
+@keyframes proc-page-spin { to { transform: rotate(360deg); } }
+.proc-spin-fast { animation: proc-page-spin 0.6s linear infinite; }
+

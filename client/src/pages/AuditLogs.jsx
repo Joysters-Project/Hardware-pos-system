@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import api from '../utils/axios';
 import AdminDashboard from './AdminDashboard';
 import { useAuth } from '../context/AuthContext';
-import '../styles/AuditLog.css';
+import '../styles/Procurement.css';
 
 const ACTION_COLORS = {
   LOGIN:                 { bg: '#e8f5e9', color: '#2e7d32' },
@@ -116,170 +116,167 @@ function AuditLogPage() {
   };
 
   return (
-    <div className="audit-container">
+    <div className="proc-container">
       {/* Header */}
-      <div className="audit-header">
-        <div className="audit-header-left">
-          <div className="audit-header-icon"><ShieldAlert size={20} /></div>
+      <div className="proc-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+          <div className="proc-header-icon"><ShieldAlert size={20} /></div>
           <div>
             <h1>Audit Logs</h1>
             <p>Track all system activity and user actions</p>
           </div>
         </div>
-        <div className="audit-header-actions">
-          <span className="audit-total-badge">{total.toLocaleString()} records</span>
-          <button className="audit-refresh-btn" onClick={load} disabled={loading}>
-            <RefreshCw size={14} className={loading ? 'spin' : ''} />
+        <div className="proc-header-actions">
+          <span className="proc-count-badge">{total.toLocaleString()} records</span>
+          <button className="proc-refresh-btn" onClick={load} disabled={loading}>
+            <RefreshCw size={14} className={loading ? 'proc-spin-fast' : ''} />
           </button>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="audit-filters">
-        <div className="audit-search-wrap">
-          <Search size={14} className="audit-search-icon" />
-          <input id="search" name="search" className="audit-search" placeholder="Search by username..."
+      <div className="proc-filters-row">
+        <div className="proc-search-wrap">
+          <input id="search" name="search" className="proc-search" placeholder="Search by username..."
             value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
-        <select id="action" name="action" className="audit-select" value={action} onChange={e => { setAction(e.target.value); setPage(1); }}>
+        <select id="action" name="action" className="proc-select" value={action} onChange={e => { setAction(e.target.value); setPage(1); }}>
           <option value="">All Actions</option>
           {actions.map(a => <option key={a} value={a}>{a}</option>)}
         </select>
-        <input id="from" name="from" type="date" className="audit-select" value={from} onChange={e => { setFrom(e.target.value); setPage(1); }} title="From date" />
-        <input id="to" name="to" type="date" className="audit-select" value={to}   onChange={e => { setTo(e.target.value);   setPage(1); }} title="To date" />
+        <input id="from" name="from" type="date" className="proc-date-input" value={from} onChange={e => { setFrom(e.target.value); setPage(1); }} title="From date" />
+        <input id="to"   name="to"   type="date" className="proc-date-input" value={to}   onChange={e => { setTo(e.target.value);   setPage(1); }} title="To date" />
         {(search || action || from || to) && (
-          <button className="audit-clear-btn" onClick={resetFilters}>Clear</button>
+          <button className="proc-btn-clear" onClick={resetFilters}>Clear</button>
         )}
       </div>
 
       {/* Table */}
-      <div className="audit-table-wrap">
-        <table className="audit-table">
-          <thead>
-            <tr>
-              <th style={{ width: '50px' }}>#</th>
-              <th style={{ width: '140px' }}>Time</th>
-              <th style={{ width: '90px' }}>User</th>
-              <th style={{ width: '70px' }}>Role</th>
-              <th style={{ width: '150px' }}>Action</th>
-              <th>Details</th>
-              <th style={{ width: '80px' }}>IP Address</th>
-              <th style={{ width: '50px', textAlign: 'center' }}>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan="8" className="audit-empty">Loading...</td></tr>
-            ) : logs.length === 0 ? (
-              <tr><td colSpan="8" className="audit-empty">No audit logs found</td></tr>
-            ) : logs.map(log => {
-              const style = getActionStyle(log.action);
+      <div className="proc-card">
+        <div className="proc-table-wrap">
+          <table className="proc-table">
+            <thead>
+              <tr>
+                <th style={{ width: '50px' }}>#</th>
+                <th style={{ width: '140px' }}>Time</th>
+                <th style={{ width: '100px' }}>User</th>
+                <th style={{ width: '75px' }}>Role</th>
+                <th style={{ width: '160px' }}>Action</th>
+                <th>Details</th>
+                <th style={{ width: '90px' }}>IP Address</th>
+                <th style={{ width: '50px', textAlign: 'center' }}>View</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan="8" className="proc-empty">Loading...</td></tr>
+              ) : logs.length === 0 ? (
+                <tr><td colSpan="8" className="proc-empty">No audit logs found</td></tr>
+              ) : logs.map(log => {
+                const style = getActionStyle(log.action);
+                return (
+                  <tr key={log.log_id}>
+                    <td><span className="proc-code-badge">#{log.log_id}</span></td>
+                    <td className="proc-mono" style={{ fontSize: '0.82rem' }}>{formatTime(log.time)}</td>
+                    <td><span className="proc-name-cell" style={{ fontSize: '0.85rem' }}>{getUserName(log)}</span></td>
+                    <td>
+                      <span className="proc-status-pill pending" style={{ fontSize: '0.72rem' }}>{log.role || '—'}</span>
+                    </td>
+                    <td>
+                      <span className="proc-action-pill" style={{ background: style.bg, color: style.color }}>
+                        {log.action}
+                      </span>
+                    </td>
+                    <td className="proc-cell-clamp" title={log.details} style={{ fontSize: '0.82rem', color: '#555' }}>
+                      {log.details || '—'}
+                    </td>
+                    <td className="proc-mono">{log.ip_address || '—'}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <button className="proc-icon-btn view" title="View details" onClick={() => setSelectedLog(log)}>
+                        <Eye size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {pages > 1 && (
+          <div className="proc-pagination">
+            <button disabled={page === 1} onClick={() => setPage(p => p - 1)}>
+              <ChevronLeft size={15} />
+            </button>
+            <span className="proc-pagination-info">Page {page} of {pages}</span>
+            {Array.from({ length: Math.min(pages, 7) }, (_, i) => {
+              const p = page <= 4 ? i + 1 : page - 3 + i;
+              if (p < 1 || p > pages) return null;
               return (
-                <tr key={log.log_id}>
-                  <td><span className="audit-id-badge">#{log.log_id}</span></td>
-                  <td className="audit-time-cell">{formatTime(log.time)}</td>
-                  <td className="audit-user-cell">
-                    <span className="audit-username">{getUserName(log)}</span>
-                  </td>
-                  <td>
-                    <span className="audit-role-pill">{log.role || '—'}</span>
-                  </td>
-                  <td>
-                    <span className="audit-action-pill" style={{ background: style.bg, color: style.color }}>
-                      {log.action}
-                    </span>
-                  </td>
-                  <td className="audit-details-cell" title={log.details}>{log.details || '—'}</td>
-                  <td className="audit-ip-cell">{log.ip_address || '—'}</td>
-                  <td style={{ textAlign: 'center' }}>
-                    <button className="audit-view-btn" title="View details" onClick={() => setSelectedLog(log)}>
-                      <Eye size={15} />
-                    </button>
-                  </td>
-                </tr>
+                <button key={p} className={page === p ? 'active' : ''} onClick={() => setPage(p)}>{p}</button>
               );
             })}
-          </tbody>
-        </table>
+            <button disabled={page === pages} onClick={() => setPage(p => p + 1)}>
+              <ChevronRight size={15} />
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Pagination */}
-      {pages > 1 && (
-        <div className="audit-pagination">
-          <button disabled={page === 1} onClick={() => setPage(p => p - 1)}>
-            <ChevronLeft size={15} />
-          </button>
-          <span className="audit-page-info">Page {page} of {pages}</span>
-          {Array.from({ length: Math.min(pages, 7) }, (_, i) => {
-            const p = page <= 4 ? i + 1 : page - 3 + i;
-            if (p < 1 || p > pages) return null;
-            return (
-              <button key={p} className={page === p ? 'active' : ''} onClick={() => setPage(p)}>{p}</button>
-            );
-          })}
-          <button disabled={page === pages} onClick={() => setPage(p => p + 1)}>
-            <ChevronRight size={15} />
-          </button>
-        </div>
-      )}
-
-      {/* Action Details Modal Portal — Covers & blurs full viewport */}
+      {/* Action Details Modal Portal */}
       {selectedLog && createPortal(
-        <div className="audit-modal-overlay" onClick={() => setSelectedLog(null)}>
-          <div className="audit-modal" onClick={e => e.stopPropagation()}>
-            <div className="audit-modal-header">
-              <div className="audit-modal-header-title">
-                <ShieldAlert size={20} />
-                <h3>Audit Log Entry #{selectedLog.log_id}</h3>
-              </div>
-              <button className="audit-modal-close" title="Close" onClick={() => setSelectedLog(null)}>
+        <div className="proc-modal-overlay" onClick={() => setSelectedLog(null)}>
+          <div className="proc-modal proc-modal-lg" onClick={e => e.stopPropagation()}>
+            <div className="proc-modal-header">
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#8b3a3a' }}>
+                <ShieldAlert size={18} />
+                Audit Log Entry #{selectedLog.log_id}
+              </h2>
+              <button className="proc-modal-close" title="Close" onClick={() => setSelectedLog(null)}>
                 <X size={18} />
               </button>
             </div>
-            
-            <div className="audit-modal-body">
-              <div className="audit-modal-grid">
-                <div className="audit-modal-item">
-                  <div className="audit-modal-item-label"><Clock size={13} /> Time</div>
-                  <div className="audit-modal-item-val">{formatTime(selectedLog.time)}</div>
-                </div>
-                <div className="audit-modal-item">
-                  <div className="audit-modal-item-label"><User size={13} /> User</div>
-                  <div className="audit-modal-item-val audit-username">{getUserName(selectedLog)}</div>
-                </div>
-                <div className="audit-modal-item">
-                  <div className="audit-modal-item-label"><Shield size={13} /> Role</div>
-                  <div className="audit-modal-item-val">
-                    <span className="audit-role-pill">{selectedLog.role || '—'}</span>
-                  </div>
-                </div>
-                <div className="audit-modal-item">
-                  <div className="audit-modal-item-label"><Activity size={13} /> Action</div>
-                  <div className="audit-modal-item-val">
-                    <span className="audit-action-pill" style={getActionStyle(selectedLog.action)}>
+
+            <div className="proc-modal-body">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
+                {[
+                  { icon: <Clock size={13} />, label: 'Time',  val: formatTime(selectedLog.time) },
+                  { icon: <User size={13} />,  label: 'User',  val: getUserName(selectedLog) },
+                  { icon: <Shield size={13} />, label: 'Role', val: <span className="proc-status-pill pending">{selectedLog.role || '—'}</span> },
+                  { icon: <Activity size={13} />, label: 'Action', val: (
+                    <span className="proc-action-pill" style={getActionStyle(selectedLog.action)}>
                       {selectedLog.action}
                     </span>
+                  )},
+                ].map(({ icon, label, val }) => (
+                  <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                      {icon} {label}
+                    </div>
+                    <div style={{ fontSize: '0.875rem', color: '#2c2c2c', fontWeight: 500 }}>{val}</div>
                   </div>
-                </div>
-                <div className="audit-modal-item full-width">
-                  <div className="audit-modal-item-label"><Globe size={13} /> IP Address</div>
-                  <div className="audit-modal-item-val audit-ip-code">{selectedLog.ip_address || '—'}</div>
+                ))}
+                <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                    <Globe size={13} /> IP Address
+                  </div>
+                  <div className="proc-mono" style={{ fontSize: '0.875rem' }}>{selectedLog.ip_address || '—'}</div>
                 </div>
               </div>
 
-              <div className="audit-modal-details-box">
-                <div className="audit-modal-details-header">
-                  <FileText size={14} />
-                  <span>Action Details</span>
+              <div style={{ background: '#fafafa', borderRadius: 8, padding: '0.85rem 1rem', border: '1px solid #f0f0f0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 700, color: '#8b3a3a', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                  <FileText size={13} /> Action Details
                 </div>
-                <p>{selectedLog.details || 'No additional details provided.'}</p>
+                <p style={{ margin: 0, fontSize: '0.875rem', color: '#555', lineHeight: 1.5 }}>
+                  {selectedLog.details || 'No additional details provided.'}
+                </p>
               </div>
             </div>
 
-            <div className="audit-modal-footer">
-              <button className="audit-modal-close-btn" onClick={() => setSelectedLog(null)}>
-                Close
-              </button>
+            <div className="proc-modal-footer">
+              <button className="proc-btn-outline" onClick={() => setSelectedLog(null)}>Close</button>
             </div>
           </div>
         </div>,

@@ -10,6 +10,7 @@ import DashboardLayout from "../components/DashboardLayout";
 import { useAuth } from "../context/AuthContext";
 import LogoutConfirmModal from "../components/LogoutConfirmModal";
 import "../styles/MyProfile.css";
+import "../styles/Procurement.css";
 
 const BASE_URL = import.meta.env.VITE_API_URL;
 const SL_PHONE  = /^(?:\+94|0)?7(?:0|1|2|4|5|6|7|8)\d{7}$/;
@@ -416,9 +417,16 @@ export default function MyProfile() {
       <div className="pf-page">
 
         {/* ── Top header ── */}
-        <div className="pf-header">
-          <h1>Account Overview</h1>
-          <p>Manage your profile, contact details and password.</p>
+        <div className="proc-header" style={{ marginBottom: "1.5rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+            <div className="proc-header-icon"><ShieldCheck size={22} /></div>
+            <div>
+              <h1 style={{ margin: 0 }}>Account Overview</h1>
+              <p style={{ margin: 0, color: "var(--proc-text-muted, #666)", fontSize: "0.85rem" }}>
+                Manage your profile, contact details and password
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* ── Main overview card (hidden when a panel is open) ── */}

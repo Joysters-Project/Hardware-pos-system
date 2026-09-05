@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, CreditCard, Receipt, FolderOpen } from "lucide-react";
+import { Search, CreditCard, Receipt, FolderOpen, Wallet } from "lucide-react";
 import api from "../api/axios";
 import toast from "react-hot-toast";
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from "../utils/phoneValidation";
 import SuccessAnim from "./SuccessAnim";
 import DashboardLayout from "./DashboardLayout";
 import "../styles/DueCollection.css";
+import "../styles/Procurement.css";
 
 const DueCollection = () => {
   const navigate = useNavigate();
@@ -276,68 +277,71 @@ const DueCollection = () => {
           </div>
         )}
 
-        <div className="card-title">Outstanding bills</div>
-        <div className="bills-table-container">
-          {bills.length === 0 ? (
-            <p style={{ color: "#aaa", padding: "20px 0" }}>No outstanding bills found.</p>
-          ) : (
-            <table className="bills-table">
-              <thead>
-                <tr>
-                  <th style={{ width: 40 }}>
-                    <input id="checkbox_field" name="checkbox_field"
-                      type="checkbox"
-                      checked={selectedBills.length === bills.length && bills.length > 0}
-                      onChange={(event) => {
-                        if (event.target.checked) {
-                          setSelectedBills(bills);
-                          setSelectedBill(null);
-                          setPaymentHistory([]);
-                          const total = bills.reduce((acc, bill) => acc + parseFloat(bill.balance_due || 0), 0);
-                          setAmountInput(total.toFixed(2));
-                        } else {
-                          setSelectedBills([]);
-                          setSelectedBill(null);
-                          setPaymentHistory([]);
-                          setAmountInput("");
-                        }
-                      }}
-                    />
-                  </th>
-                  <th>Bill No.</th>
-                  <th>Date</th>
-                  <th>Total</th>
-                  <th>Balance Due</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bills.map((bill) => {
-                  const isSelected = !!selectedBills.find((selected) => selected.bill_id === bill.bill_id);
-                  return (
-                    <tr
-                      key={bill.bill_id}
-                      className={isSelected ? "selected" : ""}
-                      onClick={() => handleSelectBill(bill)}
-                    >
-                      <td>
-                        <input id="checkbox_field" name="checkbox_field" type="checkbox" checked={isSelected} readOnly />
-                      </td>
-                      <td>
-                        <span style={{ fontWeight: "bold", color: "#333" }}>{bill.bill_no}</span>
-                      </td>
-                      <td>{formatDate(bill.bill_date)}</td>
-                      <td><strong>Rs.</strong> {parseFloat(bill.total_amount).toFixed(2)}</td>
-                      <td className="val-red" style={{ fontWeight: "bold" }}><strong>Rs.</strong> {parseFloat(bill.balance_due).toFixed(2)}</td>
-                      <td>
-                        <span className="badge-partial">Partial</span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
+        <div className="card-title" style={{ marginTop: "1rem", marginBottom: "0.5rem" }}>Outstanding bills</div>
+        <div className="proc-card">
+          <div className="proc-table-wrap">
+            {bills.length === 0 ? (
+              <p className="proc-empty">No outstanding bills found.</p>
+            ) : (
+              <table className="proc-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 40 }}>
+                      <input id="checkbox_field" name="checkbox_field"
+                        type="checkbox"
+                        checked={selectedBills.length === bills.length && bills.length > 0}
+                        onChange={(event) => {
+                          if (event.target.checked) {
+                            setSelectedBills(bills);
+                            setSelectedBill(null);
+                            setPaymentHistory([]);
+                            const total = bills.reduce((acc, bill) => acc + parseFloat(bill.balance_due || 0), 0);
+                            setAmountInput(total.toFixed(2));
+                          } else {
+                            setSelectedBills([]);
+                            setSelectedBill(null);
+                            setPaymentHistory([]);
+                            setAmountInput("");
+                          }
+                        }}
+                      />
+                    </th>
+                    <th>Bill No.</th>
+                    <th>Date</th>
+                    <th>Total</th>
+                    <th>Balance Due</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bills.map((bill) => {
+                    const isSelected = !!selectedBills.find((selected) => selected.bill_id === bill.bill_id);
+                    return (
+                      <tr
+                        key={bill.bill_id}
+                        className={isSelected ? "selected" : ""}
+                        onClick={() => handleSelectBill(bill)}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <td>
+                          <input id="checkbox_field" name="checkbox_field" type="checkbox" checked={isSelected} readOnly />
+                        </td>
+                        <td>
+                          <span className="proc-code-badge">{bill.bill_no}</span>
+                        </td>
+                        <td>{formatDate(bill.bill_date)}</td>
+                        <td><strong>Rs.</strong> {parseFloat(bill.total_amount).toFixed(2)}</td>
+                        <td className="proc-amount" style={{ color: "#c62828" }}>Rs. {parseFloat(bill.balance_due).toFixed(2)}</td>
+                        <td>
+                          <span className="proc-status-pill pending">Partial</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
 
         {selectedBill && paymentHistory.length > 0 && (
@@ -477,86 +481,90 @@ const DueCollection = () => {
           </div>
         </div>
 
-        <div className="card-title">Due breakdown</div>
-        <div className="bills-table-container">
-          {!dueCheckCustomer ? (
-            <p style={{ color: "#aaa", padding: "20px 0" }}>Search a customer to review their outstanding balance.</p>
-          ) : dueCheckBills.length === 0 ? (
-            <p style={{ color: "#aaa", padding: "20px 0" }}>No outstanding bills found for this customer.</p>
-          ) : (
-            <table className="bills-table">
-              <thead>
-                <tr>
-                  <th>Bill No.</th>
-                  <th>Date</th>
-                  <th>Total</th>
-                  <th>Paid</th>
-                  <th>Balance Due</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dueCheckBills.map((bill) => {
-                  const isExpanded = expandedBillId === bill.bill_id;
-                  return (
-                    <React.Fragment key={bill.bill_id}>
-                      <tr>
-                        <td><strong>{bill.bill_no}</strong></td>
-                        <td>{formatDate(bill.bill_date)}</td>
-                        <td><strong>Rs.</strong> {parseFloat(bill.total_amount || 0).toFixed(2)}</td>
-                        <td><strong>Rs.</strong> {paidAmount(bill).toFixed(2)}</td>
-                        <td className="val-red" style={{ fontWeight: "bold" }}><strong>Rs.</strong> {parseFloat(bill.balance_due || 0).toFixed(2)}</td>
-                        <td>
-                          <div className="due-status-cell">
-                            <span className="badge-partial">Partial</span>
-                            <button
-                              type="button"
-                              className="due-details-toggle"
-                              onClick={() => setExpandedBillId(isExpanded ? null : bill.bill_id)}
-                              aria-label={`Show product details for ${bill.bill_no}`}
-                            >
-                              {isExpanded ? "▾" : "▸"}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                      {isExpanded && (
-                        <tr className="due-details-row">
-                          <td colSpan="6">
-                            <div className="due-product-details">
-                              <div className="due-product-details-header">Product details</div>
-                              {(bill.bill_items || []).length > 0 ? (
-                                <table className="due-product-table">
-                                  <thead>
-                                    <tr>
-                                      <th>Product</th>
-                                      <th>Quantity</th>
-                                      <th>Price (Rs)</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {bill.bill_items.map((item) => (
-                                      <tr key={item.bill_item_id || `${item.product_id}-${item.product_name}`}>
-                                        <td>{item.product?.product_name || item.product_name || "Product"}</td>
-                                        <td>{item.qty || item.quantity || 0}</td>
-                                        <td>{parseFloat(item.price_per_unit ?? item.unit_price ?? item.price ?? 0).toFixed(2)}</td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              ) : (
-                                <p className="due-empty-state">No product details available for this bill.</p>
-                              )}
+        <div className="card-title" style={{ marginTop: "1rem", marginBottom: "0.5rem" }}>Due breakdown</div>
+        <div className="proc-card">
+          <div className="proc-table-wrap">
+            {!dueCheckCustomer ? (
+              <p className="proc-empty">Search a customer to review their outstanding balance.</p>
+            ) : dueCheckBills.length === 0 ? (
+              <p className="proc-empty">No outstanding bills found for this customer.</p>
+            ) : (
+              <table className="proc-table">
+                <thead>
+                  <tr>
+                    <th>Bill No.</th>
+                    <th>Date</th>
+                    <th>Total</th>
+                    <th>Paid</th>
+                    <th>Balance Due</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dueCheckBills.map((bill) => {
+                    const isExpanded = expandedBillId === bill.bill_id;
+                    return (
+                      <React.Fragment key={bill.bill_id}>
+                        <tr>
+                          <td><span className="proc-code-badge">{bill.bill_no}</span></td>
+                          <td>{formatDate(bill.bill_date)}</td>
+                          <td><strong>Rs.</strong> {parseFloat(bill.total_amount || 0).toFixed(2)}</td>
+                          <td><strong>Rs.</strong> {paidAmount(bill).toFixed(2)}</td>
+                          <td className="proc-amount" style={{ color: "#c62828" }}>Rs. {parseFloat(bill.balance_due || 0).toFixed(2)}</td>
+                          <td>
+                            <div className="due-status-cell">
+                              <span className="proc-status-pill pending">Partial</span>
+                              <button
+                                type="button"
+                                className="due-details-toggle"
+                                onClick={() => setExpandedBillId(isExpanded ? null : bill.bill_id)}
+                                aria-label={`Show product details for ${bill.bill_no}`}
+                              >
+                                {isExpanded ? "▾" : "▸"}
+                              </button>
                             </div>
                           </td>
                         </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
+                        {isExpanded && (
+                          <tr className="due-details-row">
+                            <td colSpan="6">
+                              <div className="due-product-details">
+                                <div className="due-product-details-header">Product details</div>
+                                {(bill.bill_items || []).length > 0 ? (
+                                  <div className="proc-table-wrap">
+                                    <table className="proc-table">
+                                      <thead>
+                                        <tr>
+                                          <th>Product</th>
+                                          <th>Quantity</th>
+                                          <th>Price (Rs)</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {bill.bill_items.map((item) => (
+                                          <tr key={item.bill_item_id || `${item.product_id}-${item.product_name}`}>
+                                            <td>{item.product?.product_name || item.product_name || "Product"}</td>
+                                            <td>{item.qty || item.quantity || 0}</td>
+                                            <td>{parseFloat(item.price_per_unit ?? item.unit_price ?? item.price ?? 0).toFixed(2)}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                ) : (
+                                  <p className="due-empty-state">No product details available for this bill.</p>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       </div>
 
@@ -593,12 +601,17 @@ const DueCollection = () => {
   return (
     <DashboardLayout active="due-collection">
       <div className="cashier-page-shell">
-        <div className="admin-page-header">
-        <div>
-           <h1 className="admin-page-title">💼 Due Management</h1>
-          <p className="admin-page-subtitle">Track dues and collect outstanding balances with a clear customer view</p>
+        <div className="proc-header" style={{ marginBottom: "1.25rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+            <div className="proc-header-icon"><Wallet size={22} /></div>
+            <div>
+              <h1 style={{ margin: 0 }}>Due Management</h1>
+              <p style={{ margin: 0, color: "var(--proc-text-muted, #666)", fontSize: "0.85rem" }}>
+                Track dues and collect outstanding balances with a clear customer view
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
 
       <div className="pos-tab-switcher due-tab-switcher">
         <div className="due-tabs-group">

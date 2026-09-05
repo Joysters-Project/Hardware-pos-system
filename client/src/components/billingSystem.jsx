@@ -18,6 +18,7 @@ import DashboardLayout from './DashboardLayout';
 import ProjectsTab from './ProjectsTab';
 import toast from 'react-hot-toast';
 import '../styles/BillingSystem.css';
+import '../styles/Procurement.css';
 
 const BillingSystem = () => {
   const location = useLocation();
@@ -854,27 +855,27 @@ const BillingSystem = () => {
   return (
     <DashboardLayout active="billing">
       {/* Modern Page Header */}
-      <div className="admin-page-header-modern">
-        <div className="header-left">
-          <div className="header-icon-wrapper">
+      <div className="proc-header" style={{ marginBottom: "1rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+          <div className="proc-header-icon">
             {activePosTab === 'billing' ? (
-              <CreditCard size={24} className="header-icon" />
+              <CreditCard size={22} />
             ) : (
-              <FolderOpen size={24} className="header-icon" />
+              <FolderOpen size={22} />
             )}
           </div>
           <div>
-            <h1 className="admin-page-title-modern">
+            <h1 style={{ margin: 0 }}>
               {activePosTab === 'billing' ? 'Billing Counter' : 'Project Billing Counter'}
             </h1>
-            <p className="admin-page-subtitle-modern">
+            <p style={{ margin: 0, color: "var(--proc-text-muted, #666)", fontSize: "0.85rem" }}>
               {activePosTab === 'billing'
                 ? 'Process sales, manage cart & complete transactions'
                 : 'Select project, issue items, & track project transactions'}
             </p>
           </div>
         </div>
-        <div className="header-right">
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
           <div className="cashier-badge">
             <User size={14} />
             <span>{cashierName}</span>

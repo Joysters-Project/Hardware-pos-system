@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { Package, CreditCard } from "lucide-react";
+import { Package, CreditCard, Search } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { createPortal } from "react-dom";
@@ -55,29 +55,31 @@ function DisposeModal({ target, onClose, onConfirm, disposing }) {
   const invalid = qty < 1 || qty > available;
 
   return (
-    <div className="dispose-overlay" onClick={onClose}>
-      <div className="dispose-modal" onClick={e => e.stopPropagation()}>
-        <div className="dispose-modal-header">
-          <span>🗑 Dispose Expired Stock</span>
-          <button className="dispose-close" onClick={onClose} disabled={disposing}>✕</button>
+    <div className="proc-modal-overlay" onClick={onClose}>
+      <div className="proc-modal" onClick={e => e.stopPropagation()}>
+        <div className="proc-modal-header">
+          <h2>🗑 Dispose Expired Stock</h2>
+          <button className="proc-modal-close" onClick={onClose} disabled={disposing}>✕</button>
         </div>
-        <div className="dispose-modal-body">
-          <div className="dispose-row">
-            <span className="dispose-label">Product</span>
-            <span className="dispose-value">{product.product_name || "—"}</span>
-          </div>
-          {product.batch_no && (
-            <div className="dispose-row">
-              <span className="dispose-label">Batch No.</span>
-              <span className="dispose-value">{product.batch_no}</span>
+        <div className="proc-modal-body">
+          <div className="proc-view-grid">
+            <div className="proc-view-row">
+              <span className="proc-view-label">Product</span>
+              <span className="proc-view-value">{product.product_name || "—"}</span>
             </div>
-          )}
-          <div className="dispose-row">
-            <span className="dispose-label">Available Qty</span>
-            <span className="dispose-value" style={{ color: "#991b1b", fontWeight: 800 }}>{available}</span>
+            {product.batch_no && (
+              <div className="proc-view-row">
+                <span className="proc-view-label">Batch No.</span>
+                <span className="proc-view-value">{product.batch_no}</span>
+              </div>
+            )}
+            <div className="proc-view-row">
+              <span className="proc-view-label">Available Qty</span>
+              <span className="proc-view-value" style={{ color: "#991b1b", fontWeight: 800 }}>{available}</span>
+            </div>
           </div>
-          <div className="dispose-row dispose-row--input">
-            <label className="dispose-label" htmlFor="dispose-qty">Dispose Qty</label>
+          <div className="proc-field" style={{ marginTop: "1rem" }}>
+            <label htmlFor="dispose-qty">Dispose Qty</label>
             <input
               id="dispose-qty"
               type="number"
@@ -85,18 +87,19 @@ function DisposeModal({ target, onClose, onConfirm, disposing }) {
               max={available}
               value={qty}
               onChange={e => setQty(Math.min(available, Math.max(1, parseInt(e.target.value) || 1)))}
-              className="dispose-qty-input"
+              className="proc-input"
               disabled={disposing}
             />
           </div>
           {invalid && (
-            <p className="dispose-error">Quantity must be between 1 and {available}.</p>
+            <p style={{ color: "#c62828", fontSize: "0.85rem", marginTop: "0.5rem" }}>Quantity must be between 1 and {available}.</p>
           )}
         </div>
-        <div className="dispose-modal-footer">
-          <button className="dispose-btn-cancel" onClick={onClose} disabled={disposing}>Cancel</button>
+        <div className="proc-modal-footer">
+          <button className="proc-btn-outline" onClick={onClose} disabled={disposing}>Cancel</button>
           <button
-            className="dispose-btn-confirm"
+            className="proc-btn-primary"
+            style={{ background: "#c62828" }}
             onClick={() => onConfirm(qty)}
             disabled={invalid || disposing}
           >
@@ -490,61 +493,63 @@ function PaymentAlertsTab() {
         })}
       </div>
 
-      <div className="alerts-table-wrap">
-        <table className="alerts-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Supplier</th>
-              <th>Cheque No.</th>
-              <th>Bank</th>
-              <th>Clearing Date</th>
-              <th>Amount</th>
-              <th>Days Remaining</th>
-              <th>Alert</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr className="loading-row"><td colSpan={9}>Loading payment alerts...</td></tr>
-            ) : filtered.length === 0 ? (
-              <tr className="empty-row"><td colSpan={9}>No payment alerts found.</td></tr>
-            ) : filtered.map((a) => {
-              const color = PAYMENT_ALERT_COLORS[a.alert_type] || "#6b7280";
-              const alertAction = resolvePaymentAlertAction(a);
-              const actionLabel = alertAction === "mark-cleared"
-                ? "Mark as Cleared"
-                : alertAction === "resolve-bounced"
-                  ? "Resolve Bounced Cheque"
-                  : alertAction === "confirm-payment"
-                    ? "Confirm Payment"
-                    : "Payment Details";
+      <div className="proc-card">
+        <div className="proc-table-wrap">
+          <table className="proc-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Supplier</th>
+                <th>Cheque No.</th>
+                <th>Bank</th>
+                <th>Clearing Date</th>
+                <th>Amount</th>
+                <th>Days Remaining</th>
+                <th>Alert</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr><td colSpan={9} className="proc-empty">Loading payment alerts...</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={9} className="proc-empty">No payment alerts found.</td></tr>
+              ) : filtered.map((a) => {
+                const color = PAYMENT_ALERT_COLORS[a.alert_type] || "#6b7280";
+                const alertAction = resolvePaymentAlertAction(a);
+                const actionLabel = alertAction === "mark-cleared"
+                  ? "Mark as Cleared"
+                  : alertAction === "resolve-bounced"
+                    ? "Resolve Bounced Cheque"
+                    : alertAction === "confirm-payment"
+                      ? "Confirm Payment"
+                      : "Payment Details";
 
-              return (
-                <tr key={a.payment_id}>
-                  <td>{a.payment_id}</td>
-                  <td style={{ fontWeight: 600 }}>{a.supplier_name}</td>
-                  <td style={{ fontWeight: 600, color }}>{a.cheque_number || "—"}</td>
-                  <td>{a.bank_name || "—"}</td>
-                  <td style={{ color: a.alert_type === "Overdue" ? "#991b1b" : "#333" }}>{fmtD(a.clearing_date)}</td>
-                  <td>{fmt(a.amount)}</td>
-                  <td>
-                    <span style={{ fontWeight: 700, color }}>{daysLabel(a)}</span>
-                  </td>
-                  <td>
-                    <span className="alert-type-pill" style={{ background: color }}>{a.alert_type}</span>
-                  </td>
-                  <td>
-                    <button className="action-btn action-btn--po" onClick={() => setPayAlert(a)}>
-                      {alertAction === "view-only" ? "💳 Payment Details" : alertAction === "confirm-payment" ? "💳 Confirm Payment" : alertAction === "resolve-bounced" ? "💳 Resolve Bounced Cheque" : "💳 Mark as Cleared"}
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                return (
+                  <tr key={a.payment_id}>
+                    <td><span className="proc-code-badge">#{a.payment_id}</span></td>
+                    <td className="proc-name-cell">{a.supplier_name}</td>
+                    <td style={{ fontWeight: 600, color }}>{a.cheque_number || "—"}</td>
+                    <td>{a.bank_name || "—"}</td>
+                    <td style={{ color: a.alert_type === "Overdue" ? "#991b1b" : "inherit" }}>{fmtD(a.clearing_date)}</td>
+                    <td className="proc-amount">{fmt(a.amount)}</td>
+                    <td>
+                      <span style={{ fontWeight: 700, color }}>{daysLabel(a)}</span>
+                    </td>
+                    <td>
+                      <span className="proc-status-pill" style={{ background: color + "18", color }}>{a.alert_type}</span>
+                    </td>
+                    <td>
+                      <button className="proc-btn-outline" style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem" }} onClick={() => setPayAlert(a)}>
+                        {alertAction === "view-only" ? "Payment Details" : alertAction === "confirm-payment" ? "Confirm Payment" : alertAction === "resolve-bounced" ? "Resolve Bounced" : "Mark Cleared"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </>
   );
@@ -717,12 +722,18 @@ function AlertCenterPage() {
           <PODetailContent poId={viewPoId} />
         </DetailModal>
       )}
-      <div className="alerts-header">
-        <div>
-          <h1>Alert Center</h1>
-          <p className="alerts-subtitle">
-            Monitor and manage inventory and payment alerts in one place.
-          </p>
+      <div className="proc-header">
+        <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+          <div className="proc-header-icon"><Package size={22} /></div>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <h1 style={{ margin: 0 }}>Alert Center</h1>
+              <span className="proc-count-badge">{counts[""] || alerts.length}</span>
+            </div>
+            <p style={{ margin: 0, color: "var(--proc-text-muted, #666)", fontSize: "0.85rem" }}>
+              Monitor and manage inventory and payment alerts in one place.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -804,165 +815,169 @@ function AlertCenterPage() {
         })}
       </div>
 
-      <div className="alerts-controls">
-        <input id="search" name="search"
-          type="search"
-          className="alerts-search"
-          placeholder="Search by product, batch or alert type"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="proc-filters-row" style={{ marginTop: "1rem" }}>
+        <div className="proc-search-wrap" style={{ maxWidth: "420px" }}>
+          <Search size={14} className="proc-search-icon" />
+          <input id="search" name="search"
+            type="search"
+            className="proc-search"
+            placeholder="Search by product, batch or alert type..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
       </div>
 
-      <div className="alerts-table-wrap">
-        <table className="alerts-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Product</th>
-              <th>Alert Type</th>
-              <th>Current Stock</th>
-              <th>Min Stock</th>
-              <th>Reorder Level</th>
-              <th>Batch</th>
-              <th>Expiry Date</th>
-              <th>Days Remaining</th>
-              <th>Status</th>
-              {!isCashier && <th>Actions</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr className="loading-row">
-                <td colSpan={isCashier ? 10 : 11}>Loading alerts...</td>
+      <div className="proc-card">
+        <div className="proc-table-wrap">
+          <table className="proc-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Product</th>
+                <th>Alert Type</th>
+                <th>Current Stock</th>
+                <th>Min Stock</th>
+                <th>Reorder Level</th>
+                <th>Batch</th>
+                <th>Expiry Date</th>
+                <th>Days Remaining</th>
+                <th>Status</th>
+                {!isCashier && <th>Actions</th>}
               </tr>
-            ) : alerts.length === 0 ? (
-              <tr className="empty-row">
-                <td colSpan={isCashier ? 10 : 11}>No alerts found.</td>
-              </tr>
-            ) : (
-              alerts.map((alert) => {
-                const product = alert.product || {};
-                const type = alert.alert_type;
-                const color = statusColor(type);
-                return (
-                  <tr key={alert.alert_id}>
-                    <td>{alert.alert_id}</td>
-                    <td>
-                      <button
-                        onClick={() => setViewProductId(product.product_id)}
-                        style={{
-                          background: "transparent",
-                          border: "none",
-                          color: THEME,
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={isCashier ? 10 : 11} className="proc-empty">Loading alerts...</td>
+                </tr>
+              ) : alerts.length === 0 ? (
+                <tr>
+                  <td colSpan={isCashier ? 10 : 11} className="proc-empty">No alerts found.</td>
+                </tr>
+              ) : (
+                alerts.map((alert) => {
+                  const product = alert.product || {};
+                  const type = alert.alert_type;
+                  const color = statusColor(type);
+                  return (
+                    <tr key={alert.alert_id}>
+                      <td><span className="proc-code-badge">#{alert.alert_id}</span></td>
+                      <td>
+                        <button
+                          onClick={() => setViewProductId(product.product_id)}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            color: THEME,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            padding: 0,
+                            textDecoration: "underline",
+                          }}
+                        >
+                          {product.product_name || "Unknown"}
+                        </button>
+                      </td>
+                      <td>
+                        <span className="proc-status-pill" style={{ background: color + "18", color }}>
+                          {type}
+                        </span>
+                      </td>
+                      <td><strong>{product.stock_quantity ?? "-"}</strong></td>
+                      <td>{product.min_stock_quantity ?? "-"}</td>
+                      <td>{product.reorder_level ?? "-"}</td>
+                      <td><span className="proc-mono">{alert.batch_number || "-"}</span></td>
+                      <td>{product.expiry_date ? new Date(product.expiry_date).toLocaleDateString() : "-"}</td>
+                      <td>
+                        <span style={{
                           fontWeight: 700,
-                          cursor: "pointer",
-                          padding: 0,
-                          textDecoration: "underline",
-                        }}
-                      >
-                        {product.product_name || "Unknown"}
-                      </button>
-                    </td>
-                    <td>
-                      <span className="alert-type-pill" style={{ background: color }}>
-                        {type}
-                      </span>
-                    </td>
-                    <td>{product.stock_quantity ?? "-"}</td>
-                    <td>{product.min_stock_quantity ?? "-"}</td>
-                    <td>{product.reorder_level ?? "-"}</td>
-                    <td>{alert.batch_number || "-"}</td>
-                    <td>{product.expiry_date ? new Date(product.expiry_date).toLocaleDateString() : "-"}</td>
-                    <td>
-                      <span style={{
-                        fontWeight: 700,
-                        color: (() => {
-                          if (!product.expiry_date) return "#6b7280";
-                          const today = new Date(); today.setHours(0, 0, 0, 0);
-                          const expiry = new Date(product.expiry_date); expiry.setHours(0, 0, 0, 0);
-                          const diff = Math.round((expiry - today) / 86400000);
-                          if (diff < 0)  return "#991b1b";
-                          if (diff === 0) return "#991b1b";
-                          if (diff <= 30) return "#a855f7";
-                          return "#374151";
-                        })(),
-                      }}>
-                        {daysRemaining(product.expiry_date)}
-                      </span>
-                    </td>
-                    <td>
-                      <span className="product-status" style={{
-                        background: alert.status === 'Purchase Ordered' ? 'rgba(59,130,246,0.12)' : 'rgba(239,68,68,0.12)',
-                        color: alert.status === 'Purchase Ordered' ? '#3b82f6' : '#ef4444',
-                        border: `1px solid ${alert.status === 'Purchase Ordered' ? 'rgba(59,130,246,0.35)' : 'rgba(239,68,68,0.35)'}`,
-                      }}>
-                        {alert.status || 'Active'}
-                      </span>
-                    </td>
-                    {!isCashier && (
-                    <td>
-                      {(() => {
-                        const status   = alert.status || "Active";
-                        const poId     = alert.purchase_order_id;
-                        const returnTo = encodeURIComponent(`/alerts${activeFilter ? `?type=${activeFilter}&` : "?"}poCreated=1`);
-                        const viewProduct = () => setViewProductId(product.product_id);
-                        const viewBatch   = () => setViewProductId(product.product_id);
-                        const viewPO      = () => setViewPoId(poId);
-                        const createPO    = () => navigate(`/procurement/orders/create?productId=${product.product_id}&returnTo=${returnTo}`);
+                          color: (() => {
+                            if (!product.expiry_date) return "#6b7280";
+                            const today = new Date(); today.setHours(0, 0, 0, 0);
+                            const expiry = new Date(product.expiry_date); expiry.setHours(0, 0, 0, 0);
+                            const diff = Math.round((expiry - today) / 86400000);
+                            if (diff < 0)  return "#991b1b";
+                            if (diff === 0) return "#991b1b";
+                            if (diff <= 30) return "#a855f7";
+                            return "#374151";
+                          })(),
+                        }}>
+                          {daysRemaining(product.expiry_date)}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="proc-status-pill" style={{
+                          background: alert.status === 'Purchase Ordered' ? 'rgba(59,130,246,0.12)' : 'rgba(239,68,68,0.12)',
+                          color: alert.status === 'Purchase Ordered' ? '#3b82f6' : '#ef4444',
+                        }}>
+                          {alert.status || 'Active'}
+                        </span>
+                      </td>
+                      {!isCashier && (
+                      <td>
+                        {(() => {
+                          const status   = alert.status || "Active";
+                          const poId     = alert.purchase_order_id;
+                          const returnTo = encodeURIComponent(`/alerts${activeFilter ? `?type=${activeFilter}&` : "?"}poCreated=1`);
+                          const viewProduct = () => setViewProductId(product.product_id);
+                          const viewBatch   = () => setViewProductId(product.product_id);
+                          const viewPO      = () => setViewPoId(poId);
+                          const createPO    = () => navigate(`/procurement/orders/create?productId=${product.product_id}&returnTo=${returnTo}`);
 
-                        if (status === "Purchase Ordered") {
+                          if (status === "Purchase Ordered") {
+                            return (
+                              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                <button className="proc-btn-outline" style={{ padding: "0.3rem 0.65rem", fontSize: "0.8rem" }} onClick={viewPO}>
+                                  View PO
+                                </button>
+                              </div>
+                            );
+                          }
+
+                          if (type === "Expired") {
+                            return (
+                              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                <button className="proc-btn-primary" style={{ padding: "0.3rem 0.65rem", fontSize: "0.8rem", background: "#c62828" }} onClick={() => setDisposeTarget(alert)}>
+                                  Dispose
+                                </button>
+                                <button className="proc-btn-outline" style={{ padding: "0.3rem 0.65rem", fontSize: "0.8rem" }} onClick={viewBatch}>
+                                  Batch
+                                </button>
+                              </div>
+                            );
+                          }
+
+                          if (type === "Near Expiry") {
+                            return (
+                              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                <button className="proc-btn-outline" style={{ padding: "0.3rem 0.65rem", fontSize: "0.8rem" }} onClick={viewBatch}>
+                                  Batch
+                                </button>
+                              </div>
+                            );
+                          }
+
                           return (
                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                              <button className="action-btn action-btn--view" onClick={viewPO}>
-                                👁 View Purchase Order
+                              <button className="proc-btn-primary" style={{ padding: "0.3rem 0.65rem", fontSize: "0.8rem" }} onClick={createPO}>
+                                Create PO
+                              </button>
+                              <button className="proc-btn-outline" style={{ padding: "0.3rem 0.65rem", fontSize: "0.8rem" }} onClick={viewProduct}>
+                                View
                               </button>
                             </div>
                           );
-                        }
-
-                        if (type === "Expired") {
-                          return (
-                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                              <button className="action-btn action-btn--dispose" onClick={() => setDisposeTarget(alert)}>
-                                🗑 Dispose Stock
-                              </button>
-                              <button className="action-btn action-btn--review" onClick={viewBatch}>
-                                📦 View Batch
-                              </button>
-                            </div>
-                          );
-                        }
-
-                        if (type === "Near Expiry") {
-                          return (
-                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                              <button className="action-btn action-btn--review" onClick={viewBatch}>
-                                📦 View Batch
-                              </button>
-                            </div>
-                          );
-                        }
-
-                        return (
-                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                            <button className="action-btn action-btn--po" onClick={createPO}>
-                              🛒 Create Purchase Order
-                            </button>
-                            <button className="action-btn action-btn--view" onClick={viewProduct}>
-                              👁 View Product
-                            </button>
-                          </div>
-                        );
-                      })()}
-                    </td>
-                    )}
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                        })()}
+                      </td>
+                      )}
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
       </>
       )}
