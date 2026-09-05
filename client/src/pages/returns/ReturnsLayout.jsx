@@ -91,7 +91,7 @@ export default function ReturnsLayout() {
         </div>
 
         {/* Content of sub-routes */}
-        <div className="procurement-workspace-content" style={{ padding: '24px' }}>
+        <div key={location.pathname} className="procurement-workspace-content" style={{ padding: '24px' }}>
           <Outlet />
         </div>
       </div>

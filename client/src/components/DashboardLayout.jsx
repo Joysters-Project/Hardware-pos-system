@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, useRef } from "react";
+import { motion } from 'framer-motion';
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
@@ -110,7 +111,18 @@ export default function DashboardLayout({ children, active }) {
               <NavbarNotificationBell />
             </div>
           </div>
-          {children}
+          <motion.div
+            key={
+              location.pathname.startsWith('/procurement') ? '/procurement' :
+              location.pathname.startsWith('/cashier-panel') ? '/cashier-panel' :
+              location.pathname
+            }
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            {children}
+          </motion.div>
         </main>
 
         <LogoutConfirmModal
