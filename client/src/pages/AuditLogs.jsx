@@ -123,7 +123,6 @@ function AuditLogPage() {
           <div className="proc-header-icon"><ShieldAlert size={20} /></div>
           <div>
             <h1>Audit Logs</h1>
-            <p>Track all system activity and user actions</p>
           </div>
         </div>
         <div className="proc-header-actions">

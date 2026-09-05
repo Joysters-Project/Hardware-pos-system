@@ -281,7 +281,8 @@ function EmployeesPage() {
       <div className="emp-header">
         <div className="emp-header-left">
           <div className="emp-header-icon"><Users size={22} /></div>
-          <div><h1>Employees</h1><p>{employees.length} total employees</p></div>
+          <div><h1>Employees</h1>
+          </div>
         </div>
         <div className="emp-header-actions">
           <button className="emp-btn-outline" onClick={exportPDF}><FileDown size={14} /> Export PDF</button>

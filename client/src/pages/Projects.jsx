@@ -342,7 +342,6 @@ function ProjectsPage() {
         <div className="procurement-title-block" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <h1>Project Management</h1>
-            <p>Track items taken from shop for client projects</p>
           </div>
           <button className="proc-btn-primary" onClick={openAdd} style={{ marginBottom: '14px' }}>
             <Plus size={16} /> New Project

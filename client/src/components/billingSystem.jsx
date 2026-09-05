@@ -871,7 +871,7 @@ const BillingSystem = () => {
             <p style={{ margin: 0, color: "var(--proc-text-muted, #666)", fontSize: "0.85rem" }}>
               {activePosTab === 'billing'
                 ? 'Process sales, manage cart & complete transactions'
-                : 'Select project, issue items, & track project transactions'}
+                : ''}
             </p>
           </div>
         </div>

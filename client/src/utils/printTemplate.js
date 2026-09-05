@@ -596,7 +596,7 @@ export const printWithTemplate = ({
       Print / Save PDF
     </button>
     <button class="tpl-btn-close" onclick="window.close()">
-      Close
+      Cancel
     </button>
   </div>
 </body>

@@ -731,7 +731,6 @@ function AlertCenterPage() {
               <span className="proc-count-badge">{counts[""] || alerts.length}</span>
             </div>
             <p style={{ margin: 0, color: "var(--proc-text-muted, #666)", fontSize: "0.85rem" }}>
-              Monitor and manage inventory and payment alerts in one place.
             </p>
           </div>
         </div>

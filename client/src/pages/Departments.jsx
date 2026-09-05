@@ -223,7 +223,6 @@ function DepartmentsPage() {
           <div className="dept-header-icon"><Building2 size={24} /></div>
           <div>
             <h1>Departments</h1>
-            <p>{departments.length} department{departments.length !== 1 ? "s" : ""} total</p>
           </div>
         </div>
         <button className="dept-add-btn" onClick={openAdd}>

@@ -32,7 +32,6 @@ export default function CashierTopNav() {
     <header className="procurement-header">
       <div className="procurement-title-block">
         <h1>Cashier Panel</h1>
-        <p>Access point of sale, due collection, cheque exchange, returns, receipts and cashier reports</p>
       </div>
 
       <nav className="procurement-top-nav">

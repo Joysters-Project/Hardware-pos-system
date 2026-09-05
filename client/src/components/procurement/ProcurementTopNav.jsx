@@ -27,7 +27,6 @@ export default function ProcurementTopNav() {
     <header className="procurement-header">
       <div className="procurement-title-block">
         <h1>Procurement</h1>
-        <p>Manage suppliers, purchase orders, payments and analytics.</p>
       </div>
 
       <nav className="procurement-top-nav">
