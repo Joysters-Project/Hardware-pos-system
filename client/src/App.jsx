@@ -113,8 +113,12 @@ function AppRoutes() {
         }
       >
         <Route index element={<Navigate to="billing" replace />} />
-        <Route path="billing" element={<BillingSystem />} />
-        <Route path="due-collection" element={<DueCollection />} />
+        <Route path="billing" element={<BillingSystem />}>
+          <Route path="projects" element={null} />
+        </Route>
+        <Route path="due-collection" element={<DueCollection />}>
+          <Route path="collect" element={null} />
+        </Route>
         <Route path="cheque-exchange" element={<CustomerChequeExchange />} />
         <Route path="returns" element={<ReturnsLayout />}>
           <Route index element={<Navigate to="process" replace />} />

@@ -1,17 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useMatch } from "react-router-dom";
 import { Search, CreditCard, Receipt, FolderOpen, Wallet } from "lucide-react";
 import api from "../api/axios";
 import toast from "react-hot-toast";
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from "../utils/phoneValidation";
 import SuccessAnim from "./SuccessAnim";
-import DashboardLayout from "./DashboardLayout";
 import "../styles/DueCollection.css";
 import "../styles/Procurement.css";
 
 const DueCollection = () => {
   const navigate = useNavigate();
-  const [activeView, setActiveView] = useState("checking");
+  const collectionMatch = useMatch('/cashier-panel/due-collection/collect');
+  const activeView = collectionMatch ? 'collection' : 'checking';
   const [searchQuery, setSearchQuery] = useState("");
   const [customer, setCustomer] = useState(null);
   const [bills, setBills] = useState([]);
@@ -35,7 +35,7 @@ const DueCollection = () => {
     setViewEnter(false);
     const timer = window.setTimeout(() => setViewEnter(true), 16);
     return () => window.clearTimeout(timer);
-  }, [activeView]);
+  }, [activeView]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSuccessDismiss = () => {
     setAnimSuccess(false);
@@ -599,7 +599,7 @@ const DueCollection = () => {
   );
 
   return (
-    <DashboardLayout active="due-collection">
+    <>
       <div className="cashier-page-shell">
         <div className="proc-header" style={{ marginBottom: "1.25rem" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
@@ -618,7 +618,7 @@ const DueCollection = () => {
           <button
             type="button"
             className={`pos-tab-btn${activeView === "checking" ? " active" : ""}`}
-            onClick={() => setActiveView("checking")}
+            onClick={() => navigate('/cashier-panel/due-collection')}
           >
             <Search size={16} />
             <span>Due Checking</span>
@@ -626,7 +626,7 @@ const DueCollection = () => {
           <button
             type="button"
             className={`pos-tab-btn${activeView === "collection" ? " active" : ""}`}
-            onClick={() => setActiveView("collection")}
+            onClick={() => navigate('/cashier-panel/due-collection/collect')}
           >
             <CreditCard size={16} />
             <span>Due Collection</span>
@@ -647,7 +647,7 @@ const DueCollection = () => {
           <button
             type="button"
             className="pos-tab-btn due-nav-link accent"
-            onClick={() => navigate('/cashier-panel/billing', { state: { tab: 'projects' } })}
+            onClick={() => navigate('/cashier-panel/billing/projects')}
             title="Navigate to Project Billing Counter"
           >
             <FolderOpen size={16} />
@@ -668,7 +668,7 @@ const DueCollection = () => {
           subMessage={`Successfully collected Rs. ${successAmount.toFixed(2)}`}
         />
       </div>
-    </DashboardLayout>
+    </>
   );
 };
 
