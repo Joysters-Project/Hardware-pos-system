@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { Package, CreditCard, Search } from "lucide-react";
+import { Package, CreditCard } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { createPortal } from "react-dom";
@@ -422,16 +422,25 @@ function PaymentAlertsTab() {
   const activeType = searchParams.get("type") || "";
   const [viewCheque, setViewCheque] = useState(null);
   const [payAlert, setPayAlert]     = useState(null);
+  const [paymentSearch, setPaymentSearch] = useState("");
 
   const { data, isLoading, refetch } = useChequeAlerts();
   const allAlerts = data?.alerts || [];
   const summary   = data?.summary || {};
 
   const filtered = useMemo(() => {
-    if (!activeType) return allAlerts;
     const typeMap = { "due-soon": "Due Soon", "due-today": "Due Today", "overdue": "Overdue", "bounced": "Bounced" };
-    return allAlerts.filter(a => a.alert_type === typeMap[activeType]);
-  }, [allAlerts, activeType]);
+    const typeFiltered = activeType
+      ? allAlerts.filter(a => a.alert_type === typeMap[activeType])
+      : allAlerts;
+    const query = paymentSearch.trim().toLowerCase();
+    if (!query) return typeFiltered;
+    return typeFiltered.filter((alert) => [
+      alert.cheque_number,
+      alert.bank_name,
+      alert.alert_type,
+    ].some((value) => String(value || "").toLowerCase().includes(query)));
+  }, [allAlerts, activeType, paymentSearch]);
 
   const setType = (key) => {
     const next = new URLSearchParams(searchParams);
@@ -491,6 +500,16 @@ function PaymentAlertsTab() {
             </button>
           );
         })}
+      </div>
+
+      <div className="alert-section-search">
+        <input
+          type="search"
+          className="proc-search"
+          placeholder="Search by cheque no, bank or alert type..."
+          value={paymentSearch}
+          onChange={(event) => setPaymentSearch(event.target.value)}
+        />
       </div>
 
       <div className="proc-card">
@@ -726,10 +745,7 @@ function AlertCenterPage() {
         <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
           <div className="proc-header-icon"><Package size={22} /></div>
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <h1 style={{ margin: 0 }}>Alert Center</h1>
-              <span className="proc-count-badge">{counts[""] || alerts.length}</span>
-            </div>
+            <h1 style={{ margin: 0 }}>Alert Center</h1>
             <p style={{ margin: 0, color: "var(--proc-text-muted, #666)", fontSize: "0.85rem" }}>
             </p>
           </div>
@@ -814,17 +830,14 @@ function AlertCenterPage() {
         })}
       </div>
 
-      <div className="proc-filters-row" style={{ marginTop: "1rem" }}>
-        <div className="proc-search-wrap" style={{ maxWidth: "420px" }}>
-          <Search size={14} className="proc-search-icon" />
-          <input id="search" name="search"
-            type="search"
-            className="proc-search"
-            placeholder="Search by product, batch or alert type..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+      <div className="alert-section-search" style={{ marginTop: "1rem" }}>
+        <input id="search" name="search"
+          type="search"
+          className="proc-search"
+          placeholder="Search by product, batch or alert type..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
 
       <div className="proc-card">
