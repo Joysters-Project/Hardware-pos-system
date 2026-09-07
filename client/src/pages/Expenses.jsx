@@ -152,7 +152,7 @@ function ExpensesPage() {
               </div>
             </div>
             <div className="proc-header-actions">
-              <button className="proc-btn-outline info" onClick={exportPDF}><FileDown size={14} /> Export PDF</button>
+              <button className="proc-btn-outline" onClick={exportPDF}><FileDown size={14} /> Export PDF</button>
               <button className="proc-btn-primary" onClick={openAdd}><Plus size={14} /> Add Expense</button>
             </div>
           </div>
