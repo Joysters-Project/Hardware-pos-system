@@ -12,6 +12,8 @@ import { buildTableHtml, escapeHtml, printWithTemplate } from '../utils/printTem
 import AdminDashboard from './AdminDashboard';
 import ManagerDashboard from './ManagerDashboard';
 import ProjectsTab from '../components/ProjectsTab';
+import '../styles/Procurement.css';
+import '../styles/ProcurementWorkspace.css';
 import '../styles/Projects.css';
 
 const STATUSES = ['Active', 'Completed', 'On Hold', 'Cancelled'];
@@ -20,6 +22,37 @@ const EMPTY_FORM = {
   project_name: '', project_owner: '', location: '',
   description: '', start_date: '', deadline: '', end_date: '',
   status: 'Active', final_payment: '',
+};
+
+const formatDateForInput = (value) => {
+  if (!value) return '';
+  const datePart = String(value).split('T')[0];
+  const [year, month, day] = datePart.split('-');
+  if (!year || !month || !day) return String(value);
+  return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+};
+
+const formatDateInputValue = (value) => {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+};
+
+const parseDateInput = (value) => {
+  if (!value) return '';
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value);
+  if (!match) return null;
+
+  const [, day, month, year] = match;
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  if (
+    date.getUTCFullYear() !== Number(year) ||
+    date.getUTCMonth() !== Number(month) - 1 ||
+    date.getUTCDate() !== Number(day)
+  ) return null;
+
+  return `${year}-${month}-${day}`;
 };
 
 function ProjectsPage() {
@@ -63,9 +96,9 @@ function ProjectsPage() {
       location:      p.location || '',
       description:   p.description || '',
       status:        p.status,
-      start_date:    p.start_date || '',
-      deadline:      p.deadline || '',
-      end_date:      p.end_date || '',
+      start_date:    formatDateForInput(p.start_date),
+      deadline:      formatDateForInput(p.deadline),
+      end_date:      formatDateForInput(p.end_date),
       final_payment: p.final_cost || '',
     };
     setForm(baseForm);
@@ -90,6 +123,14 @@ function ProjectsPage() {
     e.preventDefault();
     if (!form.project_name || !form.start_date) { toast.error('Name and start date required'); return; }
 
+    const startDate = parseDateInput(form.start_date);
+    const deadline = parseDateInput(form.deadline);
+    const endDate = parseDateInput(form.end_date);
+    if (!startDate || (form.deadline && !deadline) || (form.end_date && !endDate)) {
+      toast.error('Use dd/mm/yyyy for all project dates');
+      return;
+    }
+
     if (editId && ['Completed', 'Cancelled'].includes(form.status)) {
       const paymentValue = Number(form.final_payment);
       if (form.final_payment === '' || Number.isNaN(paymentValue) || paymentValue < 0) {
@@ -100,7 +141,13 @@ function ProjectsPage() {
 
     setLoading(true);
     try {
-      const payload = { ...form, final_payment: form.final_payment };
+      const payload = {
+        ...form,
+        start_date: startDate,
+        deadline: deadline || '',
+        end_date: endDate || '',
+        final_payment: form.final_payment,
+      };
       if (editId) { await api.put(`/projects/${editId}`, payload); toast.success('Project updated'); }
       else        { await api.post('/projects', payload);          toast.success('Project created'); }
       closeModal(); loadProjects();
@@ -298,6 +345,7 @@ function ProjectsPage() {
 
   const fmtCurrency = (n) => `LKR ${Number(n || 0).toLocaleString('en-LK', { minimumFractionDigits: 2 })}`;
   const f = (key) => (e) => setForm({ ...form, [key]: e.target.value });
+  const dateField = (key) => (e) => setForm({ ...form, [key]: formatDateInputValue(e.target.value) });
 
   // Derive years and months that are covered by at least one project's active span
   const projectYears = (() => {
@@ -325,37 +373,47 @@ function ProjectsPage() {
     return Array.from(monthSet).sort((a, b) => a - b);
   };
 
-  return (
-    <div className="proj-container">
+  const projNavItems = [
+    { key: 'projects',        label: 'Projects',                icon: FolderOpen },
+    { key: 'billing-counter', label: 'Project Billing Counter', icon: ShoppingCart },
+    { key: 'monthly',         label: 'Monthly Report',          icon: BarChart2 },
+    { key: 'yearly',          label: 'Yearly Report',           icon: TrendingUp },
+  ];
 
-      {/* ── Header ── */}
-      <div className="proj-header">
-        <div className="proj-header-left">
-          <div className="proj-header-icon"><FolderOpen size={22} /></div>
+  return (
+    <div className="procurement-workspace">
+
+      {/* ── Procurement-style Header + Nav ── */}
+      <header className="procurement-header">
+        <div className="procurement-title-block" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <h1>Project Management</h1>
-            <p>Track items taken from shop for client projects</p>
           </div>
-        </div>
-        <button className="proj-btn-primary" onClick={openAdd}>
-          <Plus size={16} /> New Project
-        </button>
-      </div>
-
-      {/* ── Tabs ── */}
-      <div className="proj-tabs">
-        {[
-          { key: 'projects',        label: 'Projects',               icon: <FolderOpen size={15} /> },
-          { key: 'billing-counter', label: 'Project Billing Counter',icon: <ShoppingCart size={15} /> },
-          { key: 'monthly',         label: 'Monthly Report',         icon: <BarChart2 size={15} /> },
-          { key: 'yearly',          label: 'Yearly Report',          icon: <TrendingUp size={15} /> },
-        ].map(t => (
-          <button key={t.key} className={`proj-tab ${activeTab === t.key ? 'active' : ''}`}
-            onClick={() => setActiveTab(t.key)}>
-            {t.icon} {t.label}
+          <button className="proc-btn-primary" onClick={openAdd} style={{ marginBottom: '14px' }}>
+            <Plus size={16} /> New Project
           </button>
-        ))}
-      </div>
+        </div>
+
+        <nav className="procurement-top-nav">
+          {projNavItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.key}
+                className={`procurement-nav-item ${activeTab === item.key ? 'active' : ''}`}
+                onClick={() => setActiveTab(item.key)}
+              >
+                <Icon size={15} />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </header>
+
+      {/* ── Page Content ── */}
+      <div className="procurement-workspace-content" style={{ padding: '24px' }}>
+      <div className="proc-container" style={{ margin: 0 }}>
 
       {/* ══ PROJECT BILLING COUNTER ══ */}
       {activeTab === 'billing-counter' && (
@@ -365,55 +423,57 @@ function ProjectsPage() {
       {/* ══ PROJECTS LIST ══ */}
       {activeTab === 'projects' && (
         <>
-          <div className="proj-stats">
+          <div className="proc-stats">
             {[
-              { label: 'Total',     value: projects.length,                                       color: '#800000' },
-              { label: 'Active',    value: projects.filter(p => p.status === 'Active').length,    color: '#2e7d32' },
-              { label: 'Completed', value: projects.filter(p => p.status === 'Completed').length, color: '#1565c0' },
-              { label: 'On Hold',   value: projects.filter(p => p.status === 'On Hold').length,   color: '#e65100' },
+              { label: 'Total Projects', value: projects.length,                                       color: '#800000' },
+              { label: 'Active',         value: projects.filter(p => p.status === 'Active').length,    color: '#2e7d32' },
+              { label: 'Completed',      value: projects.filter(p => p.status === 'Completed').length, color: '#1565c0' },
+              { label: 'On Hold',        value: projects.filter(p => p.status === 'On Hold').length,   color: '#e65100' },
             ].map(s => (
-              <div key={s.label} className="proj-stat-card">
-                <div className="proj-stat-value" style={{ color: s.color }}>{s.value}</div>
-                <div className="proj-stat-label">{s.label}</div>
+              <div key={s.label} className="proc-stat-card">
+                <div className="proc-stat-value" style={{ color: s.color }}>{s.value}</div>
+                <div className="proc-stat-label">{s.label}</div>
               </div>
             ))}
           </div>
 
-          <div className="proj-table-wrap">
-            <table className="proj-table">
-              <thead>
-                <tr>
-                  <th>Project</th><th>Owner</th><th>Status</th>
-                  <th>Start Date</th><th>Deadline</th><th>Location</th><th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {projects.length === 0 ? (
-                  <tr><td colSpan={7} className="proj-empty">No projects yet. Create one to get started.</td></tr>
-                ) : projects.map(p => (
-                  <tr key={p.project_id}>
-                    <td>
-                      <div className="proj-name-cell">
-                        <span className="proj-type-icon">{typeIcon()}</span>
-                        <span className="proj-name-text">{p.project_name}</span>
-                      </div>
-                    </td>
-                    <td>{p.project_owner || '—'}</td>
-                    <td><span className={`proj-status-pill ${statusPillClass(p.status)}`}>{p.status}</span></td>
-                    <td>{fmtDate(p.start_date)}</td>
-                    <td>{fmtDate(p.deadline)}</td>
-                    <td>{p.location || '—'}</td>
-                    <td>
-                      <div className="proj-action-btns">
-                        <button className="proj-icon-btn btn-view"   onClick={() => handleView(p)}  title="View"><Eye size={14} /></button>
-                        <button className="proj-icon-btn btn-edit"   onClick={() => openEdit(p)}    title="Edit"><Edit2 size={14} /></button>
-                        <button className="proj-icon-btn btn-delete" onClick={() => handleDelete(p.project_id, p.project_name)} title="Delete"><Trash2 size={14} /></button>
-                      </div>
-                    </td>
+          <div className="proc-card">
+            <div className="proc-table-wrap">
+              <table className="proc-table">
+                <thead>
+                  <tr>
+                    <th>Project</th><th>Owner</th><th>Status</th>
+                    <th>Start Date</th><th>Deadline</th><th>Location</th><th>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {projects.length === 0 ? (
+                    <tr><td colSpan={7} className="proc-empty">No projects yet. Create one to get started.</td></tr>
+                  ) : projects.map(p => (
+                    <tr key={p.project_id}>
+                      <td>
+                        <div className="proc-name-cell">
+                          <span className="proj-type-icon">{typeIcon()}</span>
+                          <span style={{ fontWeight: 600 }}>{p.project_name}</span>
+                        </div>
+                      </td>
+                      <td>{p.project_owner || '—'}</td>
+                      <td><span className={`proc-status-pill ${statusPillClass(p.status)}`}>{p.status}</span></td>
+                      <td>{fmtDate(p.start_date)}</td>
+                      <td>{fmtDate(p.deadline)}</td>
+                      <td>{p.location || '—'}</td>
+                      <td>
+                        <div className="proc-action-btns">
+                          <button className="proc-icon-btn view"   onClick={() => handleView(p)}  title="View"><Eye size={14} /></button>
+                          <button className="proc-icon-btn edit"   onClick={() => openEdit(p)}    title="Edit"><Edit2 size={14} /></button>
+                          <button className="proc-icon-btn delete" onClick={() => handleDelete(p.project_id, p.project_name)} title="Delete"><Trash2 size={14} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       )}
@@ -421,13 +481,13 @@ function ProjectsPage() {
       {/* ══ MONTHLY REPORT ══ */}
       {activeTab === 'monthly' && (
         <div className="proj-report-section">
-          <div className="proj-report-controls" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <select id="reportYear" name="reportYear" value={reportYear} onChange={e => setReportYear(Number(e.target.value))}>
+          <div className="proc-filters-row">
+            <select id="reportYear" name="reportYear" className="proc-select" value={reportYear} onChange={e => setReportYear(Number(e.target.value))}>
               {projectYears.length > 0
                 ? projectYears.map(y => <option key={y} value={y}>{y}</option>)
                 : <option value={reportYear}>{reportYear}</option>}
             </select>
-            <select id="reportMonth" name="reportMonth" value={reportMonth} onChange={e => setReportMonth(Number(e.target.value))}>
+            <select id="reportMonth" name="reportMonth" className="proc-select" value={reportMonth} onChange={e => setReportMonth(Number(e.target.value))}>
               {(availableMonthsForYear(reportYear).length > 0
                 ? availableMonthsForYear(reportYear)
                 : [reportMonth]
@@ -437,7 +497,7 @@ function ProjectsPage() {
 
             <button
               type="button"
-              className="proj-btn-primary"
+              className="proc-btn-primary"
               style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               onClick={printMonthlyReport}
               disabled={!monthlyData || !monthlyData.byProject || monthlyData.byProject.length === 0}
@@ -448,57 +508,60 @@ function ProjectsPage() {
 
           {monthlyData && (
             <>
-              <div className="proj-report-stats">
-                <div className="proj-report-stat-card">
-                  <div className="proj-report-stat-label">Total Value</div>
-                  <div className="proj-report-stat-value">{fmtCurrency(monthlyData.totalValue)}</div>
+              <div className="proc-stats">
+                <div className="proc-stat-card">
+                  <div className="proc-stat-value">{fmtCurrency(monthlyData.totalValue)}</div>
+                  <div className="proc-stat-label">Total Value</div>
                 </div>
-                <div className="proj-report-stat-card">
-                  <div className="proj-report-stat-label">Items Taken</div>
-                  <div className="proj-report-stat-value">{monthlyData.totalItems}</div>
+                <div className="proc-stat-card">
+                  <div className="proc-stat-value">{monthlyData.totalItems}</div>
+                  <div className="proc-stat-label">Items Taken</div>
                 </div>
-                <div className="proj-report-stat-card">
-                  <div className="proj-report-stat-label">Projects</div>
-                  <div className="proj-report-stat-value">{monthlyData.byProject.length}</div>
+                <div className="proc-stat-card">
+                  <div className="proc-stat-value">{monthlyData.byProject.length}</div>
+                  <div className="proc-stat-label">Projects</div>
                 </div>
-                <div className="proj-report-stat-card">
-                  <div className="proj-report-stat-label">Project Income</div>
-                  <div className="proj-report-stat-value">{fmtCurrency(monthlyData.totalProjectIncome || 0)}</div>
+                <div className="proc-stat-card">
+                  <div className="proc-stat-value">{fmtCurrency(monthlyData.totalProjectIncome || 0)}</div>
+                  <div className="proc-stat-label">Project Income</div>
                 </div>
               </div>
 
               {monthlyData.byProject.length === 0 ? (
-                <div className="proj-report-empty">No items taken this month.</div>
+                <div className="proc-card" style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>No items taken this month.</div>
               ) : monthlyData.byProject.map(pg => (
-                <div key={pg.project.project_id} className="proj-report-group">
+                <div key={pg.project.project_id} className="proc-card" style={{ marginBottom: '1rem' }}>
                   <div className="proj-report-group-header"
+                    style={{ padding: '1rem 1.25rem', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                     onClick={() => setExpandedProject(expandedProject === pg.project.project_id ? null : pg.project.project_id)}>
-                    <div className="proj-report-group-title">
+                    <div className="proj-report-group-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span>{typeIcon()}</span>
                       <strong>{pg.project.project_name}</strong>
                     </div>
-                    <div className="proj-report-group-meta">
-                      <span>{fmtCurrency(pg.totalValue)}</span>
-                      <span className="proj-report-group-qty">{pg.totalQty} units</span>
+                    <div className="proj-report-group-meta" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                      <span style={{ fontWeight: 600 }}>{fmtCurrency(pg.totalValue)}</span>
+                      <span className="proc-count-badge">{pg.totalQty} units</span>
                       {expandedProject === pg.project.project_id ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
                     </div>
                   </div>
                   {expandedProject === pg.project.project_id && (
-                    <table className="proj-report-table">
-                      <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th><th>Taken By</th><th>Date</th></tr></thead>
-                      <tbody>
-                        {pg.items.map(item => (
-                          <tr key={item.item_id}>
-                            <td>{item.product?.product_name || '—'}</td>
-                            <td>{item.quantity}</td>
-                            <td>{fmtCurrency(item.unit_price)}</td>
-                            <td>{fmtCurrency(Number(item.quantity) * Number(item.unit_price))}</td>
-                            <td>{item.receiver_name || (item.takenByUser ? `${item.takenByUser.first_name} ${item.takenByUser.last_name}` : '—')}</td>
-                            <td className="proj-date-cell">{fmtDateTime(item.taken_at)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <div className="proc-table-wrap">
+                      <table className="proc-table">
+                        <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th><th>Taken By</th><th>Date</th></tr></thead>
+                        <tbody>
+                          {pg.items.map(item => (
+                            <tr key={item.item_id}>
+                              <td>{item.product?.product_name || '—'}</td>
+                              <td>{item.quantity}</td>
+                              <td>{fmtCurrency(item.unit_price)}</td>
+                              <td>{fmtCurrency(Number(item.quantity) * Number(item.unit_price))}</td>
+                              <td>{item.receiver_name || (item.takenByUser ? `${item.takenByUser.first_name} ${item.takenByUser.last_name}` : '—')}</td>
+                              <td className="proc-mono">{fmtDateTime(item.taken_at)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
               ))}
@@ -510,8 +573,8 @@ function ProjectsPage() {
       {/* ══ YEARLY REPORT ══ */}
       {activeTab === 'yearly' && (
         <div className="proj-report-section">
-          <div className="proj-report-controls" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <select id="yearlyYear" name="yearlyYear" value={yearlyYear} onChange={e => setYearlyYear(Number(e.target.value))}>
+          <div className="proc-filters-row">
+            <select id="yearlyYear" name="yearlyYear" className="proc-select" value={yearlyYear} onChange={e => setYearlyYear(Number(e.target.value))}>
               {projectYears.length > 0
                 ? projectYears.map(y => <option key={y} value={y}>{y}</option>)
                 : <option value={yearlyYear}>{yearlyYear}</option>}
@@ -520,7 +583,7 @@ function ProjectsPage() {
 
             <button
               type="button"
-              className="proj-btn-primary"
+              className="proc-btn-primary"
               style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               onClick={printYearlyReport}
               disabled={!yearlyData || !yearlyData.totalItems}
@@ -531,23 +594,23 @@ function ProjectsPage() {
 
           {yearlyData && (
             <>
-              <div className="proj-report-stats">
-                <div className="proj-report-stat-card">
-                  <div className="proj-report-stat-label">Total Value {yearlyYear}</div>
-                  <div className="proj-report-stat-value">{fmtCurrency(yearlyData.totalValue)}</div>
+              <div className="proc-stats">
+                <div className="proc-stat-card">
+                  <div className="proc-stat-value">{fmtCurrency(yearlyData.totalValue)}</div>
+                  <div className="proc-stat-label">Total Value {yearlyYear}</div>
                 </div>
-                <div className="proj-report-stat-card">
-                  <div className="proj-report-stat-label">Total Items Taken</div>
-                  <div className="proj-report-stat-value">{yearlyData.totalItems}</div>
+                <div className="proc-stat-card">
+                  <div className="proc-stat-value">{yearlyData.totalItems}</div>
+                  <div className="proc-stat-label">Total Items Taken</div>
                 </div>
-                <div className="proj-report-stat-card">
-                  <div className="proj-report-stat-label">Project Income</div>
-                  <div className="proj-report-stat-value">{fmtCurrency(yearlyData.totalProjectIncome || 0)}</div>
+                <div className="proc-stat-card">
+                  <div className="proc-stat-value">{fmtCurrency(yearlyData.totalProjectIncome || 0)}</div>
+                  <div className="proc-stat-label">Project Income</div>
                 </div>
               </div>
 
               {yearlyData.byMonth.filter(m => m.totalItems > 0).length === 0 ? (
-                <div className="proj-report-empty">No items taken in {yearlyYear}.</div>
+                <div className="proc-card" style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>No items taken in {yearlyYear}.</div>
               ) : (
                 <div className="proj-yearly-grid">
                   {yearlyData.byMonth.filter(m => m.totalItems > 0).map(m => (
@@ -569,68 +632,73 @@ function ProjectsPage() {
         </div>
       )}
 
-      {/* ══ CREATE / EDIT MODAL ══ */}
+      </div>{/* end proc-container */}
+      </div>{/* end procurement-workspace-content */}
+
+      {/* CREATE / EDIT MODAL portal */}
       {showModal && createPortal(
-        <div className="proj-overlay" onClick={closeModal}>
-          <div className="proj-modal" onClick={e => e.stopPropagation()}>
-            <div className="proj-modal-header">
+        <div className="proc-modal-overlay" onClick={closeModal}>
+          <div className="proc-modal proc-modal-lg" onClick={e => e.stopPropagation()}>
+            <div className="proc-modal-header">
               <h2>{editId ? 'Edit Project' : 'New Project'}</h2>
-              <button className="proj-modal-close" onClick={closeModal}><X size={18} /></button>
+              <button className="proc-modal-close" onClick={closeModal}><X size={18} /></button>
             </div>
-            <form onSubmit={handleSubmit} className="proj-modal-form">
-              <div className="proj-form-grid">
-                <div className="proj-field proj-field-full">
-                  <label>Project Name *</label>
-                  <input id="project_name" name="project_name" value={form.project_name} onChange={f('project_name')}
-                    required placeholder="e.g. Welding Gate Project" />
-                </div>
-                <div className="proj-field">
-                  <label>Project Owner</label>
-                  <input id="project_owner" name="project_owner" value={form.project_owner} onChange={f('project_owner')}
-                    placeholder="e.g. John Silva" />
-                </div>
-                <div className="proj-field">
-                  <label>Location</label>
-                  <input id="location" name="location" value={form.location} onChange={f('location')}
-                    placeholder="e.g. Colombo, Site A" />
-                </div>
-                <div className="proj-field">
-                  <label>Status</label>
-                  <select id="status" name="status" value={form.status} onChange={f('status')}>
-                    {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div className="proj-field">
-                  <label>Start Date *</label>
-                  <input id="start_date" name="start_date" type="date" value={form.start_date} onChange={f('start_date')} required />
-                </div>
-                <div className="proj-field">
-                  <label>Deadline</label>
-                  <input id="deadline" name="deadline" type="date" value={form.deadline} onChange={f('deadline')} />
-                </div>
-                <div className="proj-field">
-                  <label>End Date (Actual)</label>
-                  <input id="end_date" name="end_date" type="date" value={form.end_date} onChange={f('end_date')} />
-                </div>
-                {editId && ['Completed', 'Cancelled'].includes(form.status) && (
-                  <div className="proj-field proj-field-full">
-                    <label>Final Payment (Real Amount) *</label>
-                    <input id="final_payment" name="final_payment" type="number" min="0" step="0.01" value={form.final_payment} onChange={f('final_payment')}
-                      placeholder="e.g. 250000" />
-                    <div style={{ marginTop: 6, color: '#6b7280', fontSize: '0.9rem' }}>
-                      Estimated project cost: <strong>{fmtCurrency(projectEstimate ?? 0)}</strong>
-                    </div>
+            <form onSubmit={handleSubmit}>
+              <div className="proc-modal-body">
+                <div className="proc-form-grid">
+                  <div className="proc-field proc-field-full">
+                    <label>Project Name *</label>
+                    <input id="project_name" name="project_name" className="proc-input" value={form.project_name} onChange={f('project_name')}
+                      required placeholder="e.g. Welding Gate Project" />
                   </div>
-                )}
-                <div className="proj-field proj-field-full">
-                  <label>Description</label>
-                  <textarea id="description" name="description" rows={3} value={form.description} onChange={f('description')}
-                    placeholder="Optional project notes…" />
+                  <div className="proc-field">
+                    <label>Project Owner</label>
+                    <input id="project_owner" name="project_owner" className="proc-input" value={form.project_owner} onChange={f('project_owner')}
+                      placeholder="e.g. John Silva" />
+                  </div>
+                  <div className="proc-field">
+                    <label>Location</label>
+                    <input id="location" name="location" className="proc-input" value={form.location} onChange={f('location')}
+                      placeholder="e.g. Colombo, Site A" />
+                  </div>
+                  <div className="proc-field">
+                    <label>Status</label>
+                    <select id="status" name="status" className="proc-select" value={form.status} onChange={f('status')}>
+                      {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div className="proc-field">
+                    <label>Start Date *</label>
+                    <input id="start_date" name="start_date" type="text" inputMode="numeric" maxLength={10} className="proc-date-input" value={form.start_date} onChange={dateField('start_date')} placeholder="dd/mm/yyyy" required />
+                  </div>
+                  <div className="proc-field">
+                    <label>Deadline</label>
+                    <input id="deadline" name="deadline" type="text" inputMode="numeric" maxLength={10} className="proc-date-input" value={form.deadline} onChange={dateField('deadline')} placeholder="dd/mm/yyyy" />
+                  </div>
+                  <div className="proc-field">
+                    <label>End Date (Actual)</label>
+                    <input id="end_date" name="end_date" type="text" inputMode="numeric" maxLength={10} className="proc-date-input" value={form.end_date} onChange={dateField('end_date')} placeholder="dd/mm/yyyy" />
+                  </div>
+                  {editId && ['Completed', 'Cancelled'].includes(form.status) && (
+                    <div className="proc-field proc-field-full">
+                      <label>Final Payment (Real Amount) *</label>
+                      <input id="final_payment" name="final_payment" type="number" min="0" step="0.01" className="proc-input" value={form.final_payment} onChange={f('final_payment')}
+                        placeholder="e.g. 250000" />
+                      <div style={{ marginTop: 6, color: '#6b7280', fontSize: '0.85rem' }}>
+                        Estimated project cost: <strong>{fmtCurrency(projectEstimate ?? 0)}</strong>
+                      </div>
+                    </div>
+                  )}
+                  <div className="proc-field proc-field-full">
+                    <label>Description</label>
+                    <textarea id="description" name="description" rows={3} className="proc-input proc-textarea" value={form.description} onChange={f('description')}
+                      placeholder="Optional project notes…" />
+                  </div>
                 </div>
               </div>
-              <div className="proj-modal-footer">
-                <button type="button" className="proj-btn-cancel" onClick={closeModal}>Cancel</button>
-                <button type="submit" className="proj-btn-submit" disabled={loading}>
+              <div className="proc-modal-footer">
+                <button type="button" className="proc-btn-outline" onClick={closeModal}>Cancel</button>
+                <button type="submit" className="proc-btn-primary" disabled={loading}>
                   {loading ? 'Saving…' : editId ? 'Update' : 'Create'}
                 </button>
               </div>
@@ -640,116 +708,113 @@ function ProjectsPage() {
         document.body
       )}
 
-      {/* ══ VIEW MODAL ══ */}
+      {/* VIEW MODAL portal */}
       {viewProject && createPortal(
-        <div className="proj-overlay" onClick={() => setViewProject(null)}>
-          <div className="proj-modal proj-modal-lg" onClick={e => e.stopPropagation()}>
-            <div className="proj-modal-header">
+        <div className="proc-modal-overlay" onClick={() => setViewProject(null)}>
+          <div className="proc-modal proc-modal-lg" onClick={e => e.stopPropagation()}>
+            <div className="proc-modal-header">
               <h2>{typeIcon()} {viewProject.project_name}</h2>
-              <button className="proj-modal-close" onClick={() => setViewProject(null)}><X size={18} /></button>
+              <button className="proc-modal-close" onClick={() => setViewProject(null)}><X size={18} /></button>
             </div>
 
-            <div className="proj-view-top">
-              <div className="proj-view-icon">{typeIcon()}</div>
-              <div>
-                <h3>{viewProject.project_name}</h3>
-                <p>{viewProject.project_owner ? `${viewProject.project_owner}` : ''}</p>
-                <span className={`proj-status-pill ${statusPillClass(viewProject.status)}`}>{viewProject.status}</span>
-              </div>
-            </div>
-
-            <div className="proj-view-grid">
-              {viewProject.project_owner && (
-                <div className="proj-view-row"><span className="proj-view-label">Owner</span><span className="proj-view-value">{viewProject.project_owner}</span></div>
-              )}
-              {viewProject.location && (
-                <div className="proj-view-row"><span className="proj-view-label">Location</span><span className="proj-view-value">{viewProject.location}</span></div>
-              )}
-              <div className="proj-view-row"><span className="proj-view-label">Start Date</span><span className="proj-view-value">{fmtDate(viewProject.start_date)}</span></div>
-              {viewProject.deadline && (
-                <div className="proj-view-row"><span className="proj-view-label">Deadline</span><span className="proj-view-value">{fmtDate(viewProject.deadline)}</span></div>
-              )}
-              {viewProject.end_date && (
-                <div className="proj-view-row"><span className="proj-view-label">End Date (Actual)</span><span className="proj-view-value">{fmtDate(viewProject.end_date)}</span></div>
-              )}
-              {viewProject.description && (
-                <div className="proj-view-row"><span className="proj-view-label">Description</span><span className="proj-view-value">{viewProject.description}</span></div>
-              )}
-              <div className="proj-view-row">
-                <span className="proj-view-label">Estimated Cost</span>
-                <span className="proj-view-value">{fmtCurrency(viewProject.items?.reduce((s, i) => s + Number(i.quantity) * Number(i.unit_price), 0))}</span>
-              </div>
-              <div className="proj-view-row">
-                <span className="proj-view-label">Final Payment</span>
-                <span className="proj-view-value">{fmtCurrency(viewProject.final_cost || 0)}</span>
-              </div>
-            </div>
-
-            <div className="proj-items-section">
-              <div className="proj-items-action-bar">
-                <button
-                  type="button"
-                  className={`proj-items-toggle-btn ${showViewItems ? 'active' : ''}`}
-                  onClick={() => setShowViewItems(!showViewItems)}
-                >
-                  <Package size={16} />
-                  <span>Items Taken ({viewProject.items?.length || 0})</span>
-                  {showViewItems ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-              </div>
-
-              {showViewItems && (
-                <div className="proj-items-content-wrap">
-                  {(() => {
-                    const grouped = groupAndSortItemsByMonth(viewProject.items || []);
-                    if (grouped.length === 0) {
-                      return <div className="proj-items-empty">No items recorded yet.</div>;
-                    }
-                    return (
-                      <div className="proj-items-grouped-list">
-                        {grouped.map(g => (
-                          <div key={g.monthKey} className="proj-items-month-group">
-                            <div
-                              className="proj-items-month-header"
-                              style={{ cursor: 'pointer' }}
-                              onClick={() => setExpandedViewMonth(expandedViewMonth === g.monthKey ? null : g.monthKey)}
-                            >
-                              <span className="proj-items-month-title">📅 {g.monthLabel}</span>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span className="proj-items-month-badge">{g.items.length} item(s)</span>
-                                {expandedViewMonth === g.monthKey ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-                              </div>
-                            </div>
-                            {expandedViewMonth === g.monthKey && (
-                              <div className="proj-items-wrap">
-                                <table className="proj-items-table">
-                                  <thead>
-                                    <tr>
-                                      <th>Product</th><th>Qty</th><th>Unit Price</th><th>Note</th><th>Taken By</th><th>Date</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {g.items.map(item => (
-                                      <tr key={item.item_id}>
-                                        <td><strong>{item.product?.product_name || '—'}</strong></td>
-                                        <td>{item.quantity}</td>
-                                        <td>{fmtCurrency(item.unit_price)}</td>
-                                        <td>{item.note || '—'}</td>
-                                        <td>{item.receiver_name || (item.takenByUser ? `${item.takenByUser.first_name} ${item.takenByUser.last_name}` : '—')}</td>
-                                        <td className="proj-date-cell">{fmtDateTime(item.taken_at)}</td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
+            <div className="proc-modal-body">
+              <div className="proc-view-grid">
+                {viewProject.project_owner && (
+                  <div className="proc-view-row"><span className="proc-view-label">Owner</span><span className="proc-view-value">{viewProject.project_owner}</span></div>
+                )}
+                {viewProject.location && (
+                  <div className="proc-view-row"><span className="proc-view-label">Location</span><span className="proc-view-value">{viewProject.location}</span></div>
+                )}
+                <div className="proc-view-row"><span className="proc-view-label">Start Date</span><span className="proc-view-value">{fmtDate(viewProject.start_date)}</span></div>
+                {viewProject.deadline && (
+                  <div className="proc-view-row"><span className="proc-view-label">Deadline</span><span className="proc-view-value">{fmtDate(viewProject.deadline)}</span></div>
+                )}
+                {viewProject.end_date && (
+                  <div className="proc-view-row"><span className="proc-view-label">End Date (Actual)</span><span className="proc-view-value">{fmtDate(viewProject.end_date)}</span></div>
+                )}
+                {viewProject.description && (
+                  <div className="proc-view-row"><span className="proc-view-label">Description</span><span className="proc-view-value">{viewProject.description}</span></div>
+                )}
+                <div className="proc-view-row">
+                  <span className="proc-view-label">Estimated Cost</span>
+                  <span className="proc-view-value" style={{ fontWeight: 600 }}>{fmtCurrency(viewProject.items?.reduce((s, i) => s + Number(i.quantity) * Number(i.unit_price), 0))}</span>
                 </div>
-              )}
+                <div className="proc-view-row">
+                  <span className="proc-view-label">Final Payment</span>
+                  <span className="proc-view-value" style={{ fontWeight: 600, color: 'var(--proc-primary, #800000)' }}>{fmtCurrency(viewProject.final_cost || 0)}</span>
+                </div>
+              </div>
+
+              <div className="proj-items-section" style={{ marginTop: '1.25rem' }}>
+                <div className="proj-items-action-bar">
+                  <button
+                    type="button"
+                    className={`proc-btn-outline ${showViewItems ? 'active' : ''}`}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                    onClick={() => setShowViewItems(!showViewItems)}
+                  >
+                    <Package size={16} />
+                    <span>Items Taken ({viewProject.items?.length || 0})</span>
+                    {showViewItems ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </button>
+                </div>
+
+                {showViewItems && (
+                  <div className="proj-items-content-wrap">
+                    {(() => {
+                      const grouped = groupAndSortItemsByMonth(viewProject.items || []);
+                      if (grouped.length === 0) {
+                        return <div className="proc-empty">No items recorded yet.</div>;
+                      }
+                      return (
+                        <div className="proj-items-grouped-list">
+                          {grouped.map(g => (
+                            <div key={g.monthKey} className="proj-items-month-group">
+                              <div
+                                className="proj-items-month-header"
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => setExpandedViewMonth(expandedViewMonth === g.monthKey ? null : g.monthKey)}
+                              >
+                                <span className="proj-items-month-title">📅 {g.monthLabel}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <span className="proc-count-badge">{g.items.length} item(s)</span>
+                                  {expandedViewMonth === g.monthKey ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                                </div>
+                              </div>
+                              {expandedViewMonth === g.monthKey && (
+                                <div className="proc-table-wrap">
+                                  <table className="proc-table">
+                                    <thead>
+                                      <tr>
+                                        <th>Product</th><th>Qty</th><th>Unit Price</th><th>Note</th><th>Taken By</th><th>Date</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {g.items.map(item => (
+                                        <tr key={item.item_id}>
+                                          <td><strong>{item.product?.product_name || '—'}</strong></td>
+                                          <td>{item.quantity}</td>
+                                          <td>{fmtCurrency(item.unit_price)}</td>
+                                          <td>{item.note || '—'}</td>
+                                          <td>{item.receiver_name || (item.takenByUser ? `${item.takenByUser.first_name} ${item.takenByUser.last_name}` : '—')}</td>
+                                          <td className="proc-mono">{fmtDateTime(item.taken_at)}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="proc-modal-footer">
+              <button type="button" className="proc-btn-outline" onClick={() => setViewProject(null)}>Close</button>
             </div>
           </div>
         </div>,
@@ -758,6 +823,7 @@ function ProjectsPage() {
     </div>
   );
 }
+
 
 export default function Projects() {
   const location = useLocation();

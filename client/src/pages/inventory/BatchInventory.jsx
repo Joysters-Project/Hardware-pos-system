@@ -6,6 +6,8 @@ import api from "../../api/axios";
 import { formatPurchaseOrderNumber } from "../../utils/purchaseOrderNumber";
 import AdminDashboard from "../AdminDashboard";
 import ManagerDashboard from "../ManagerDashboard";
+import ModuleWorkspace from "../../components/navigation/ModuleWorkspace";
+import InventoryTopNav from "../../components/navigation/InventoryTopNav";
 import "../../styles/Products.css";
 
 const fmt = (d) => d ? new Date(d).toLocaleDateString("en-GB") : "—";
@@ -186,7 +188,9 @@ export default function BatchInventory() {
   const Layout = isManagerRoute || role === "manager" ? ManagerDashboard : AdminDashboard;
   return (
     <Layout active="batch-inventory">
-      <BatchInventoryPage />
+      <ModuleWorkspace nav={InventoryTopNav}>
+        <BatchInventoryPage />
+      </ModuleWorkspace>
     </Layout>
   );
 }

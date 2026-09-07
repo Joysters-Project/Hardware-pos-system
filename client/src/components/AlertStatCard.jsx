@@ -115,7 +115,6 @@ export default function AlertStatCard() {
             marginTop: 4,
             marginBottom: 0,
           }}>
-            Real-time stock, expiry and reorder signals
           </p>
         </div>
         <button

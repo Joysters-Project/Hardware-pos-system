@@ -223,6 +223,9 @@
 .proj-status-pill.on-hold   { background: #fff3e0; color: #e65100; }
 .proj-status-pill.cancelled { background: #fce4e4; color: #c62828; }
 
+.proc-status-pill.completed { background: #e3f2fd; color: #1565c0; }
+.proc-status-pill.on-hold   { background: #fff3e0; color: #e65100; }
+
 /* Empty */
 .proj-empty {
   text-align: center; color: #bbb;

@@ -20,6 +20,7 @@ function RoleSelect() {
   return (
     <div className="role-container">
       <div className="role-card">
+        <h1 className="role-login-title">Login</h1>
         <img src={logo} alt="Mathumithan Logo" className="role-logo" />
         <h1 className="role-title">Select Your Role</h1>
         <div className="role-buttons">

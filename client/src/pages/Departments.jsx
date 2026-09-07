@@ -6,6 +6,8 @@ import api from "../utils/axios";
 import { buildTableHtml, escapeHtml, printWithTemplate } from "../utils/printTemplate";
 import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
+import ModuleWorkspace from "../components/navigation/ModuleWorkspace";
+import PeopleTopNav from "../components/navigation/PeopleTopNav";
 import "../styles/Departments.css";
 
 const EMPTY_FORM = { department_name: "", budget: "", description: "", status: "Active" };
@@ -221,7 +223,6 @@ function DepartmentsPage() {
           <div className="dept-header-icon"><Building2 size={24} /></div>
           <div>
             <h1>Departments</h1>
-            <p>{departments.length} department{departments.length !== 1 ? "s" : ""} total</p>
           </div>
         </div>
         <button className="dept-add-btn" onClick={openAdd}>
@@ -528,5 +529,11 @@ export default function Departments() {
   const role = (localStorage.getItem("role") || "admin").toLowerCase();
   const isManager = location.pathname.startsWith("/manager/") || role === "manager";
   const Layout = isManager ? ManagerDashboard : AdminDashboard;
-  return <Layout active="departments"><DepartmentsPage /></Layout>;
+  return (
+    <Layout active="departments">
+      <ModuleWorkspace nav={PeopleTopNav}>
+        <DepartmentsPage />
+      </ModuleWorkspace>
+    </Layout>
+  );
 }

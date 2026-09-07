@@ -224,6 +224,12 @@
   padding: 8px 10px 2px;
 }
 
+.sidebar-float__nav-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 6px 10px;
+}
+
 .sidebar-float__nav-group-items {
   display: flex;
   flex-direction: column;

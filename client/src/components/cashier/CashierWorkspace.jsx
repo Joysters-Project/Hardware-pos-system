@@ -1,13 +1,13 @@
 import { Outlet, useLocation } from 'react-router-dom';
-import ProcurementTopNav from './ProcurementTopNav';
+import CashierTopNav from './CashierTopNav';
 import '../../styles/ProcurementWorkspace.css';
 
-export default function ProcurementWorkspace() {
+export default function CashierWorkspace() {
   const location = useLocation();
   return (
     <div className="procurement-workspace">
-      <ProcurementTopNav />
-      <div key={location.pathname} className="procurement-workspace-content">
+      <CashierTopNav />
+      <div key={location.pathname} className="procurement-workspace-content cashier-workspace-content">
         <Outlet />
       </div>
     </div>

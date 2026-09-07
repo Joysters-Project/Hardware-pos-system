@@ -8,6 +8,8 @@ import { escapeHtml, printWithTemplate } from "../utils/printTemplate";
 import { formatPurchaseOrderNumber } from "../utils/purchaseOrderNumber";
 import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
+import ModuleWorkspace from "../components/navigation/ModuleWorkspace";
+import InventoryTopNav from "../components/navigation/InventoryTopNav";
 import "../styles/Products.css";
 
 /* ── helpers ── */
@@ -978,7 +980,9 @@ export default function Products() {
 
   return (
     <Layout active="products">
-      <ProductsPage />
+      <ModuleWorkspace nav={InventoryTopNav}>
+        <ProductsPage />
+      </ModuleWorkspace>
     </Layout>
   );
 }

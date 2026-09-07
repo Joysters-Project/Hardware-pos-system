@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../../api/axios';
 import {
@@ -566,6 +566,8 @@ function SuccessScreen({ result, bill, onReset, onGoToHistory, onGoToRepair }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ProcessReturn() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const basePath = location.pathname.startsWith('/cashier-panel') ? '/cashier-panel/returns' : '/returns';
   const [searchType, setSearchType] = useState('bill');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -808,8 +810,8 @@ export default function ProcessReturn() {
         result={successResult}
         bill={selectedBill}
         onReset={handleReset}
-        onGoToHistory={() => navigate('/returns/history')}
-        onGoToRepair={() => navigate('/returns/supplier-services')}
+        onGoToHistory={() => navigate(`${basePath}/history`)}
+        onGoToRepair={() => navigate(`${basePath}/supplier-services`)}
       />
     );
   }

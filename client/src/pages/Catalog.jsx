@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import DashboardLayout from "../components/DashboardLayout";
+import ModuleWorkspace from "../components/navigation/ModuleWorkspace";
+import InventoryTopNav from "../components/navigation/InventoryTopNav";
 import { buildTableHtml, escapeHtml, printWithTemplate } from "../utils/printTemplate";
 import "../styles/Catalog.css";
 
@@ -317,7 +319,8 @@ function Catalog() {
 
   return (
     <DashboardLayout active="catalog">
-      <div className="catalog-container">
+      <ModuleWorkspace nav={InventoryTopNav}>
+        <div className="catalog-container">
         {/* Header Block */}
         <div className="catalog-header">
           <div>
@@ -660,8 +663,9 @@ function Catalog() {
           </div>
         )}
       </div>
-    </DashboardLayout>
-  );
+    </ModuleWorkspace>
+  </DashboardLayout>
+);
 }
 
 export default Catalog;

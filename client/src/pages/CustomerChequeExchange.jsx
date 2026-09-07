@@ -15,8 +15,11 @@ import {
   Search,
   Trash2,
   Users,
+  Banknote,
+  BarChart3,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+
 import '../styles/CustomerChequeExchange.css';
 import '../styles/Procurement.css';
 import { chequeExchangeApi } from '../services/chequeExchangeApi';
@@ -989,12 +992,24 @@ export default function CustomerChequeExchange() {
   return (
     <div className="proc-container">
       <div className="proc-header">
-        <div>
-          <h1>Customer cheque exchange</h1>
-          <p>Manage customer cheque exchange records, service charges, deposits and repayment tracking for admin and manager users.</p>
-          <div className="proc-header-meta">
-            <span className="proc-chip proc-chip-accent">Customer exchange</span>
-            <span className="proc-chip proc-chip-success">Cheque workflow</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{
+            width: 48, height: 48,
+            background: 'linear-gradient(135deg, #8b3a3a 0%, #a84545 100%)',
+            borderRadius: '10px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 4px 12px rgba(139,58,58,0.25)',
+            flexShrink: 0,
+          }}>
+            <Banknote size={24} color="white" />
+          </div>
+          <div>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#2b1515', margin: 0, lineHeight: 1.3 }}>Customer Cheque Exchange</h1>
+            <p style={{ margin: '4px 0 0', fontSize: '0.875rem', color: '#666' }}>Manage customer cheque exchange records, service charges, deposits and repayment tracking.</p>
+            <div className="proc-header-meta">
+              <span className="proc-chip proc-chip-accent">Customer exchange</span>
+              <span className="proc-chip proc-chip-success">Cheque workflow</span>
+            </div>
           </div>
         </div>
         <div className="proc-header-actions">
@@ -1038,10 +1053,11 @@ export default function CustomerChequeExchange() {
             key={tab}
             className={`cce-tab ${activeTab === tab ? 'active' : ''}`}
             onClick={() => setActiveTab(tab)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
           >
-            {tab === 'customers' && 'Customer management'}
-            {tab === 'cheques' && 'Cheque management'}
-            {tab === 'reports' && 'Reports'}
+            {tab === 'customers' && <><Users size={15} /> Customer management</>}
+            {tab === 'cheques' && <><Banknote size={15} /> Cheque management</>}
+            {tab === 'reports' && <><BarChart3 size={15} /> Reports</>}
           </button>
         ))}
       </div>

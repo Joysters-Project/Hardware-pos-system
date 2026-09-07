@@ -259,6 +259,17 @@
   margin: 1.25rem 0;
 }
 
+.alert-section-search {
+  position: relative;
+  width: 100%;
+  margin: 0 0 1rem;
+}
+
+.alert-section-search .proc-search {
+  width: 100%;
+  min-height: 42px;
+}
+
 .alert-chip {
   display: inline-flex;
   align-items: center;
