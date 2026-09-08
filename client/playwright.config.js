@@ -23,9 +23,9 @@ export default defineConfig({
   use: {
     baseURL: BASE_URL,
     headless: true,
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
-    video: 'on-first-retry',
+    trace: 'off',
+    screenshot: 'off',
+    video: 'off',
     actionTimeout: 10_000,
     navigationTimeout: 20_000,
   },
@@ -40,6 +40,16 @@ export default defineConfig({
     {
       name: 'procurement',
       testMatch: '**/procurement/**/*.spec.js',
+      dependencies: ['auth-setup'],
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/auth/.auth-state.json',
+      },
+    },
+    // 3. People module tests (Employees + Departments)
+    {
+      name: 'people',
+      testMatch: '**/people/**/*.spec.js',
       dependencies: ['auth-setup'],
       use: {
         ...devices['Desktop Chrome'],
