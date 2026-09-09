@@ -23,6 +23,7 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.17.0",
+    "mysql2": "^3.24.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-hot-toast": "^2.6.0",
@@ -30,6 +31,7 @@
     "recharts": "^3.8.1",
     "redux": "^5.0.1",
     "redux-thunk": "^3.1.0",
+    "sequelize": "^6.37.8",
     "socket.io-client": "^4.8.3"
   },
   "devDependencies": {

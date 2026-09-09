@@ -20,17 +20,18 @@ const MONTHS = ["January","February","March","April","May","June","July","August
 const METHODS = ["Cash", "Bank Transfer", "Cheque", "Online"];
 
 const TODAY = new Date();
+const localDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 const CURRENT_YEAR = TODAY.getFullYear();
 const CURRENT_MONTH_START = new Date(CURRENT_YEAR, TODAY.getMonth(), 1);
 const CURRENT_MONTH_END = new Date(CURRENT_YEAR, TODAY.getMonth() + 1, 0);
-const CURRENT_MONTH_MIN = CURRENT_MONTH_START.toISOString().slice(0, 10);
-const CURRENT_MONTH_MAX = CURRENT_MONTH_END.toISOString().slice(0, 10);
+const CURRENT_MONTH_MIN = localDate(CURRENT_MONTH_START);
+const CURRENT_MONTH_MAX = localDate(CURRENT_MONTH_END);
 
 const getDefaultForm = () => ({
   employee_id: "", salary_category: "monthly",
   basic_salary: "", bonus_amount: "0", deduction_amount: "0",
   payment_month: "", payment_year: String(CURRENT_YEAR),
-  payment_date: TODAY.toISOString().slice(0, 10), payment_method: "Bank Transfer", remarks: ""
+  payment_date: localDate(TODAY), payment_method: "Bank Transfer", remarks: ""
 });
 
 function SalaryPage() {
@@ -74,7 +75,7 @@ function SalaryPage() {
       setPayments(pRes.data);
       setEmployees(eRes.data);
       setStats(sRes.data);
-    } catch { toast.error("Failed to load salary data"); }
+    } catch { toast.error("Failed to load salary data", { id: 'salary-load-error' }); }
     finally { setPageLoading(false); }
   }, [filterMonth, filterYear, filterStatus, filterCat, search]);
 
@@ -295,7 +296,7 @@ function SalaryPage() {
       deduction_amount: payment.deduction_amount?.toString() || "0",
       payment_month: payment.payment_month || "",
       payment_year: payment.payment_year?.toString() || String(CURRENT_YEAR),
-      payment_date: payment.payment_date || TODAY.toISOString().slice(0, 10),
+      payment_date: payment.payment_date || localDate(TODAY),
       payment_method: payment.payment_method || "Bank Transfer",
       remarks: payment.remarks || ""
     });
@@ -353,6 +354,9 @@ function SalaryPage() {
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
   const totalPages = Math.ceil(payments.length / PER_PAGE);
+  useEffect(() => {
+    setPage(current => Math.min(current, Math.max(1, totalPages)));
+  }, [totalPages]);
   const paginated  = payments.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   const selectedEmp = employees.find(e => String(e.employee_id) === String(form.employee_id));
@@ -525,7 +529,7 @@ function SalaryPage() {
         <div className="sal-overlay" onClick={() => { resetSalaryModal(); setShowModal(false); }}>
           <div className="sal-modal sal-modal-lg" onClick={e => e.stopPropagation()}>
             <div className="sal-modal-header">
-              <h2>New Salary Payment</h2>
+              <h2>{editingId ? 'Edit Salary Payment' : 'New Salary Payment'}</h2>
               <button className="sal-modal-close" onClick={() => { resetSalaryModal(); setShowModal(false); }}><X size={18} /></button>
             </div>
             <form onSubmit={handleCreate} className="sal-modal-form">
@@ -649,7 +653,7 @@ function SalaryPage() {
               <div className="sal-modal-footer">
                 <button type="button" className="sal-btn-cancel" onClick={() => { resetSalaryModal(); setShowModal(false); }}>Cancel</button>
                 <button type="submit" className="sal-btn-submit" disabled={loading || !form.employee_id}>
-                  {loading ? "Saving..." : "Pay Salary"}
+                  {loading ? "Saving..." : editingId ? "Update Salary" : "Pay Salary"}
                 </button>
               </div>
             </form>
