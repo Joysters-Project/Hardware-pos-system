@@ -11,10 +11,10 @@ export default function ReturnsLayout() {
   const basePath = location.pathname.startsWith('/cashier-panel') ? '/cashier-panel/returns' : '/returns';
 
   const navItems = [
-    { label: 'Process Return',              path: `${basePath}/process`,           icon: RotateCcw },
-    { label: 'Return History',              path: `${basePath}/history`,           icon: ClipboardList },
+    { label: 'Process Return', path: `${basePath}/process`, icon: RotateCcw },
+    { label: 'Return History', path: `${basePath}/history`, icon: ClipboardList },
     { label: 'Supplier Repairs & Warranty', path: `${basePath}/supplier-services`, icon: Wrench },
-    { label: 'Inventory Status',            path: `${basePath}/inventory`,         icon: Package },
+    { label: 'Inventory Status', path: `${basePath}/inventory`, icon: Package },
   ];
 
   return (
