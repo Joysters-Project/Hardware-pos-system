@@ -18,7 +18,6 @@ export default function InventoryTopNav() {
     <header className="procurement-header">
       <div className="procurement-title-block">
         <h1>Inventory Management</h1>
-        <p>Manage products, catalog categories, batch inventory, and company assets</p>
       </div>
 
       <nav className="procurement-top-nav">

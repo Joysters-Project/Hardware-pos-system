@@ -15,8 +15,7 @@ export default function PeopleTopNav() {
   return (
     <header className="procurement-header">
       <div className="procurement-title-block">
-        <h1>People & Organization</h1>
-        <p>Manage employees, staff roles, and company departments</p>
+        <h1>People</h1>
       </div>
 
       <nav className="procurement-top-nav">

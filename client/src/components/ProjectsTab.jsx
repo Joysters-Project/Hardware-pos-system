@@ -15,6 +15,7 @@ import {
   Printer,
   ShoppingCart,
   AlertCircle,
+  ArrowLeft,
   Grid3x3,
   List,
 } from 'lucide-react';
@@ -185,6 +186,10 @@ export default function ProjectsTab() {
       project.location?.toLowerCase().includes(query)
     );
   });
+
+  const visibleProjects = selectedProject
+    ? filteredProjects.filter((project) => project.project_id === selectedProject.project_id)
+    : filteredProjects;
 
   const catalogProducts = products.filter((product) => {
     if (!searchQ.trim()) return true;
@@ -539,13 +544,13 @@ export default function ProjectsTab() {
           )}
         </div>
 
-        <div className="pt-project-grid">
-          {filteredProjects.length === 0 ? (
+        <div className={`pt-project-grid${visibleProjects.length === 1 ? ' single-project' : ''}`}>
+          {visibleProjects.length === 0 ? (
             <div className="pt-no-projects">
               {projectSearchQ ? `No active projects match "${projectSearchQ}"` : 'No active projects available.'}
             </div>
           ) : (
-            filteredProjects.map((project) => (
+            visibleProjects.map((project) => (
               <button
                 key={project.project_id}
                 type="button"
@@ -571,8 +576,9 @@ export default function ProjectsTab() {
                 <span className="pt-display-badge">Active Project</span>
                 <h2>📁 {selectedProject.project_name}</h2>
               </div>
-              <button className="pt-modal-close-btn" onClick={() => setSelectedProject(null)} type="button" title="Close project details">
-                <X size={20} />
+              <button className="pt-project-back-btn" onClick={() => setSelectedProject(null)} type="button" title="Back to project selection">
+                <ArrowLeft size={18} />
+                <span>Back to Projects</span>
               </button>
             </div>
 

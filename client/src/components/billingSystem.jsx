@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useMatch } from 'react-router-dom';
 import {
   Search, Package, X, Minus, Plus, Trash2, ShoppingCart,
   CreditCard, Printer, Download, XCircle, CheckCircle,
@@ -14,7 +14,6 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { printWithTemplate, escapeHtml } from '../utils/printTemplate';
 import SuccessAnim from './SuccessAnim';
-import DashboardLayout from './DashboardLayout';
 import ProjectsTab from './ProjectsTab';
 import toast from 'react-hot-toast';
 import '../styles/BillingSystem.css';
@@ -22,13 +21,8 @@ import '../styles/Procurement.css';
 
 const BillingSystem = () => {
   const location = useLocation();
-  const [activePosTab, setActivePosTab] = useState(location.state?.tab || 'billing');
-
-  useEffect(() => {
-    if (location.state?.tab) {
-      setActivePosTab(location.state.tab);
-    }
-  }, [location.state]);
+  const projectsMatch = useMatch('/cashier-panel/billing/projects');
+  const activePosTab = projectsMatch ? 'projects' : 'billing';
   const [cart, setCart] = useState([]);
   const [catalogProducts, setCatalogProducts] = useState([]);
   const [payData, setPayData] = useState({ amountPaid: '', customerName: '', customerPhone: '', customerAddress: '' });
@@ -853,7 +847,7 @@ const BillingSystem = () => {
   };
 
   return (
-    <DashboardLayout active="billing">
+    <>
       {/* Modern Page Header */}
       <div className="proc-header" style={{ marginBottom: "1rem" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
@@ -871,7 +865,7 @@ const BillingSystem = () => {
             <p style={{ margin: 0, color: "var(--proc-text-muted, #666)", fontSize: "0.85rem" }}>
               {activePosTab === 'billing'
                 ? 'Process sales, manage cart & complete transactions'
-                : 'Select project, issue items, & track project transactions'}
+                : ''}
             </p>
           </div>
         </div>
@@ -892,7 +886,7 @@ const BillingSystem = () => {
         <button
           type="button"
           className={`pos-tab-btn ${activePosTab === 'billing' ? 'active' : ''}`}
-          onClick={() => setActivePosTab('billing')}
+          onClick={() => navigate('/cashier-panel/billing')}
         >
           <CreditCard size={16} />
           <span>Billing Counter</span>
@@ -900,7 +894,7 @@ const BillingSystem = () => {
         <button
           type="button"
           className={`pos-tab-btn ${activePosTab === 'projects' ? 'active' : ''}`}
-          onClick={() => setActivePosTab('projects')}
+          onClick={() => navigate('/cashier-panel/billing/projects')}
         >
           <FolderOpen size={16} />
           <span>Project Billing Counter</span>
@@ -1396,7 +1390,7 @@ const BillingSystem = () => {
           </div>
         </div>
       )}
-    </DashboardLayout>
+    </>
   );
 };
 

@@ -1,0 +1,42 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "http://localhost:5173",
+      "localStorage": [
+        {
+          "name": "userLastName",
+          "value": "User"
+        },
+        {
+          "name": "userId",
+          "value": "1"
+        },
+        {
+          "name": "userFullName",
+          "value": "Admin User"
+        },
+        {
+          "name": "userName",
+          "value": "admin"
+        },
+        {
+          "name": "userFirstName",
+          "value": "Admin"
+        },
+        {
+          "name": "token",
+          "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJ1c2VyX25hbWUiOiJhZG1pbiIsImZpcnN0X25hbWUiOiJBZG1pbiIsImxhc3RfbmFtZSI6IlVzZXIiLCJyb2xlIjoiQWRtaW4iLCJkZXBhcnRtZW50X2lkIjoxLCJpYXQiOjE3ODg4OTU2NDcsImV4cCI6MTc4ODg5OTI0N30.SlA3Gj7Wwv1uWTobWJGUFKPBLQ7lr6yRscG8I_i376M"
+        },
+        {
+          "name": "loginTime",
+          "value": "1788895647404"
+        },
+        {
+          "name": "role",
+          "value": "admin"
+        }
+      ]
+    }
+  ]
+}

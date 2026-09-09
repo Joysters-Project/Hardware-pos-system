@@ -213,8 +213,9 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
         return active === "audit" || path.startsWith("/audit-logs");
       case "projects":
         return (
-          ["projects", "projects-mgmt"].includes(active) ||
-          path.includes("/projects")
+          path !== "/cashier-panel/billing/projects" &&
+          (["projects", "projects-mgmt"].includes(active) ||
+            path.includes("/projects"))
         );
       case "alerts":
         return active === "alerts" || path.includes("/alerts");

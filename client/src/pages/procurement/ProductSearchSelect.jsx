@@ -601,7 +601,7 @@ export default function CreatePurchaseOrder() {
                 <motion.button
                   whileHover={{ scale: isBusy ? 1 : 1.03 }}
                   whileTap={{ scale: isBusy ? 1 : 0.97 }}
-                  className="proc-btn-approve proc-btn-full"
+                  className="proc-btn-receive proc-btn-full"
                   onClick={() => submit('Approved')}
                   disabled={isBusy}
                 >

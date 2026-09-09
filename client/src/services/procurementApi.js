@@ -266,11 +266,64 @@ export function useSendItemCommentEmail() {
 
 export function useExportPurchaseOrderPDF() {
   return useMutation({
-    mutationFn: (id) => poApi.exportPDF(id),
+    mutationFn: (id) => poApi.getById(id),
     onSuccess: (response) => {
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url  = window.URL.createObjectURL(blob);
-      window.open(url, '_blank');
+      const po = response.data;
+      const supplier = po.supplier || {};
+      const items = po.po_items || po.poItems || [];
+      const formatMoney = (value) => Number(value || 0).toLocaleString('en-LK', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      const rows = items.map((item) => {
+        const unitPrice = Number(item.unit_price || 0);
+        const quantity = Number(item.quantity || 0);
+        const lineTotal = item.total_price === undefined
+          ? unitPrice * quantity
+          : Number(item.total_price);
+
+        return [
+          escapeHtml(item.product?.product_name || item.product_name || `Product #${item.product_id}`),
+          formatMoney(unitPrice),
+          quantity.toLocaleString('en-LK'),
+          formatMoney(lineTotal),
+        ];
+      });
+      const tableHtml = buildTableHtml({
+        columns: ['Item Description', 'Unit Price', 'Qty', 'Total (LKR)'],
+        rows,
+        emptyMessage: 'No purchase-order items available.',
+      });
+      const detailsHtml = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:8px 0 12px;color:#334155;font-size:11px;line-height:1.65;">
+          <div>
+            <strong>PO Number:</strong> ${escapeHtml(po.po_number || po.po_id || '—')}<br>
+            <strong>Date:</strong> ${escapeHtml(po.po_date || '—')}<br>
+            <strong>Expected Delivery:</strong> ${escapeHtml(po.expected_delivery || 'N/A')}<br>
+            <strong>Status:</strong> ${escapeHtml(po.status || '—')}
+          </div>
+          <div>
+            <strong>Supplier Info:</strong><br>
+            ${escapeHtml(supplier.supplier_name || 'N/A')}<br>
+            Contact: ${escapeHtml(supplier.contact_person || supplier.contact || 'N/A')}<br>
+            Phone: ${escapeHtml(supplier.phone || 'N/A')}<br>
+            Email: ${escapeHtml(supplier.email || 'N/A')}
+          </div>
+        </div>`;
+      const summaryHtml = `
+        <div style="margin-top:12px;color:#7f1d24;font-size:13px;font-weight:700;text-align:right;">
+          Grand Total: LKR ${formatMoney(po.total_amount)}
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:40px;margin-top:54px;color:#475569;font-size:11px;text-align:center;">
+          <div style="width:150px;border-top:1px solid #94a3b8;padding-top:6px;">Prepared By</div>
+          <div style="width:150px;border-top:1px solid #94a3b8;padding-top:6px;">Authorized Signature</div>
+        </div>`;
+
+      printWithTemplate({
+        title: 'Purchase Order',
+        subtitle: `Reference: ${po.po_number || `PO-${po.po_id}`} | Supplier: ${supplier.supplier_name || '—'}`,
+        contentHtml: `${detailsHtml}${tableHtml}${summaryHtml}`,
+      });
       toast.success('PDF opened!');
     },
     onError: () => toast.error('Failed to export PDF'),

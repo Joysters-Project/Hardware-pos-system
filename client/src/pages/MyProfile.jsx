@@ -423,7 +423,6 @@ export default function MyProfile() {
             <div>
               <h1 style={{ margin: 0 }}>Account Overview</h1>
               <p style={{ margin: 0, color: "var(--proc-text-muted, #666)", fontSize: "0.85rem" }}>
-                Manage your profile, contact details and password
               </p>
             </div>
           </div>
@@ -588,7 +587,7 @@ export default function MyProfile() {
                   <Save size={15} /> {saving ? "Saving…" : "Save Changes"}
                 </button>
                 <button type="button" className="pf-btn pf-btn--ghost" onClick={closePanel}>
-                  <X size={15} /> Cancel
+                  Cancel
                 </button>
               </div>
             </form>
@@ -601,7 +600,7 @@ export default function MyProfile() {
             <div className="pf-panel__head">
               <div>
                 <h3>Change Password</h3>
-                <p>Keep your account secure by updating your password regularly.</p>
+                
               </div>
               
             </div>
@@ -633,7 +632,7 @@ export default function MyProfile() {
                   <ShieldCheck size={15} /> {pwdLoading ? "Updating…" : "Update Password"}
                 </button>
                 <button type="button" className="pf-btn pf-btn--ghost" onClick={closePanel}>
-                  <X size={15} /> Cancel
+                  Cancel
                 </button>
               </div>
             </form>

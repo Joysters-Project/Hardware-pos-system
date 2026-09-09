@@ -175,6 +175,11 @@ function EmployeesPage() {
     }
     form.phone_no = phoneValidation.formatted;
 
+    if (!form.department_id) {
+      toast.error("Department is required");
+      return;
+    }
+
     setLoading(true);
     try {
       if (photoFile && photoFile.size > MAX_PHOTO_SIZE) { toast.error("Photo must be 1 MB or smaller"); setLoading(false); return; }
@@ -281,7 +286,8 @@ function EmployeesPage() {
       <div className="emp-header">
         <div className="emp-header-left">
           <div className="emp-header-icon"><Users size={22} /></div>
-          <div><h1>Employees</h1><p>{employees.length} total employees</p></div>
+          <div><h1>Employees</h1>
+          </div>
         </div>
         <div className="emp-header-actions">
           <button className="emp-btn-outline" onClick={exportPDF}><FileDown size={14} /> Export PDF</button>
@@ -378,15 +384,13 @@ function EmployeesPage() {
               </div>
               <div className="emp-form-grid">
                 {[["First Name *", "text", "first_name", true], ["Last Name *", "text", "last_name", true],
-                ["NIC *", "text", "nic", true], ["Email *", "email", "email", true]].map(([label, type, key, req]) => (
+                ["NIC *", "text", "nic", true], ["Email *", "text", "email", true]].map(([label, type, key, req]) => (
                   <div className="emp-field" key={key}>
                     <label>{label}</label>
                     <input
                       type={type}
                       value={form[key]}
                       onChange={e => setForm({ ...form, [key]: e.target.value })}
-                      required={!!req}
-                      pattern={key === "nic" ? "(^\\d{9}[vVxX]$|^\\d{12}$)" : key === "first_name" || key === "last_name" ? "^[A-Za-z ]+$" : undefined}
                       title={key === "nic" ? "NIC must be 9 digits + V/X or 12 digits" : key === "first_name" || key === "last_name" ? "Name may only contain letters and spaces" : undefined}
                     />
                   </div>
@@ -400,7 +404,6 @@ function EmployeesPage() {
                       placeholder="e.g., 0712345678 (10 digits, numbers only)"
                       value={form.phone_no}
                       maxLength="10"
-                      required
                       onChange={e => {
                         const filtered = filterSriLankanPhoneInput(e.target.value);
                         setForm({ ...form, phone_no: filtered });
@@ -426,23 +429,21 @@ function EmployeesPage() {
                     type="text"
                     value={form.position}
                     onChange={e => setForm({ ...form, position: e.target.value })}
-                    required
-                    pattern="^[A-Za-z ]+$"
                     title="Position may only contain letters and spaces"
                     placeholder="e.g. Manager"
                   />
                 </div>
                 <div className="emp-field"><label>Salary (LKR) *</label>
-                  <input type="number" min="1" value={form.salary} onChange={e => setForm({ ...form, salary: e.target.value })} required /></div>
+                  <input type="number" value={form.salary} onChange={e => setForm({ ...form, salary: e.target.value })} /></div>
                 <div className="emp-field"><label>Salary Category *</label>
-                  <select id="salary_category" name="salary_category" value={form.salary_category} onChange={e => setForm({ ...form, salary_category: e.target.value })} required>
+                  <select id="salary_category" name="salary_category" value={form.salary_category} onChange={e => setForm({ ...form, salary_category: e.target.value })}>
                     <option value="monthly">Monthly Worker</option>
                     <option value="daily">Daily Worker</option>
                   </select></div>
                 <div className="emp-field"><label>Join Date</label>
                   <input id="join_date" name="join_date" type="date" value={form.join_date} max={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, join_date: e.target.value })} /></div>
                 <div className="emp-field"><label>Department *</label>
-                  <select value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })} required>
+                  <select value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })}>
                     <option value=""></option>{departments.filter(d => d.status === "Active").map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
                   </select></div>
                 <div className="emp-field"><label>Status</label>

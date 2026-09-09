@@ -20,7 +20,6 @@ export default function FinanceTopNav() {
     <header className="procurement-header">
       <div className="procurement-title-block">
         <h1>Finance</h1>
-        <p>Track business expenses and employee salaries</p>
       </div>
 
       <nav className="procurement-top-nav">

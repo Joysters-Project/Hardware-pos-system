@@ -148,6 +148,27 @@
   color: #c62828;
 }
 
+.pt-project-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #eadfdf;
+  border-radius: 8px;
+  background: #fff8f8;
+  color: #8b3a3a;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+
+.pt-project-back-btn:hover {
+  background: #8b3a3a;
+  border-color: #8b3a3a;
+  color: #ffffff;
+}
+
 /* ── Card Box Container ── */
 .pt-card-box {
   background: #ffffff;
@@ -245,6 +266,10 @@
   gap: 0.75rem;
 }
 
+.pt-project-grid.single-project {
+  justify-content: flex-start;
+}
+
 .pt-no-projects {
   font-size: 0.88rem;
   color: #888;
@@ -265,6 +290,11 @@
   text-align: left;
   min-width: 170px;
   flex: 1 1 calc(25% - 0.75rem);
+}
+
+.pt-project-grid.single-project .pt-project-card {
+  flex: 0 1 420px;
+  max-width: 100%;
 }
 
 .pt-project-card:hover {

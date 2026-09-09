@@ -1396,7 +1396,7 @@ function ReportsPage() {
                 Reports &amp; Analytics
               </h1>
               <p style={{ fontSize: '0.875rem', color: '#666', margin: '2px 0 0' }}>
-                View detailed sales, return logs, borrow reports, and procurement analytics
+               
               </p>
             </div>
           </div>

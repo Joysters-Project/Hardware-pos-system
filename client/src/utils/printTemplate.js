@@ -165,8 +165,8 @@ const paginateContentHtml = ({ title, subtitle, contentHtml, formattedDate, useT
   const beforeTable = contentHtml.substring(0, tableIndex);
   const afterTable = contentHtml.substring(tableIndex + fullTableMatch.length);
 
-  const FIRST_PAGE_MAX_ROWS = useTemplate ? 12 : 20;
-  const OTHER_PAGE_MAX_ROWS = useTemplate ? 14 : 24;
+  const FIRST_PAGE_MAX_ROWS = useTemplate ? 10 : 20;
+  const OTHER_PAGE_MAX_ROWS = useTemplate ? 12 : 24;
 
   if (rowMatches.length <= FIRST_PAGE_MAX_ROWS) {
     return `
@@ -327,17 +327,17 @@ export const printWithTemplate = ({
     }
 
     /* ── content sits cleanly between the PNG header and footer bands ──
-       Templet.png header ends at ~69mm -> top: 72mm
-       Templet.png footer starts at ~271mm -> bottom: 30mm
-       Left/Right margins: 16mm
+       Templet.png header ends at ~97mm  -> top: 100mm
+       Templet.png footer starts at ~276mm -> bottom: 22mm
+       Left/Right margins: 20mm
     */
     .tpl-content {
       position: absolute;
-      top: 72mm;
-      left: 16mm;
-      right: 16mm;
-      bottom: 30mm;
-      max-height: calc(297mm - 72mm - 30mm);
+      top: 100mm;
+      left: 20mm;
+      right: 20mm;
+      bottom: 22mm;
+      max-height: calc(297mm - 100mm - 22mm);
       overflow: hidden;
       box-sizing: border-box;
       display: flex;
@@ -596,7 +596,7 @@ export const printWithTemplate = ({
       Print / Save PDF
     </button>
     <button class="tpl-btn-close" onclick="window.close()">
-      Close
+      Cancel
     </button>
   </div>
 </body>

@@ -24,6 +24,37 @@ const EMPTY_FORM = {
   status: 'Active', final_payment: '',
 };
 
+const formatDateForInput = (value) => {
+  if (!value) return '';
+  const datePart = String(value).split('T')[0];
+  const [year, month, day] = datePart.split('-');
+  if (!year || !month || !day) return String(value);
+  return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+};
+
+const formatDateInputValue = (value) => {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+};
+
+const parseDateInput = (value) => {
+  if (!value) return '';
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value);
+  if (!match) return null;
+
+  const [, day, month, year] = match;
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  if (
+    date.getUTCFullYear() !== Number(year) ||
+    date.getUTCMonth() !== Number(month) - 1 ||
+    date.getUTCDate() !== Number(day)
+  ) return null;
+
+  return `${year}-${month}-${day}`;
+};
+
 function ProjectsPage() {
   const [projects, setProjects]               = useState([]);
   const [form, setForm]                       = useState(EMPTY_FORM);
@@ -65,9 +96,9 @@ function ProjectsPage() {
       location:      p.location || '',
       description:   p.description || '',
       status:        p.status,
-      start_date:    p.start_date || '',
-      deadline:      p.deadline || '',
-      end_date:      p.end_date || '',
+      start_date:    formatDateForInput(p.start_date),
+      deadline:      formatDateForInput(p.deadline),
+      end_date:      formatDateForInput(p.end_date),
       final_payment: p.final_cost || '',
     };
     setForm(baseForm);
@@ -92,6 +123,14 @@ function ProjectsPage() {
     e.preventDefault();
     if (!form.project_name || !form.start_date) { toast.error('Name and start date required'); return; }
 
+    const startDate = parseDateInput(form.start_date);
+    const deadline = parseDateInput(form.deadline);
+    const endDate = parseDateInput(form.end_date);
+    if (!startDate || (form.deadline && !deadline) || (form.end_date && !endDate)) {
+      toast.error('Use dd/mm/yyyy for all project dates');
+      return;
+    }
+
     if (editId && ['Completed', 'Cancelled'].includes(form.status)) {
       const paymentValue = Number(form.final_payment);
       if (form.final_payment === '' || Number.isNaN(paymentValue) || paymentValue < 0) {
@@ -102,7 +141,13 @@ function ProjectsPage() {
 
     setLoading(true);
     try {
-      const payload = { ...form, final_payment: form.final_payment };
+      const payload = {
+        ...form,
+        start_date: startDate,
+        deadline: deadline || '',
+        end_date: endDate || '',
+        final_payment: form.final_payment,
+      };
       if (editId) { await api.put(`/projects/${editId}`, payload); toast.success('Project updated'); }
       else        { await api.post('/projects', payload);          toast.success('Project created'); }
       closeModal(); loadProjects();
@@ -300,6 +345,7 @@ function ProjectsPage() {
 
   const fmtCurrency = (n) => `LKR ${Number(n || 0).toLocaleString('en-LK', { minimumFractionDigits: 2 })}`;
   const f = (key) => (e) => setForm({ ...form, [key]: e.target.value });
+  const dateField = (key) => (e) => setForm({ ...form, [key]: formatDateInputValue(e.target.value) });
 
   // Derive years and months that are covered by at least one project's active span
   const projectYears = (() => {
@@ -342,7 +388,6 @@ function ProjectsPage() {
         <div className="procurement-title-block" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <h1>Project Management</h1>
-            <p>Track items taken from shop for client projects</p>
           </div>
           <button className="proc-btn-primary" onClick={openAdd} style={{ marginBottom: '14px' }}>
             <Plus size={16} /> New Project
@@ -624,15 +669,15 @@ function ProjectsPage() {
                   </div>
                   <div className="proc-field">
                     <label>Start Date *</label>
-                    <input id="start_date" name="start_date" type="date" className="proc-date-input" value={form.start_date} onChange={f('start_date')} required />
+                    <input id="start_date" name="start_date" type="text" inputMode="numeric" maxLength={10} className="proc-date-input" value={form.start_date} onChange={dateField('start_date')} placeholder="dd/mm/yyyy" required />
                   </div>
                   <div className="proc-field">
                     <label>Deadline</label>
-                    <input id="deadline" name="deadline" type="date" className="proc-date-input" value={form.deadline} onChange={f('deadline')} />
+                    <input id="deadline" name="deadline" type="text" inputMode="numeric" maxLength={10} className="proc-date-input" value={form.deadline} onChange={dateField('deadline')} placeholder="dd/mm/yyyy" />
                   </div>
                   <div className="proc-field">
                     <label>End Date (Actual)</label>
-                    <input id="end_date" name="end_date" type="date" className="proc-date-input" value={form.end_date} onChange={f('end_date')} />
+                    <input id="end_date" name="end_date" type="text" inputMode="numeric" maxLength={10} className="proc-date-input" value={form.end_date} onChange={dateField('end_date')} placeholder="dd/mm/yyyy" />
                   </div>
                   {editId && ['Completed', 'Cancelled'].includes(form.status) && (
                     <div className="proc-field proc-field-full">
