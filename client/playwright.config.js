@@ -31,6 +31,15 @@ export default defineConfig({
   },
 
   projects: [
+    {
+      name: 'inventory',
+      testMatch: '**/inventory/**/*.spec.js',
+      dependencies: ['auth-setup'],
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/auth/.auth-state.json',
+      },
+    },
     // 1. Auth setup — runs first, saves session to file
     {
       name: 'auth-setup',

@@ -27,8 +27,9 @@ export async function restoreSession(page) {
  */
 export async function gotoEmployees(page, role = 'admin') {
   const path = role === 'manager' ? '/manager/employees' : '/employees';
-  await page.goto(path);
-  await page.waitForSelector('.procurement-top-nav', { timeout: 15_000 });
+  // Confirm app readiness without waiting for every image and subresource to load.
+  await page.goto(path, { waitUntil: 'domcontentloaded' });
+  await page.locator('.procurement-top-nav').waitFor({ state: 'visible', timeout: 15_000 });
 }
 
 /**
@@ -38,8 +39,9 @@ export async function gotoEmployees(page, role = 'admin') {
  */
 export async function gotoDepartments(page, role = 'admin') {
   const path = role === 'manager' ? '/manager/departments' : '/departments';
-  await page.goto(path);
-  await page.waitForSelector('.procurement-top-nav', { timeout: 15_000 });
+  // Confirm app readiness without waiting for every image and subresource to load.
+  await page.goto(path, { waitUntil: 'domcontentloaded' });
+  await page.locator('.procurement-top-nav').waitFor({ state: 'visible', timeout: 15_000 });
 }
 
 /**

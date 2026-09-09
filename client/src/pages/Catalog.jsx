@@ -66,6 +66,8 @@ function Catalog() {
     loadData();
     setSearchQuery("");
     setCurrentPage(1);
+    setEditingId(null);
+    setEditingName("");
   }, [activeTab]);
 
   const loadData = async () => {
