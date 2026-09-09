@@ -43,7 +43,7 @@ function AssetsPage() {
     try {
       const [assetRes, deptRes] = await Promise.all([api.get("/assets"), api.get("/departments")]);
       setAssets(assetRes.data); setDepartments(deptRes.data);
-    } catch { toast.error("Failed to load assets"); }
+    } catch { toast.error("Failed to load assets", { id: "assets-load-error" }); }
     finally { setPageLoading(false); }
   };
 
@@ -142,6 +142,9 @@ function AssetsPage() {
       && (!filterDept || String(a.department_id) === String(filterDept));
   });
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
+  useEffect(() => {
+    setPage(current => Math.min(current, Math.max(1, totalPages)));
+  }, [totalPages]);
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
   const totalCost = assets.filter(a => a.status !== "Disposed").reduce((s, a) => s + parseFloat(a.cost || 0), 0);
 

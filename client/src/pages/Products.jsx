@@ -284,7 +284,7 @@ function ProductsPage() {
       setBrands(Array.isArray(brandsRes.data) ? brandsRes.data : []);
       setUnits(Array.isArray(unitsRes.data) ? unitsRes.data : []);
     } catch {
-      toast.error("Failed to load products");
+      toast.error("Failed to load products", { id: "products-load-error" });
     } finally {
       setLoading(false);
     }
@@ -632,6 +632,7 @@ function ProductsPage() {
                     <input
                       name={f.name}
                       type={f.type}
+                      min={f.type === "number" ? 0 : undefined}
                       step={f.step}
                       value={editForm[f.name] ?? ""}
                       onChange={handleEditFieldChange}
