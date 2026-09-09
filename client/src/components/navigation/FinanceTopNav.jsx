@@ -29,7 +29,7 @@ export default function FinanceTopNav() {
             <NavLink
               key={item.path}
               to={item.path}
-              end
+              end={item.label !== 'Salary'}
               className={({ isActive }) => `procurement-nav-item${isActive ? ' active' : ''}`}
             >
               <Icon size={15} />

@@ -42,3 +42,19 @@ test.describe('Catalog - Name Validation', () => {
     await expect(page.locator('.catalog-card-row')).toHaveCount(1);
   });
 });
+
+test.describe('Catalog - Edit Validation', () => {
+  for (const tab of ['Categories', 'Brands', 'Units']) {
+    test(tab + ' inline edit sanitizes symbols and limits length', async ({ page }) => {
+      await gotoCatalog(page);
+      await page.getByRole('button', { name: tab, exact: true }).click();
+      await page.getByTitle('Edit Item').click();
+      await page.locator('#editingName').fill('123!');
+      await expect(page.locator('#editingName')).toHaveValue('');
+      await page.locator('#editingName').fill('A'.repeat(51));
+      await expect(page.locator('#editingName')).toHaveValue('A'.repeat(50));
+      await page.locator('#editingName').press('Escape');
+      await expect(page.locator('#editingName')).toHaveCount(0);
+    });
+  }
+});

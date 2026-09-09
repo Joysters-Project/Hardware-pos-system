@@ -86,3 +86,32 @@ test.describe('Batch Inventory - Search and Empty State', () => {
     await expect(page.locator('tbody tr')).toHaveCount(2);
   });
 });
+
+test.describe('Batch Inventory - Lifecycle Persistence', () => {
+  test('empty dataset shows no batches', async ({ page }) => {
+    inventory.data['batch-inventory'] = [];
+    await gotoBatchInventory(page);
+    await expect(page.getByText('No batches found.', { exact: true })).toBeVisible();
+    await expect(page.getByTitle('Dispose', { exact: true })).toHaveCount(0);
+  });
+  test('disposed batch has zero remaining stock after reload', async ({ page }) => {
+    await gotoBatchInventory(page);
+    const row = page.getByRole('row').filter({ hasText: 'BATCH-2' });
+    page.once('dialog', dialog => dialog.accept());
+    await row.getByTitle('Dispose', { exact: true }).click();
+    await expect(row).toContainText('Disposed');
+    await page.reload();
+    await expect(row.locator('.stock-badge')).toHaveText('0');
+    await expect(row.getByTitle('Dispose', { exact: true })).toHaveCount(0);
+    expect(inventory.mutations).toHaveLength(1);
+  });
+  test('closing details leaves batch quantities unchanged', async ({ page }) => {
+    await gotoBatchInventory(page);
+    await page.getByTitle('View', { exact: true }).first().click();
+    await expect(page.locator('.view-modal')).toBeVisible();
+    await page.locator('.view-modal .modal-close').click();
+    await expect(page.locator('.view-modal')).toHaveCount(0);
+    await expect(page.locator('.stock-badge')).toHaveText(['4', '4']);
+    expect(inventory.mutations).toEqual([]);
+  });
+});

@@ -58,3 +58,24 @@ test.describe('Assets - Required Fields and Dates', () => {
     await expect.poll(() => modal.locator('#custom_condition').evaluate(el => el.validity.valueMissing)).toBe(true);
   });
 });
+
+test.describe('Assets - Edit Validation', () => {
+  for (const field of ['asset_name', 'cost', 'purchase_date']) {
+    test(field + ' remains required when editing', async ({ page }) => {
+      await gotoAssets(page);
+      await page.getByTitle('Edit', { exact: true }).click();
+      const modal = page.locator('.proc-modal');
+      const input = modal.locator('#' + field);
+      await input.fill('');
+      await modal.getByRole('button', { name: 'Update', exact: true }).click();
+      expect(await input.evaluate(el => el.validity.valueMissing)).toBe(true);
+      await expect(modal).toBeVisible();
+    });
+  }
+  test('cost rejects fractions smaller than a cent', async ({ page }) => {
+    const modal = await openValidAsset(page);
+    await modal.locator('#cost').fill('1.001');
+    await modal.getByRole('button', { name: 'Create', exact: true }).click();
+    expect(await modal.locator('#cost').evaluate(el => el.validity.stepMismatch)).toBe(true);
+  });
+});

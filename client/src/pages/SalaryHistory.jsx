@@ -41,7 +41,7 @@ function SalaryHistoryPage() {
       ]);
       setPayments(hRes.data);
       setEmployees(eRes.data);
-    } catch { toast.error("Failed to load history"); }
+    } catch { toast.error("Failed to load history", { id: 'salary-history-load-error' }); }
     finally { setLoading(false); }
   }, [filterEmp, filterMonth, filterYear, search]);
 
@@ -104,6 +104,9 @@ function SalaryHistoryPage() {
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
   const totalPages  = Math.ceil(payments.length / PER_PAGE);
+  useEffect(() => {
+    setPage(current => Math.min(current, Math.max(1, totalPages)));
+  }, [totalPages]);
   const paginated   = payments.slice((page - 1) * PER_PAGE, page * PER_PAGE);
   const selectedEmp = employees.find(e => String(e.employee_id) === String(filterEmp));
   const totalPaid   = payments

@@ -32,6 +32,11 @@ export default defineConfig({
 
   projects: [
     {
+      name: 'finance',
+      testMatch: '**/finance/**/*.spec.js',
+      use: { ...devices['Desktop Chrome'], timezoneId: 'Asia/Colombo' },
+    },
+    {
       name: 'inventory',
       testMatch: '**/inventory/**/*.spec.js',
       dependencies: ['auth-setup'],

@@ -44,7 +44,7 @@ function ExpensesPage() {
       ]);
       setExpenses(expRes.data); setDepartments(deptRes.data);
       setAssets(assetRes.data.filter(a => a.status !== "Disposed")); setSummary(sumRes.data);
-    } catch { toast.error("Failed to load expenses"); }
+    } catch { toast.error("Failed to load expenses", { id: 'expenses-load-error' }); }
     finally { setPageLoading(false); }
   };
 
@@ -136,6 +136,9 @@ function ExpensesPage() {
       && (!filterDept || String(exp.department_id) === String(filterDept));
   });
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
+  useEffect(() => {
+    setPage(current => Math.min(current, Math.max(1, totalPages)));
+  }, [totalPages]);
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   return (
