@@ -12,14 +12,19 @@ exports.createProduct = async (req, res) => {
     const product = await products.create(safeBody);
     
     if (safeBody.alternative_units && Array.isArray(safeBody.alternative_units)) {
-      const altUnits = safeBody.alternative_units.map(item => ({
-        product_id: product.product_id,
-        unit_id: parseInt(item.unit_id),
-        conversion_factor: parseFloat(item.conversion_factor),
-        unit_price: item.unit_price ? parseFloat(item.unit_price) : null,
-        cost_price: item.cost_price ? parseFloat(item.cost_price) : null,
-        barcode: item.barcode || null
-      }));
+      const baseCost = parseFloat(product.cost_price || safeBody.cost_price || 0);
+      const altUnits = safeBody.alternative_units.map(item => {
+        const factor = parseFloat(item.conversion_factor) || 1;
+        const computedCost = item.cost_price ? parseFloat(item.cost_price) : (baseCost * factor);
+        return {
+          product_id: product.product_id,
+          unit_id: parseInt(item.unit_id),
+          conversion_factor: factor,
+          unit_price: item.unit_price ? parseFloat(item.unit_price) : null,
+          cost_price: computedCost,
+          barcode: item.barcode || null
+        };
+      });
       await product_units.bulkCreate(altUnits);
     }
 
@@ -115,14 +120,19 @@ exports.updateProduct = async (req, res) => {
 
     if (safeBody.alternative_units !== undefined && Array.isArray(safeBody.alternative_units)) {
       await product_units.destroy({ where: { product_id: product.product_id } });
-      const altUnits = safeBody.alternative_units.map(item => ({
-        product_id: product.product_id,
-        unit_id: parseInt(item.unit_id),
-        conversion_factor: parseFloat(item.conversion_factor),
-        unit_price: item.unit_price ? parseFloat(item.unit_price) : null,
-        cost_price: item.cost_price ? parseFloat(item.cost_price) : null,
-        barcode: item.barcode || null
-      }));
+      const baseCost = parseFloat(product.cost_price || safeBody.cost_price || 0);
+      const altUnits = safeBody.alternative_units.map(item => {
+        const factor = parseFloat(item.conversion_factor) || 1;
+        const computedCost = item.cost_price ? parseFloat(item.cost_price) : (baseCost * factor);
+        return {
+          product_id: product.product_id,
+          unit_id: parseInt(item.unit_id),
+          conversion_factor: factor,
+          unit_price: item.unit_price ? parseFloat(item.unit_price) : null,
+          cost_price: computedCost,
+          barcode: item.barcode || null
+        };
+      });
       await product_units.bulkCreate(altUnits);
     }
 

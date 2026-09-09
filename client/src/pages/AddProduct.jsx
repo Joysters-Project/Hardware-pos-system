@@ -59,7 +59,21 @@ function AddProductPage() {
 
 	const handleAltUnitChange = (index, field, value) => {
 		setAlternativeUnits((prev) =>
-			prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
+			prev.map((item, i) => {
+				if (i !== index) return item;
+				const updated = { ...item, [field]: value };
+				if (field === 'conversion_factor') {
+					const factor = parseFloat(value);
+					const baseCost = parseFloat(form.cost_price);
+					if (!isNaN(factor) && factor > 0 && !isNaN(baseCost) && (!item.cost_price || item._autoCost)) {
+						updated.cost_price = (baseCost * factor).toFixed(2);
+						updated._autoCost = true;
+					}
+				} else if (field === 'cost_price') {
+					updated._autoCost = false;
+				}
+				return updated;
+			})
 		);
 	};
 
@@ -283,38 +297,69 @@ function AddProductPage() {
 						Define alternative measurements for this product (e.g. Box, Roll, Packet) and their conversion factor to the base unit.
 					</p>
 					
-					{alternativeUnits.map((item, idx) => (
-						<div key={idx} className="form-grid alt-unit-row" style={{ border: "1px solid #efe2e2", padding: "20px 16px 16px", borderRadius: "12px", marginBottom: "16px", background: "#fcf9f9", position: "relative" }}>
-							<div className="field-group">
-								<label>Alternative Unit <span className="req">*</span></label>
-								<select id="unit_id" name="unit_id" value={item.unit_id} onChange={(e) => handleAltUnitChange(idx, "unit_id", e.target.value)}>
-									<option value="">Select Unit</option>
-									{units.map((u) => (
-										<option key={u.unit_id} value={u.unit_id} disabled={parseInt(u.unit_id) === parseInt(form.unit_id)}>{u.unit_name}</option>
-									))}
-								</select>
+					{alternativeUnits.map((item, idx) => {
+						const selectedAltUnit = units.find(u => String(u.unit_id) === String(item.unit_id));
+						const baseUnit = units.find(u => String(u.unit_id) === String(form.unit_id));
+						const hasRelationship = selectedAltUnit && baseUnit && item.conversion_factor;
+
+						return (
+							<div key={idx} className="alt-unit-row" style={{ border: "1px solid #efe2e2", padding: "20px 16px 16px", borderRadius: "12px", marginBottom: "16px", background: "#fcf9f9", position: "relative" }}>
+								{hasRelationship && (
+									<div style={{
+										display: "inline-flex",
+										alignItems: "center",
+										gap: "6px",
+										padding: "4px 10px",
+										background: "#eff6ff",
+										color: "#1d4ed8",
+										borderRadius: "6px",
+										fontSize: "12px",
+										fontWeight: 600,
+										marginBottom: "12px",
+										border: "1px solid #bfdbfe"
+									}}>
+										⚡ Relationship: 1 {selectedAltUnit.unit_name} = {item.conversion_factor} {baseUnit.unit_name}
+										{form.cost_price && (
+											<span style={{ color: "#4b5563", fontWeight: 400, marginLeft: "6px" }}>
+												(Standard Cost: Rs. {(parseFloat(form.cost_price || 0) * parseFloat(item.conversion_factor || 1)).toFixed(2)})
+											</span>
+										)}
+									</div>
+								)}
+
+								<div className="form-grid">
+									<div className="field-group">
+										<label>Alternative Unit <span className="req">*</span></label>
+										<select id="unit_id" name="unit_id" value={item.unit_id} onChange={(e) => handleAltUnitChange(idx, "unit_id", e.target.value)}>
+											<option value="">Select Unit</option>
+											{units.map((u) => (
+												<option key={u.unit_id} value={u.unit_id} disabled={parseInt(u.unit_id) === parseInt(form.unit_id)}>{u.unit_name}</option>
+											))}
+										</select>
+									</div>
+									<div className="field-group">
+										<label>Conversion Factor (1 Alt Unit = X Base Units) <span className="req">*</span></label>
+										<input id="conversion_factor" name="conversion_factor" type="number" placeholder="e.g. 50" min="0.0001" step="0.0001" value={item.conversion_factor} onChange={(e) => handleAltUnitChange(idx, "conversion_factor", e.target.value)} />
+									</div>
+									<div className="field-group">
+										<label>Custom Selling Price (Optional)</label>
+										<input id="unit_price" name="unit_price" type="number" placeholder="Defaults to Base * Factor" min="0" step="0.01" value={item.unit_price} onChange={(e) => handleAltUnitChange(idx, "unit_price", e.target.value)} />
+									</div>
+									<div className="field-group">
+										<label>Cost Price for Unit</label>
+										<input id="cost_price" name="cost_price" type="number" placeholder="Defaults to Base * Factor" min="0" step="0.01" value={item.cost_price} onChange={(e) => handleAltUnitChange(idx, "cost_price", e.target.value)} />
+									</div>
+									<div className="field-group">
+										<label>Barcode (Optional)</label>
+										<input id="barcode" name="barcode" type="text" placeholder="e.g. 123456789" value={item.barcode} onChange={(e) => handleAltUnitChange(idx, "barcode", e.target.value)} />
+									</div>
+								</div>
+								<button type="button" onClick={() => removeAlternativeUnitRow(idx)} style={{ position: "absolute", right: "12px", top: "12px", background: "none", border: "none", color: "#dc2626", fontWeight: "600", cursor: "pointer", fontSize: "13px" }}>
+									Remove
+								</button>
 							</div>
-							<div className="field-group">
-								<label>Conversion Factor (1 Alt Unit = X Base Units) <span className="req">*</span></label>
-								<input id="conversion_factor" name="conversion_factor" type="number" placeholder="e.g. 50" min="0.0001" step="0.0001" value={item.conversion_factor} onChange={(e) => handleAltUnitChange(idx, "conversion_factor", e.target.value)} />
-							</div>
-							<div className="field-group">
-								<label>Custom Selling Price (Optional)</label>
-								<input id="unit_price" name="unit_price" type="number" placeholder="Defaults to Base * Factor" min="0" step="0.01" value={item.unit_price} onChange={(e) => handleAltUnitChange(idx, "unit_price", e.target.value)} />
-							</div>
-							<div className="field-group">
-								<label>Custom Cost Price (Optional)</label>
-								<input id="cost_price" name="cost_price" type="number" placeholder="Defaults to Base * Factor" min="0" step="0.01" value={item.cost_price} onChange={(e) => handleAltUnitChange(idx, "cost_price", e.target.value)} />
-							</div>
-							<div className="field-group">
-								<label>Barcode (Optional)</label>
-								<input id="barcode" name="barcode" type="text" placeholder="e.g. 123456789" value={item.barcode} onChange={(e) => handleAltUnitChange(idx, "barcode", e.target.value)} />
-							</div>
-							<button type="button" onClick={() => removeAlternativeUnitRow(idx)} style={{ position: "absolute", right: "12px", top: "12px", background: "none", border: "none", color: "#dc2626", fontWeight: "600", cursor: "pointer", fontSize: "13px" }}>
-								Remove
-							</button>
-						</div>
-					))}
+						);
+					})}
 					
 					<button type="button" onClick={addAlternativeUnitRow} style={{ padding: "8px 16px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "8px", color: "#374151", fontWeight: "500", cursor: "pointer", fontSize: "14px" }}>
 						+ Add Alternative Unit

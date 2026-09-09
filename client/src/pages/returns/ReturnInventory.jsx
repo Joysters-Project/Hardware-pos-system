@@ -317,7 +317,7 @@ export default function ReturnInventory() {
   }
 
   return (
-    <div className="returned-inventory-wrap" style={{ marginTop: "16px" }}>
+    <div className="returned-inventory-wrap" style={{ marginTop: "4px" }}>
       <div className="dest-cards-grid">
         {Object.keys(DESTINATION_META).map((key) => {
           const meta = DESTINATION_META[key];

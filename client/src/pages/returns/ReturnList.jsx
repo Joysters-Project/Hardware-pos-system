@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import api from '../../api/axios';
 import '../../styles/Returns.css';
+import '../../styles/Procurement.css';
 
 export default function ReturnList() {
   const { role } = useAuth();

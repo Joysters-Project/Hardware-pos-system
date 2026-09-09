@@ -489,19 +489,33 @@ const BillingSystem = () => {
 
     // Resolve base unit and alt units first to accurately check conversion factors
     const baseUnitName = product.unit?.unit_name || product.unit_name || 'Unit';
+    const baseCostPrice = parseFloat(product.cost_price || 0);
+    const baseUnitPrice = parseFloat(product.unit_price || 0);
+
     const baseUnit = {
       unit_id: parseInt(product.unit_id),
       unit_name: baseUnitName,
       conversion_factor: 1.0,
-      unit_price: parseFloat(product.unit_price)
+      unit_price: baseUnitPrice,
+      cost_price: baseCostPrice
     };
 
-    const altUnits = (product.alternative_units || []).map(au => ({
-      unit_id: parseInt(au.unit_id),
-      unit_name: au.unit_details?.unit_name || au.unit?.unit_name || au.unit_name || 'Alt Unit',
-      conversion_factor: parseFloat(au.conversion_factor),
-      unit_price: parseFloat(au.unit_price || (product.unit_price * au.conversion_factor))
-    }));
+    const altUnits = (product.alternative_units || []).map(au => {
+      const factor = parseFloat(au.conversion_factor) || 1.0;
+      const altCost = au.cost_price != null && !isNaN(parseFloat(au.cost_price))
+        ? parseFloat(au.cost_price)
+        : (baseCostPrice * factor);
+      const altPrice = au.unit_price != null && !isNaN(parseFloat(au.unit_price))
+        ? parseFloat(au.unit_price)
+        : (baseUnitPrice * factor);
+      return {
+        unit_id: parseInt(au.unit_id),
+        unit_name: au.unit_details?.unit_name || au.unit?.unit_name || au.unit_name || 'Alt Unit',
+        conversion_factor: factor,
+        unit_price: altPrice,
+        cost_price: altCost
+      };
+    });
 
     const availableUnits = [baseUnit, ...altUnits];
 
@@ -580,7 +594,8 @@ const BillingSystem = () => {
         product_name: product.product_name,
         unit_price: parseFloat(chosenUnit.unit_price),
         price: parseFloat(chosenUnit.unit_price),
-        cost_price: parseFloat(product.cost_price || 0),
+        cost_price: parseFloat(chosenUnit.cost_price || 0),
+        base_cost_price: baseCostPrice,
         stock_quantity: Number(product.stock_quantity ?? 0),
         quantity: 1,
         selected_unit_id: chosenUnit.unit_id,
@@ -605,6 +620,7 @@ const BillingSystem = () => {
         selected_unit_id: matchedUnit.unit_id,
         selected_unit_name: matchedUnit.unit_name,
         unit_price: matchedUnit.unit_price,
+        cost_price: matchedUnit.cost_price != null ? matchedUnit.cost_price : ((item.base_cost_price || 0) * (matchedUnit.conversion_factor || 1)),
         conversion_factor: matchedUnit.conversion_factor
       };
     }));
@@ -847,7 +863,7 @@ const BillingSystem = () => {
   };
 
   return (
-    <>
+    <div className="proc-container">
       {/* Modern Page Header */}
       <div className="proc-header" style={{ marginBottom: "1rem" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
@@ -1390,7 +1406,7 @@ const BillingSystem = () => {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 

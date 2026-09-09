@@ -1368,68 +1368,46 @@ function ReportsPage() {
 
   return (
     <DashboardLayout active="reports">
-      <div className="procurement-workspace">
-        {/* Header bar — billing counter style */}
-        <div style={{
-          background: '#fff',
-          borderBottom: '2px solid #e5e7eb',
-          padding: '18px 24px 0',
-          position: 'sticky',
-          top: 0,
-          zIndex: 100,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-        }}>
-          {/* Title row with icon */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '16px' }}>
-            <div style={{
-              width: 48, height: 48,
-              background: 'linear-gradient(135deg, #8b3a3a 0%, #a84545 100%)',
-              borderRadius: '10px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(139,58,58,0.25)',
-              flexShrink: 0,
-            }}>
-              <BarChart3 size={24} color="white" />
+      <div className="proc-container">
+        {/* Header bar inside the container */}
+        <div className="proc-header" style={{ marginBottom: "1rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+            <div className="proc-header-icon">
+              <BarChart3 size={22} color="#fff" />
             </div>
             <div>
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#2b1515', margin: 0, lineHeight: 1.3 }}>
-                Reports &amp; Analytics
-              </h1>
-              <p style={{ fontSize: '0.875rem', color: '#666', margin: '2px 0 0' }}>
-               
+              <h1 style={{ margin: 0 }}>Reports &amp; Analytics</h1>
+              <p style={{ margin: 0, color: "var(--proc-text-muted, #666)", fontSize: "0.85rem" }}>
+                Sales reports, returns analysis, borrow tracking, and procurement insights
               </p>
             </div>
           </div>
-
-          {/* Catalog-style tab nav */}
-          <nav style={{ display: 'flex', gap: '8px', paddingBottom: '0' }}>
-            {tabs.map((t) => {
-              const Icon = t.icon;
-              return (
-                <button
-                  key={t.key}
-                  type="button"
-                  className={`tab-btn ${activeTab === t.key ? 'active' : ''}`}
-                  onClick={() => setActiveTab(t.key)}
-                >
-                  <Icon size={16} />
-                  <span>{t.label}</span>
-                </button>
-              );
-            })}
-          </nav>
         </div>
 
-        <div className="procurement-workspace-content" style={{ padding: '24px' }}>
-          <div className="rp-container" style={{ margin: 0 }}>
-            {/* Tab content */}
-            <div className={`rp-body report-view-shell ${tabEnter ? "report-view-shell-active" : ""}`}>
-              {activeTab === 'sales' && <SalesReport />}
-              {activeTab === 'returns' && <ReturnsReport />}
-              {activeTab === 'borrow' && <BorrowReport />}
-              {!isCashier && activeTab === 'procurement' && <ProcurementReports />}
-            </div>
-          </div>
+        {/* Tab Switcher - Billing counter style */}
+        <div className="pos-tab-switcher">
+          {tabs.map((t) => {
+            const Icon = t.icon;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                className={`pos-tab-btn ${activeTab === t.key ? 'active' : ''}`}
+                onClick={() => setActiveTab(t.key)}
+              >
+                <Icon size={16} />
+                <span>{t.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Tab content */}
+        <div className={`rp-body report-view-shell ${tabEnter ? "report-view-shell-active" : ""}`} style={{ width: '100%' }}>
+          {activeTab === 'sales' && <SalesReport />}
+          {activeTab === 'returns' && <ReturnsReport />}
+          {activeTab === 'borrow' && <BorrowReport />}
+          {!isCashier && activeTab === 'procurement' && <ProcurementReports />}
         </div>
       </div>
     </DashboardLayout>

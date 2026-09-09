@@ -356,8 +356,25 @@ function ProductsPage() {
   const handleEditFieldChange = (e) =>
     setEditForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
-  const handleAltUnitChange = (idx, field, value) =>
-    setEditAltUnits((prev) => prev.map((item, i) => i === idx ? { ...item, [field]: value } : item));
+  const handleAltUnitChange = (idx, field, value) => {
+    setEditAltUnits((prev) =>
+      prev.map((item, i) => {
+        if (i !== idx) return item;
+        const updated = { ...item, [field]: value };
+        if (field === "conversion_factor") {
+          const factor = parseFloat(value);
+          const baseCost = parseFloat(editForm.cost_price);
+          if (!isNaN(factor) && factor > 0 && !isNaN(baseCost) && (!item.cost_price || item._autoCost)) {
+            updated.cost_price = (baseCost * factor).toFixed(2);
+            updated._autoCost = true;
+          }
+        } else if (field === "cost_price") {
+          updated._autoCost = false;
+        }
+        return updated;
+      })
+    );
+  };
 
   const addAltUnitRow    = () => setEditAltUnits((prev) => [...prev, { ...EMPTY_ALT_UNIT }]);
   const removeAltUnitRow = (idx) => setEditAltUnits((prev) => prev.filter((_, i) => i !== idx));
@@ -700,25 +717,53 @@ function ProductsPage() {
                   <div className="alt-unit-empty-hint">No alternative units. Click below to add one.</div>
                 )}
 
-                {editAltUnits.map((au, idx) => (
-                  <div key={idx} className="alt-unit-edit-row">
-                    <div className="modal-field">
-                      <select id="unit_id" name="unit_id"
-                        value={au.unit_id}
-                        onChange={(e) => handleAltUnitChange(idx, "unit_id", e.target.value)}
-                      >
-                        <option value="">Select Unit</option>
-                        {units.map((u) => (
-                          <option
-                            key={u.unit_id}
-                            value={u.unit_id}
-                            disabled={parseInt(u.unit_id) === parseInt(editForm.unit_id)}
-                          >
-                            {u.unit_name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                {editAltUnits.map((au, idx) => {
+                  const selectedAltUnit = units.find(u => String(u.unit_id) === String(au.unit_id));
+                  const baseUnit = units.find(u => String(u.unit_id) === String(editForm.unit_id));
+                  const hasRelationship = selectedAltUnit && baseUnit && au.conversion_factor;
+
+                  return (
+                  <div key={idx} style={{ marginBottom: "10px" }}>
+                    {hasRelationship && (
+                      <div style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        padding: "3px 8px",
+                        background: "#eff6ff",
+                        color: "#1d4ed8",
+                        borderRadius: "6px",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        marginBottom: "4px",
+                        border: "1px solid #bfdbfe"
+                      }}>
+                        ⚡ Relationship: 1 {selectedAltUnit.unit_name} = {au.conversion_factor} {baseUnit.unit_name}
+                        {editForm.cost_price && (
+                          <span style={{ color: "#4b5563", fontWeight: 400, marginLeft: "4px" }}>
+                            (Standard Cost: Rs. {(parseFloat(editForm.cost_price || 0) * parseFloat(au.conversion_factor || 1)).toFixed(2)})
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    <div className="alt-unit-edit-row">
+                      <div className="modal-field">
+                        <select id="unit_id" name="unit_id"
+                          value={au.unit_id}
+                          onChange={(e) => handleAltUnitChange(idx, "unit_id", e.target.value)}
+                        >
+                          <option value="">Select Unit</option>
+                          {units.map((u) => (
+                            <option
+                              key={u.unit_id}
+                              value={u.unit_id}
+                              disabled={parseInt(u.unit_id) === parseInt(editForm.unit_id)}
+                            >
+                              {u.unit_name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     <div className="modal-field">
                       <input id="conversion_factor" name="conversion_factor"
                         type="number"
@@ -786,7 +831,9 @@ function ProductsPage() {
                       ×
                     </button>
                   </div>
-                ))}
+                  </div>
+                );
+              })}
 
                 <button type="button" className="btn-add-alt-unit" onClick={addAltUnitRow}>
                   <Plus size={14} /> Add Alternative Unit

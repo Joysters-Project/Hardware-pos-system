@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import api from '../../api/axios';
 import '../../styles/Returns.css';
+import '../../styles/Procurement.css';
 
 export default function SupplierServiceTracking() {
   const { role } = useAuth();
@@ -70,7 +71,7 @@ export default function SupplierServiceTracking() {
   };
 
   return (
-    <div style={{ marginTop: '16px' }}>
+    <div style={{ marginTop: '4px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '18px', color: '#333' }}>Supplier Repair & Warranty Services</h2>

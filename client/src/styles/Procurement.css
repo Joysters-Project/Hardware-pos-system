@@ -904,3 +904,98 @@
 @keyframes proc-page-spin { to { transform: rotate(360deg); } }
 .proc-spin-fast { animation: proc-page-spin 0.6s linear infinite; }
 
+/* ── Standalone section title (without full card) ── */
+.proc-section-title {
+  font-size: 0.88rem; font-weight: 700;
+  color: #8b3a3a; text-transform: uppercase;
+  letter-spacing: 0.4px; margin-bottom: 0.65rem;
+}
+
+/* ── Tab nav inside proc-container (pages tab bar) ── */
+.proc-page-tabs {
+  display: flex;
+  gap: 4px;
+  background: #f5f0f0;
+  padding: 4px;
+  border-radius: 10px;
+  width: fit-content;
+  flex-wrap: wrap;
+}
+.proc-page-tab-btn {
+  padding: 0.5rem 1.25rem;
+  border: none;
+  border-radius: 7px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: transparent;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.proc-page-tab-btn:hover { background: #ffe8e8; color: #8b3a3a; }
+.proc-page-tab-btn.active { background: #8b3a3a; color: #fff; box-shadow: 0 2px 8px rgba(139,58,58,0.25); }
+
+/* ── Billing Counter Tab Switcher (Universal) ── */
+.pos-tab-switcher {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1.5px solid rgba(139, 58, 58, 0.18);
+  border-radius: 2rem;
+  padding: 0.3rem;
+  box-shadow: 0 2px 12px rgba(139, 58, 58, 0.1), inset 0 1px 3px rgba(0,0,0,0.04);
+  width: fit-content;
+  margin-bottom: 1rem;
+  backdrop-filter: blur(8px);
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+.pos-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 1.35rem;
+  border: none;
+  background: transparent;
+  border-radius: 1.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #a89896;
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  font-family: inherit;
+}
+
+.pos-tab-btn svg {
+  transition: transform 0.22s ease, opacity 0.22s ease;
+  opacity: 0.6;
+}
+
+.pos-tab-btn:hover:not(.active) {
+  color: #8b3a3a;
+  background: rgba(139, 58, 58, 0.07);
+}
+
+.pos-tab-btn:hover:not(.active) svg {
+  opacity: 0.9;
+  transform: scale(1.08);
+}
+
+.pos-tab-btn.active {
+  background: linear-gradient(135deg, #8b3a3a 0%, #b04a4a 100%);
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(139, 58, 58, 0.35), 0 1px 3px rgba(0,0,0,0.12);
+}
+
+.pos-tab-btn.active svg {
+  opacity: 1;
+  color: #fff;
+}
+

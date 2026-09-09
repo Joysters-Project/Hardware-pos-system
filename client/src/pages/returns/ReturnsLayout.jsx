@@ -4,6 +4,7 @@ import { RotateCcw, ClipboardList, Wrench, Package, ShieldCheck } from 'lucide-r
 import DashboardLayout from '../../components/DashboardLayout';
 import '../../styles/Returns.css';
 import '../../styles/ProcurementWorkspace.css';
+import '../../styles/Procurement.css';
 import '../../styles/Catalog.css';
 
 export default function ReturnsLayout() {
@@ -19,79 +20,42 @@ export default function ReturnsLayout() {
 
   return (
     <DashboardLayout active="returns">
-      <div className="procurement-workspace">
-
-        {/* Header bar — billing counter style */}
-        <div style={{
-          background: '#fff',
-          borderBottom: '2px solid #e5e7eb',
-          padding: '18px 24px 0',
-          position: 'sticky',
-          top: 0,
-          zIndex: 100,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-        }}>
-
-          {/* Title row with icon */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '16px' }}>
-            <div style={{
-              width: 48, height: 48,
-              background: 'linear-gradient(135deg, #8b3a3a 0%, #a84545 100%)',
-              borderRadius: '10px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(139,58,58,0.25)',
-              flexShrink: 0,
-            }}>
-              <ShieldCheck size={24} color="white" />
+      <div className="proc-container">
+        {/* Header bar inside the container */}
+        <div className="proc-header" style={{ marginBottom: "1rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+            <div className="proc-header-icon">
+              <ShieldCheck size={22} color="#fff" />
             </div>
             <div>
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#2b1515', margin: 0, lineHeight: 1.3 }}>
-                Return &amp; Warranty Management
-              </h1>
-              <p style={{ fontSize: '0.875rem', color: '#666', margin: '2px 0 0' }}>
+              <h1 style={{ margin: 0 }}>Return &amp; Warranty Management</h1>
+              <p style={{ margin: 0, color: "var(--proc-text-muted, #666)", fontSize: "0.85rem" }}>
                 Customer returns, supplier warranty repairs, replacements, and stock status tracking
               </p>
             </div>
           </div>
+        </div>
 
-          {/* Catalog-style tab nav */}
-          <nav style={{ display: 'flex', gap: '8px', paddingBottom: '0' }}>
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
-              return (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  style={({ isActive: navActive }) => ({
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '12px 20px',
-                    border: 'none',
-                    background: 'transparent',
-                    color: (navActive || isActive) ? '#8b3a3a' : '#555',
-                    fontSize: '0.95rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    borderRadius: '6px 6px 0 0',
-                    textDecoration: 'none',
-                    position: 'relative',
-                    transition: 'all 0.25s ease',
-                    backgroundColor: (navActive || isActive) ? 'rgba(139,58,58,0.08)' : 'transparent',
-                    borderBottom: (navActive || isActive) ? '3px solid #8b3a3a' : '3px solid transparent',
-                  })}
-                >
-                  <Icon size={16} />
-                  <span>{item.label}</span>
-                </NavLink>
-              );
-            })}
-          </nav>
+        {/* Tab Switcher - Billing counter style */}
+        <div className="pos-tab-switcher">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isItemActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={`pos-tab-btn ${isItemActive ? 'active' : ''}`}
+              >
+                <Icon size={16} />
+                <span>{item.label}</span>
+              </NavLink>
+            );
+          })}
         </div>
 
         {/* Content of sub-routes */}
-        <div key={location.pathname} className="procurement-workspace-content" style={{ padding: '24px' }}>
+        <div key={location.pathname} style={{ width: '100%' }}>
           <Outlet />
         </div>
       </div>

@@ -225,20 +225,33 @@ export default function ProjectsTab() {
   const addToCart = (product) => {
     const baseUnitName = product.unit?.unit_name || product.unit_name || 'number';
     const baseUnitId = product.unit_id ? parseInt(product.unit_id) : 0;
+    const baseCostPrice = Number(product.cost_price || 0);
+    const baseUnitPrice = Number(product.unit_price || 0);
 
     const baseUnit = {
       unit_id: baseUnitId,
       unit_name: baseUnitName,
       conversion_factor: 1.0,
-      unit_price: Number(product.unit_price)
+      unit_price: baseUnitPrice,
+      cost_price: baseCostPrice
     };
 
-    const altUnits = (product.alternative_units || []).map(au => ({
-      unit_id: parseInt(au.unit_id),
-      unit_name: au.unit_details?.unit_name || au.unit?.unit_name || au.unit_name || 'Alt Unit',
-      conversion_factor: parseFloat(au.conversion_factor),
-      unit_price: parseFloat(au.unit_price || (product.unit_price * au.conversion_factor))
-    }));
+    const altUnits = (product.alternative_units || []).map(au => {
+      const factor = parseFloat(au.conversion_factor) || 1.0;
+      const altCost = au.cost_price != null && !isNaN(parseFloat(au.cost_price))
+        ? parseFloat(au.cost_price)
+        : (baseCostPrice * factor);
+      const altPrice = au.unit_price != null && !isNaN(parseFloat(au.unit_price))
+        ? parseFloat(au.unit_price)
+        : (baseUnitPrice * factor);
+      return {
+        unit_id: parseInt(au.unit_id),
+        unit_name: au.unit_details?.unit_name || au.unit?.unit_name || au.unit_name || 'Alt Unit',
+        conversion_factor: factor,
+        unit_price: altPrice,
+        cost_price: altCost
+      };
+    });
 
     const availableUnits = [baseUnit, ...altUnits];
 
@@ -257,12 +270,15 @@ export default function ProjectsTab() {
         {
           product_id: product.product_id,
           product_name: product.product_name,
-          base_unit_price: Number(product.unit_price),
-          unit_price: Number(product.unit_price),
+          base_unit_price: baseUnitPrice,
+          unit_price: baseUnitPrice,
+          cost_price: baseCostPrice,
+          base_cost_price: baseCostPrice,
           stock_quantity: Number(product.stock_quantity || 0),
           quantity: 1,
           selected_unit_id: baseUnitId,
           selected_unit_name: baseUnitName,
+          conversion_factor: 1.0,
           available_units: availableUnits,
         },
       ];
@@ -285,6 +301,8 @@ export default function ProjectsTab() {
         selected_unit_id: unitId,
         selected_unit_name: selectedUnit.unit_name,
         unit_price: Number(selectedUnit.unit_price),
+        cost_price: Number(selectedUnit.cost_price != null ? selectedUnit.cost_price : ((item.base_cost_price || 0) * (selectedUnit.conversion_factor || 1))),
+        conversion_factor: Number(selectedUnit.conversion_factor || 1),
       };
     }));
   };

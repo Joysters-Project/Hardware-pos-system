@@ -266,22 +266,15 @@ const Receipts = () => {
 
   return (
     <DashboardLayout active="receipts">
-      <div className="receipts-shell">
-        <header className="receipts-hero" style={{ marginTop: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{
-              width: 48, height: 48,
-              background: 'linear-gradient(135deg, #8b3a3a 0%, #a84545 100%)',
-              borderRadius: '10px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(139,58,58,0.25)',
-              flexShrink: 0,
-            }}>
-              <Receipt size={24} color="white" />
+      <div className="proc-container receipts-shell">
+        <header className="proc-header" style={{ marginBottom: '1rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+            <div className="proc-header-icon">
+              <Receipt size={22} color="#fff" />
             </div>
             <div>
-              <h1 style={{ margin: '0 0 4px', fontSize: '1.5rem', fontWeight: 700, color: '#2b1515', lineHeight: 1.3 }}>Receipt History</h1>
-              <p style={{ margin: 0, fontSize: '0.875rem', color: '#6f5f5c' }}>Search by customer name, bill number, or date. Results are paginated so large histories stay fast to browse.</p>
+              <h1 style={{ margin: '0 0 2px', fontSize: '1.5rem', fontWeight: 700, color: '#2b1515', lineHeight: 1.3 }}>Receipt History</h1>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: '#6f5f5c' }}>Search by customer name, bill number, or date. Results are paginated so large histories stay fast to browse.</p>
             </div>
           </div>
           <div className="receipts-stats">
@@ -292,23 +285,20 @@ const Receipts = () => {
             >
               <span>Fully paid</span>
               <strong>{fullyPaidReceipts.length}</strong>
-              
             </button>
             <button
               type="button"
               className={`receipt-stat-box ${activeView === 'partial' ? 'active' : ''}`}
               onClick={() => toggleView('partial')}
             >
-               <span>Partial paid</span>
+              <span>Partial paid</span>
               <strong>{partialPaidReceipts.length}</strong>
-             
             </button>
             <button
               type="button"
               className={`receipt-stat-box total-box ${activeView === 'all' ? 'active' : ''}`}
               onClick={() => setActiveView((cur) => (cur === 'all' ? null : 'all'))}
             >
-              
               <span>Total bills</span>
               <strong>{filteredReceipts.length}</strong>
             </button>

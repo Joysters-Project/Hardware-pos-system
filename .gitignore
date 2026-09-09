@@ -39,3 +39,10 @@ yarn-debug.
 .kilo/
 .vscode/
 client/nul
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

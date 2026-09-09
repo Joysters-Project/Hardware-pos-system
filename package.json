@@ -1,0 +1,23 @@
+{
+  "name": "hardware-point-of-sale-system",
+  "version": "1.0.0",
+  "description": "A full-stack, role-based **Point-of-Sale (POS) and Business Management System** built for hardware retail stores. It covers everything from daily sales and inventory management to procurement, HR, payroll, projects, and financial reporting.",
+  "main": "index.js",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Joysters-Project/Hardware-pos-system.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Joysters-Project/Hardware-pos-system/issues"
+  },
+  "homepage": "https://github.com/Joysters-Project/Hardware-pos-system#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.5.0"
+  }
+}

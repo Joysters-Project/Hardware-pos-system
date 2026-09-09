@@ -147,7 +147,7 @@ class BillingService {
 
                         // Steps 1-4: Deduct batches FEFO, mark zero-qty batches Expired,
                         // sync product stock_quantity + expiry_date + status from active batches.
-                        await deductStockFEFO(item.product_id, item.quantity);
+                        await deductStockFEFO(item.product_id, baseQty);
 
                         // Step 5: Sync expiry alerts using the now-updated product + active batches.
                         const soldProduct = await products.findByPk(item.product_id);

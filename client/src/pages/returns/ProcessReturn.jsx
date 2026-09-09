@@ -7,6 +7,7 @@ import {
   ArrowRight, Printer, ClipboardList, RotateCcw
 } from 'lucide-react';
 import '../../styles/Returns.css';
+import '../../styles/Procurement.css';
 import { printWithTemplate } from '../../utils/printTemplate';
 import WarrantyHandlingSection from '../../components/returns/WarrantyHandlingSection';
 import {
@@ -818,7 +819,7 @@ export default function ProcessReturn() {
 
   // ── Main UI ──
   return (
-    <div style={{ marginTop: '16px' }}>
+    <div style={{ width: '100%' }}>
       {/* Step Indicator */}
       <StepIndicator currentStep={currentStep} />
 
