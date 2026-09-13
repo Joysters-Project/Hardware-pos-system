@@ -279,11 +279,11 @@ function Catalog() {
     const contentHtml = buildTableHtml({
       columns: ["ID", "Name", "Status"],
       rows,
-      emptyMessage: "No catalog records found"
+      emptyMessage: "No catalogue records found"
     });
 
     const opened = printWithTemplate({
-      title: `${activeTab.charAt(0).toUpperCase()}${activeTab.slice(1)} Catalog`,
+      title: `${activeTab.charAt(0).toUpperCase()}${activeTab.slice(1)} Catalogue`,
       subtitle: `Total records: ${filteredData.length}`,
       contentHtml,
     });
@@ -326,7 +326,7 @@ function Catalog() {
         {/* Header Block */}
         <div className="catalog-header">
           <div>
-            <h1>Catalog Management</h1>
+            <h1>Catalogue Management</h1>
             <p>Administer categories, brand names, and measurement units</p>
           </div>
 
@@ -475,7 +475,7 @@ function Catalog() {
 
           {/* Items Vertical Stack Cards Section */}
           <div className="items-section">
-            {loading && <div className="loading-spinner-wrapper"><p className="loading-text">Loading catalog data...</p></div>}
+            {loading && <div className="loading-spinner-wrapper"><p className="loading-text">Loading catalogue data...</p></div>}
 
             {!loading && totalItems === 0 && (
               <div className="empty-message-wrapper">

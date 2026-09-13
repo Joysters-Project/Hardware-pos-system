@@ -9,7 +9,7 @@ export default function InventoryTopNav() {
 
   const navItems = [
     { label: 'Products',        path: `${prefix}/products`,           icon: Package },
-    { label: 'Catalog',         path: `${prefix || ''}/catalog`,      icon: Layers },
+    { label: 'Catalogue',       path: `${prefix || ''}/catalog`,      icon: Layers },
     { label: 'Batch Inventory', path: `${prefix}/inventory/batches`,  icon: Archive },
     { label: 'Assets',          path: `${prefix}/assets`,             icon: Briefcase },
   ];
