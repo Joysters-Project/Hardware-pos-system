@@ -41,8 +41,9 @@ exports.getCashierStats = async (req, res) => {
         }
       });
       items.forEach(item => {
-        itemsSold += item.quantity;
+        itemsSold += parseFloat(item.quantity) || 0;
       });
+      itemsSold = Math.round(itemsSold * 100) / 100;
     }
 
     let returnsCount = 0;

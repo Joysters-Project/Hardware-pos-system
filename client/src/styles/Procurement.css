@@ -395,7 +395,6 @@
 
 /* ── Charts ── */
 .proc-charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
-.proc-chart-card {}
 
 /* ── Tabs ── */
 .proc-tabs { display: flex; gap: 4px; background: #f5f0f0; padding: 4px; border-radius: 10px; width: fit-content; }

@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "description": "A full-stack, role-based **Point-of-Sale (POS) and Business Management System** built for hardware retail stores. It covers everything from daily sales and inventory management to procurement, HR, payroll, projects, and financial reporting.",
   "main": "index.js",
-  "scripts": {},
+  "scripts": {
+    "test": "npx playwright test",
+    "pretest": "npm run test:setup",
+    "test:setup": "node -e \"require('./server/seeders/20230910-insert-test-invoice').up()\""
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Joysters-Project/Hardware-pos-system.git"

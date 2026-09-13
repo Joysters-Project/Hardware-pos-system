@@ -10,9 +10,13 @@ A full-stack, role-based **Point-of-Sale (POS) and Business Management System** 
 HARDWARE-POINT-OF-SALE-SYSTEM/
 ├── client/          # React 19 + Vite frontend
 ├── server/          # Node.js + Express + Sequelize backend
+├── docs/            # Developer documentation (submission)
+├── tests/           # Playwright cashier E2E tests
 ├── vercel.json      # Vercel SPA rewrite rule (frontend deployment)
 └── README.md        # This file
 ```
+
+**Developer documentation (for setup, architecture, APIs, testing, and deployment):** [docs/DEVELOPER_DOCUMENTATION.md](./docs/DEVELOPER_DOCUMENTATION.md)
 
 ---
 

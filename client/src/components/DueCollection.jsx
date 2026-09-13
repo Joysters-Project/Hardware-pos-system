@@ -143,7 +143,11 @@ const DueCollection = () => {
       console.error(error);
       setDueCheckCustomer(null);
       setDueCheckBills([]);
-      toast.error("Unable to load due summary right now.");
+      if (error.response?.status === 404) {
+        toast.error("No customer found.");
+      } else {
+        toast.error("Unable to load due summary right now.");
+      }
     } finally {
       setDueCheckLoading(false);
     }
