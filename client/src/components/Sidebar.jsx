@@ -69,12 +69,16 @@ const getNavItems = (role) => {
       icon: LayoutDashboard,
       path: dashPath,
     },
-    {
-      key: "sales",
-      label: "Sales",
-      icon: ShoppingCart,
-      path: "/cashier-panel",
-    },
+    ...(normalizedRole !== "manager"
+      ? [
+          {
+            key: "sales",
+            label: "Sales",
+            icon: ShoppingCart,
+            path: "/cashier-panel",
+          },
+        ]
+      : []),
     {
       key: "inventory",
       label: "Inventory",

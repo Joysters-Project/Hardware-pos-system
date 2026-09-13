@@ -105,7 +105,7 @@ function AppRoutes() {
       <Route
         path="/cashier-panel"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute blockedRoles={["manager"]}>
             <DashboardLayout active="cashier-panel">
               <CashierWorkspace />
             </DashboardLayout>
@@ -132,11 +132,11 @@ function AppRoutes() {
       </Route>
 
       {/* Standalone redirects to maintain cashier top navbar */}
-      <Route path="/billing" element={<Navigate to="/cashier-panel/billing" replace />} />
-      <Route path="/due-collection" element={<Navigate to="/cashier-panel/due-collection" replace />} />
-      <Route path="/receipts" element={<Navigate to="/cashier-panel/receipts" replace />} />
-      <Route path="/returns" element={<Navigate to="/cashier-panel/returns" replace />} />
-      <Route path="/returns/*" element={<Navigate to="/cashier-panel/returns" replace />} />
+      <Route path="/billing" element={<ProtectedRoute blockedRoles={["manager"]}><Navigate to="/cashier-panel/billing" replace /></ProtectedRoute>} />
+      <Route path="/due-collection" element={<ProtectedRoute blockedRoles={["manager"]}><Navigate to="/cashier-panel/due-collection" replace /></ProtectedRoute>} />
+      <Route path="/receipts" element={<ProtectedRoute blockedRoles={["manager"]}><Navigate to="/cashier-panel/receipts" replace /></ProtectedRoute>} />
+      <Route path="/returns" element={<ProtectedRoute blockedRoles={["manager"]}><Navigate to="/cashier-panel/returns" replace /></ProtectedRoute>} />
+      <Route path="/returns/*" element={<ProtectedRoute blockedRoles={["manager"]}><Navigate to="/cashier-panel/returns" replace /></ProtectedRoute>} />
 
       {/* Standalone Reports */}
       <Route path="/reports"        element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
