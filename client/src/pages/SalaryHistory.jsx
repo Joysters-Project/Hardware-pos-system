@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useLocation, useSearchParams, Link } from "react-router-dom";
 import {
   ChevronLeft, ChevronRight, Search, Download,
-  RefreshCw, ArrowLeft
+  ArrowLeft
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
@@ -126,9 +126,6 @@ function SalaryHistoryPage() {
           <Link to="/salary" className="sal-btn-outline">
             <ArrowLeft size={15} /> Back to Salary
           </Link>
-          <button className="sal-btn-outline" onClick={loadHistory} disabled={loading}>
-            <RefreshCw size={14} className={loading ? "spin" : ""} /> Refresh
-          </button>
         </div>
       </div>
 
