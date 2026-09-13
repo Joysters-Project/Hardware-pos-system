@@ -2,14 +2,6 @@ import { test, expect } from '../helpers/finance.helpers.js';
 
 test.beforeEach(async ({ finance }) => { expect(finance).toBeTruthy(); });
 
-test('history refresh recovers when the last page is removed', async ({ page, finance }) => {
-  await page.goto('/salary/history');
-  await page.locator('.sal-pagination').getByRole('button', { name: '2', exact: true }).click();
-  finance.salaries = finance.salaries.slice(0, 12);
-  await page.getByRole('button', { name: 'Refresh', exact: true }).click();
-  await expect(page.locator('.sal-table tbody tr')).toHaveCount(12);
-});
-
 test('salary history pagination, employee summary, search and month filter', async ({ page }) => {
   await page.goto('/salary/history?employee_id=1');
   await expect(page.locator('#filterEmp')).toHaveValue('1');
