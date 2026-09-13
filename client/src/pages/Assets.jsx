@@ -122,7 +122,7 @@ function AssetsPage() {
       .reduce((sum, a) => sum + parseFloat(a.cost || 0), 0);
 
     const contentHtml = buildTableHtml({
-      columns: ["#", "Asset Name", "Department", "Cost", "Condition", "Status", "Purchased", "Expires"],
+      columns: ["ID", "Asset Name", "Department", "Cost", "Condition", "Status", "Purchased", "Expires"],
       rows,
       emptyMessage: "No assets found"
     });
@@ -140,7 +140,7 @@ function AssetsPage() {
     return (!search || a.asset_name.toLowerCase().includes(search.toLowerCase()))
       && (!filterStatus || a.status === filterStatus)
       && (!filterDept || String(a.department_id) === String(filterDept));
-  });
+  }).sort((left, right) => Number(left.asset_id) - Number(right.asset_id));
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   useEffect(() => {
     setPage(current => Math.min(current, Math.max(1, totalPages)));
@@ -209,7 +209,7 @@ function AssetsPage() {
           <table className="proc-table">
             <thead>
               <tr>
-                <th>#</th><th>Asset Name</th><th>Department</th><th>Cost (LKR)</th>
+                <th>ID</th><th>Asset Name</th><th>Department</th><th>Cost (LKR)</th>
                 <th>Condition</th><th>Status</th><th>Purchased</th><th>Expires</th><th>Actions</th>
               </tr>
             </thead>

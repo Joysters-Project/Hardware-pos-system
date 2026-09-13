@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Eye, Pencil, Trash2, Plus, Search, RefreshCw, FileDown, X, ChevronLeft, ChevronRight, Receipt } from "lucide-react";
+import { Eye, Pencil, Trash2, Plus, Search, FileDown, X, ChevronLeft, ChevronRight, Receipt } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
 import { buildTableHtml, escapeHtml, printWithTemplate } from "../utils/printTemplate";
@@ -115,7 +115,7 @@ function ExpensesPage() {
     `;
 
     const tableHtml = buildTableHtml({
-      columns: ["#", "Type", "Amount", "Date", "Department", "Linked Asset", "Description"],
+      columns: ["ID", "Type", "Amount", "Date", "Department", "Linked Asset", "Description"],
       rows,
       emptyMessage: "No expenses found"
     });
@@ -134,7 +134,7 @@ function ExpensesPage() {
     return (!term || (exp.expense_type || "").toLowerCase().includes(term) || (exp.description || "").toLowerCase().includes(term))
       && (!filterType || exp.expense_type === filterType)
       && (!filterDept || String(exp.department_id) === String(filterDept));
-  });
+  }).sort((left, right) => Number(left.expense_id) - Number(right.expense_id));
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   useEffect(() => {
     setPage(current => Math.min(current, Math.max(1, totalPages)));
@@ -190,9 +190,6 @@ function ExpensesPage() {
               <option value="">All Departments</option>
               {departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
             </select>
-            <button className="proc-refresh-btn" onClick={loadAll} disabled={pageLoading}>
-              <RefreshCw size={14} className={pageLoading ? 'proc-spin-fast' : ''} />
-            </button>
           </div>
 
           {/* Table */}
@@ -200,7 +197,7 @@ function ExpensesPage() {
             <div className="proc-table-wrap">
               <table className="proc-table">
                 <thead><tr>
-                  <th>#</th><th>Type</th><th>Amount (LKR)</th><th>Date</th>
+                  <th>ID</th><th>Type</th><th>Amount (LKR)</th><th>Date</th>
                   <th>Department</th><th>Linked Asset</th><th>Description</th><th>Actions</th>
                 </tr></thead>
                 <tbody>

@@ -141,8 +141,10 @@ export default function CustomerChequeExchange() {
         chequeExchangeApi.getBanks(),
       ]);
       setDashboard(dashboardRes.data?.data || null);
-      setCustomers(customersRes.data?.data || []);
-      setCheques(chequesRes.data?.data || []);
+      setCustomers([...(customersRes.data?.data || [])]
+        .sort((left, right) => Number(left.customer_id) - Number(right.customer_id)));
+      setCheques([...(chequesRes.data?.data || [])]
+        .sort((left, right) => Number(left.cheque_id) - Number(right.cheque_id)));
       setBanks(banksRes.data?.data || []);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to load cheque exchange data');
