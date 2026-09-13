@@ -338,7 +338,7 @@ function SalaryPage() {
     ]));
 
     const contentHtml = buildTableHtml({
-      columns: ["#", "Employee", "Pay Period", "Payment Date", "Basic", "Bonus", "Deduction", "Final Salary", "Method", "Status"],
+      columns: ["ID", "Employee", "Pay Period", "Payment Date", "Basic", "Bonus", "Deduction", "Final Salary", "Method", "Status"],
       rows,
       emptyMessage: "No salary records found"
     });
@@ -357,7 +357,12 @@ function SalaryPage() {
   useEffect(() => {
     setPage(current => Math.min(current, Math.max(1, totalPages)));
   }, [totalPages]);
-  const paginated  = payments.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const paginated  = [...payments]
+    .sort((left, right) => {
+      const statusDifference = (left.payment_status === "Paid" ? 1 : 0) - (right.payment_status === "Paid" ? 1 : 0);
+      return statusDifference || Number(left.salary_payment_id) - Number(right.salary_payment_id);
+    })
+    .slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   const selectedEmp = employees.find(e => String(e.employee_id) === String(form.employee_id));
   const isMonthly   = form.salary_category === "monthly";
@@ -433,7 +438,7 @@ function SalaryPage() {
         <table className="sal-table">
           <thead>
             <tr>
-              <th>#</th>
+              <th>ID</th>
               <th>Employee</th>
               <th>Pay Period</th>
               <th>Payment Date</th>

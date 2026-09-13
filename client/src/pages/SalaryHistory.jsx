@@ -107,7 +107,12 @@ function SalaryHistoryPage() {
   useEffect(() => {
     setPage(current => Math.min(current, Math.max(1, totalPages)));
   }, [totalPages]);
-  const paginated   = payments.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const paginated   = [...payments]
+    .sort((left, right) => {
+      const statusDifference = (left.payment_status === "Paid" ? 1 : 0) - (right.payment_status === "Paid" ? 1 : 0);
+      return statusDifference || Number(left.salary_payment_id) - Number(right.salary_payment_id);
+    })
+    .slice((page - 1) * PER_PAGE, page * PER_PAGE);
   const selectedEmp = employees.find(e => String(e.employee_id) === String(filterEmp));
   const totalPaid   = payments
     .filter(p => p.payment_status === "Paid")
@@ -191,7 +196,7 @@ function SalaryHistoryPage() {
         <table className="sal-table">
           <thead>
             <tr>
-              <th>#</th><th>Employee</th><th>Period</th>
+              <th>ID</th><th>Employee</th><th>Period</th>
               <th>Basic (LKR)</th><th>Bonus</th><th>Deduction</th>
               <th>Final (LKR)</th><th>Date Paid</th><th>Method</th><th>Status</th><th>Payslip</th>
             </tr>
