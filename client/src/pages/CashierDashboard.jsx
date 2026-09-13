@@ -88,7 +88,7 @@ function CashierDashboard() {
       id: 2,
       title: "Items Sold",
       icon: ShoppingCart,
-      renderValue: () => <div className="kpi-value">{stats.itemsSold}</div>,
+      renderValue: () => <div className="kpi-value">{Number(stats?.itemsSold || 0)}</div>,
       trend: "This shift",
       label: "units dispatched"
     },
@@ -165,6 +165,7 @@ function CashierDashboard() {
             ) : (
               stats.recentTransactions.map((txn, index) => {
                 const s = (txn.status || "").toLowerCase();
+                const statusClass = s === 'paid' ? 'status-paid' : s === 'pending' ? 'status-pending' : 'status-failed';
                 const formattedTime = txn.rawTime 
                   ? (!isNaN(new Date(txn.rawTime).getTime()) 
                     ? new Date(txn.rawTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) 
@@ -186,10 +187,10 @@ function CashierDashboard() {
                     <div className="ledger-right">
                       <span className="ledger-amount">
                         <span className="ledger-currency">Rs</span>
-                        {" "}{txn.amount.toFixed(2)}
+                        {" "}{(Number(txn.amount) || 0).toFixed(2)}
                       </span>
                       <span className={`ledger-status ${statusClass}`}>
-                        {txn.status.toUpperCase()}
+                        {(txn.status || "").toUpperCase()}
                       </span>
                     </div>
                   </div>

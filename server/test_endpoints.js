@@ -1,7 +1,9 @@
 require('dotenv').config({ quiet: true });
 const db = require('./models');
+const seeder = require('./seeders/20230910-insert-test-invoice');
 
 db.sequelize.authenticate().then(async () => {
+  await seeder.up();
 
   // Test departments
   try {
@@ -92,5 +94,6 @@ db.sequelize.authenticate().then(async () => {
     console.log('supplier_payments: OK');
   } catch(e) { console.error('supplier_payments ERROR:', e.message); }
 
+  await seeder.down();
   db.sequelize.close();
 }).catch(e => { console.error('DB connect ERROR:', e.message); db.sequelize.close(); });

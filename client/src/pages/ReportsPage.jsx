@@ -182,6 +182,7 @@ function SalesReport() {
   const { role, isAuthenticated } = useAuth();
   const location = useLocation();
   const isCashier = role?.toLowerCase() === 'cashier' || location.pathname.startsWith('/cashier-panel');
+  const isManager = role?.toLowerCase() === 'manager';
   const initialTimeframe = location.state?.initialTimeframe || (isCashier ? 'today' : 'this_month');
   const [bills, setBills] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -207,6 +208,7 @@ function SalesReport() {
   }, [isCashier, location.state?.initialTimeframe]);
 
   useEffect(() => {
+    if (isManager) return;
     const load = async () => {
       try {
         setLoading(true);
@@ -329,6 +331,16 @@ function SalesReport() {
     const opened = printReportWithTemplate('Sales Report - All Bills', pdfHeaders, pdfRows, `Export Date: ${dateStamp()}`);
     if (!opened) window.alert('Allow pop-ups to export the report as PDF.');
   };
+
+  if (isManager) {
+    return (
+      <div className="rp-section" style={{ padding: '2.5rem 1rem', textAlign: 'center', color: '#888' }}>
+        <p style={{ margin: 0, fontSize: '1rem', fontWeight: '600' }}>
+          Access Restricted: Managers do not have access to Sales reports.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="rp-section">
@@ -1349,14 +1361,18 @@ function ReportsPage() {
   const location = useLocation();
   const { role } = useAuth();
   const isCashier = role?.toLowerCase() === 'cashier' || location.pathname.startsWith('/cashier-panel');
-  const [activeTab, setActiveTab] = useState('sales');
+  const isManager = role?.toLowerCase() === 'manager';
+  const [activeTab, setActiveTab] = useState(() => (isManager ? 'returns' : 'sales'));
   const [tabEnter, setTabEnter] = useState(false);
 
   useEffect(() => {
     if (isCashier && activeTab === 'procurement') {
       setActiveTab('sales');
     }
-  }, [isCashier, activeTab]);
+    if (isManager && activeTab === 'sales') {
+      setActiveTab('returns');
+    }
+  }, [isCashier, isManager, activeTab]);
 
   useEffect(() => {
     setTabEnter(false);
@@ -1364,7 +1380,11 @@ function ReportsPage() {
     return () => window.clearTimeout(timer);
   }, [activeTab]);
 
-  const tabs = isCashier ? TABS.filter((tab) => tab.key !== 'procurement') : TABS;
+  const tabs = TABS.filter((tab) => {
+    if (isCashier && tab.key === 'procurement') return false;
+    if (isManager && tab.key === 'sales') return false;
+    return true;
+  });
 
   return (
     <DashboardLayout active="reports">

@@ -71,9 +71,35 @@ class BillingService {
                 }
             }
 
-            // 3. Generate Sequential Bill No (INV-YYYY-NNNN)
-            const count = await bills.count({ transaction: t });
-            const bill_no = `INV-${new Date().getFullYear()}-${(count + 1).toString().padStart(4, '0')}`;
+            // 3. Generate Sequential Bill No (INV-YYYY-NNNN) with concurrency safety
+            const { Op } = require('sequelize');
+            const year = new Date().getFullYear();
+            const prefix = `INV-${year}-`;
+            const lastBill = await bills.findOne({
+                where: {
+                    bill_no: { [Op.like]: `${prefix}%` }
+                },
+                order: [['bill_id', 'DESC']],
+                transaction: t,
+                lock: t.LOCK.UPDATE
+            });
+
+            let nextNum = 1;
+            if (lastBill && lastBill.bill_no) {
+                const parts = lastBill.bill_no.split('-');
+                const lastSeq = parseInt(parts[2], 10);
+                if (!isNaN(lastSeq)) {
+                    nextNum = lastSeq + 1;
+                }
+            } else {
+                const count = await bills.count({ transaction: t });
+                nextNum = count + 1;
+            }
+            let bill_no = `${prefix}${nextNum.toString().padStart(4, '0')}`;
+            while (await bills.findOne({ where: { bill_no }, transaction: t })) {
+                nextNum++;
+                bill_no = `${prefix}${nextNum.toString().padStart(4, '0')}`;
+            }
 
             // 4. Create Bill (Include Balance Due for Partial Payments)
             const bill = await bills.create({

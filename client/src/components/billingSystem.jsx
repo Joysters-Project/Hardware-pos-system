@@ -674,13 +674,25 @@ const BillingSystem = () => {
   };
 
   const handleUpdateDiscount = (index, value) => {
-    const discountValue = parseFloat(value);
-    if (!Number.isFinite(discountValue) || discountValue < 0) {
-      return;
-    }
+    const num = parseFloat(value);
+    const validDiscount = (!Number.isFinite(num) || num < 0) ? 0 : num;
     setCart(cart.map((item, i) => {
       if (i !== index) return item;
-      return { ...item, discount: discountValue };
+      return { 
+        ...item, 
+        discount: validDiscount,
+        discountInput: value
+      };
+    }));
+  };
+
+  const handleBlurDiscount = (index) => {
+    setCart(cart.map((item, i) => {
+      if (i !== index) return item;
+      return {
+        ...item,
+        discountInput: undefined
+      };
     }));
   };
 
@@ -693,14 +705,15 @@ const BillingSystem = () => {
   const subtotal = cart.reduce((acc, i) => acc + (i.unit_price * i.quantity), 0);
   const totalDiscount = cart.reduce((acc, i) => acc + (i.discount || 0), 0);
   const total = subtotal - totalDiscount;
+  const hasAmountPaid = payData.amountPaid !== '' && payData.amountPaid !== null && payData.amountPaid !== undefined;
   const amountPaid = Number(payData.amountPaid);
   const amountPaidValue = Number.isFinite(amountPaid) ? amountPaid : 0;
   const balance = amountPaidValue - total;
-  const isPartial = amountPaidValue < total && amountPaidValue > 0;
+  const isPartial = hasAmountPaid && amountPaidValue < total && amountPaidValue >= 0;
   const isFullPaid = amountPaidValue >= total && amountPaidValue > 0;
   const cartItemCount = cart.reduce((acc, i) => acc + i.quantity, 0);
   // allow checkout once cart has items and an amount is entered; specific customer validation happens on submit
-  const canCheckout = cart.length > 0 && amountPaidValue > 0;
+  const canCheckout = cart.length > 0 && hasAmountPaid && amountPaidValue >= 0;
   const showCustomerDetails = isPartial || saveCustomer || customerExists;
 
   const handleCheckout = async () => {
@@ -735,7 +748,7 @@ const BillingSystem = () => {
       toast.error("One or more items have a discount that makes final price lower than cost price. Please adjust discount.");
       return;
     }
-    if (amountPaidValue <= 0) {
+    if (!hasAmountPaid || amountPaidValue < 0) {
       toast.error("Enter the amount received before completing transaction!");
       return;
     }
@@ -1060,12 +1073,12 @@ const BillingSystem = () => {
                           </td>
                           <td style={{ textAlign: 'center' }}>
                             <input id="number_field" name="number_field"
-                              type="number"
+                              type="text"
+                              inputMode="decimal"
                               className="discount-input-table"
-                              value={item.discount || 0}
+                              value={item.discountInput !== undefined ? item.discountInput : (item.discount || 0)}
                               onChange={(e) => handleUpdateDiscount(idx, e.target.value)}
-                              min="0"
-                              step="0.01"
+                              onBlur={() => handleBlurDiscount(idx)}
                             />
                           </td>
                           <td style={{ textAlign: 'right' }}>
@@ -1173,7 +1186,7 @@ const BillingSystem = () => {
 
                 <div className="payment-summary-scroll">
                   {/* Change or Due */}
-                  {amountPaidValue > 0 && (
+                  {hasAmountPaid && (
                     balance >= 0 ? (
                       <div className="change-card positive">
                         <CheckCircle size={18} />
@@ -1227,8 +1240,8 @@ const BillingSystem = () => {
                           type="tel"
                           maxLength={10}
                           onChange={(e) => {
-                            const filtered = filterSriLankanPhoneInput(e.target.value);
-                            setPayData((prev) => ({ ...prev, customerPhone: filtered }));
+                            const raw = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                            setPayData((prev) => ({ ...prev, customerPhone: raw }));
                             setCustomerExists(false);
                             setCustomerLookupMessage('');
                             if (phoneError) setPhoneError('');
@@ -1292,7 +1305,7 @@ const BillingSystem = () => {
                 <div className="checkout-footer-modern">
                   <button
                     onClick={handleCheckout}
-                    disabled={cart.length === 0 || amountPaidValue <= 0}
+                    disabled={cart.length === 0 || !hasAmountPaid || amountPaidValue < 0}
                     className={`checkout-btn-modern ${canCheckout ? 'active' : 'disabled'}`}
                   >
                     <span className="checkout-kbd">F9</span>
