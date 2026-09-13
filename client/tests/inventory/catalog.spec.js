@@ -103,3 +103,33 @@ test.describe('Catalog - Pagination and Editing', () => {
     await expect(page.locator('.catalog-char-counter').first()).toHaveText('50/50');
   });
 });
+
+test.describe('Catalog - Brand and Unit Lifecycle', () => {
+  for (const [tab, resource, field] of [['Brands', 'brands', 'brand_name'], ['Units', 'units', 'unit_name']]) {
+    test(tab + ' create, rename and delete persist after reload', async ({ page }) => {
+      await gotoCatalog(page);
+      await page.getByRole('button', { name: tab, exact: true }).click();
+      await page.locator('#name').fill('New Item');
+      await page.getByRole('button', { name: 'Add Item' }).click();
+      await page.locator('.catalog-card-row').filter({ hasText: 'New Item' }).getByTitle('Edit Item').click();
+      await page.locator('#editingName').fill('Renamed Item');
+      await page.getByTitle('Save Changes').click();
+      await expect(page.locator('.card-item-name').filter({ hasText: 'Renamed Item' })).toBeVisible();
+      await page.reload();
+      await page.getByRole('button', { name: tab, exact: true }).click();
+      page.once('dialog', dialog => dialog.accept());
+      await page.locator('.catalog-card-row').filter({ hasText: 'Renamed Item' }).getByTitle('Delete Item').click();
+      await expect(page.locator('.card-item-name').filter({ hasText: 'Renamed Item' })).toHaveCount(0);
+      expect(inventory.mutations.map(m => m.method)).toEqual(['POST', 'PATCH', 'DELETE']);
+      expect(inventory.mutations[0]).toMatchObject({ resource, body: { [field]: 'New Item' } });
+    });
+    test(tab + ' delete cancellation preserves item', async ({ page }) => {
+      await gotoCatalog(page);
+      await page.getByRole('button', { name: tab, exact: true }).click();
+      page.once('dialog', dialog => dialog.dismiss());
+      await page.getByTitle('Delete Item').click();
+      await expect(page.locator('.catalog-card-row')).toHaveCount(1);
+      expect(inventory.mutations).toEqual([]);
+    });
+  }
+});

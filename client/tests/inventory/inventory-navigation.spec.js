@@ -36,3 +36,18 @@ test.describe('Inventory - Navigation', () => {
     expect(inventory.mutations).toEqual([]);
   });
 });
+
+test.describe('Inventory - Direct Routes', () => {
+  for (const [path, label] of [['/products', 'Products'], ['/catalog', 'Catalog'], ['/assets', 'Assets'], ['/inventory/batches', 'Batch Inventory']]) {
+    test(path + ' activates only its own navigation link after reload', async ({ page }) => {
+      await page.goto(path);
+      const nav = page.locator('.procurement-top-nav');
+      await expect(nav.getByRole('link', { name: label, exact: true })).toHaveClass(/active/);
+      await expect(nav.locator('a.active')).toHaveCount(1);
+      await page.reload();
+      await expect(nav.getByRole('link', { name: label, exact: true })).toHaveClass(/active/);
+      await expect(nav.getByRole('link')).toHaveCount(4);
+      expect(inventory.mutations).toEqual([]);
+    });
+  }
+});

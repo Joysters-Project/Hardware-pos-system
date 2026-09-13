@@ -32,6 +32,16 @@ export default defineConfig({
 
   projects: [
     {
+      name: 'customer-cheque',
+      testMatch: '**/customer-cheque/**/*.specs.js',
+      use: { ...devices['Desktop Chrome'], timezoneId: 'Asia/Colombo' },
+    },
+    {
+      name: 'finance',
+      testMatch: '**/finance/**/*.spec.js',
+      use: { ...devices['Desktop Chrome'], timezoneId: 'Asia/Colombo' },
+    },
+    {
       name: 'inventory',
       testMatch: '**/inventory/**/*.spec.js',
       dependencies: ['auth-setup'],

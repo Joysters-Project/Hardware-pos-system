@@ -126,3 +126,32 @@ test.describe('Assets - Search, Details and Pagination', () => {
     await expect(page.getByText('Failed to load assets', { exact: true })).toBeVisible();
   });
 });
+
+test.describe('Assets - Failure Recovery and Empty State', () => {
+  test('empty dataset shows no assets and hides pagination', async ({ page }) => {
+    inventory.data.assets = [];
+    await gotoAssets(page);
+    await expect(page.locator('tbody')).toContainText('No assets found');
+    await expect(page.locator('.proc-pagination')).toHaveCount(0);
+  });
+  test('failed edit keeps entered values and stored asset unchanged', async ({ page }) => {
+    await page.route('**/api/assets/1', route => route.request().method() === 'PUT' ? route.fulfill({ status: 500, json: { message: 'Asset save unavailable' } }) : route.fallback());
+    await gotoAssets(page);
+    await page.getByTitle('Edit', { exact: true }).click();
+    await page.locator('#asset_name').fill('Changed Drill');
+    await page.getByRole('button', { name: 'Update', exact: true }).click();
+    await expect(page.getByText('Asset save unavailable', { exact: true })).toBeVisible();
+    await expect(page.locator('#asset_name')).toHaveValue('Changed Drill');
+    expect(inventory.data.assets[0].asset_name).toBe('Workshop Drill');
+    expect(inventory.mutations).toEqual([]);
+  });
+  test('failed disposal preserves active status', async ({ page }) => {
+    await page.route('**/api/assets/1/dispose', route => route.fulfill({ status: 500, json: { message: 'Disposal unavailable' } }));
+    await gotoAssets(page);
+    page.once('dialog', dialog => dialog.accept());
+    await page.getByTitle('Dispose', { exact: true }).click();
+    await expect(page.getByText('Disposal unavailable', { exact: true })).toBeVisible();
+    await expect(page.locator('tbody')).toContainText('Active');
+    expect(inventory.mutations).toEqual([]);
+  });
+});

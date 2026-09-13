@@ -93,3 +93,34 @@ test.describe('Products - Details and Error Handling', () => {
     await expect(page.getByText('Failed to load products', { exact: true })).toBeVisible();
   });
 });
+
+test.describe('Products - Search, Cancellation and Delete', () => {
+  for (const query of ['STEEL', 'Tool', 'SCAN123', 'LOTABC']) {
+    test('search finds product by ' + query, async ({ page }) => {
+      Object.assign(inventory.data.products[0], { barcode: 'SCAN123', batch_no: 'LOTABC' });
+      await gotoProducts(page);
+      await page.locator('#search').fill(query);
+      await expect(page.getByRole('cell', { name: 'Steel Hammer', exact: true })).toBeVisible();
+      expect(inventory.mutations).toEqual([]);
+    });
+  }
+  test('cancel edit discards changed values', async ({ page }) => {
+    await gotoProducts(page);
+    await page.getByTitle('Edit', { exact: true }).click();
+    const modal = page.locator('.edit-product-modal');
+    await modal.locator('[name="product_name"]').fill('Discarded');
+    await modal.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.getByTitle('Edit', { exact: true }).click();
+    await expect(modal.locator('[name="product_name"]')).toHaveValue('Steel Hammer');
+    expect(inventory.mutations).toEqual([]);
+  });
+  test('confirmed deletion persists after reload', async ({ page }) => {
+    await gotoProducts(page);
+    page.once('dialog', dialog => dialog.accept());
+    await page.getByTitle('Delete', { exact: true }).click();
+    await expect(page.getByRole('cell', { name: 'Steel Hammer', exact: true })).toHaveCount(0);
+    await page.reload();
+    await expect(page.locator('tbody')).toContainText('No products');
+    expect(inventory.mutations[0]).toMatchObject({ resource: 'products', id: '1', method: 'DELETE' });
+  });
+});

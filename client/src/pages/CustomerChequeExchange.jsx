@@ -37,7 +37,10 @@ const fmtDate = (value) => {
   return new Date(value).toLocaleDateString('en-GB');
 };
 
-const getTodayDate = () => new Date().toISOString().split('T')[0];
+const getTodayDate = () => {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+};
 
 const getDaysUntilClearance = (dateStr) => {
   if (!dateStr) return null;
@@ -625,7 +628,7 @@ export default function CustomerChequeExchange() {
           <button className="cce-btn-outline" onClick={openAddCustomer}>
             <Users size={15} /> Add Customer
           </button>
-          <button className="cce-btn-primary" onClick={openChequeModal}>
+          <button className="cce-btn-primary" onClick={() => openChequeModal()}>
             <CreditCard size={15} /> Record cheque
           </button>
         </div>
@@ -703,7 +706,7 @@ export default function CustomerChequeExchange() {
           </div>
         </div>
         <div className="cce-header-actions">
-          <button className="cce-btn-outline" onClick={openChequeModal}>
+          <button className="cce-btn-outline" onClick={() => openChequeModal()}>
             <PlusCircle size={15} /> Record cheque
           </button>
         </div>
@@ -1013,7 +1016,7 @@ export default function CustomerChequeExchange() {
           </div>
         </div>
         <div className="proc-header-actions">
-          <button className="proc-btn-primary" onClick={openChequeModal}>
+          <button className="proc-btn-primary" onClick={() => openChequeModal()}>
             <PlusCircle size={15} /> Record cheque
           </button>
         </div>
@@ -1071,7 +1074,7 @@ export default function CustomerChequeExchange() {
         <div className="cce-overlay" onClick={() => setCustomerModalOpen(false)}>
           <div className="cce-modal cce-modal-lg" onClick={(event) => event.stopPropagation()}>
             <div className="cce-modal-header">
-              <h2>Add customer</h2>
+              <h2>{editingCustomerId ? 'Edit customer' : 'Add customer'}</h2>
               <button className="cce-modal-close" onClick={() => setCustomerModalOpen(false)}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M18 6 6 18" />
