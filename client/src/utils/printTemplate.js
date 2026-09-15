@@ -237,6 +237,7 @@ export const printWithTemplate = ({
   pageSize    = 'A4 portrait',
   useTemplate = true,
   headerTitle = '',
+  contentInset = '20mm',
 } = {}) => {
   const popup = window.open('', '_blank', 'width=950,height=850');
   if (!popup) return false;
@@ -334,8 +335,8 @@ export const printWithTemplate = ({
     .tpl-content {
       position: absolute;
       top: 100mm;
-      left: 20mm;
-      right: 20mm;
+      left: ${contentInset};
+      right: ${contentInset};
       bottom: 22mm;
       max-height: calc(297mm - 100mm - 22mm);
       overflow: hidden;

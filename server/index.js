@@ -99,6 +99,7 @@ const procurementNotificationRoutes = require('./routes/procurementNotificationR
 const supplierPerformanceRoutes     = require('./routes/supplierPerformanceRoutes');
 const batchRoutes = require('./routes/batchRoutes');
 const chequeExchangeRoutes = require('./routes/chequeExchangeRoutes');
+const analysisReportRoutes = require('./routes/analysisReportRoutes');
 
 app.use('/api/departments',   departmentRoutes);
 app.use('/api/employees',     employeeRoutes);
@@ -140,6 +141,7 @@ app.use('/api/RR_suppliers',              RR_supplierRoutes);
 app.use('/api/RR_purchase_orders',        RR_purchaseOrderRoutes);
 app.use('/api/batch-inventory',           batchRoutes);
 app.use('/api/cheque-exchange',            chequeExchangeRoutes);
+app.use('/api/analysis',                   authMiddleware, analysisReportRoutes);
 
 // ── Cron Jobs ─────────────────────────────────────────────────────────────────
 
