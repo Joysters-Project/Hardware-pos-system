@@ -1,243 +1,127 @@
 const db = require('../models');
 const { Op } = require('sequelize');
-
+const round = n => Number(n.toFixed(2));
+const amount = n => Number(n || 0);
+const sum = rows => round(rows.reduce((s, b) => s + amount(b.total_amount), 0));
+// Match the database's business timezone regardless of the server's timezone.
+const offset = 330 * 60000;
+const local = value => typeof value === 'string' && !/(Z|[+-]\d\d:\d\d)$/.test(value)
+  ? new Date(`${(value.length === 10 ? `${value}T00:00:00` : value.replace(' ', 'T'))}+05:30`) : new Date(value);
+const parts = value => new Date(local(value).getTime() + offset);
+const boundary = (y, m, d = 1) => new Date(Date.UTC(y, m, d) - offset);
+const range = (start, end) => ({ [Op.gte]: start, [Op.lt]: end });
+const monthName = (m, long = false) => new Date(Date.UTC(2000, m, 1)).toLocaleString('en-US', { month: long ? 'long' : 'short', timeZone: 'UTC' });
+const include = [{ model: db.bill_items, include: [{ model: db.products, attributes: ['product_name'] }] }];
+const fetchBills = (start, end) => db.bills.findAll({ where: { bill_date: range(start, end), status: { [Op.in]: ['PAID', 'PARTIAL', 'UNPAID'] } }, include });
+const growth = (current, previous) => previous > 0 ? Number(((current - previous) / previous * 100).toFixed(1)) : null;
+function period(query) {
+  const now = parts(new Date());
+  const year = query.year === undefined ? now.getUTCFullYear() : Number(query.year);
+  const month = query.month === undefined ? now.getUTCMonth() : Number(query.month);
+  if (!Number.isInteger(year) || year < 1900 || year > 9998 || !Number.isInteger(month) || month < 0 || month > 11 || query.year === '' || query.month === '') return null;
+  return { year, month, now };
+}
+function products(bills) {
+  const map = new Map();
+  bills.forEach(bill => {
+    const items = bill.bill_items || [];
+    const lineTotal = items.reduce((s, i) => s + amount(i.total_price), 0);
+    // Allocate the actual bill total, including bill-level discounts, in cents.
+    let allocated = 0;
+    let cumulative = 0;
+    items.forEach(item => {
+      const id = item.product_id;
+      if (!map.has(id)) map.set(id, { productId: id, name: item.product?.product_name || `Product #${id}`, qty: 0, revenue: 0 });
+      const row = map.get(id);
+      row.qty += amount(item.quantity); // Stored in the product's base unit.
+      cumulative += amount(item.total_price);
+      const next = lineTotal > 0 ? Math.round(amount(bill.total_amount) * 100 * cumulative / lineTotal) : 0;
+      row.revenue += (next - allocated) / 100;
+      allocated = next;
+    });
+  });
+  return [...map.values()].map(p => ({ ...p, qty: round(p.qty), revenue: round(p.revenue) })).sort((a, b) => b.revenue - a.revenue);
+}
+const notes = [
+  'Calculation update: sales use saved bill totals after discounts, including unpaid balances. Returns already change the original bill; refunds are not deducted twice. Historical reports therefore reflect current bill records, not a frozen accounting ledger.',
+  'Product revenue allocates each bill total proportionally to its line totals. Products are grouped by ID; quantities use each product’s base unit. Any bill amount without positive item totals cannot be attributed to a product.',
+];
 exports.getMonthlyAnalysis = async (req, res) => {
+  const p = period(req.query);
+  if (!p) return res.status(400).json({ error: 'Use an integer year and a month from 0 to 11.' });
   try {
-    const { year, month } = req.query;
-    const now = new Date();
-    const targetYear = parseInt(year) || now.getFullYear();
-    const targetMonth = parseInt(month) !== undefined ? parseInt(month) : now.getMonth();
-
-    const startOfMonth = new Date(targetYear, targetMonth, 1);
-    const endOfMonth = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59, 999);
-
-    // Previous month for comparison
-    const prevMonthStart = new Date(targetYear, targetMonth - 1, 1);
-    const prevMonthEnd = new Date(targetYear, targetMonth, 0, 23, 59, 59, 999);
-
-    // Current month bills
-    const bills = await db.bills.findAll({
-      where: { bill_date: { [Op.between]: [startOfMonth, endOfMonth] } },
-      include: [{ model: db.bill_items, include: [{ model: db.products, attributes: ['product_name', 'category_id'] }] }],
-    });
-
-    // Previous month bills
-    const prevBills = await db.bills.findAll({
-      where: { bill_date: { [Op.between]: [prevMonthStart, prevMonthEnd] } },
-    });
-
-    const totalRevenue = bills.reduce((s, b) => s + parseFloat(b.total_amount || 0), 0);
-    const prevRevenue = prevBills.reduce((s, b) => s + parseFloat(b.total_amount || 0), 0);
-    const totalBills = bills.length;
-
-    // Product sales aggregation
-    const productMap = {};
-    bills.forEach(bill => {
-      (bill.bill_items || []).forEach(item => {
-        const name = item.product?.product_name || `Product #${item.product_id}`;
-        if (!productMap[name]) productMap[name] = { name, qty: 0, revenue: 0 };
-        productMap[name].qty += parseFloat(item.quantity || 0);
-        productMap[name].revenue += parseFloat(item.total_price || 0);
-      });
-    });
-    const topProducts = Object.values(productMap)
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 10);
-
-    // Daily revenue breakdown
-    const daysInMonth = endOfMonth.getDate();
-    const dailyRevenue = Array.from({ length: daysInMonth }, (_, i) => ({ day: i + 1, revenue: 0, bills: 0 }));
-    bills.forEach(bill => {
-      const day = new Date(bill.bill_date).getDate() - 1;
-      if (dailyRevenue[day]) {
-        dailyRevenue[day].revenue += parseFloat(bill.total_amount || 0);
-        dailyRevenue[day].bills += 1;
-      }
-    });
-
-    // Projects this month
-    const projects = await db.projects.findAll({
-      where: { created_at: { [Op.between]: [startOfMonth, endOfMonth] } },
-      attributes: ['project_id', 'project_name', 'status', 'total_amount', 'created_at'],
-    }).catch(() => []);
-
-    // Next month prediction: use last 3 months avg
-    const last3Start = new Date(targetYear, targetMonth - 3, 1);
-    const last3Bills = await db.bills.findAll({
-      where: { bill_date: { [Op.between]: [last3Start, endOfMonth] } },
-      include: [{ model: db.bill_items, include: [{ model: db.products, attributes: ['product_name'] }] }],
-    });
-
-    // Product demand over last 3 months
-    const demandMap = {};
-    last3Bills.forEach(bill => {
-      (bill.bill_items || []).forEach(item => {
-        const name = item.product?.product_name || `Product #${item.product_id}`;
-        if (!demandMap[name]) demandMap[name] = { name, totalQty: 0, months: new Set() };
-        demandMap[name].totalQty += parseFloat(item.quantity || 0);
-        demandMap[name].months.add(`${new Date(bill.bill_date).getFullYear()}-${new Date(bill.bill_date).getMonth()}`);
-      });
-    });
-
-    const predictions = Object.values(demandMap)
-      .map(p => ({
-        name: p.name,
-        avgMonthlyQty: parseFloat((p.totalQty / 3).toFixed(2)),
-        predictedNextMonth: parseFloat((p.totalQty / 3 * 1.1).toFixed(2)),
-        trend: p.totalQty / 3 > 5 ? 'high' : p.totalQty / 3 > 2 ? 'medium' : 'low',
-      }))
-      .sort((a, b) => b.predictedNextMonth - a.predictedNextMonth)
-      .slice(0, 10);
-
-    const revenueGrowth = prevRevenue > 0 ? (((totalRevenue - prevRevenue) / prevRevenue) * 100).toFixed(1) : null;
-
+    const { year, month, now } = p;
+    const start = boundary(year, month), end = boundary(year, month + 1);
+    const incomplete = end > new Date();
+    const bills = await fetchBills(start, end);
+    const prevBills = await fetchBills(boundary(year, month - 1), start);
+    const totalRevenue = sum(bills), prevRevenue = sum(prevBills);
+    const dailyRevenue = Array.from({ length: new Date(Date.UTC(year, month + 1, 0)).getUTCDate() }, (_, i) => ({ day: i + 1, revenue: 0, bills: 0 }));
+    bills.forEach(b => { const row = dailyRevenue[parts(b.bill_date).getUTCDate() - 1]; row.revenue += amount(b.total_amount); row.bills++; });
+    dailyRevenue.forEach(row => { row.revenue = round(row.revenue); });
+    // Exactly three completed calendar months, including selected month if closed.
+    const forecastEnd = new Date(Math.min(end.getTime(), boundary(now.getUTCFullYear(), now.getUTCMonth()).getTime()));
+    const fp = parts(forecastEnd);
+    const forecastStart = boundary(fp.getUTCFullYear(), fp.getUTCMonth() - 3);
+    const history = await fetchBills(forecastStart, forecastEnd);
+    const nextMonthPredictions = products(history).map(p => ({ ...p, avgMonthlyQty: round(p.qty / 3), predictedNextMonth: round(p.qty / 3), trend: p.qty / 3 > 5 ? 'high' : p.qty / 3 > 2 ? 'medium' : 'low' })).sort((a, b) => b.predictedNextMonth - a.predictedNextMonth).slice(0, 10);
     res.json({
-      period: { year: targetYear, month: targetMonth, monthName: startOfMonth.toLocaleString('en-US', { month: 'long' }) },
-      summary: { totalRevenue, totalBills, prevRevenue, revenueGrowth },
-      topProducts,
-      dailyRevenue,
-      projects: projects.map(p => ({ id: p.project_id, name: p.project_name, status: p.status, amount: parseFloat(p.total_amount || 0) })),
-      nextMonthPredictions: predictions,
+      period: { year, month, monthName: monthName(month, true), incomplete },
+      summary: { totalRevenue, totalBills: bills.length, prevRevenue, revenueGrowth: incomplete ? null : growth(totalRevenue, prevRevenue) },
+      topProducts: products(bills).slice(0, 10), dailyRevenue, projects: [], nextMonthPredictions,
+      calculationNotes: [...notes, 'Next-month quantities = total base-unit quantity over exactly three completed calendar months / 3, including zero-sale months. No automatic growth uplift. Demand bands: high > 5, medium > 2, otherwise low; these are fixed labels, not measured trends.', `Forecast history: ${monthName(fp.getUTCMonth() - 3, true)} ${parts(forecastStart).getUTCFullYear()} through ${monthName(fp.getUTCMonth() - 1, true)} ${parts(new Date(forecastEnd - 1)).getUTCFullYear()}.`, ...(incomplete ? ['This period is incomplete or future. Growth against a full previous month is suppressed.'] : []), 'Average bill value = sales / bill count; zero when there are no bills.'],
     });
-  } catch (err) {
-    console.error('Monthly analysis error:', err);
-    res.status(500).json({ error: 'Failed to fetch monthly analysis' });
-  }
+  } catch (err) { console.error('Monthly analysis error:', err); res.status(500).json({ error: 'Failed to fetch monthly analysis' }); }
 };
-
 exports.getYearlyAnalysis = async (req, res) => {
+  const p = period(req.query);
+  if (!p) return res.status(400).json({ error: 'Use an integer year.' });
   try {
-    const { year } = req.query;
-    const now = new Date();
-    const targetYear = parseInt(year) || now.getFullYear();
-    const prevYear = targetYear - 1;
-
-    const startOfYear = new Date(targetYear, 0, 1);
-    const endOfYear = new Date(targetYear, 11, 31, 23, 59, 59, 999);
-    const startOfPrevYear = new Date(prevYear, 0, 1);
-    const endOfPrevYear = new Date(prevYear, 11, 31, 23, 59, 59, 999);
-
-    // Current year bills
-    const bills = await db.bills.findAll({
-      where: { bill_date: { [Op.between]: [startOfYear, endOfYear] } },
-      include: [{ model: db.bill_items, include: [{ model: db.products, attributes: ['product_name', 'category_id'] }] }],
+    const { year, now } = p;
+    const start = boundary(year, 0), end = boundary(year + 1, 0);
+    const incomplete = end > new Date();
+    const bills = await fetchBills(start, end);
+    const prevBills = await fetchBills(boundary(year - 1, 0), start);
+    const totalRevenue = sum(bills), prevRevenue = sum(prevBills);
+    const revenueGrowth = incomplete ? null : growth(totalRevenue, prevRevenue);
+    const breakdown = rows => Array.from({ length: 12 }, (_, m) => {
+      const selected = rows.filter(b => parts(b.bill_date).getUTCMonth() === m);
+      return { month: monthName(m), revenue: sum(selected), bills: selected.length };
     });
-
-    // Previous year bills
-    const prevBills = await db.bills.findAll({
-      where: { bill_date: { [Op.between]: [startOfPrevYear, endOfPrevYear] } },
-      include: [{ model: db.bill_items, include: [{ model: db.products, attributes: ['product_name'] }] }],
-    });
-
-    const totalRevenue = bills.reduce((s, b) => s + parseFloat(b.total_amount || 0), 0);
-    const prevRevenue = prevBills.reduce((s, b) => s + parseFloat(b.total_amount || 0), 0);
-    const revenueGrowth = prevRevenue > 0 ? (((totalRevenue - prevRevenue) / prevRevenue) * 100).toFixed(1) : null;
-
-    // Monthly breakdown
-    const monthlyData = Array.from({ length: 12 }, (_, i) => ({
-      month: new Date(targetYear, i, 1).toLocaleString('en-US', { month: 'short' }),
-      revenue: 0, bills: 0,
-    }));
-    bills.forEach(bill => {
-      const m = new Date(bill.bill_date).getMonth();
-      monthlyData[m].revenue += parseFloat(bill.total_amount || 0);
-      monthlyData[m].bills += 1;
-    });
-
-    // Previous year monthly
-    const prevMonthlyData = Array.from({ length: 12 }, (_, i) => ({
-      month: new Date(prevYear, i, 1).toLocaleString('en-US', { month: 'short' }),
-      revenue: 0,
-    }));
-    prevBills.forEach(bill => {
-      const m = new Date(bill.bill_date).getMonth();
-      prevMonthlyData[m].revenue += parseFloat(bill.total_amount || 0);
-    });
-
-    // Top products this year
-    const productMap = {};
-    bills.forEach(bill => {
-      (bill.bill_items || []).forEach(item => {
-        const name = item.product?.product_name || `Product #${item.product_id}`;
-        if (!productMap[name]) productMap[name] = { name, qty: 0, revenue: 0 };
-        productMap[name].qty += parseFloat(item.quantity || 0);
-        productMap[name].revenue += parseFloat(item.total_price || 0);
-      });
-    });
-    const topProducts = Object.values(productMap).sort((a, b) => b.revenue - a.revenue).slice(0, 10);
-
-    // Projects this year
-    const projects = await db.projects.findAll({
-      where: { created_at: { [Op.between]: [startOfYear, endOfYear] } },
-      attributes: ['project_id', 'project_name', 'status', 'total_amount'],
-    }).catch(() => []);
-
-    // Expenses this year
-    const expenses = await db.expenses.findAll({
-      where: { expense_date: { [Op.between]: [startOfYear, endOfYear] } },
-      attributes: ['amount'],
-    }).catch(() => []);
-    const totalExpenses = expenses.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
-
-    // Next year prediction: linear trend from monthly data
-    const avgMonthly = totalRevenue / 12;
-    const growthRate = prevRevenue > 0 ? (totalRevenue - prevRevenue) / prevRevenue : 0.1;
-    const predictedNextYear = totalRevenue * (1 + Math.max(0, Math.min(growthRate, 0.5)));
-
-    // Seasonal product forecast: rank products independently for each month.
-    // Current-year quantities are preferred, with the previous year as a fallback
-    // for months that have no current-year sales.
-    const nextYearGrowthFactor = 1 + Math.max(0, Math.min(growthRate, 0.5));
-    const buildMonthlyProductDemand = (sourceBills) => {
-      const monthlyDemand = Array.from({ length: 12 }, () => ({}));
-      sourceBills.forEach(bill => {
-        const month = new Date(bill.bill_date).getMonth();
-        (bill.bill_items || []).forEach(item => {
-          const name = item.product?.product_name || `Product #${item.product_id}`;
-          monthlyDemand[month][name] = (monthlyDemand[month][name] || 0) + parseFloat(item.quantity || 0);
-        });
-      });
-      return monthlyDemand;
-    };
-
-    const currentMonthlyDemand = buildMonthlyProductDemand(bills);
-    const previousMonthlyDemand = buildMonthlyProductDemand(prevBills);
-    const nextYearMonthlyTopProducts = currentMonthlyDemand.map((demand, month) => {
-      const source = Object.keys(demand).length > 0 ? demand : previousMonthlyDemand[month];
+    const monthlyData = breakdown(bills), prevMonthlyData = breakdown(prevBills);
+    const expenses = await db.expenses.findAll({ where: { expense_date: range(`${year}-01-01`, `${year + 1}-01-01`) }, attributes: ['amount'] });
+    const totalExpenses = round(expenses.reduce((s, e) => s + amount(e.amount), 0));
+    const topProducts = products(bills).slice(0, 10);
+    // A repeat-year baseline avoids inventing growth or translating prices into units.
+    const nextYearMonthlyTopProducts = Array.from({ length: 12 }, (_, m) => {
+      const available = boundary(year, m + 1) <= new Date();
       return {
-        month: new Date(targetYear + 1, month, 1).toLocaleString('en-US', { month: 'long' }),
-        products: Object.entries(source)
-          .map(([name, quantity]) => ({
-            name,
-            predictedQty: parseFloat((quantity * nextYearGrowthFactor).toFixed(2)),
-          }))
-          .sort((a, b) => b.predictedQty - a.predictedQty)
-          .slice(0, 3),
+        month: monthName(m, true),
+        available,
+        products: available
+          ? products(bills.filter(b => parts(b.bill_date).getUTCMonth() === m))
+            .sort((a, b) => b.qty - a.qty)
+            .slice(0, 3)
+            .map(p => ({ productId: p.productId, name: p.name, predictedQty: p.qty }))
+          : [],
       };
     });
-
-    // Improvement suggestions based on data
+    const completedMonths = year < now.getUTCFullYear() ? 12 : year === now.getUTCFullYear() ? now.getUTCMonth() : 0;
+    const closed = monthlyData.slice(0, completedMonths);
+    const average = completedMonths ? closed.reduce((s, m) => s + m.revenue, 0) / completedMonths : 0;
+    const low = closed.filter(m => m.revenue < average * 0.7);
     const improvements = [];
-    const lowMonths = monthlyData.filter(m => m.revenue < avgMonthly * 0.7);
-    if (lowMonths.length > 0) improvements.push({ type: 'warning', text: `${lowMonths.map(m => m.month).join(', ')} had below-average revenue. Consider promotions during these months.` });
-    if (totalExpenses > totalRevenue * 0.4) improvements.push({ type: 'danger', text: 'Expenses exceed 40% of revenue. Review cost structure to improve margins.' });
-    if (revenueGrowth !== null && parseFloat(revenueGrowth) < 0) improvements.push({ type: 'danger', text: `Revenue declined ${Math.abs(revenueGrowth)}% vs last year. Focus on customer retention and new product lines.` });
-    if (revenueGrowth !== null && parseFloat(revenueGrowth) > 0) improvements.push({ type: 'success', text: `Revenue grew ${revenueGrowth}% vs last year. Maintain momentum by expanding top-selling product inventory.` });
-    if (topProducts.length > 0) improvements.push({ type: 'info', text: `"${topProducts[0].name}" is your best seller. Ensure adequate stock levels heading into next year.` });
-
+    if (low.length) improvements.push({ type: 'warning', text: `${low.map(m => m.month).join(', ')} had revenue below 70% of the average for completed months. Review seasonality before planning promotions.` });
+    if (totalRevenue > 0 && totalExpenses > totalRevenue * 0.4) improvements.push({ type: 'warning', text: 'Recorded expenses exceed 40% of sales. This is a review threshold, not a profit-margin calculation.' });
+    if (revenueGrowth !== null) improvements.push({ type: revenueGrowth < 0 ? 'danger' : 'info', text: `Sales changed ${revenueGrowth}% against the previous complete year.` });
+    if (topProducts.length) improvements.push({ type: 'info', text: `"${topProducts[0].name}" ranks first by allocated sales value, not by quantity or profit.` });
     res.json({
-      period: { year: targetYear, prevYear },
-      summary: { totalRevenue, totalBills: bills.length, prevRevenue, revenueGrowth, totalExpenses, netProfit: totalRevenue - totalExpenses },
-      monthlyData,
-      prevMonthlyData,
-      topProducts,
-      projects: projects.map(p => ({ id: p.project_id, name: p.project_name, status: p.status, amount: parseFloat(p.total_amount || 0) })),
-      prediction: { nextYearRevenue: parseFloat(predictedNextYear.toFixed(2)), growthRate: parseFloat((growthRate * 100).toFixed(1)) },
-      nextYearMonthlyTopProducts,
-      improvements,
+      period: { year, prevYear: year - 1, incomplete },
+      summary: { totalRevenue, totalBills: bills.length, prevRevenue, revenueGrowth, totalExpenses, salesLessExpenses: round(totalRevenue - totalExpenses) },
+      monthlyData, prevMonthlyData, topProducts, projects: [],
+      prediction: { nextYearRevenue: incomplete ? null : totalRevenue, growthRate: incomplete ? null : 0 },
+      nextYearMonthlyTopProducts, improvements,
+      calculationNotes: [...notes, 'Sales less recorded expenses is not net profit: historical cost of goods sold is not stored on bill items, and the expense register includes categories such as asset purchases.', 'Monthly product forecasts unlock separately when the matching month in the selected year is complete. Each available next-year month repeats its base-unit quantities without a growth multiplier. Zero-sale months remain zero.', 'Annual revenue forecasts and growth comparisons are unavailable for incomplete or future years. Low-month insights use completed months only. Expense query failures report an error instead of a false zero.'],
     });
-  } catch (err) {
-    console.error('Yearly analysis error:', err);
-    res.status(500).json({ error: 'Failed to fetch yearly analysis' });
-  }
+  } catch (err) { console.error('Yearly analysis error:', err); res.status(500).json({ error: 'Failed to fetch yearly analysis' }); }
 };

@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import '../styles/AnalysisReport.css';
 
-const fmt = (v) => `Rs. ${Number(v ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmt = (v) => v === null ? 'Unavailable' : `Rs. ${Number(v ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtShort = (v) => {
   const n = Number(v ?? 0);
   if (n >= 1_000_000) return `Rs. ${(n / 1_000_000).toFixed(1)}M`;
@@ -82,12 +82,14 @@ function MonthlyAnalysis() {
   const [showPredictionTable, setShowPredictionTable] = useState(true);
 
   useEffect(() => {
+    let active = true;
     setLoading(true);
     setError('');
     api.get('/analysis/monthly', { params: { year, month } })
-      .then(r => setData(r.data))
-      .catch(() => setError('Failed to load monthly analysis.'))
-      .finally(() => setLoading(false));
+      .then(r => { if (active) setData(r.data); })
+      .catch(() => { if (active) setError('Failed to load monthly analysis.'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [year, month]);
 
   const yearOptions = useMemo(() => {
@@ -164,11 +166,11 @@ function MonthlyAnalysis() {
                   <div className="ar-product-rank" style={{ background: `${color}18`, color }}>{i + 1}</div>
                   <div className="ar-product-info">
                     <div className="ar-product-name">{p.name}</div>
-                    <div className="ar-product-meta">Qty: {p.qty.toFixed(1)}</div>
+                    <div className="ar-product-meta">Base-unit qty: {p.qty}</div>
                   </div>
                   <div className="ar-product-revenue" style={{ color }}>{fmtShort(p.revenue)}</div>
                   <div className="ar-product-bar-wrap">
-                    <div className="ar-product-bar" style={{ width: `${(p.revenue / topProducts[0].revenue) * 100}%`, background: color }} />
+                    <div className="ar-product-bar" style={{ width: `${topProducts[0].revenue > 0 ? (p.revenue / topProducts[0].revenue) * 100 : 0}%`, background: color }} />
                   </div>
                 </div>
               );
@@ -181,8 +183,7 @@ function MonthlyAnalysis() {
       <SectionCard title={`Next Month Prediction — ${nextMonthName} ${month === 11 ? year + 1 : year}`} icon={Lightbulb} accent="#8b3a3a" collapsible visible={showPredictionTable} onToggle={() => setShowPredictionTable(value => !value)}>
         <div className="ar-prediction-intro">
           <Info size={14} />
-          Based on the last 3 months of sales data, here are the products predicted to have high demand next month.
-          Stock up early to avoid shortages.
+          Baseline demand uses the average of three completed calendar months, including zero-sale months, without an assumed growth increase. Quantities are in each product’s base unit.
         </div>
         {nextMonthPredictions.length === 0 ? (
           <div className="ar-empty">Not enough data to generate predictions.</div>
@@ -218,12 +219,14 @@ function YearlyAnalysis() {
   const [showForecastTable, setShowForecastTable] = useState(false);
 
   useEffect(() => {
+    let active = true;
     setLoading(true);
     setError('');
     api.get('/analysis/yearly', { params: { year } })
-      .then(r => setData(r.data))
-      .catch(() => setError('Failed to load yearly analysis.'))
-      .finally(() => setLoading(false));
+      .then(r => { if (active) setData(r.data); })
+      .catch(() => { if (active) setError('Failed to load yearly analysis.'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [year]);
 
   const yearOptions = useMemo(() => {
@@ -248,8 +251,9 @@ function YearlyAnalysis() {
   const pieData = topProducts.slice(0, 6).map((p, i) => ({ name: p.name, value: parseFloat(p.revenue.toFixed(2)), fill: PIE_COLORS[i % PIE_COLORS.length] }));
 
   const handleExportYearlyPdf = () => {
-    const forecastRows = nextYearMonthlyTopProducts.flatMap(({ month, products }) => {
-      if (!products.length) return [[month, 'No sales data', '—', '—']];
+    const forecastRows = nextYearMonthlyTopProducts.flatMap(({ month, products, available }) => {
+      if (!available) return [[month, 'Waiting for month to complete', '—', '—']];
+      if (!products.length) return [[month, 'No sales history', '—', '—']];
       return products.map((product, index) => [month, `#${index + 1}`, product.name, product.predictedQty.toFixed(2)]);
     });
     const forecastTable = buildTableHtml({
@@ -262,7 +266,7 @@ function YearlyAnalysis() {
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px 18px;margin:4px 0 10px;font-size:11px;">
         <div><strong>Total Revenue:</strong> ${escapeHtml(fmt(summary.totalRevenue))}</div>
         <div><strong>Total Expenses:</strong> ${escapeHtml(fmt(summary.totalExpenses))}</div>
-        <div><strong>Net Profit:</strong> ${escapeHtml(fmt(summary.netProfit))}</div>
+        <div><strong>Sales Less Recorded Expenses:</strong> ${escapeHtml(fmt(summary.salesLessExpenses))}</div>
         <div><strong>Predicted Revenue (${period.year + 1}):</strong> ${escapeHtml(fmt(prediction.nextYearRevenue))}</div>
       </div>`;
     const improvementsHtml = `
@@ -292,7 +296,7 @@ function YearlyAnalysis() {
         </div>
         <div className="ar-period-label">
           <Calendar size={14} />
-          Full Year {period.year}
+          {period.incomplete ? 'Year to date / incomplete' : 'Full Year'} {period.year}
         </div>
       </div>
       {/* KPI Strip */}
@@ -302,7 +306,7 @@ function YearlyAnalysis() {
           trend={growthNum > 0 ? 'up' : growthNum < 0 ? 'down' : undefined} />
         <KpiCard label="Total Bills" value={summary.totalBills} icon={ShoppingCart} color="#1565c0" />
         <KpiCard label="Total Expenses" value={fmtShort(summary.totalExpenses)} icon={TrendingDown} color="#e65100" />
-        <KpiCard label="Net Profit" value={fmtShort(summary.netProfit)} icon={Target} color={summary.netProfit >= 0 ? '#1d7e42' : '#c62828'} />
+        <KpiCard label="Sales Less Recorded Expenses" value={fmtShort(summary.salesLessExpenses)} icon={Target} color={summary.salesLessExpenses >= 0 ? '#1d7e42' : '#c62828'} />
       </div>
 
       {/* Year vs Year Revenue Chart */}
@@ -321,7 +325,7 @@ function YearlyAnalysis() {
       </SectionCard>
 
       {/* Top Products Pie — full width */}
-      <SectionCard title="Revenue by Top Products" icon={Package}>
+      <SectionCard title="Allocated Sales — Top 6 Products Only" icon={Package}>
         {pieData.length === 0 ? (
           <div className="ar-empty">No product sales data.</div>
         ) : (
@@ -364,8 +368,8 @@ function YearlyAnalysis() {
             <div className="ar-pred-highlight-label">Predicted Revenue for {period.year + 1}</div>
             <div className="ar-pred-highlight-value">{fmt(prediction.nextYearRevenue)}</div>
             <div className={`ar-pred-highlight-growth ${prediction.growthRate >= 0 ? 'up' : 'down'}`}>
-              {prediction.growthRate >= 0 ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
-              {Math.abs(prediction.growthRate)}% projected growth based on current trend
+              {prediction.growthRate === null ? <Info size={14} /> : <ArrowUp size={14} />}
+              {prediction.growthRate === null ? 'Unavailable until the selected year is complete' : '0% assumed growth — repeat-year baseline'}
             </div>
           </div>
           <div className="ar-pred-comparison">
@@ -401,13 +405,15 @@ function YearlyAnalysis() {
       >
         <div className="ar-prediction-intro">
           <Info size={14} />
-          Seasonal ranking based on each month&apos;s sales history, adjusted by the projected annual growth rate.
+          Each next-year month becomes available when its matching month in the selected year is complete. Rankings use base-unit quantities without a growth multiplier.
         </div>
         <div className="ar-monthly-forecast-grid">
-          {nextYearMonthlyTopProducts.map(({ month, products }) => (
+          {nextYearMonthlyTopProducts.map(({ month, products, available }) => (
             <div key={month} className="ar-monthly-forecast-card">
               <div className="ar-monthly-forecast-month">{month}</div>
-              {products.length === 0 ? (
+              {!available ? (
+                <div className="ar-empty">Waiting for month to complete</div>
+              ) : products.length === 0 ? (
                 <div className="ar-empty">No sales history</div>
               ) : products.map((product, index) => (
                 <div key={`${month}-${product.name}`} className="ar-monthly-forecast-row">
