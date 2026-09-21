@@ -12,7 +12,7 @@ import "../styles/Departments.css";
 
 export const DashboardLayoutContext = createContext(false);
 
-export default function DashboardLayout({ children, active }) {
+export default function DashboardLayout({ children, active, onBackNavigation }) {
   const isNested = useContext(DashboardLayoutContext);
 
   if (isNested) {
@@ -43,6 +43,10 @@ export default function DashboardLayout({ children, active }) {
 
   /* Handle UI back button click */
   const handleBackNavigation = () => {
+    if (onBackNavigation) {
+      onBackNavigation();
+      return;
+    }
     const targetDash = getDashboardPath();
     if (location.pathname === targetDash) {
       setShowLogoutModal(true);
@@ -54,6 +58,7 @@ export default function DashboardLayout({ children, active }) {
   /* Handle browser back button navigation without adding extra history entries. */
   useEffect(() => {
     const handlePopState = () => {
+      if (onBackNavigation) return;
       const targetDash = getDashboardPath();
       if (window.location.pathname === targetDash) {
         setShowLogoutModal(true);
@@ -64,7 +69,7 @@ export default function DashboardLayout({ children, active }) {
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [location.pathname, role, navigate]);
+  }, [location.pathname, role, navigate, onBackNavigation]);
 
   const handleLogoutClick = () => {
     setShowLogoutModal(true);

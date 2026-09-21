@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import api from '../api/axios';
 import { buildTableHtml, escapeHtml, printWithTemplate } from '../utils/printTemplate';
@@ -181,10 +182,7 @@ function MonthlyAnalysis() {
 
       {/* Next Month Prediction */}
       <SectionCard title={`Next Month Prediction — ${nextMonthName} ${month === 11 ? year + 1 : year}`} icon={Lightbulb} accent="#8b3a3a" collapsible visible={showPredictionTable} onToggle={() => setShowPredictionTable(value => !value)}>
-        <div className="ar-prediction-intro">
-          <Info size={14} />
-          Baseline demand uses the average of three completed calendar months, including zero-sale months, without an assumed growth increase. Quantities are in each product’s base unit.
-        </div>
+        
         {nextMonthPredictions.length === 0 ? (
           <div className="ar-empty">Not enough data to generate predictions.</div>
         ) : (
@@ -458,17 +456,28 @@ const TABS = [
 ];
 
 export default function AnalysisReport() {
-  const [activeTab, setActiveTab] = useState('monthly');
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tabEnter, setTabEnter] = useState(true);
+  const requestedTab = searchParams.get('view');
+  const activeTab = TABS.some(tab => tab.key === requestedTab) ? requestedTab : 'monthly';
+
+  const handleBackNavigation = () => {
+    navigate(-1);
+  };
 
   const handleTab = (key) => {
+    if (key === activeTab) return;
     setTabEnter(false);
-    setActiveTab(key);
+    const nextParams = new URLSearchParams(searchParams);
+    if (key === 'monthly') nextParams.delete('view');
+    else nextParams.set('view', key);
+    setSearchParams(nextParams);
     setTimeout(() => setTabEnter(true), 16);
   };
 
   return (
-    <DashboardLayout active="analysis">
+    <DashboardLayout active="analysis" onBackNavigation={handleBackNavigation}>
       <div className="proc-container">
         <div className="proc-header" style={{ marginBottom: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
@@ -478,7 +487,7 @@ export default function AnalysisReport() {
             <div>
               <h1 style={{ margin: 0 }}>Analysis Report</h1>
               <p style={{ margin: 0, color: 'var(--proc-text-muted, #666)', fontSize: '0.85rem' }}>
-                Predictive insights, sales trends, and business intelligence
+              
               </p>
             </div>
           </div>
