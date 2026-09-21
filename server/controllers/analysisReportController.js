@@ -1,5 +1,4 @@
 const db = require('../models');
-const { Op } = require('sequelize');
 
 exports.getMonthlyAnalysis = async (req, res) => {
   try {
@@ -17,13 +16,13 @@ exports.getMonthlyAnalysis = async (req, res) => {
 
     // Current month bills
     const bills = await db.bills.findAll({
-      where: { bill_date: { [Op.between]: [startOfMonth, endOfMonth] } },
+      where: { bill_date: { $between: [startOfMonth, endOfMonth] } },
       include: [{ model: db.bill_items, include: [{ model: db.products, attributes: ['product_name', 'category_id'] }] }],
     });
 
     // Previous month bills
     const prevBills = await db.bills.findAll({
-      where: { bill_date: { [Op.between]: [prevMonthStart, prevMonthEnd] } },
+      where: { bill_date: { $between: [prevMonthStart, prevMonthEnd] } },
     });
 
     const totalRevenue = bills.reduce((s, b) => s + parseFloat(b.total_amount || 0), 0);
@@ -57,14 +56,14 @@ exports.getMonthlyAnalysis = async (req, res) => {
 
     // Projects this month
     const projects = await db.projects.findAll({
-      where: { created_at: { [Op.between]: [startOfMonth, endOfMonth] } },
+      where: { created_at: { $between: [startOfMonth, endOfMonth] } },
       attributes: ['project_id', 'project_name', 'status', 'total_amount', 'created_at'],
     }).catch(() => []);
 
     // Next month prediction: use last 3 months avg
     const last3Start = new Date(targetYear, targetMonth - 3, 1);
     const last3Bills = await db.bills.findAll({
-      where: { bill_date: { [Op.between]: [last3Start, endOfMonth] } },
+      where: { bill_date: { $between: [last3Start, endOfMonth] } },
       include: [{ model: db.bill_items, include: [{ model: db.products, attributes: ['product_name'] }] }],
     });
 
@@ -119,13 +118,13 @@ exports.getYearlyAnalysis = async (req, res) => {
 
     // Current year bills
     const bills = await db.bills.findAll({
-      where: { bill_date: { [Op.between]: [startOfYear, endOfYear] } },
+      where: { bill_date: { $between: [startOfYear, endOfYear] } },
       include: [{ model: db.bill_items, include: [{ model: db.products, attributes: ['product_name', 'category_id'] }] }],
     });
 
     // Previous year bills
     const prevBills = await db.bills.findAll({
-      where: { bill_date: { [Op.between]: [startOfPrevYear, endOfPrevYear] } },
+      where: { bill_date: { $between: [startOfPrevYear, endOfPrevYear] } },
       include: [{ model: db.bill_items, include: [{ model: db.products, attributes: ['product_name'] }] }],
     });
 
@@ -168,13 +167,13 @@ exports.getYearlyAnalysis = async (req, res) => {
 
     // Projects this year
     const projects = await db.projects.findAll({
-      where: { created_at: { [Op.between]: [startOfYear, endOfYear] } },
+      where: { created_at: { $between: [startOfYear, endOfYear] } },
       attributes: ['project_id', 'project_name', 'status', 'total_amount'],
     }).catch(() => []);
 
     // Expenses this year
     const expenses = await db.expenses.findAll({
-      where: { expense_date: { [Op.between]: [startOfYear, endOfYear] } },
+      where: { expense_date: { $between: [startOfYear, endOfYear] } },
       attributes: ['amount'],
     }).catch(() => []);
     const totalExpenses = expenses.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
