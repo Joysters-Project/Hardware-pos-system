@@ -1,17 +1,17 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import api from '../api/axios';
 import { buildTableHtml, escapeHtml, printWithTemplate } from '../utils/printTemplate';
 import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, Area, AreaChart,
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, Calendar, BarChart2, Package,
-  FolderOpen, AlertTriangle, CheckCircle, Info, ArrowUp, ArrowDown,
+  AlertTriangle, CheckCircle, Info, ArrowUp, ArrowDown,
   ShoppingCart, Lightbulb, Target, FileDown,
-  Eye, EyeOff,
+  Eye, EyeOff, X,
 } from 'lucide-react';
 import '../styles/AnalysisReport.css';
 
@@ -31,12 +31,25 @@ const COLORS = [
   '#00838f', '#20b2aa', '#6f4e37', '#b08968'
 ];
 const PIE_COLORS = ['#c62828', '#1565c0', '#2e7d32', '#8b3a3a', '#e65100', '#6a1b9a'];
+const confidenceLabel = value => value ? `${value.charAt(0).toUpperCase()}${value.slice(1)} confidence` : 'Confidence unavailable';
+const csvCell = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+const downloadCsv = (filename, rows) => {
+  const csv = `\uFEFF${rows.map(row => row.map(csvCell).join(',')).join('\r\n')}`;
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
 
-function KpiCard({ label, value, sub, icon: Icon, color = '#8b3a3a', trend }) {
+function KpiCard({ label, value, sub, icon, color = '#8b3a3a', trend }) {
   return (
     <div className="ar-kpi-card">
       <div className="ar-kpi-icon" style={{ background: `${color}18`, color }}>
-        <Icon size={20} />
+        {React.createElement(icon, { size: 20 })}
       </div>
       <div className="ar-kpi-body">
         <div className="ar-kpi-value">{value}</div>
@@ -71,6 +84,88 @@ function SectionCard({ title, icon: Icon, children, accent, collapsible = false,
   );
 }
 
+function useAnalysisDetails() {
+  const [detail, setDetail] = useState(null);
+  const requestRef = useRef(null);
+  useEffect(() => () => requestRef.current?.abort(), []);
+
+  const openDetails = async (title, params) => {
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
+    setDetail({ title, loading: true, data: null, error: '' });
+    try {
+      const response = await api.get('/analysis/details', { params, signal: controller.signal });
+      setDetail({ title, loading: false, data: response.data, error: '' });
+    } catch (error) {
+      if (error.code !== 'ERR_CANCELED') setDetail({ title, loading: false, data: null, error: 'Failed to load the supporting bill details.' });
+    }
+  };
+
+  const closeDetails = () => {
+    requestRef.current?.abort();
+    setDetail(null);
+  };
+  return { detail, openDetails, closeDetails };
+}
+
+function DetailDialog({ detail, onClose }) {
+  useEffect(() => {
+    if (!detail) return undefined;
+    const handleKey = event => { if (event.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [detail, onClose]);
+  if (!detail) return null;
+  const summary = detail.data?.summary;
+  return (
+    <div className="ar-detail-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="ar-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="ar-detail-title">
+        <div className="ar-detail-header">
+          <div>
+            <h2 id="ar-detail-title">{detail.title}</h2>
+            <p>Saved bills and base-unit quantities behind this result</p>
+          </div>
+          <button type="button" className="ar-detail-close" onClick={onClose} aria-label="Close details"><X size={20} /></button>
+        </div>
+        <div className="ar-detail-content">
+          {detail.loading && <div className="ar-loading"><div className="ar-spinner" />Loading bill details…</div>}
+          {detail.error && <div className="ar-error">{detail.error}</div>}
+          {summary && (
+            <>
+              <div className="ar-detail-summary">
+                <div><span>Bills</span><strong>{summary.billCount}</strong></div>
+                <div><span>Bill total</span><strong>{fmt(summary.billTotal)}</strong></div>
+                <div><span>Matched quantity</span><strong>{summary.matchedQuantity}</strong></div>
+                <div><span>Allocated sales</span><strong>{fmt(summary.allocatedRevenue)}</strong></div>
+              </div>
+              {detail.data.bills.length === 0 ? <div className="ar-empty">No matching bills were found.</div> : (
+                <div className="ar-detail-table-wrap">
+                  <table className="ar-detail-table">
+                    <thead><tr><th>Bill</th><th>Date</th><th>Customer</th><th>Status</th><th>Bill total</th><th>Products and quantities</th></tr></thead>
+                    <tbody>
+                      {detail.data.bills.map(bill => (
+                        <tr key={bill.billId}>
+                          <td>{bill.billNo || `#${bill.billId}`}</td>
+                          <td>{new Date(bill.date).toLocaleString()}</td>
+                          <td>{bill.customer}</td>
+                          <td><span className="ar-detail-status">{bill.status}</span></td>
+                          <td>{fmt(bill.billTotal)}</td>
+                          <td>{bill.items.map(item => `${item.name} × ${item.qty} (${fmt(item.allocatedRevenue)})`).join(', ') || 'No attributable line items'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 /* ─── MONTHLY TAB ─── */
 function MonthlyAnalysis() {
   const now = new Date();
@@ -81,11 +176,10 @@ function MonthlyAnalysis() {
   const [error, setError] = useState('');
   const [showMonthlyTable, setShowMonthlyTable] = useState(true);
   const [showPredictionTable, setShowPredictionTable] = useState(true);
+  const { detail, openDetails, closeDetails } = useAnalysisDetails();
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError('');
     api.get('/analysis/monthly', { params: { year, month } })
       .then(r => { if (active) setData(r.data); })
       .catch(() => { if (active) setError('Failed to load monthly analysis.'); })
@@ -93,35 +187,99 @@ function MonthlyAnalysis() {
     return () => { active = false; };
   }, [year, month]);
 
-  const yearOptions = useMemo(() => {
-    const opts = [];
-    for (let y = now.getFullYear(); y >= now.getFullYear() - 4; y--) opts.push(y);
-    return opts;
-  }, []);
+  const yearOptions = Array.from({ length: 5 }, (_, index) => now.getFullYear() - index);
+  const changePeriod = (setter, value) => {
+    setLoading(true);
+    setError('');
+    setter(value);
+  };
 
   if (loading) return <div className="ar-loading"><div className="ar-spinner" />Loading analysis…</div>;
   if (error) return <div className="ar-error">{error}</div>;
   if (!data) return null;
 
-  const { summary, topProducts, dailyRevenue, projects, nextMonthPredictions, period } = data;
+  const { summary, topProducts, dailyRevenue, nextMonthPredictions, forecastConfidence, period } = data;
   const nextMonthName = MONTHS[(month + 1) % 12];
   const growthNum = summary.revenueGrowth !== null ? parseFloat(summary.revenueGrowth) : null;
+
+  const handleExportMonthlyPdf = () => {
+    const summaryTable = buildTableHtml({
+      columns: ['Metric', 'Value'],
+      rows: [
+        ['Total Sales', fmt(summary.totalRevenue)],
+        ['Total Bills', summary.totalBills],
+        ['Average Bill', fmt(summary.totalBills ? summary.totalRevenue / summary.totalBills : 0)],
+        ['Previous Month Sales', fmt(summary.prevRevenue)],
+      ].map(row => row.map(escapeHtml)),
+    });
+    const dailyTable = buildTableHtml({
+      columns: ['Day', 'Bills', 'Sales'],
+      rows: dailyRevenue.map(row => [row.day, row.bills, fmt(row.revenue)].map(escapeHtml)),
+    });
+    const productsTable = buildTableHtml({
+      columns: ['Rank', 'Product', 'Base-unit Qty', 'Allocated Sales'],
+      rows: topProducts.map((product, index) => [index + 1, product.name, product.qty, fmt(product.revenue)].map(escapeHtml)),
+      emptyMessage: 'No product sales data.',
+    });
+    const predictionTable = buildTableHtml({
+      columns: ['Product', 'Average / Month', 'Predicted Qty', 'Confidence'],
+      rows: nextMonthPredictions.map(product => [product.name, product.avgMonthlyQty, product.predictedNextMonth, confidenceLabel(product.confidence?.level)].map(escapeHtml)),
+      emptyMessage: 'No prediction data.',
+    });
+    const opened = printWithTemplate({
+      title: `Monthly Analysis Report — ${period.monthName} ${period.year}`,
+      paginateAllTables: true,
+      subtitle: `Sales performance and demand baseline for ${nextMonthName} ${month === 11 ? year + 1 : year}`,
+      contentInset: '10mm',
+      contentHtml: `<h2 class="tpl-section-title">Monthly Summary</h2>${summaryTable}<h2 class="tpl-section-title">Daily Sales</h2>${dailyTable}<h2 class="tpl-section-title">Top Products</h2>${productsTable}<h2 class="tpl-section-title">Next Month Prediction</h2>${predictionTable}`,
+    });
+    if (!opened) window.alert('Allow pop-ups to export the monthly report as PDF.');
+  };
+
+  const handleExportMonthlyCsv = () => {
+    const rows = [
+      [`Monthly Analysis — ${period.monthName} ${period.year}`],
+      [],
+      ['Summary'],
+      ['Total Sales', summary.totalRevenue],
+      ['Total Bills', summary.totalBills],
+      ['Average Bill', summary.totalBills ? (summary.totalRevenue / summary.totalBills).toFixed(2) : '0.00'],
+      ['Previous Month Sales', summary.prevRevenue],
+      [],
+      ['Daily Sales'],
+      ['Day', 'Bills', 'Sales'],
+      ...dailyRevenue.map(row => [row.day, row.bills, row.revenue]),
+      [],
+      ['Top Products'],
+      ['Rank', 'Product', 'Base-unit Qty', 'Allocated Sales'],
+      ...topProducts.map((product, index) => [index + 1, product.name, product.qty, product.revenue]),
+      [],
+      ['Next Month Prediction'],
+      ['Product', 'Average / Month', 'Predicted Qty', 'Confidence', 'Active Months', 'Bills Used'],
+      ...nextMonthPredictions.map(product => [product.name, product.avgMonthlyQty, product.predictedNextMonth, product.confidence?.level, product.confidence?.activeMonths, product.confidence?.billCount]),
+    ];
+    downloadCsv(`monthly-analysis-${period.year}-${String(period.month + 1).padStart(2, '0')}.csv`, rows);
+  };
 
   return (
     <div className="ar-tab-content">
       {/* Period Selector */}
       <div className="ar-period-bar">
         <div className="ar-period-selects">
-          <select value={year} onChange={e => setYear(Number(e.target.value))} className="ar-select">
+          <select value={year} onChange={e => changePeriod(setYear, Number(e.target.value))} className="ar-select">
             {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
-          <select value={month} onChange={e => setMonth(Number(e.target.value))} className="ar-select">
+          <select value={month} onChange={e => changePeriod(setMonth, Number(e.target.value))} className="ar-select">
             {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
           </select>
         </div>
         <div className="ar-period-label">
           <Calendar size={14} />
           {period.monthName} {period.year}
+        </div>
+        <div className="ar-report-actions">
+          <button type="button" className="ar-export-button" onClick={handleExportMonthlyPdf}><FileDown size={14} />Export PDF</button>
+          <button type="button" className="ar-export-button ar-export-secondary" onClick={handleExportMonthlyCsv}><FileDown size={14} />Export Excel (CSV)</button>
         </div>
       </div>
 
@@ -138,7 +296,10 @@ function MonthlyAnalysis() {
       {/* Daily Revenue Chart */}
       <SectionCard title={`Daily Revenue — ${period.monthName} ${period.year}`} icon={BarChart2}>
         <ResponsiveContainer width="100%" height={260}>
-          <AreaChart data={dailyRevenue} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+          <AreaChart data={dailyRevenue} margin={{ top: 8, right: 16, left: 0, bottom: 0 }} onClick={state => {
+            const row = state?.activePayload?.[0]?.payload;
+            if (row) openDetails(`${period.monthName} ${row.day}, ${period.year}`, { year, month, day: row.day });
+          }}>
             <defs>
               <linearGradient id="arGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#8b3a3a" stopOpacity={0.18} />
@@ -149,7 +310,7 @@ function MonthlyAnalysis() {
             <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#888' }} />
             <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#888' }} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
             <Tooltip formatter={v => [fmt(v), 'Revenue']} contentStyle={{ borderRadius: 8, border: '1px solid #e0d0d0', fontSize: 12 }} />
-            <Area type="monotone" dataKey="revenue" stroke="#8b3a3a" strokeWidth={2.5} fill="url(#arGrad)" dot={false} activeDot={{ r: 5, fill: '#8b3a3a' }} />
+            <Area type="monotone" dataKey="revenue" stroke="#8b3a3a" strokeWidth={2.5} fill="url(#arGrad)" dot={false} activeDot={{ r: 5, fill: '#8b3a3a' }} style={{ cursor: 'pointer' }} />
           </AreaChart>
         </ResponsiveContainer>
       </SectionCard>
@@ -163,7 +324,9 @@ function MonthlyAnalysis() {
             {topProducts.map((p, i) => {
               const color = COLORS[i % COLORS.length];
               return (
-                <div key={i} className="ar-product-row">
+                <div key={p.productId} className="ar-product-row ar-clickable" role="button" tabIndex={0}
+                  onClick={() => openDetails(`${p.name} — ${period.monthName} ${period.year}`, { year, month, productId: p.productId })}
+                  onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') openDetails(`${p.name} — ${period.monthName} ${period.year}`, { year, month, productId: p.productId }); }}>
                   <div className="ar-product-rank" style={{ background: `${color}18`, color }}>{i + 1}</div>
                   <div className="ar-product-info">
                     <div className="ar-product-name">{p.name}</div>
@@ -182,13 +345,21 @@ function MonthlyAnalysis() {
 
       {/* Next Month Prediction */}
       <SectionCard title={`Next Month Prediction — ${nextMonthName} ${month === 11 ? year + 1 : year}`} icon={Lightbulb} accent="#8b3a3a" collapsible visible={showPredictionTable} onToggle={() => setShowPredictionTable(value => !value)}>
-        
+        {forecastConfidence && (
+          <div className="ar-confidence-panel">
+            <span className={`ar-confidence-badge ar-confidence-${forecastConfidence.level}`}>{confidenceLabel(forecastConfidence.level)}</span>
+            <strong>{forecastConfidence.monthsWithSales} of {forecastConfidence.monthsRequired} months contain sales</strong>
+            <span>{forecastConfidence.billCount} bills used · {forecastConfidence.periodStart} to {forecastConfidence.periodEnd}</span>
+          </div>
+        )}
         {nextMonthPredictions.length === 0 ? (
           <div className="ar-empty">Not enough data to generate predictions.</div>
         ) : (
           <div className="ar-prediction-grid">
             {nextMonthPredictions.map((p, i) => (
-              <div key={i} className={`ar-pred-card ar-pred-${p.trend}`}>
+              <div key={p.productId} className={`ar-pred-card ar-pred-${p.trend} ar-clickable`} role="button" tabIndex={0}
+                onClick={() => openDetails(`Forecast history — ${p.name}`, { year, month, productId: p.productId, scope: 'forecast' })}
+                onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') openDetails(`Forecast history — ${p.name}`, { year, month, productId: p.productId, scope: 'forecast' }); }}>
                 <div className="ar-pred-rank">#{i + 1}</div>
                 <div className="ar-pred-name">{p.name}</div>
                 <div className="ar-pred-stats">
@@ -198,11 +369,15 @@ function MonthlyAnalysis() {
                 <div className={`ar-pred-badge ar-pred-badge-${p.trend}`}>
                   {p.trend === 'high' ? '🔥 High Demand' : p.trend === 'medium' ? '📈 Medium' : '📦 Low'}
                 </div>
+                <div className={`ar-confidence-inline ar-confidence-${p.confidence?.level}`}>
+                  {confidenceLabel(p.confidence?.level)} · {p.confidence?.activeMonths}/3 active months · {p.confidence?.billCount} bills
+                </div>
               </div>
             ))}
           </div>
         )}
       </SectionCard>
+      <DetailDialog detail={detail} onClose={closeDetails} />
     </div>
   );
 }
@@ -215,11 +390,10 @@ function YearlyAnalysis() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForecastTable, setShowForecastTable] = useState(false);
+  const { detail, openDetails, closeDetails } = useAnalysisDetails();
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError('');
     api.get('/analysis/yearly', { params: { year } })
       .then(r => { if (active) setData(r.data); })
       .catch(() => { if (active) setError('Failed to load yearly analysis.'); })
@@ -227,26 +401,28 @@ function YearlyAnalysis() {
     return () => { active = false; };
   }, [year]);
 
-  const yearOptions = useMemo(() => {
-    const opts = [];
-    for (let y = now.getFullYear(); y >= now.getFullYear() - 4; y--) opts.push(y);
-    return opts;
-  }, []);
+  const yearOptions = Array.from({ length: 5 }, (_, index) => now.getFullYear() - index);
+  const changeYear = value => {
+    setLoading(true);
+    setError('');
+    setYear(value);
+  };
 
   if (loading) return <div className="ar-loading"><div className="ar-spinner" />Loading analysis…</div>;
   if (error) return <div className="ar-error">{error}</div>;
   if (!data) return null;
 
-  const { summary, monthlyData, prevMonthlyData, topProducts, projects, prediction, nextYearMonthlyTopProducts = [], improvements, period } = data;
+  const { summary, monthlyData, prevMonthlyData, topProducts, prediction, nextYearMonthlyTopProducts = [], improvements, performanceHighlights, period } = data;
   const growthNum = summary.revenueGrowth !== null ? parseFloat(summary.revenueGrowth) : null;
 
   const combinedMonthly = monthlyData.map((m, i) => ({
+    monthIndex: i,
     month: m.month,
     [`${period.year}`]: parseFloat(m.revenue.toFixed(2)),
     [`${period.prevYear}`]: parseFloat((prevMonthlyData[i]?.revenue || 0).toFixed(2)),
   }));
 
-  const pieData = topProducts.slice(0, 6).map((p, i) => ({ name: p.name, value: parseFloat(p.revenue.toFixed(2)), fill: PIE_COLORS[i % PIE_COLORS.length] }));
+  const pieData = topProducts.slice(0, 6).map((p, i) => ({ productId: p.productId, name: p.name, value: parseFloat(p.revenue.toFixed(2)), fill: PIE_COLORS[i % PIE_COLORS.length] }));
 
   const handleExportYearlyPdf = () => {
     const forecastRows = nextYearMonthlyTopProducts.flatMap(({ month, products, available }) => {
@@ -288,7 +464,7 @@ function YearlyAnalysis() {
       {/* Year Selector */}
       <div className="ar-period-bar">
         <div className="ar-period-selects">
-          <select value={year} onChange={e => setYear(Number(e.target.value))} className="ar-select">
+          <select value={year} onChange={e => changeYear(Number(e.target.value))} className="ar-select">
             {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
@@ -307,6 +483,36 @@ function YearlyAnalysis() {
         <KpiCard label="Sales Less Recorded Expenses" value={fmtShort(summary.salesLessExpenses)} icon={Target} color={summary.salesLessExpenses >= 0 ? '#1d7e42' : '#c62828'} />
       </div>
 
+      <SectionCard title="Performance Highlights" icon={Target}>
+        {!performanceHighlights || performanceHighlights.comparisonMonths === 0 ? (
+          <div className="ar-empty">Highlights become available after the first month is complete.</div>
+        ) : (
+          <div className="ar-highlight-grid">
+            <button type="button" className="ar-highlight-card ar-highlight-best" onClick={() => openDetails(`Strongest month — ${performanceHighlights.strongestMonth.month} ${period.year}`, { year, month: performanceHighlights.strongestMonth.monthIndex })}>
+              <span>Strongest month</span><strong>{performanceHighlights.strongestMonth.month}</strong><small>{fmt(performanceHighlights.strongestMonth.revenue)} · {performanceHighlights.strongestMonth.bills} bills</small>
+            </button>
+            <button type="button" className="ar-highlight-card ar-highlight-worst" onClick={() => openDetails(`Weakest month — ${performanceHighlights.weakestMonth.month} ${period.year}`, { year, month: performanceHighlights.weakestMonth.monthIndex })}>
+              <span>Weakest month</span><strong>{performanceHighlights.weakestMonth.month}</strong><small>{fmt(performanceHighlights.weakestMonth.revenue)} · {performanceHighlights.weakestMonth.bills} bills</small>
+            </button>
+            {performanceHighlights.fastestGrowingProduct ? (
+              <button type="button" className="ar-highlight-card ar-highlight-growth" onClick={() => openDetails(`${performanceHighlights.fastestGrowingProduct.name} — ${period.year}`, { year, productId: performanceHighlights.fastestGrowingProduct.productId })}>
+                <span>Fastest-growing product</span><strong>{performanceHighlights.fastestGrowingProduct.name}</strong><small>+{performanceHighlights.fastestGrowingProduct.growthPercent}% allocated sales vs {period.prevYear}</small>
+              </button>
+            ) : (
+              <div className="ar-highlight-card"><span>Fastest-growing product</span><strong>No comparable growth</strong><small>A positive prior-year quantity is required</small></div>
+            )}
+            <div className="ar-highlight-card ar-highlight-declining">
+              <span>Products with declining sales</span>
+              {performanceHighlights.decliningProducts.length ? performanceHighlights.decliningProducts.map(product => (
+                <button type="button" key={product.productId} onClick={() => openDetails(`${product.name} — ${period.year}`, { year, productId: product.productId })}>
+                  <strong>{product.name}</strong><small>{product.growthPercent}% allocated sales</small>
+                </button>
+              )) : <><strong>None found</strong><small>Compared across {performanceHighlights.comparisonMonths} completed month(s)</small></>}
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
       {/* Year vs Year Revenue Chart */}
       <SectionCard title={`Monthly Revenue: ${period.year} vs ${period.prevYear}`} icon={BarChart2}>
         <ResponsiveContainer width="100%" height={280}>
@@ -316,8 +522,10 @@ function YearlyAnalysis() {
             <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#888' }} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
             <Tooltip formatter={v => [fmt(v)]} contentStyle={{ borderRadius: 8, border: '1px solid #e0d0d0', fontSize: 12 }} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar dataKey={`${period.year}`} fill="#8b3a3a" radius={[5, 5, 0, 0]} maxBarSize={32} />
-            <Bar dataKey={`${period.prevYear}`} fill="#d4a0a0" radius={[5, 5, 0, 0]} maxBarSize={32} />
+            <Bar dataKey={`${period.year}`} fill="#8b3a3a" radius={[5, 5, 0, 0]} maxBarSize={32} cursor="pointer"
+              onClick={entry => { const row = entry?.payload || entry; if (Number.isInteger(row?.monthIndex)) openDetails(`${row.month} ${period.year}`, { year, month: row.monthIndex }); }} />
+            <Bar dataKey={`${period.prevYear}`} fill="#d4a0a0" radius={[5, 5, 0, 0]} maxBarSize={32} cursor="pointer"
+              onClick={entry => { const row = entry?.payload || entry; if (Number.isInteger(row?.monthIndex)) openDetails(`${row.month} ${period.prevYear}`, { year: period.prevYear, month: row.monthIndex }); }} />
           </BarChart>
         </ResponsiveContainer>
       </SectionCard>
@@ -340,6 +548,8 @@ function YearlyAnalysis() {
                   dataKey="value"
                   stroke="#fff"
                   strokeWidth={2}
+                  cursor="pointer"
+                  onClick={entry => { const product = entry?.payload || entry; if (product?.productId) openDetails(`${product.name} — ${period.year}`, { year, productId: product.productId }); }}
                 >
                   {pieData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                 </Pie>
@@ -347,12 +557,12 @@ function YearlyAnalysis() {
               </PieChart>
             </ResponsiveContainer>
             <div className="ar-pie-legend" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '4px 16px' }}>
-              {pieData.map((p, i) => (
-                <div key={i} className="ar-pie-legend-item">
+              {pieData.map(p => (
+                <button type="button" key={p.productId} className="ar-pie-legend-item ar-pie-legend-button" onClick={() => openDetails(`${p.name} — ${period.year}`, { year, productId: p.productId })}>
                   <span className="ar-pie-dot" style={{ background: p.fill }} />
                   <span className="ar-pie-name">{p.name}</span>
                   <span className="ar-pie-val">{fmtShort(p.value)}</span>
-                </div>
+                </button>
               ))}
             </div>
           </>
@@ -406,7 +616,7 @@ function YearlyAnalysis() {
           Each next-year month becomes available when its matching month in the selected year is complete. Rankings use base-unit quantities without a growth multiplier.
         </div>
         <div className="ar-monthly-forecast-grid">
-          {nextYearMonthlyTopProducts.map(({ month, products, available }) => (
+          {nextYearMonthlyTopProducts.map(({ month, products, available }, monthIndex) => (
             <div key={month} className="ar-monthly-forecast-card">
               <div className="ar-monthly-forecast-month">{month}</div>
               {!available ? (
@@ -414,11 +624,12 @@ function YearlyAnalysis() {
               ) : products.length === 0 ? (
                 <div className="ar-empty">No sales history</div>
               ) : products.map((product, index) => (
-                <div key={`${month}-${product.name}`} className="ar-monthly-forecast-row">
+                <button type="button" key={`${month}-${product.productId}`} className="ar-monthly-forecast-row ar-monthly-forecast-button"
+                  onClick={() => openDetails(`${product.name} — ${month} ${period.year}`, { year, month: monthIndex, productId: product.productId })}>
                   <span className="ar-monthly-forecast-rank">{index + 1}</span>
                   <span className="ar-monthly-forecast-name" title={product.name}>{product.name}</span>
                   <strong>{product.predictedQty}</strong>
-                </div>
+                </button>
               ))}
             </div>
           ))}
@@ -445,6 +656,7 @@ function YearlyAnalysis() {
           </div>
         )}
       </SectionCard>
+      <DetailDialog detail={detail} onClose={closeDetails} />
     </div>
   );
 }

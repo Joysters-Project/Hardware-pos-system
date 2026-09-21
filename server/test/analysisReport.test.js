@@ -6,7 +6,7 @@ const calls = [];
 let billResults = [], expenseResults = [], expenseError = false;
 const db = {
   bills: { findAll: async q => { calls.push(q); return billResults.shift() || []; } },
-  bill_items: {}, products: {},
+  bill_items: {}, products: {}, customers: {},
   expenses: { findAll: async () => { if (expenseError) throw new Error('Unavailable'); return expenseResults; } },
 };
 const original = Module._load;
@@ -34,6 +34,9 @@ test('monthly: discounts reconcile, duplicate names stay separate, timezone and 
   assert.deepEqual(body.topProducts.map(p => p.revenue), [54, 36]);
   assert.equal(body.topProducts.length, 2);
   assert.equal(body.nextMonthPredictions[0].predictedNextMonth, 3);
+  assert.equal(body.forecastConfidence.level, 'low');
+  assert.equal(body.forecastConfidence.monthsWithSales, 1);
+  assert.equal(body.nextMonthPredictions[0].confidence.activeMonths, 1);
   assert.equal(calls[2].where.bill_date[Op.gte].toISOString(), '2023-11-30T18:30:00.000Z');
   assert.equal(calls[2].where.bill_date[Op.lt].toISOString(), '2024-02-29T18:30:00.000Z');
 });
@@ -48,6 +51,9 @@ test('yearly: expense balance is not profit; declining sales do not contradict f
   assert.equal(body.nextYearMonthlyTopProducts[0].available, true);
   assert.deepEqual(body.nextYearMonthlyTopProducts[1].products, []);
   assert.equal(body.monthlyData.reduce((s,m) => s+m.revenue,0), 80);
+  assert.equal(body.performanceHighlights.strongestMonth.month, 'Jan');
+  assert.equal(body.performanceHighlights.weakestMonth.month, 'Feb');
+  assert.equal(body.performanceHighlights.comparisonMonths, 12);
 });
 test('zero baselines, future periods, invalid inputs and default month', async () => {
   let r = await run('getYearlyAnalysis', { year: 9998 }, [[], []]);
@@ -91,4 +97,44 @@ test('cent allocation and zero-price products remain finite', async () => {
   assert(body.topProducts.every(p => Number.isFinite(p.revenue)));
   assert.equal(body.summary.revenueGrowth, null);
   assert.equal(calls[1].where.bill_date[Op.gte].toISOString(), '2023-11-30T18:30:00.000Z');
+});
+
+test('detail endpoint filters products and returns bill-level evidence', async () => {
+  const source = bill('90.00', '2024-02-01T09:30:00+05:30', [item(1, 3, 60), item(2, 2, 40)]);
+  Object.assign(source, { bill_id: 12, bill_no: 'INV-12', status: 'PAID', customer: { customer_name: 'Nimal' } });
+  const { status, body } = await run('getAnalysisDetails', { year: 2024, month: 1, productId: 2 }, [[source]]);
+  assert.equal(status, 200);
+  assert.equal(body.summary.billCount, 1);
+  assert.equal(body.summary.matchedQuantity, 2);
+  assert.equal(body.summary.allocatedRevenue, 36);
+  assert.equal(body.bills[0].items.length, 1);
+  assert.equal(body.bills[0].customer, 'Nimal');
+  assert.deepEqual(calls[0].order, [['bill_date', 'DESC']]);
+});
+
+test('forecast detail uses the same three completed-month window as the prediction', async () => {
+  const source = bill(40, '2024-01-15T09:30:00+05:30', [item(1, 4, 40)]);
+  Object.assign(source, { bill_id: 14, bill_no: 'INV-14', status: 'PAID' });
+  const { body } = await run('getAnalysisDetails', { year: 2024, month: 1, productId: 1, scope: 'forecast' }, [[source]]);
+  assert.equal(body.summary.matchedQuantity, 4);
+  assert.equal(calls[0].where.bill_date[Op.gte].toISOString(), '2023-11-30T18:30:00.000Z');
+  assert.equal(calls[0].where.bill_date[Op.lt].toISOString(), '2024-02-29T18:30:00.000Z');
+});
+
+test('detail endpoint rejects invalid calendar filters', async () => {
+  for (const query of [{ year: 2024, day: 1 }, { year: 2024, month: 1, day: 30 }, { year: 2024, productId: 0 }]) {
+    const result = await run('getAnalysisDetails', query, []);
+    assert.equal(result.status, 400);
+    assert.equal(calls.length, 0);
+  }
+});
+
+test('yearly product highlights compare allocated sales and include products that dropped to zero', async () => {
+  const current = bill(150, '2024-01-10', [item(1, 3, 150)]);
+  const previous = bill(150, '2023-01-10', [item(1, 2, 100), item(2, 1, 50)]);
+  const { body } = await run('getYearlyAnalysis', { year: 2024 }, [[current], [previous]], []);
+  assert.equal(body.performanceHighlights.fastestGrowingProduct.productId, 1);
+  assert.equal(body.performanceHighlights.fastestGrowingProduct.growthPercent, 50);
+  assert.equal(body.performanceHighlights.decliningProducts[0].productId, 2);
+  assert.equal(body.performanceHighlights.decliningProducts[0].growthPercent, -100);
 });

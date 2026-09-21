@@ -106,10 +106,10 @@ export const buildTableHtml = ({ columns = [], rows = [], emptyMessage = 'No dat
     </table>`;
 };
 
-const paginateContentHtml = ({ title, subtitle, contentHtml, formattedDate, useTemplate = true, headerTitle = '' }) => {
+const paginateContentHtml = ({ title, subtitle, contentHtml, formattedDate, useTemplate = true, headerTitle = '', paginateAllTables = false }) => {
   const displayTitle = headerTitle || title;
   const tableRegex = /<table[^>]*class="[^"]*tpl-table[^"]*"[^>]*>([\s\S]*?)<\/table>/i;
-  const tableMatch = contentHtml.match(tableRegex);
+  const tableMatch = paginateAllTables ? null : contentHtml.match(tableRegex);
 
   const pageClass = useTemplate ? 'tpl-page' : 'tpl-page tpl-page-plain';
   const contentClass = useTemplate ? 'tpl-content' : 'tpl-content tpl-content-plain';
@@ -229,6 +229,57 @@ const paginateContentHtml = ({ title, subtitle, contentHtml, formattedDate, useT
   }).join('\n');
 };
 
+// Measure actual rendered rows: wrapped product names and multiple sections cannot
+// be paginated safely using a fixed row count or only the first table.
+const paginateRenderedTables = (document) => {
+  const container = document.querySelector('.preview-container');
+  const firstPage = container.firstElementChild;
+  const sourceBody = firstPage.querySelector('.tpl-body-content');
+  const blocks = Array.from(sourceBody.children);
+  sourceBody.replaceChildren();
+  const blankPage = firstPage.cloneNode(true);
+  let body = sourceBody;
+  const newPage = () => {
+    const page = blankPage.cloneNode(true);
+    container.appendChild(page);
+    body = page.querySelector('.tpl-body-content');
+  };
+  const overflows = () => body.scrollHeight > body.clientHeight;
+  for (const block of blocks) {
+    if (!block.matches('table.tpl-table')) {
+      body.appendChild(block);
+      if (overflows() && body.children.length > 1) {
+        block.remove();
+        newPage();
+        body.appendChild(block);
+      }
+      continue;
+    }
+    const rows = Array.from(block.querySelectorAll('tbody > tr'));
+    const shell = block.cloneNode(true);
+    shell.querySelector('tbody').replaceChildren();
+    let table = shell.cloneNode(true);
+    const heading = body.lastElementChild?.matches('.tpl-section-title') ? body.lastElementChild : null;
+    body.appendChild(table);
+    for (const row of rows) {
+      table.querySelector('tbody').appendChild(row);
+      if (!overflows()) continue;
+      const firstRow = table.tBodies[0].rows.length === 1;
+      // A single oversized row must not cause an endless sequence of blank pages.
+      if (firstRow && body.children.length === (heading?.parentNode === body ? 2 : 1)) continue;
+      row.remove();
+      if (firstRow) table.remove();
+      const moveHeading = firstRow && heading?.parentNode === body;
+      if (moveHeading) heading.remove();
+      newPage();
+      if (moveHeading) body.appendChild(heading);
+      table = shell.cloneNode(true);
+      body.appendChild(table);
+      table.querySelector('tbody').appendChild(row);
+    }
+  }
+};
+
 export const printWithTemplate = ({
   title       = 'Document',
   subtitle    = '',
@@ -238,6 +289,7 @@ export const printWithTemplate = ({
   useTemplate = true,
   headerTitle = '',
   contentInset = '20mm',
+  paginateAllTables = false,
 } = {}) => {
   const popup = window.open('', '_blank', 'width=950,height=850');
   if (!popup) return false;
@@ -251,7 +303,7 @@ export const printWithTemplate = ({
   const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
   const formattedDate = `${day}/${month}/${year}, ${timeStr}`;
 
-  const pagesBodyHtml = paginateContentHtml({ title, subtitle, contentHtml, formattedDate, useTemplate, headerTitle });
+  const pagesBodyHtml = paginateContentHtml({ title, subtitle, contentHtml, formattedDate, useTemplate, headerTitle, paginateAllTables });
 
   popup.document.write(`<!DOCTYPE html>
 <html lang="en">
@@ -329,7 +381,7 @@ export const printWithTemplate = ({
 
     /* ── content sits cleanly between the PNG header and footer bands ──
        Templet.png header ends at ~97mm  -> top: 100mm
-       Templet.png footer starts at ~276mm -> bottom: 22mm
+       Templet.png footer starts at ~270mm -> bottom: 30mm leaves a safe gap
        Left/Right margins: 20mm
     */
     .tpl-content {
@@ -337,8 +389,8 @@ export const printWithTemplate = ({
       top: 100mm;
       left: ${contentInset};
       right: ${contentInset};
-      bottom: 22mm;
-      max-height: calc(297mm - 100mm - 22mm);
+      bottom: 30mm;
+      max-height: calc(297mm - 100mm - 30mm);
       overflow: hidden;
       box-sizing: border-box;
       display: flex;
@@ -352,6 +404,7 @@ export const printWithTemplate = ({
     }
 
     .tpl-header-block {
+      flex-shrink: 0;
       margin-bottom: 10px;
       border-bottom: 2px solid #7f1d24;
       padding-bottom: 6px;
@@ -410,6 +463,7 @@ export const printWithTemplate = ({
 
     .tpl-body-content {
       flex: 1;
+      min-height: 0;
       overflow: hidden;
     }
 
@@ -604,6 +658,7 @@ export const printWithTemplate = ({
 </html>`);
 
   popup.document.close();
+  if (paginateAllTables) paginateRenderedTables(popup.document);
   popup.focus();
 
   if (autoClose) {
