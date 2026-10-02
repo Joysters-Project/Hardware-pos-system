@@ -14,7 +14,7 @@ export default function CashierTopNav() {
 
   const navItems = [
     { label: 'Point of Sale',   path: '/cashier-panel/billing',         icon: ShoppingCart },
-    { label: 'Due Collection',  path: '/cashier-panel/due-collection',  icon: Wallet },
+    { label: 'Due Management',  path: '/cashier-panel/due-collection',  icon: Wallet },
     { label: 'Cheque Exchange', path: '/cashier-panel/cheque-exchange', icon: Banknote },
     { label: 'Returns',         path: '/cashier-panel/returns',         icon: RotateCcw },
     { label: 'Receipts',        path: '/cashier-panel/receipts',        icon: Receipt },
