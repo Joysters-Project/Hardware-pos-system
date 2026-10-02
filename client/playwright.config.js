@@ -75,5 +75,20 @@ export default defineConfig({
         storageState: 'tests/auth/.auth-state.json',
       },
     },
+    {
+      name: 'miruba-additional',
+      testMatch: '**/miruba-additional/**/*.spec.js',
+      use: { ...devices['Desktop Chrome'], timezoneId: 'Asia/Colombo' },
+    },
+    {
+      name: 'analysis-report',
+      testMatch: '**/analysis-report/**/*.spec.js',
+      use: { ...devices['Desktop Chrome'], timezoneId: 'Asia/Colombo' },
+    },
+    {
+      name: 'role-authentication',
+      testMatch: '**/role-authentication/**/*.spec.js',
+      use: { ...devices['Desktop Chrome'], timezoneId: 'Asia/Colombo' },
+    },
   ],
 });
