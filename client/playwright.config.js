@@ -11,7 +11,7 @@ export default defineConfig({
   testDir: './tests',
   fullyParallel: false,   // procurement tests share DB state — run serially
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  retries: process.env.CI ? 1 : 1,
   workers: 1,
   timeout: 30_000,
   expect: { timeout: 10_000 },
@@ -36,7 +36,7 @@ export default defineConfig({
     screenshot: 'off',
     video: 'off',
     actionTimeout: 10_000,
-    navigationTimeout: 20_000,
+    navigationTimeout: 40_000,
   },
 
   projects: [

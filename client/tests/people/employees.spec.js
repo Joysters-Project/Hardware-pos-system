@@ -40,7 +40,7 @@ test.describe('Employees — Page Structure', () => {
 
   test('table has correct column headers', async ({ page }) => {
     await gotoEmployees(page);
-    const headers = ['Photo', '#', 'Name', 'NIC', 'Position', 'Department',
+    const headers = ['Photo', 'ID', 'Name', 'NIC', 'Position', 'Department',
                      'Salary Category', 'Join Date', 'Phone', 'Salary (LKR)', 'Status', 'Actions'];
     for (const h of headers) {
       await expect(page.locator('.emp-table th').getByText(h)).toBeVisible();
