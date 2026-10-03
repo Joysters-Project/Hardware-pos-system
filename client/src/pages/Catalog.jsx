@@ -323,351 +323,348 @@ function Catalog() {
     <DashboardLayout active="catalog">
       <ModuleWorkspace nav={InventoryTopNav}>
         <div className="catalog-container">
-        {/* Header Block */}
-        <div className="catalog-header">
-          <div>
-            <h1>Catalogue Management</h1>
-            <p>Administer categories, brand names, and measurement units</p>
+          {/* Header Block */}
+          <div className="catalog-header">
+            <div>
+              <h1>Catalogue Management</h1>
+            </div>
+
           </div>
 
-        </div>
+          {/* Tab Controls */}
+          <div className="catalog-tabs">
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === "categories" ? "active" : ""}`}
+              onClick={() => setActiveTab("categories")}
+            >
+              <Layers size={18} />
+              <span>Categories</span>
+            </button>
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === "brands" ? "active" : ""}`}
+              onClick={() => setActiveTab("brands")}
+            >
+              <Tag size={18} />
+              <span>Brands</span>
+            </button>
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === "units" ? "active" : ""}`}
+              onClick={() => setActiveTab("units")}
+            >
+              <Ruler size={18} />
+              <span>Units</span>
+            </button>
+          </div>
 
-        {/* Tab Controls */}
-        <div className="catalog-tabs">
-          <button
-            type="button"
-            className={`tab-btn ${activeTab === "categories" ? "active" : ""}`}
-            onClick={() => setActiveTab("categories")}
-          >
-            <Layers size={18} />
-            <span>Categories</span>
-          </button>
-          <button
-            type="button"
-            className={`tab-btn ${activeTab === "brands" ? "active" : ""}`}
-            onClick={() => setActiveTab("brands")}
-          >
-            <Tag size={18} />
-            <span>Brands</span>
-          </button>
-          <button
-            type="button"
-            className={`tab-btn ${activeTab === "units" ? "active" : ""}`}
-            onClick={() => setActiveTab("units")}
-          >
-            <Ruler size={18} />
-            <span>Units</span>
-          </button>
-        </div>
+          {/* Main Content Card */}
+          <div className="catalog-content">
+            {/* Add Form Container */}
+            <div className="add-form-section">
+              <h3>Add New {getSingularCapitalized(activeTab)}</h3>
+              <form onSubmit={handleAdd} className="add-form">
+                <div className="add-input-wrapper">
+                  <input id="name" name="name"
+                    type="text"
+                    placeholder={`Enter new ${getSingular(activeTab)} name...`}
+                    value={formData.name}
+                    maxLength={MAX_LENGTHS[activeTab]}
+                    onChange={(e) => {
+                      const rawValue = e.target.value;
+                      const sanitized = sanitizeCatalogName(rawValue);
+                      if (rawValue !== sanitized) {
+                        toast.error("Numbers and symbols are not allowed", { id: "catalog-add-error" });
+                      }
+                      setFormData({ name: sanitized });
+                    }}
+                    disabled={loading}
+                  />
+                  <span className={`catalog-char-counter ${formData.name.length >= MAX_LENGTHS[activeTab] ? "catalog-char-counter--limit" :
+                      formData.name.length >= MAX_LENGTHS[activeTab] * 0.85 ? "catalog-char-counter--warn" : ""
+                    }`}>
+                    {formData.name.length}/{MAX_LENGTHS[activeTab]}
+                  </span>
+                </div>
+                <button type="submit" disabled={loading || !formData.name.trim()} className="add-btn">
+                  <Plus size={18} />
+                  <span>{loading ? "Adding..." : "Add Item"}</span>
+                </button>
+              </form>
+            </div>
 
-        {/* Main Content Card */}
-        <div className="catalog-content">
-          {/* Add Form Container */}
-          <div className="add-form-section">
-            <h3>Add New {getSingularCapitalized(activeTab)}</h3>
-            <form onSubmit={handleAdd} className="add-form">
-              <div className="add-input-wrapper">
-                <input id="name" name="name"
-                  type="text"
-                  placeholder={`Enter new ${getSingular(activeTab)} name...`}
-                  value={formData.name}
-                  maxLength={MAX_LENGTHS[activeTab]}
-                  onChange={(e) => {
-                    const rawValue = e.target.value;
-                    const sanitized = sanitizeCatalogName(rawValue);
-                    if (rawValue !== sanitized) {
-                      toast.error("Numbers and symbols are not allowed", { id: "catalog-add-error" });
-                    }
-                    setFormData({ name: sanitized });
-                  }}
-                  disabled={loading}
-                />
-                <span className={`catalog-char-counter ${
-                  formData.name.length >= MAX_LENGTHS[activeTab] ? "catalog-char-counter--limit" :
-                  formData.name.length >= MAX_LENGTHS[activeTab] * 0.85 ? "catalog-char-counter--warn" : ""
-                }`}>
-                  {formData.name.length}/{MAX_LENGTHS[activeTab]}
-                </span>
+            {/* Search, PDF Export & Pagination Control Bar */}
+            <div className="catalog-controller-bar">
+              <div className="controller-left">
+                <div className="search-box-wrapper">
+                  <Search className="search-icon" size={18} />
+                  <input id="searchQuery" name="searchQuery"
+                    type="text"
+                    placeholder={`Filter ${activeTab}...`}
+                    value={searchQuery}
+                    onChange={(e) => {
+                      const rawValue = e.target.value;
+                      const sanitized = sanitizeCatalogName(rawValue);
+                      if (rawValue !== sanitized) {
+                        toast.error("Numbers and symbols are not allowed when filtering", { id: "catalog-filter-error" });
+                      }
+                      setSearchQuery(sanitized);
+                      setCurrentPage(1);
+                    }}
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      className="search-clear-btn"
+                      onClick={() => setSearchQuery("")}
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                <div className="export-link-btn" onClick={handleExportPDF}>
+                  <FileText size={16} />
+                  <span>Export PDF</span>
+                </div>
               </div>
-              <button type="submit" disabled={loading || !formData.name.trim()} className="add-btn">
-                <Plus size={18} />
-                <span>{loading ? "Adding..." : "Add Item"}</span>
-              </button>
-            </form>
-          </div>
 
-          {/* Search, PDF Export & Pagination Control Bar */}
-          <div className="catalog-controller-bar">
-            <div className="controller-left">
-              <div className="search-box-wrapper">
-                <Search className="search-icon" size={18} />
-                <input id="searchQuery" name="searchQuery"
-                  type="text"
-                  placeholder={`Filter ${activeTab}...`}
-                  value={searchQuery}
-                  onChange={(e) => {
-                    const rawValue = e.target.value;
-                    const sanitized = sanitizeCatalogName(rawValue);
-                    if (rawValue !== sanitized) {
-                      toast.error("Numbers and symbols are not allowed when filtering", { id: "catalog-filter-error" });
-                    }
-                    setSearchQuery(sanitized);
-                    setCurrentPage(1);
-                  }}
-                />
-                {searchQuery && (
+              <div className="controller-right">
+                <span className="pagination-info">
+                  Showing {totalItems > 0 ? startIndex + 1 : 0}–{endIndex} of {totalItems}
+                </span>
+
+                <div className="page-size-selector">
+                  <select id="pageSize" name="pageSize"
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <option value={10}>10 / page</option>
+                    <option value={20}>20 / page</option>
+                    <option value={50}>50 / page</option>
+                  </select>
+                </div>
+
+                <div className="pagination-nav">
                   <button
                     type="button"
-                    className="search-clear-btn"
-                    onClick={() => setSearchQuery("")}
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(prev => prev - 1)}
+                    className="page-nav-btn"
                   >
-                    <X size={14} />
+                    <ChevronLeft size={16} />
                   </button>
-                )}
-              </div>
-
-              <div className="export-link-btn" onClick={handleExportPDF}>
-                <FileText size={16} />
-                <span>Export PDF</span>
-              </div>
-            </div>
-
-            <div className="controller-right">
-              <span className="pagination-info">
-                Showing {totalItems > 0 ? startIndex + 1 : 0}–{endIndex} of {totalItems}
-              </span>
-
-              <div className="page-size-selector">
-                <select id="pageSize" name="pageSize"
-                  value={pageSize}
-                  onChange={(e) => {
-                    setPageSize(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                >
-                  <option value={10}>10 / page</option>
-                  <option value={20}>20 / page</option>
-                  <option value={50}>50 / page</option>
-                </select>
-              </div>
-
-              <div className="pagination-nav">
-                <button
-                  type="button"
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(prev => prev - 1)}
-                  className="page-nav-btn"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <span className="current-page-num">{currentPage} / {totalPages}</span>
-                <button
-                  type="button"
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage(prev => prev + 1)}
-                  className="page-nav-btn"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Items Vertical Stack Cards Section */}
-          <div className="items-section">
-            {loading && <div className="loading-spinner-wrapper"><p className="loading-text">Loading catalogue data...</p></div>}
-
-            {!loading && totalItems === 0 && (
-              <div className="empty-message-wrapper">
-                <Info size={24} />
-                <p className="empty-message">No matching items found. Create one to begin!</p>
-              </div>
-            )}
-
-            {!loading && totalItems > 0 && (
-              <div className="catalog-card-list">
-                {paginatedData.map((item, index) => {
-                  const itemId = item[fieldNames.id];
-                  const itemName = item[fieldNames.name];
-                  const isEditing = editingId === itemId;
-
-                  return (
-                    <div
-                      key={itemId}
-                      className="catalog-card-row stagger-item"
-                      style={{ animationDelay: `${index * 40}ms` }}
-                    >
-                      <div className="card-info-left">
-                        <span className="card-badge-id">ID #{itemId}</span>
-                        {isEditing ? (
-                          <>
-                          <input id="editingName" name="editingName"
-                            type="text"
-                            value={editingName}
-                            maxLength={MAX_LENGTHS[activeTab]}
-                            onChange={(e) => {
-                              const rawValue = e.target.value;
-                              const sanitized = sanitizeCatalogName(rawValue);
-                              if (rawValue !== sanitized) {
-                                toast.error("Numbers and symbols are not allowed", { id: "catalog-edit-error" });
-                              }
-                              setEditingName(sanitized);
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") handleSaveEdit(itemId);
-                              if (e.key === "Escape") handleCancelEdit();
-                            }}
-                            className="edit-input-inline"
-                            autoFocus
-                          />
-                          <span className={`catalog-char-counter catalog-char-counter--inline ${
-                            editingName.length >= MAX_LENGTHS[activeTab] ? "catalog-char-counter--limit" :
-                            editingName.length >= MAX_LENGTHS[activeTab] * 0.85 ? "catalog-char-counter--warn" : ""
-                          }`}>
-                            {editingName.length}/{MAX_LENGTHS[activeTab]}
-                          </span>
-                          </>
-                        ) : (
-                          <span
-                            className="card-item-name"
-                            onClick={() => handleStartEdit(itemId, itemName)}
-                            title="Click to edit inline"
-                          >
-                            {itemName}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="card-actions-right">
-                        {isEditing ? (
-                          <>
-                            <button
-                              type="button"
-                              className="action-btn-pill save-btn"
-                              onClick={() => handleSaveEdit(itemId)}
-                              disabled={loading}
-                              title="Save Changes"
-                            >
-                              <Check size={16} />
-                            </button>
-                            <button
-                              type="button"
-                              className="action-btn-pill cancel-btn"
-                              onClick={handleCancelEdit}
-                              disabled={loading}
-                              title="Cancel Editing"
-                            >
-                              <X size={16} />
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              className="action-btn-pill edit-btn"
-                              onClick={() => handleStartEdit(itemId, itemName)}
-                              disabled={loading}
-                              title="Edit Item"
-                            >
-                              <Edit2 size={15} />
-                            </button>
-                            <button
-                              type="button"
-                              className="action-btn-pill delete-btn"
-                              onClick={() => handleDeactivate(itemId)}
-                              disabled={loading}
-                              title="Delete Item"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Database Schema Drawer Panel */}
-        {schemaPanel.isOpen && (
-          <div className="schema-panel-overlay" onClick={closeSchemaPanel}>
-            <div className="schema-panel" onClick={(e) => e.stopPropagation()}>
-              <div className="schema-panel-header">
-                <h2>
-                  <Database size={20} />
-                  <span>{schemaPanel.tableLabel} Table Structure</span>
-                </h2>
-                <button
-                  type="button"
-                  className="close-schema-btn"
-                  onClick={closeSchemaPanel}
-                  aria-label="Close details"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              {schemaPanel.loading ? (
-                <div className="schema-loading">Loading database columns...</div>
-              ) : schemaPanel.schema ? (
-                <div className="schema-details">
-                  <div className="schema-info-cards">
-                    <div className="info-card">
-                      <span className="info-label">Table</span>
-                      <span className="info-val">{schemaPanel.schema.tableName}</span>
-                    </div>
-                    <div className="info-card">
-                      <span className="info-label">Columns</span>
-                      <span className="info-val">{schemaPanel.schema.columnCount}</span>
-                    </div>
-                  </div>
-
-                  <div className="schema-table-wrapper">
-                    <table className="schema-table">
-                      <thead>
-                        <tr>
-                          <th>Column</th>
-                          <th>Type</th>
-                          <th>Nullable</th>
-                          <th>PK</th>
-                          <th>AI</th>
-                          <th>Unique</th>
-                          <th>Default</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {schemaPanel.schema.attributes.map((attr, idx) => (
-                          <tr key={idx}>
-                            <td className="column-name">{attr.columnName}</td>
-                            <td className="column-type">{attr.type}</td>
-                            <td className="column-nullable">{attr.nullable ? 'Yes' : 'No'}</td>
-                            <td className="column-pk">{attr.primaryKey ? '🔑' : '—'}</td>
-                            <td className="column-ai">{attr.autoIncrement ? 'Auto' : '—'}</td>
-                            <td className="column-unique">{attr.unique ? 'Yes' : '—'}</td>
-                            <td className="column-default">{attr.defaultValue !== null ? String(attr.defaultValue) : '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="schema-legend">
-                    <p><strong>Note:</strong> PK = Primary Key, AI = Auto Incrementing Column</p>
-                  </div>
+                  <span className="current-page-num">{currentPage} / {totalPages}</span>
+                  <button
+                    type="button"
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage(prev => prev + 1)}
+                    className="page-nav-btn"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
                 </div>
-              ) : (
-                <div className="schema-error">Error fetching database schema.</div>
+              </div>
+            </div>
+
+            {/* Items Vertical Stack Cards Section */}
+            <div className="items-section">
+              {loading && <div className="loading-spinner-wrapper"><p className="loading-text">Loading catalogue data...</p></div>}
+
+              {!loading && totalItems === 0 && (
+                <div className="empty-message-wrapper">
+                  <Info size={24} />
+                  <p className="empty-message">No matching items found. Create one to begin!</p>
+                </div>
+              )}
+
+              {!loading && totalItems > 0 && (
+                <div className="catalog-card-list">
+                  {paginatedData.map((item, index) => {
+                    const itemId = item[fieldNames.id];
+                    const itemName = item[fieldNames.name];
+                    const isEditing = editingId === itemId;
+
+                    return (
+                      <div
+                        key={itemId}
+                        className="catalog-card-row stagger-item"
+                        style={{ animationDelay: `${index * 40}ms` }}
+                      >
+                        <div className="card-info-left">
+                          <span className="card-badge-id">ID #{itemId}</span>
+                          {isEditing ? (
+                            <>
+                              <input id="editingName" name="editingName"
+                                type="text"
+                                value={editingName}
+                                maxLength={MAX_LENGTHS[activeTab]}
+                                onChange={(e) => {
+                                  const rawValue = e.target.value;
+                                  const sanitized = sanitizeCatalogName(rawValue);
+                                  if (rawValue !== sanitized) {
+                                    toast.error("Numbers and symbols are not allowed", { id: "catalog-edit-error" });
+                                  }
+                                  setEditingName(sanitized);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") handleSaveEdit(itemId);
+                                  if (e.key === "Escape") handleCancelEdit();
+                                }}
+                                className="edit-input-inline"
+                                autoFocus
+                              />
+                              <span className={`catalog-char-counter catalog-char-counter--inline ${editingName.length >= MAX_LENGTHS[activeTab] ? "catalog-char-counter--limit" :
+                                  editingName.length >= MAX_LENGTHS[activeTab] * 0.85 ? "catalog-char-counter--warn" : ""
+                                }`}>
+                                {editingName.length}/{MAX_LENGTHS[activeTab]}
+                              </span>
+                            </>
+                          ) : (
+                            <span
+                              className="card-item-name"
+                              onClick={() => handleStartEdit(itemId, itemName)}
+                              title="Click to edit inline"
+                            >
+                              {itemName}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="card-actions-right">
+                          {isEditing ? (
+                            <>
+                              <button
+                                type="button"
+                                className="action-btn-pill save-btn"
+                                onClick={() => handleSaveEdit(itemId)}
+                                disabled={loading}
+                                title="Save Changes"
+                              >
+                                <Check size={16} />
+                              </button>
+                              <button
+                                type="button"
+                                className="action-btn-pill cancel-btn"
+                                onClick={handleCancelEdit}
+                                disabled={loading}
+                                title="Cancel Editing"
+                              >
+                                <X size={16} />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                className="action-btn-pill edit-btn"
+                                onClick={() => handleStartEdit(itemId, itemName)}
+                                disabled={loading}
+                                title="Edit Item"
+                              >
+                                <Edit2 size={15} />
+                              </button>
+                              <button
+                                type="button"
+                                className="action-btn-pill delete-btn"
+                                onClick={() => handleDeactivate(itemId)}
+                                disabled={loading}
+                                title="Delete Item"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
           </div>
-        )}
-      </div>
-    </ModuleWorkspace>
-  </DashboardLayout>
-);
+
+          {/* Database Schema Drawer Panel */}
+          {schemaPanel.isOpen && (
+            <div className="schema-panel-overlay" onClick={closeSchemaPanel}>
+              <div className="schema-panel" onClick={(e) => e.stopPropagation()}>
+                <div className="schema-panel-header">
+                  <h2>
+                    <Database size={20} />
+                    <span>{schemaPanel.tableLabel} Table Structure</span>
+                  </h2>
+                  <button
+                    type="button"
+                    className="close-schema-btn"
+                    onClick={closeSchemaPanel}
+                    aria-label="Close details"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                {schemaPanel.loading ? (
+                  <div className="schema-loading">Loading database columns...</div>
+                ) : schemaPanel.schema ? (
+                  <div className="schema-details">
+                    <div className="schema-info-cards">
+                      <div className="info-card">
+                        <span className="info-label">Table</span>
+                        <span className="info-val">{schemaPanel.schema.tableName}</span>
+                      </div>
+                      <div className="info-card">
+                        <span className="info-label">Columns</span>
+                        <span className="info-val">{schemaPanel.schema.columnCount}</span>
+                      </div>
+                    </div>
+
+                    <div className="schema-table-wrapper">
+                      <table className="schema-table">
+                        <thead>
+                          <tr>
+                            <th>Column</th>
+                            <th>Type</th>
+                            <th>Nullable</th>
+                            <th>PK</th>
+                            <th>AI</th>
+                            <th>Unique</th>
+                            <th>Default</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {schemaPanel.schema.attributes.map((attr, idx) => (
+                            <tr key={idx}>
+                              <td className="column-name">{attr.columnName}</td>
+                              <td className="column-type">{attr.type}</td>
+                              <td className="column-nullable">{attr.nullable ? 'Yes' : 'No'}</td>
+                              <td className="column-pk">{attr.primaryKey ? '🔑' : '—'}</td>
+                              <td className="column-ai">{attr.autoIncrement ? 'Auto' : '—'}</td>
+                              <td className="column-unique">{attr.unique ? 'Yes' : '—'}</td>
+                              <td className="column-default">{attr.defaultValue !== null ? String(attr.defaultValue) : '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="schema-legend">
+                      <p><strong>Note:</strong> PK = Primary Key, AI = Auto Incrementing Column</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="schema-error">Error fetching database schema.</div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </ModuleWorkspace>
+    </DashboardLayout>
+  );
 }
 
 export default Catalog;

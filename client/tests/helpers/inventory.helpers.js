@@ -16,12 +16,14 @@ export async function setupInventoryApi(page) {
   const ids = { category: 'category_id', brands: 'brand_id', units: 'unit_id', products: 'product_id', assets: 'asset_id', 'batch-inventory': 'batch_id', departments: 'department_id' };
   const mutations = [];
   const unexpected = [];
-  await page.route('**/api/**', async route => {
+  await page.route('http://localhost:5000/api/**', async route => {
     const request = route.request();
     const [resource, id, action] = new URL(request.url()).pathname.split('/api/')[1].split('/');
     const method = request.method();
     if (!(resource in data)) {
-      if (method === 'GET') return route.continue();
+      // Layout-level profile/notification requests must not reach a live API
+      // with the deliberately synthetic browser-test token.
+      if (method === 'GET') return route.fulfill({ json: {} });
       unexpected.push(`${method} ${request.url()}`);
       return route.abort();
     }
