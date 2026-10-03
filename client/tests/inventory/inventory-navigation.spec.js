@@ -20,7 +20,7 @@ test.describe('Inventory - Navigation', () => {
   test('inventory navigation opens all four pages and survives refresh', async ({ page }) => {
     await gotoProducts(page);
     for (const [label, path, heading] of [
-      ['Catalog', '/catalog', 'Catalog Management'],
+      ['Catalogue', '/catalog', 'Catalogue Management'],
       ['Batch Inventory', '/inventory/batches', 'Batch Inventory'],
       ['Assets', '/assets', 'Assets'],
       ['Products', '/products', 'Products'],
@@ -38,7 +38,7 @@ test.describe('Inventory - Navigation', () => {
 });
 
 test.describe('Inventory - Direct Routes', () => {
-  for (const [path, label] of [['/products', 'Products'], ['/catalog', 'Catalog'], ['/assets', 'Assets'], ['/inventory/batches', 'Batch Inventory']]) {
+  for (const [path, label] of [['/products', 'Products'], ['/catalog', 'Catalogue'], ['/assets', 'Assets'], ['/inventory/batches', 'Batch Inventory']]) {
     test(path + ' activates only its own navigation link after reload', async ({ page }) => {
       await page.goto(path);
       const nav = page.locator('.procurement-top-nav');
