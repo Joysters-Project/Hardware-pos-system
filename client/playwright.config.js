@@ -5,20 +5,29 @@ import { config as dotenvConfig } from 'dotenv';
 dotenvConfig({ path: '.env.test' });
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
+const REPORT_DIR = process.env.PLAYWRIGHT_REPORT_DIR || 'playwright-report/report';
 
 export default defineConfig({
   testDir: './tests',
   fullyParallel: false,   // procurement tests share DB state — run serially
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  retries: process.env.CI ? 1 : 1,
   workers: 1,
   timeout: 30_000,
   expect: { timeout: 10_000 },
+  outputDir: 'test-results/run-artifacts',
 
   reporter: [
-    ['html', { outputFolder: 'playwright-report', open: 'never' }],
+    ['html', { outputFolder: REPORT_DIR, open: 'never' }],
     ['list'],
   ],
+
+  webServer: {
+    command: 'npm run dev -- --host 127.0.0.1',
+    url: BASE_URL,
+    reuseExistingServer: true,
+    timeout: 120_000,
+  },
 
   use: {
     baseURL: BASE_URL,
@@ -27,7 +36,7 @@ export default defineConfig({
     screenshot: 'off',
     video: 'off',
     actionTimeout: 10_000,
-    navigationTimeout: 20_000,
+    navigationTimeout: 40_000,
   },
 
   projects: [

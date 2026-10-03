@@ -276,10 +276,6 @@ test.describe('Departments — Detail View', () => {
     try {
       await page.reload();
       await page.waitForSelector('.procurement-top-nav', { timeout: 15_000 });
-      const cards = page.locator('.dept-card');
-      const count = await cards.count();
-      if (count === 0) { test.skip(); return; }
-
       // Find the card for our test department
       const r1 = await request.get(`/api/departments/${deptId}`, { headers: { Authorization: `Bearer ${token}` } });
       const d1 = await r1.json();
@@ -287,6 +283,7 @@ test.describe('Departments — Detail View', () => {
 
       await page.locator('#search').fill(deptName1);
       const card1 = page.locator('.dept-card').filter({ hasText: deptName1 });
+      await expect(card1).toBeVisible({ timeout: 8_000 });
       await card1.locator('.btn-view').click();
 
       const viewModal = page.locator('.dept-modal');
