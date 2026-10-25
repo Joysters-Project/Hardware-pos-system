@@ -7,6 +7,11 @@ exports.createPayment = async (req, res) => {
     const userId = req.user?.id || req.body.collected_by || null;
     const result = await DueCollectionService.collectPayment(req.body, userId);
 
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('alerts:updated');
+    }
+
     res.status(201).json({
       message: "Payment collection processed successfully",
       data: result

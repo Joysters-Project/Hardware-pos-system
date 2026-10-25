@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { Package, CreditCard } from "lucide-react";
+import { Package, CreditCard, Users } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { createPortal } from "react-dom";
@@ -13,7 +13,7 @@ import "../styles/ProcurementPages.css";
 import DetailModal from "../components/DetailModal";
 import ProductDetailContent from "../components/ProductDetailContent";
 import PODetailContent from "../components/PODetailContent";
-import { useChequeAlerts, useUpdateChequeStatus, useRecordPayment } from "../services/procurementApi";
+import { useChequeAlerts, useUpdateChequeStatus, useRecordPayment, useCustomerDueAlerts } from "../services/procurementApi";
 import { subscribeToEvent } from "../services/socketSingleton";
 import { formatPurchaseOrderNumber } from "../utils/purchaseOrderNumber";
 
@@ -574,6 +574,167 @@ function PaymentAlertsTab() {
   );
 }
 
+const CUSTOMER_DUE_FILTERS = [
+  { key: "", label: "All Due Alerts" },
+  { key: "due-today", label: "Due Today" },
+  { key: "overdue", label: "Overdue" },
+  { key: "due-soon", label: "Due Soon (≤3d)" },
+];
+
+const CUSTOMER_DUE_COLORS = {
+  "Overdue": "#991b1b",
+  "Due Today": "#c62828",
+  "Due Soon": "#d97706",
+};
+
+function CustomerDueAlertsTab() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const activeType = searchParams.get("type") || "";
+  const [dueSearch, setDueSearch] = useState("");
+
+  const { data, isLoading } = useCustomerDueAlerts();
+  const allAlerts = data?.alerts || [];
+  const summary = data?.summary || {};
+
+  const filtered = useMemo(() => {
+    const typeMap = { "due-soon": "Due Soon", "due-today": "Due Today", "overdue": "Overdue" };
+    const typeFiltered = activeType
+      ? allAlerts.filter(a => a.alert_type === typeMap[activeType])
+      : allAlerts;
+    const query = dueSearch.trim().toLowerCase();
+    if (!query) return typeFiltered;
+    return typeFiltered.filter((alert) => [
+      alert.invoice_number,
+      alert.customer_name,
+      alert.phone_no,
+      alert.alert_type,
+    ].some((value) => String(value || "").toLowerCase().includes(query)));
+  }, [allAlerts, activeType, dueSearch]);
+
+  const setType = (key) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", "customer-due");
+    if (key) next.set("type", key); else next.delete("type");
+    setSearchParams(next);
+  };
+
+  const typeCounts = useMemo(() => ({
+    "": summary.total || 0,
+    "due-today": summary.dueToday || 0,
+    "overdue": summary.overdue || 0,
+    "due-soon": summary.dueSoon || 0,
+  }), [summary]);
+
+  const fmtD = (d) => d ? new Date(d).toLocaleDateString("en-GB") : "—";
+  const fmt = (n) => `LKR ${Number(n || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}`;
+
+  const daysLabel = (a) => {
+    if (a.days_remaining === null || a.days_remaining === undefined) return "—";
+    if (a.days_remaining < 0) return `${Math.abs(a.days_remaining)}d overdue`;
+    if (a.days_remaining === 0) return "Today";
+    return `In ${a.days_remaining}d`;
+  };
+
+  return (
+    <>
+      <div className="alert-chips">
+        {CUSTOMER_DUE_FILTERS.map(({ key, label }) => {
+          const isActive = activeType === key;
+          const count = typeCounts[key] || 0;
+          const colorMap = { "due-today": "#c62828", "overdue": "#991b1b", "due-soon": "#d97706" };
+          const chipColor = colorMap[key] || THEME;
+          return (
+            <button
+              key={key || "all-due"}
+              onClick={() => setType(key)}
+              className={`alert-chip ${isActive ? "alert-chip--active" : ""}`}
+              style={isActive
+                ? { background: chipColor, color: "#fff", border: `1.5px solid ${chipColor}`, boxShadow: `0 4px 12px ${chipColor}40` }
+                : { background: "#fff", color: "#4b5563", border: "1.5px solid #e5e7eb" }}
+            >
+              <span style={{ fontWeight: 700 }}>{label}</span>
+              <span className="alert-chip-count" style={isActive ? { background: "rgba(255,255,255,0.2)", color: "#fff" } : { background: `${chipColor}14`, color: chipColor }}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="alert-section-search">
+        <input
+          type="search"
+          className="proc-search"
+          placeholder="Search by customer name, phone, or invoice no..."
+          value={dueSearch}
+          onChange={(event) => setDueSearch(event.target.value)}
+        />
+      </div>
+
+      <div className="proc-card">
+        <div className="proc-table-wrap">
+          <table className="proc-table">
+            <thead>
+              <tr>
+                <th>Invoice No.</th>
+                <th>Customer Name</th>
+                <th>Phone No.</th>
+                <th>Expected Date</th>
+                <th>Total Amount</th>
+                <th>Due Amount</th>
+                <th>Status</th>
+                <th>Alert</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr><td colSpan={9} className="proc-empty">Loading customer due alerts...</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={9} className="proc-empty">No customer due alerts found.</td></tr>
+              ) : filtered.map((a) => {
+                const color = CUSTOMER_DUE_COLORS[a.alert_type] || "#6b7280";
+                return (
+                  <tr key={a.bill_id}>
+                    <td><span className="proc-code-badge">{a.invoice_number}</span></td>
+                    <td className="proc-name-cell">{a.customer_name}</td>
+                    <td style={{ fontWeight: 500 }}>{a.phone_no}</td>
+                    <td style={{ color: a.alert_type === "Overdue" ? "#991b1b" : "inherit", fontWeight: a.alert_type === "Overdue" ? 700 : 500 }}>
+                      {fmtD(a.expected_payment_date)}
+                    </td>
+                    <td className="proc-amount">{fmt(a.total_amount)}</td>
+                    <td className="proc-amount" style={{ color: "#b91c1c", fontWeight: 700 }}>
+                      {fmt(a.due_amount)}
+                    </td>
+                    <td>
+                      <span style={{ fontWeight: 700, color }}>{daysLabel(a)}</span>
+                    </td>
+                    <td>
+                      <span className="proc-status-pill" style={{ background: color + "18", color }}>
+                        {a.alert_type}
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        className="proc-btn-outline"
+                        style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem", whiteSpace: "nowrap" }}
+                        onClick={() => navigate('/cashier-panel/due-collection/collect')}
+                      >
+                        Collect Due
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  );
+}
+
 function AlertCenterPage() {
   const isCashier = (localStorage.getItem("role") || "").toLowerCase() === "cashier";
   const [searchParams, setSearchParams] = useSearchParams();
@@ -593,6 +754,10 @@ function AlertCenterPage() {
   // Payment alert count for tab badge (non-cashier only)
   const { data: chequeData } = useChequeAlerts();
   const paymentTabCount = isCashier ? 0 : (chequeData?.summary?.total || 0);
+
+  // Customer due alert count for tab badge
+  const { data: customerDueData } = useCustomerDueAlerts();
+  const customerDueTabCount = customerDueData?.summary?.total || 0;
 
   const setTab = (tab) => {
     const next = new URLSearchParams();
@@ -752,19 +917,29 @@ function AlertCenterPage() {
         </div>
       </div>
 
-      {/* Tab switcher — only show Payment Alerts tab for non-cashier */}
-      {!isCashier && (
-        <div className="alert-tab-switcher">
-          <button
-            className={`alert-tab-btn ${activeTab !== "payment" ? "alert-tab-btn--active" : ""}`}
-            onClick={() => setTab("inventory")}
-          >
-            <Package size={16} className="alert-tab-icon" />
-            Inventory Alerts
-            {counts[""] > 0 && (
-              <span className="alert-tab-count">{counts[""]}</span>
-            )}
-          </button>
+      {/* Tab switcher */}
+      <div className="alert-tab-switcher">
+        <button
+          className={`alert-tab-btn ${activeTab !== "payment" && activeTab !== "customer-due" ? "alert-tab-btn--active" : ""}`}
+          onClick={() => setTab("inventory")}
+        >
+          <Package size={16} className="alert-tab-icon" />
+          Inventory Alerts
+          {counts[""] > 0 && (
+            <span className="alert-tab-count">{counts[""]}</span>
+          )}
+        </button>
+        <button
+          className={`alert-tab-btn ${activeTab === "customer-due" ? "alert-tab-btn--active" : ""}`}
+          onClick={() => setTab("customer-due")}
+        >
+          <Users size={16} className="alert-tab-icon" />
+          Customer Due
+          {customerDueTabCount > 0 && (
+            <span className="alert-tab-count">{customerDueTabCount}</span>
+          )}
+        </button>
+        {!isCashier && (
           <button
             className={`alert-tab-btn ${activeTab === "payment" ? "alert-tab-btn--active" : ""}`}
             onClick={() => setTab("payment")}
@@ -775,10 +950,12 @@ function AlertCenterPage() {
               <span className="alert-tab-count">{paymentTabCount}</span>
             )}
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
-      {activeTab === "payment" && !isCashier ? (
+      {activeTab === "customer-due" ? (
+        <CustomerDueAlertsTab />
+      ) : activeTab === "payment" && !isCashier ? (
         <PaymentAlertsTab />
       ) : (
       <>

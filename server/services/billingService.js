@@ -31,6 +31,17 @@ class BillingService {
             
             // 1. Handle Customer (For Partial Payments or Records)
             let customerId = null;
+            const isPartial = parseFloat(saleData.balance_due) > 0;
+
+            if (isPartial) {
+                if (!saleData.customer || !saleData.customer.name || !saleData.customer.phone) {
+                    throw new Error('Customer name and phone number are required for partial payments.');
+                }
+                if (!saleData.expected_payment_date) {
+                    throw new Error('Expected payment date is required for partial payments.');
+                }
+            }
+
             if (saleData.customer && saleData.customer.phone) {
                 // Validate phone number before storing
                 const phoneValidation = validateSriLankanPhone(saleData.customer.phone);
@@ -110,7 +121,8 @@ class BillingService {
                 discount: saleData.discount,
                 total_amount: saleData.total_amount,
                 balance_due: saleData.balance_due || 0,
-                status: saleData.balance_due > 0 ? 'PARTIAL' : 'PAID'
+                status: saleData.balance_due > 0 ? 'PARTIAL' : 'PAID',
+                expected_payment_date: (saleData.balance_due > 0 && saleData.expected_payment_date) ? saleData.expected_payment_date : null
             }, { transaction: t });
 
             // 5. Update Inventory & Items

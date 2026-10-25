@@ -24,6 +24,15 @@ async function ensureAlertSchema() {
       });
     }
 
+    const billsTable = await queryInterface.describeTable('bills');
+    if (!billsTable.expected_payment_date) {
+      console.log('⚡ Adding missing expected_payment_date column to bills table...');
+      await queryInterface.addColumn('bills', 'expected_payment_date', {
+        type: db.Sequelize.DATEONLY,
+        allowNull: true
+      });
+    }
+
     console.log('✅ Alerts schema verified/updated successfully.');
   } catch (error) {
     console.error('⚠️ Alerts schema verification failed:', error.message);

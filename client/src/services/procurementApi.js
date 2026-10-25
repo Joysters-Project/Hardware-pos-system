@@ -835,3 +835,19 @@ export function useUpdateChequeStatus() {
   });
 }
 
+export function useCustomerDueAlerts() {
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    return subscribeToEvent('alerts:updated', () => {
+      qc.invalidateQueries({ queryKey: ['customer-due-alerts'] });
+    });
+  }, [qc]);
+
+  return useQuery({
+    queryKey: ['customer-due-alerts'],
+    queryFn: async () => (await api.get('/alerts/customer-due-alerts')).data,
+    refetchInterval: 30000,
+  });
+}
+

@@ -198,6 +198,24 @@ cron.schedule('0 8 * * *', async () => {
   } catch (e) { console.error('[Cron] Salary reminder error:', e.message); }
 });
 
+// Daily 08:30 — Customer due payment alerts check
+cron.schedule('30 8 * * *', async () => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const dueCount = await db.bills.count({
+      where: {
+        status: 'PARTIAL',
+        balance_due: { [db.Sequelize.Op.gt]: 0 },
+        expected_payment_date: { [db.Sequelize.Op.lte]: today }
+      }
+    });
+    if (dueCount > 0 && io) {
+      io.emit('alerts:updated');
+    }
+    console.log(`[Cron] Customer due check: ${dueCount} bill(s) due or overdue.`);
+  } catch (e) { console.error('[Cron] Customer due alert error:', e.message); }
+});
+
 // ── Default & Health Routes ───────────────────────────────────────────────────
 app.get('/', (req, res) => res.send('Mathumithan Hardware POS Backend is Running...'));
 app.get('/health', (req, res) => res.json({ status: 'ok', uptime: process.uptime() }));

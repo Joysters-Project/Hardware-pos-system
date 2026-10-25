@@ -5,7 +5,7 @@ import {
   CreditCard, Printer, Download, XCircle, CheckCircle,
   User, Phone, MapPin, DollarSign, Receipt, Tag,
   AlertCircle, AlertTriangle, ArrowRight, Sparkles,
-  TrendingUp, Clock, Zap, LayoutGrid, ListOrdered, FolderOpen
+  TrendingUp, Clock, Zap, LayoutGrid, ListOrdered, FolderOpen, Calendar
 } from 'lucide-react';
 import api from '../api/axios';
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
@@ -25,7 +25,7 @@ const BillingSystem = () => {
   const activePosTab = projectsMatch ? 'projects' : 'billing';
   const [cart, setCart] = useState([]);
   const [catalogProducts, setCatalogProducts] = useState([]);
-  const [payData, setPayData] = useState({ amountPaid: '', customerName: '', customerPhone: '', customerAddress: '' });
+  const [payData, setPayData] = useState({ amountPaid: '', customerName: '', customerPhone: '', customerAddress: '', expectedPaymentDate: '' });
   const [customerExists, setCustomerExists] = useState(false);
   const [saveCustomer, setSaveCustomer] = useState(false);
   const [customerLookupMessage, setCustomerLookupMessage] = useState('');
@@ -716,6 +716,15 @@ const BillingSystem = () => {
   const canCheckout = cart.length > 0 && hasAmountPaid && amountPaidValue >= 0;
   const showCustomerDetails = isPartial || saveCustomer || customerExists;
 
+  useEffect(() => {
+    if (isPartial && !payData.expectedPaymentDate) {
+      const d = new Date();
+      d.setDate(d.getDate() + 7);
+      const defaultDate = d.toISOString().split('T')[0];
+      setPayData((prev) => ({ ...prev, expectedPaymentDate: defaultDate }));
+    }
+  }, [isPartial]);
+
   const handleCheckout = async () => {
     if (cart.length === 0) {
       toast.error("Cart is empty!");
@@ -778,6 +787,10 @@ const BillingSystem = () => {
         toast.error('Customer address required for new customer partial payment!');
         return;
       }
+      if (isPartial && !payData.expectedPaymentDate) {
+        toast.error('Expected payment date is required for partial payment!');
+        return;
+      }
     }
 
     try {
@@ -795,6 +808,7 @@ const BillingSystem = () => {
         discount: totalDiscount,
         amount_paid: amountPaidValue,
         balance_due: isPartial ? Math.abs(balance) : 0,
+        expected_payment_date: isPartial ? payData.expectedPaymentDate : null,
         customer: (saveCustomer || customerExists || isPartial) && payData.customerPhone ? { name: payData.customerName, phone: payData.customerPhone, address: payData.customerAddress } : null,
       };
 
@@ -816,12 +830,13 @@ const BillingSystem = () => {
         amount_paid: amountPaidValue,
         change_returned: balance >= 0 ? balance : 0,
         due_amount: isPartial ? Math.abs(balance) : 0,
+        expected_payment_date: isPartial ? payData.expectedPaymentDate : null,
         cashier_name: cashierName,
         cashier_id: cashierId,
         customer: payData.customerPhone ? { name: payData.customerName, phone: payData.customerPhone } : null,
       });
       setCart([]);
-      setPayData({ amountPaid: '', customerName: '', customerPhone: '', customerAddress: '' });
+      setPayData({ amountPaid: '', customerName: '', customerPhone: '', customerAddress: '', expectedPaymentDate: '' });
       setSaveCustomer(false);
       setCustomerExists(false);
       setCustomerLookupMessage('');
@@ -1270,6 +1285,26 @@ const BillingSystem = () => {
                           readOnly={customerExists}
                         />
                       </div>
+                      {isPartial && (
+                        <div className="partial-input-group" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                          <label htmlFor="expected_payment_date" style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 500 }}>
+                            <Calendar size={13} /> Expected Payment Date (Required)
+                          </label>
+                          <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+                            <Calendar size={14} className="input-icon" />
+                            <input
+                              id="expected_payment_date"
+                              name="expected_payment_date"
+                              type="date"
+                              min={new Date().toISOString().split('T')[0]}
+                              value={payData.expectedPaymentDate || ''}
+                              onChange={(e) => setPayData({ ...payData, expectedPaymentDate: e.target.value })}
+                              required
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+                        </div>
+                      )}
                       {customerLookupMessage && (
                         <p className={`partial-message ${customerExists ? 'found' : 'new'}`}>
                           {customerLookupMessage}
@@ -1365,6 +1400,9 @@ const BillingSystem = () => {
               )}
               {lastBill.customer?.phone && (
                 <div><span className="meta-label">Phone</span><span className="meta-value">{lastBill.customer.phone}</span></div>
+              )}
+              {lastBill.expected_payment_date && (
+                <div><span className="meta-label">Expected Payment</span><span className="meta-value">{lastBill.expected_payment_date}</span></div>
               )}
             </div>
 

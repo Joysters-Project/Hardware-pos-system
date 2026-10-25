@@ -19,7 +19,10 @@ exports.createBill = async (req, res) => {
     const bill = await BillingService.createInvoice(req.body, userId);
 
     const io = req.app.get('io');
-    if (io) io.emit('products:updated');
+    if (io) {
+      io.emit('products:updated');
+      io.emit('alerts:updated');
+    }
 
     res.status(201).json({
       message: 'Bill created successfully',
