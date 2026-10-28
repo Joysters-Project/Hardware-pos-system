@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import api from '../api/axios';
 
 /* ── helpers ── */
@@ -183,7 +183,9 @@ function DetailView({ card, from, to, onBack }) {
     }
   }, [card.key, from, to]);
 
-  useState(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const Detail = DETAIL_MAP[card.key];
 
@@ -211,11 +213,13 @@ function DetailView({ card, from, to, onBack }) {
 export default function AnalyticsTab() {
   const [from,       setFrom]       = useState(DEFAULT_FROM);
   const [to,         setTo]         = useState(DEFAULT_TO);
+  const [activeRange, setActiveRange] = useState(null);
   const [activeCard, setActiveCard] = useState(null);
   const applyDateRange = (monthsBack) => {
     const range = getDateRange(monthsBack);
     setFrom(range.from);
     setTo(range.to);
+    setActiveRange(monthsBack);
   };
 
   return (
@@ -224,20 +228,20 @@ export default function AnalyticsTab() {
       <div className="rp-filters" style={{ marginBottom: 0 }}>
         <div className="rp-date-group">
           <label>From</label>
-          <input id="an-from" name="an-from" type="date" value={from} max={to} onChange={e => setFrom(e.target.value)} />
+          <input id="an-from" name="an-from" type="date" value={from} max={to} onChange={e => { setFrom(e.target.value); setActiveRange(null); }} />
         </div>
         <div className="rp-date-group">
           <label>To</label>
-          <input id="an-to" name="an-to" type="date" value={to} min={from} onChange={e => setTo(e.target.value)} />
+          <input id="an-to" name="an-to" type="date" value={to} min={from} onChange={e => { setTo(e.target.value); setActiveRange(null); }} />
         </div>
         <div className="an-range-actions">
-          <button className="rp-reset-btn" onClick={() => applyDateRange(1)}>
+          <button className={`rp-reset-btn${activeRange === 1 ? ' active' : ''}`} aria-pressed={activeRange === 1} onClick={() => applyDateRange(1)}>
             Last 30 Days
           </button>
-          <button className="rp-reset-btn" onClick={() => applyDateRange(3)}>
+          <button className={`rp-reset-btn${activeRange === 3 ? ' active' : ''}`} aria-pressed={activeRange === 3} onClick={() => applyDateRange(3)}>
             Last 3 Months
           </button>
-          <button className="rp-reset-btn" onClick={() => applyDateRange(12)}>
+          <button className={`rp-reset-btn${activeRange === 12 ? ' active' : ''}`} aria-pressed={activeRange === 12} onClick={() => applyDateRange(12)}>
             Last Year
           </button>
         </div>

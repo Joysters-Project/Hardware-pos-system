@@ -240,6 +240,13 @@
   color: #fff;
 }
 
+.an-range-actions .rp-reset-btn.active,
+.an-range-actions .rp-reset-btn.active:hover {
+  background: #8b3a3a;
+  border-color: #8b3a3a;
+  color: #fff;
+}
+
 /* ── Table (Procurement Table Style) ── */
 .rp-table-wrap {
   background: linear-gradient(180deg, #ffffff 0%, #fffdfa 100%);
