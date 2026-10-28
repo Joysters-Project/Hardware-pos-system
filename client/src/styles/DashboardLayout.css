@@ -43,29 +43,35 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 10px;
+  padding: 10px 16px 10px 12px;
+  background: linear-gradient(135deg, #ffffff 0%, #fffafa 100%);
+  border: 1px solid #eadcdc;
+  border-radius: 12px;
   font-size: 13px;
   font-weight: 600;
-  color: #333333;
+  color: #6f4545;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 5px 14px rgba(64, 24, 24, 0.07);
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease,
+    box-shadow 0.2s ease, transform 0.2s ease;
   outline: none;
 }
 
 .admin-back-btn:hover {
-  background: #f8fafc;
-  border-color: #8b1a1a;
-  color: #8b1a1a;
-  box-shadow: 0 4px 12px rgba(139, 26, 26, 0.12);
+  background: #8b3a3a;
+  border-color: #8b3a3a;
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(139, 58, 58, 0.22);
   transform: translateX(-3px);
 }
 
 .admin-back-btn:active {
   transform: translateX(-1px) scale(0.98);
+}
+
+.admin-back-btn:focus-visible {
+  outline: 3px solid rgba(139, 58, 58, 0.24);
+  outline-offset: 3px;
 }
 
 /* ---------- Notification Bell in Top-Right of Content ---------- */

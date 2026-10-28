@@ -101,6 +101,9 @@ const batchRoutes = require('./routes/batchRoutes');
 const chequeExchangeRoutes = require('./routes/chequeExchangeRoutes');
 const analysisReportRoutes = require('./routes/analysisReportRoutes');
 
+const analyticsRoutes = require('./routes/analyticsRoutes');
+
+app.use('/api/analytics',      analyticsRoutes);
 app.use('/api/departments',   departmentRoutes);
 app.use('/api/employees',     employeeRoutes);
 app.use('/api/users',         userRoutes);

@@ -9,8 +9,9 @@ import '../styles/Returns.css';
 import '../styles/ProcurementWorkspace.css';
 import '../styles/Procurement.css';
 import '../styles/Catalog.css';
-import { CreditCard, RotateCcw, Package, ShoppingCart, BarChart3, Wallet, Truck } from 'lucide-react';
+import { CreditCard, RotateCcw, Package, ShoppingCart, BarChart3, Wallet, Truck, TrendingUp } from 'lucide-react';
 import ProcurementReports from './procurement/ProcurementReports';
+import AnalyticsTab from '../components/AnalyticsTab';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from 'recharts';
 
 /* ─── helpers ─── */
@@ -1350,10 +1351,11 @@ function BorrowReport() {
    MAIN REPORTS PAGE
 ═══════════════════════════════════════════════════════════ */
 const TABS = [
-  { key: 'sales', label: 'Sales Report', icon: CreditCard },
-  { key: 'returns', label: 'Return Logs', icon: RotateCcw },
-  { key: 'borrow', label: 'Borrow Report', icon: Wallet },
-  { key: 'procurement', label: 'Procurement Report', icon: Truck },
+  { key: 'sales',       label: 'Sales Report',       icon: CreditCard },
+  { key: 'returns',     label: 'Return Logs',         icon: RotateCcw },
+  { key: 'borrow',      label: 'Borrow Report',       icon: Wallet },
+  { key: 'procurement', label: 'Procurement Report',  icon: Truck },
+  { key: 'analytics',   label: 'Analytics',           icon: TrendingUp },
 ];
 
 function ReportsPage() {
@@ -1428,6 +1430,7 @@ function ReportsPage() {
           {activeTab === 'returns' && <ReturnsReport />}
           {activeTab === 'borrow' && <BorrowReport />}
           {!isCashier && activeTab === 'procurement' && <ProcurementReports />}
+          {activeTab === 'analytics' && <AnalyticsTab />}
         </div>
       </div>
     </DashboardLayout>

@@ -222,6 +222,24 @@
   border-color: #800000;
 }
 
+.an-range-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.an-range-actions .rp-reset-btn {
+  border-color: #eadcdc;
+  color: #7d5050;
+  background: #fffafa;
+}
+
+.an-range-actions .rp-reset-btn:hover {
+  background: #8b3a3a;
+  border-color: #8b3a3a;
+  color: #fff;
+}
+
 /* ── Table (Procurement Table Style) ── */
 .rp-table-wrap {
   background: linear-gradient(180deg, #ffffff 0%, #fffdfa 100%);
@@ -291,6 +309,11 @@
 .rp-table td.red {
   color: #c62828;
   font-weight: 700;
+}
+
+.rp-table td.muted {
+  color: #aaa;
+  font-size: 12px;
 }
 
 .rp-empty {
@@ -826,5 +849,202 @@
   .rp-prod-table th,
   .rp-prod-table td {
     padding: 7px 8px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Analytics Tab — accordion cards
+═══════════════════════════════════════════════════════════ */
+.an-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.an-card {
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #efe2e2;
+  box-shadow: 0 2px 6px rgba(139,58,58,0.05);
+  overflow: hidden;
+}
+
+.an-card-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: #fff;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.an-card-header:hover {
+  background: #fdf8f8;
+}
+
+.an-card-label {
+  font-size: 0.97rem;
+  font-weight: 700;
+  color: #2c2c2c;
+}
+
+.an-card-chevron {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.an-card-body {
+  border-top: 1px solid #f3ecec;
+  padding: 0 0 4px;
+  overflow-x: auto;
+}
+
+.an-detail-view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.an-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 48px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 5px 16px rgba(64, 24, 24, 0.06);
+}
+
+.an-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #eadcdc;
+  border-radius: 9px;
+  padding: 9px 13px;
+  background: #fffafa;
+  color: #7d5050;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.an-back-btn:hover {
+  background: #8b3a3a;
+  color: #fff;
+  box-shadow: 0 5px 12px rgba(139, 58, 58, 0.2);
+  transform: translateX(-2px);
+}
+
+.an-back-btn:focus-visible {
+  outline: 3px solid rgba(139, 58, 58, 0.25);
+  outline-offset: 2px;
+}
+
+.an-detail-title {
+  color: #2c2c2c;
+  font-size: 1rem;
+  font-weight: 750;
+}
+
+/* ── Analytics overview cards ── */
+.an-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.an-sq-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 116px;
+  padding: 20px;
+  border: 1px solid #eee4e4;
+  border-top-width: 4px;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 100% 0, rgba(139, 58, 58, 0.08), transparent 42%),
+    #fff;
+  box-shadow: 0 8px 20px rgba(64, 24, 24, 0.06);
+  color: #2c2c2c;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.an-sq-card::after {
+  content: 'View details  →';
+  position: absolute;
+  right: 18px;
+  bottom: 14px;
+  color: #9a7777;
+  font-size: 0.72rem;
+  font-weight: 700;
+  opacity: 0;
+  transform: translateX(-6px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.an-sq-card:hover {
+  border-color: #d7baba;
+  box-shadow: 0 14px 28px rgba(91, 39, 39, 0.13);
+  transform: translateY(-3px);
+}
+
+.an-sq-card:hover::after {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.an-sq-card:focus-visible {
+  outline: 3px solid rgba(139, 58, 58, 0.25);
+  outline-offset: 3px;
+}
+
+.an-sq-icon {
+  display: grid;
+  flex: 0 0 52px;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: #fbf1f1;
+  box-shadow: inset 0 0 0 1px rgba(139, 58, 58, 0.08);
+  font-size: 1.55rem;
+}
+
+.an-sq-label {
+  max-width: 170px;
+  padding-bottom: 12px;
+  font-size: 0.96rem;
+  font-weight: 750;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
+@media screen and (max-width: 900px) {
+  .an-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .an-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .an-sq-card {
+    min-height: 96px;
   }
 }
