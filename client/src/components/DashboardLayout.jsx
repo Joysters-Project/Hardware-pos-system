@@ -12,18 +12,12 @@ import "../styles/Departments.css";
 
 export const DashboardLayoutContext = createContext(false);
 
-export default function DashboardLayout({ children, active }) {
-  const isNested = useContext(DashboardLayoutContext);
-
-  if (isNested) {
-    return <>{children}</>;
-  }
-
+function DashboardLayoutShell({ children, active }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, role } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(
-    localStorage.getItem("sidebar-collapsed") === "true"
+    () => localStorage.getItem("sidebar-collapsed") === "true"
   );
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
@@ -133,5 +127,15 @@ export default function DashboardLayout({ children, active }) {
       </div>
     </DashboardLayoutContext.Provider>
   );
+}
+
+export default function DashboardLayout({ children, active }) {
+  const isNested = useContext(DashboardLayoutContext);
+
+  if (isNested) {
+    return <>{children}</>;
+  }
+
+  return <DashboardLayoutShell active={active}>{children}</DashboardLayoutShell>;
 }
 

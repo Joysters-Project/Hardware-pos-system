@@ -48,12 +48,19 @@ export default function NavbarNotificationBell() {
 
   /* ── Existing fetch (unchanged) ── */
   const fetchSummary = useCallback(async () => {
+    const token = sessionStorage.getItem("token") || localStorage.getItem("token");
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await api.get("/alerts/summary");
       setSummary(res.data || {});
     } catch (err) {
-      console.error(err);
+      if (err.response?.status !== 401) {
+        console.error(err);
+      }
     } finally {
       setLoading(false);
     }

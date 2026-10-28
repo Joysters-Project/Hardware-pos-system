@@ -600,11 +600,15 @@ export function useNotifications(status) {
   });
 }
 
+const hasAuthToken = () => typeof window !== 'undefined' && Boolean(sessionStorage.getItem('token') || localStorage.getItem('token'));
+
 export function useUnreadNotificationsCount() {
   return useQuery({
     queryKey: ['procurement-notifications-unread-count'],
     queryFn: async () => (await notificationApi.getUnreadCount()).data,
-    refetchInterval: 15000 // Poll count every 15s for dynamic alerts
+    refetchInterval: 15000, // Poll count every 15s for dynamic alerts
+    enabled: hasAuthToken(),
+    retry: false,
   });
 }
 
@@ -820,6 +824,8 @@ export function useChequeAlerts() {
     queryKey: ['cheque-alerts'],
     queryFn: async () => (await api.get('/procurement/payments/cheque-alerts')).data,
     refetchInterval: 30000, // poll every 30 s as fallback
+    enabled: hasAuthToken(),
+    retry: false,
   });
 }
 
@@ -848,6 +854,8 @@ export function useCustomerDueAlerts() {
     queryKey: ['customer-due-alerts'],
     queryFn: async () => (await api.get('/alerts/customer-due-alerts')).data,
     refetchInterval: 30000,
+    enabled: hasAuthToken(),
+    retry: false,
   });
 }
 
