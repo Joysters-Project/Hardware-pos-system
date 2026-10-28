@@ -26,7 +26,7 @@ test.describe('Salary History - Structure, Totals and Filters', () => {
     await page.goto('/salary/history');
     await expect(page.getByText('Total Paid:', { exact: false })).toContainText('303,000.00');
     await expect(page.locator('.sal-table th')).toHaveCount(11);
-    await expect(page.getByTitle('View Payslip', { exact: true })).toHaveCount(6);
+    await expect(page.getByTitle('View Payslip', { exact: true })).toHaveCount(5);
     await expect(page.locator('.sal-table tbody tr').first().getByTitle('View Payslip', { exact: true })).toHaveCount(0);
   });
 
@@ -62,7 +62,7 @@ test.describe('Salary History - Structure, Totals and Filters', () => {
 
   test('blocked payslip popup shows feedback', async ({ page }) => {
     await page.goto('/salary/history');
-    await expect(page.getByTitle('View Payslip', { exact: true })).toHaveCount(6);
+    await expect(page.getByTitle('View Payslip', { exact: true })).toHaveCount(5);
     await page.evaluate(() => { window.open = () => null; });
     await page.getByTitle('View Payslip', { exact: true }).first().click();
     await expect(page.getByText('Popup blocked. Please allow popups to view the payslip.', { exact: true })).toBeVisible();

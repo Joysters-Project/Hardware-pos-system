@@ -7,25 +7,13 @@
  * @param {import('@playwright/test').Page} page
  */
 export async function restoreSession(page) {
-  await page.addInitScript(() => {
-    // Keep mocked browser tests independent from a short-lived JWT captured by
-    // auth.setup. ProtectedRoute only needs these client-side identity values;
-    // feature APIs are intercepted by each test suite.
-    const testDefaults = {
-      token: 'playwright-mocked-session',
-      role: 'admin',
-      userName: 'playwright-admin',
-      userId: '1',
-      userFirstName: 'Playwright',
-      userLastName: 'Admin',
-      userFullName: 'Playwright Admin',
-      loginTime: String(Date.now()),
-    };
-    const keys = ['token', 'role', 'userName', 'userId', 'userFirstName',
-                  'userLastName', 'userFullName', 'loginTime'];
-    for (const key of keys) {
-      localStorage.setItem(key, testDefaults[key]);
-      sessionStorage.setItem(key, testDefaults[key]);
+  await page.addInitScript((defaults) => {
+    if (location.origin === 'null') return;
+
+    for (let index = 0; index < localStorage.length; index++) {
+      const key = localStorage.key(index);
+      const value = localStorage.getItem(key);
+      if (value !== null) sessionStorage.setItem(key, value);
     }
   });
 }

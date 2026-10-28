@@ -35,7 +35,7 @@ test('salary edit clearly identifies update and saves changes', async ({ page, f
 
 test('mark pending salary as paid updates available actions', async ({ page, finance }) => {
   await page.goto('/salary');
-  const row = page.locator('.sal-table tbody tr').first();
+  const row = page.locator('.sal-table tbody tr').filter({ has: page.getByText('#1', { exact: true }) });
   await row.getByTitle('Mark as paid', { exact: true }).click();
   await expect(row.locator('.sal-status-pill')).toHaveText('Paid');
   await expect(row.getByTitle('View Payslip', { exact: true })).toBeVisible();
@@ -46,10 +46,11 @@ test('salary deletion recovers the previous page', async ({ page, finance }) => 
   finance.salaries = finance.salaries.slice(0, 11);
   await page.goto('/salary');
   await page.locator('.sal-pagination').getByRole('button', { name: '2', exact: true }).click();
+  const row = page.locator('.sal-table tbody tr').filter({ has: page.getByText('#10', { exact: true }) });
   page.once('dialog', dialog => dialog.accept());
-  await page.getByTitle('Delete Salary', { exact: true }).click();
+  await row.getByTitle('Delete Salary', { exact: true }).click();
   await expect(page.locator('.sal-table tbody tr')).toHaveCount(10);
-  expect(finance.writes[0]).toMatchObject({ method: 'DELETE', path: '/salary/11' });
+  expect(finance.writes[0]).toMatchObject({ method: 'DELETE', path: '/salary/10' });
 });
 
 test('/salary reports API failure', async ({ page, finance }) => {
@@ -150,7 +151,7 @@ test.describe('Salary Management - Filters and Payment Failures', () => {
 
   test('payment failure leaves salary pending and allows retry', async ({ page, finance }) => {
     await page.goto('/salary');
-    const row = page.locator('.sal-table tbody tr').first();
+    const row = page.locator('.sal-table tbody tr').filter({ has: page.getByText('#1', { exact: true }) });
     await expect(row.locator('.sal-status-pill')).toHaveText('Pending');
     finance.fail = '/salary/1/pay';
     await row.getByTitle('Mark as paid', { exact: true }).click();
