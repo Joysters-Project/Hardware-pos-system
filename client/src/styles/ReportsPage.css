@@ -105,18 +105,52 @@
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  user-select: none;
 }
 
 .rp-timeframe-btn:hover {
   border-color: #800000;
   color: #800000;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(128, 0, 0, 0.15);
+}
+
+.rp-timeframe-btn:active {
+  transform: scale(0.93);
+  box-shadow: none;
 }
 
 .rp-timeframe-btn.active {
   background: #800000;
   color: #fff;
   border-color: #800000;
+  box-shadow: 0 4px 14px rgba(128, 0, 0, 0.3);
+  transform: translateY(-1px);
+}
+
+.rp-timeframe-ripple {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  transform: translate(-50%, -50%) scale(0);
+  animation: rp-ripple 0.5s ease-out forwards;
+  pointer-events: none;
+}
+
+.rp-timeframe-btn.active .rp-timeframe-ripple {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+@keyframes rp-ripple {
+  to {
+    transform: translate(-50%, -50%) scale(28);
+    opacity: 0;
+  }
 }
 
 /* ── Summary stat cards ── */
@@ -132,6 +166,24 @@
   padding: 18px 20px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   border-left: 4px solid #800000;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  animation: rp-card-in 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.rp-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(128, 0, 0, 0.1);
+}
+
+.rp-stats-row .rp-stat-card:nth-child(1) { animation-delay: 0.00s; }
+.rp-stats-row .rp-stat-card:nth-child(2) { animation-delay: 0.06s; }
+.rp-stats-row .rp-stat-card:nth-child(3) { animation-delay: 0.12s; }
+.rp-stats-row .rp-stat-card:nth-child(4) { animation-delay: 0.18s; }
+.rp-stats-row .rp-stat-card:nth-child(5) { animation-delay: 0.24s; }
+
+@keyframes rp-card-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .rp-stat-label {
@@ -146,6 +198,7 @@
   font-size: 22px;
   font-weight: bold;
   color: #333;
+  transition: color 0.3s ease;
 }
 
 .rp-stat-value.green {
@@ -1054,4 +1107,49 @@
   .an-sq-card {
     min-height: 96px;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Tab content transition — report-view-shell
+═══════════════════════════════════════════════════════════ */
+.report-view-shell {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.report-view-shell-active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Chart container fade-in on timeframe change ── */
+.chart-container {
+  animation: rp-chart-fade 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes rp-chart-fade {
+  from { opacity: 0; transform: scaleY(0.97); }
+  to   { opacity: 1; transform: scaleY(1); }
+}
+
+/* ── Table fade-in ── */
+.rp-table-wrap {
+  animation: rp-table-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes rp-table-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Section fade-in ── */
+.rp-section {
+  animation: rp-section-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes rp-section-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
