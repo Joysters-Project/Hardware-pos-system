@@ -19,6 +19,7 @@ const ensureAlertSchema = require('./scripts/ensureAlertSchema');
 const ensureUserSchema  = require('./scripts/ensureUserSchema');
 const ensureChequeExchangeSchema = require('./scripts/ensureChequeExchangeSchema');
 const ensureSupplierPaymentSchema = require('./scripts/ensureSupplierPaymentSchema');
+const ensureBatchInventorySchema = require('./scripts/ensureBatchInventorySchema');
 const { startNearExpiryCron } = require('./cron/nearExpiryCron');
 
 const app    = express();
@@ -53,6 +54,7 @@ db.sequelize.sync({ force: false })
     await ensureUserSchema();
     await ensureChequeExchangeSchema();
     await ensureSupplierPaymentSchema();
+    await ensureBatchInventorySchema(db.sequelize);
     await seedDefaultAdmin();
     startNearExpiryCron();
   })

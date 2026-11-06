@@ -3,6 +3,7 @@ const { logActivity } = require('./auditService');
 const { syncAlertsForProduct } = require('./alertService');
 const { deductStockFEFO } = require('./batchService');
 const { validateSriLankanPhone } = require('../utils/phoneValidation');
+const { Op } = require('sequelize');
 
 class BillingService {
     static async getSystemUserId(transaction = null) {
@@ -70,20 +71,16 @@ class BillingService {
                 requestedBaseQtyMap[item.product_id] = (requestedBaseQtyMap[item.product_id] || 0) + baseQty;
             }
 
-            for (const [productId, totalRequestedQty] of Object.entries(requestedBaseQtyMap)) {
-                const product = await products.findByPk(productId, { transaction: t });
-                const isActiveStatus = [0, '0', 'active', 'Active', 'ACTIVE'].includes(product?.status);
+            for (const productId of Object.keys(requestedBaseQtyMap)) {
+                // Serialize sales for a product before locking and deducting its batches.
+                const product = await products.findByPk(productId, { transaction: t, lock: t.LOCK.UPDATE });
+                const isActiveStatus = [0, '0', 'active', 'Active', 'ACTIVE', 'Low Stock', 'low stock'].includes(product?.status);
                 if (!product || !isActiveStatus) {
                     throw new Error(`Product "${product?.product_name || productId}" is unavailable or inactive.`);
-                }
-                const availableStock = Number(product.stock_quantity ?? 0);
-                if (availableStock < totalRequestedQty) {
-                    throw new Error(`Insufficient stock for "${product.product_name}". Available stock is ${availableStock}, but requested selling quantity is ${totalRequestedQty}.`);
                 }
             }
 
             // 3. Generate Sequential Bill No (INV-YYYY-NNNN) with concurrency safety
-            const { Op } = require('sequelize');
             const year = new Date().getFullYear();
             const prefix = `INV-${year}-`;
             const lastBill = await bills.findOne({
@@ -127,6 +124,7 @@ class BillingService {
 
             // 5. Update Inventory & Items
             const lowStockAlerts = [];
+            const itemsForPostCommit = [];
             for (const item of saleData.items) {
                 const quantity = Number(item.quantity) || 0;
                 const factor = Number(item.conversion_factor) || 1;
@@ -146,16 +144,13 @@ class BillingService {
                     total_price: totalPrice
                 }, { transaction: t });
 
-                // Decrement stock atomically inside the transaction to prevent oversell.
-                // Batch FEFO deduction + full sync runs after commit (see process.nextTick below).
-                await products.decrement('stock_quantity', {
-                    by: baseQuantityDeducted,
-                    where: { product_id: item.product_id },
-                    transaction: t
-                });
+                // FEFO batch deduction inside the transaction — atomically deducts batch records
+                // and syncs product stock_quantity + expiry_date + batch_no.
+                await deductStockFEFO(item.product_id, baseQuantityDeducted, t);
 
                 const updatedProduct = await products.findByPk(item.product_id, { transaction: t });
                 if (updatedProduct) lowStockAlerts.push(updatedProduct.product_name);
+                itemsForPostCommit.push({ product_id: item.product_id, baseQty: baseQuantityDeducted });
             }
 
             // 6. Record Payment
@@ -165,7 +160,7 @@ class BillingService {
                 payment_method: saleData.payment_method || 'CASH'
             }, { transaction: t });
 
-            // 7. Final Audit Log, FEFO Batch Deduction, and Inventory Sync (after transaction commits)
+            // 7. Post-commit: audit log, alerts, reorder, forecast (non-critical)
             process.nextTick(async () => {
                 try {
                     await logActivity(userId, null, 'INVOICE_CREATED',
@@ -175,27 +170,17 @@ class BillingService {
                     const autoReorderService = require('./autoReorderService');
                     const forecastService = require('./forecastService');
 
-                    for (const item of saleData.items) {
-                        const factor = Number(item.conversion_factor) || 1;
-                        const baseQty = Number(item.quantity) * factor;
-                        // Record inventory movement
+                    for (const { product_id, baseQty } of itemsForPostCommit) {
                         await logActivity(userId, null, 'INVENTORY_MOVEMENT',
-                          `Sales checkout: reduced stock of product_id=${item.product_id} by ${baseQty} units for Invoice ${bill_no}`
+                          `Sales checkout: reduced stock of product_id=${product_id} by ${baseQty} units for Invoice ${bill_no}`
                         );
-
-                        // Steps 1-4: Deduct batches FEFO, mark zero-qty batches Expired,
-                        // sync product stock_quantity + expiry_date + status from active batches.
-                        await deductStockFEFO(item.product_id, baseQty);
-
-                        // Step 5: Sync expiry alerts using the now-updated product + active batches.
-                        const soldProduct = await products.findByPk(item.product_id);
+                        const soldProduct = await products.findByPk(product_id);
                         if (soldProduct) await syncAlertsForProduct(soldProduct);
-
-                        await autoReorderService.checkProductReorder(item.product_id);
-                        await forecastService.getProductForecast(item.product_id);
+                        await autoReorderService.checkProductReorder(product_id);
+                        await forecastService.getProductForecast(product_id);
                     }
                 } catch (err) {
-                    console.error('[BillingService] Post-commit inventory sync error:', err.message);
+                    console.error('[BillingService] Post-commit sync error:', err.message);
                 }
             });
 

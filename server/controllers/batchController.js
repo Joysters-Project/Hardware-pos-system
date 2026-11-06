@@ -1,89 +1,137 @@
-const { batch_inventory, products, purchase_orders, po_items, suppliers } = require('../models');
+const { batch_inventory, products, purchase_orders, po_items, suppliers, sequelize } = require('../models');
 const { Op } = require('sequelize');
-const { syncProductFromBatches, refreshBatchStatuses } = require('../services/batchService');
+const { getStoreLocalDate, syncProductFromBatches, refreshBatchStatuses } = require('../services/batchService');
 const { syncAlertsForProduct } = require('../services/alertService');
+
+const isDateOnly = (value) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+};
 
 // POST /api/batch-inventory/receive
 // Body: { po_id, product_id, supplier_batch_number, expiry_date, received_date, received_quantity }
 exports.receiveOrderItem = async (req, res) => {
+  const { po_id, product_id, supplier_batch_number, expiry_date, received_date, received_quantity } = req.body;
+
+  if (!Number.isInteger(Number(po_id)) || Number(po_id) <= 0 ||
+      !Number.isInteger(Number(product_id)) || Number(product_id) <= 0) {
+    return res.status(400).json({ error: 'Valid Purchase Order and Product IDs are required.' });
+  }
+  if (!supplier_batch_number?.trim())
+    return res.status(400).json({ error: 'Supplier Batch Number is required.' });
+  if (!Number.isFinite(Number(received_quantity)) || Number(received_quantity) <= 0)
+    return res.status(400).json({ error: 'Received Quantity must be greater than zero.' });
+  if (!isDateOnly(received_date))
+    return res.status(400).json({ error: 'Received Date is required in YYYY-MM-DD format.' });
+  if (!isDateOnly(expiry_date))
+    return res.status(400).json({ error: 'Expiry Date is required in YYYY-MM-DD format.' });
+  if (expiry_date < received_date)
+    return res.status(400).json({ error: 'Expiry Date cannot be earlier than Received Date.' });
+
+  let transaction;
   try {
-    const { po_id, product_id, supplier_batch_number, expiry_date, received_date, received_quantity } = req.body;
+    transaction = await sequelize.transaction();
+    const po = await purchase_orders.findByPk(po_id, {
+      include: [{ model: po_items }],
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    if (!po) {
+      const error = new Error('Purchase Order not found.');
+      error.statusCode = 404;
+      throw error;
+    }
+    if (po.status !== 'Shipped') {
+      const error = new Error('Only shipped purchase orders can be received.');
+      error.statusCode = 400;
+      throw error;
+    }
 
-    // --- Validation ---
-    if (!supplier_batch_number?.trim())
-      return res.status(400).json({ error: 'Supplier Batch Number is required.' });
-    if (!received_quantity || Number(received_quantity) <= 0)
-      return res.status(400).json({ error: 'Received Quantity must be greater than zero.' });
-    if (!received_date)
-      return res.status(400).json({ error: 'Received Date is required.' });
-    if (!expiry_date)
-      return res.status(400).json({ error: 'Expiry Date is required.' });
-    // Compare as Date objects to avoid string comparison issues
-    if (new Date(expiry_date) < new Date(received_date))
-      return res.status(400).json({ error: 'Expiry Date cannot be earlier than Received Date.' });
+    const poItem = po.po_items?.find(i => Number(i.product_id) === Number(product_id));
+    if (!poItem) {
+      const error = new Error('PO line item not found.');
+      error.statusCode = 404;
+      throw error;
+    }
 
-    // Duplicate batch number check for same product
+    const product = await products.findByPk(product_id, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    if (!product) {
+      const error = new Error('Product not found.');
+      error.statusCode = 404;
+      throw error;
+    }
+
     const duplicate = await batch_inventory.findOne({
       where: { product_id, batch_number: supplier_batch_number.trim() },
+      transaction,
     });
-    if (duplicate)
-      return res.status(400).json({ error: `Batch number "${supplier_batch_number.trim()}" already exists for this product.` });
+    if (duplicate) {
+      const error = new Error(`Batch number "${supplier_batch_number.trim()}" already exists for this product.`);
+      error.statusCode = 400;
+      throw error;
+    }
 
-    // Fetch PO and item — look up by product_id (composite PK: po_id + product_id)
-    const po = await purchase_orders.findByPk(po_id, { include: [{ model: po_items }] });
-    if (!po) return res.status(404).json({ error: 'Purchase Order not found.' });
-
-    const poItem = po.po_items?.find(i => i.product_id === Number(product_id));
-    if (!poItem) return res.status(404).json({ error: 'PO line item not found.' });
-
-    // Check already-received quantity for this PO item
     const alreadyReceived = await batch_inventory.sum('received_quantity', {
       where: { product_id, purchase_order_id: po_id },
+      transaction,
     }) || 0;
-    const remaining = poItem.quantity - alreadyReceived;
-    if (Number(received_quantity) > remaining)
-      return res.status(400).json({ error: `Received Quantity (${received_quantity}) exceeds remaining PO quantity (${remaining}).` });
+    const remaining = Number(poItem.quantity) - Number(alreadyReceived);
+    if (Number(received_quantity) > remaining) {
+      const error = new Error(`Received Quantity (${received_quantity}) exceeds remaining PO quantity (${remaining}).`);
+      error.statusCode = 400;
+      throw error;
+    }
 
-    // --- Create Batch ---
     const batch = await batch_inventory.create({
       batch_number:      supplier_batch_number.trim(),
-      product_id,
+      product_id:        Number(product_id),
       purchase_order_id: po_id,
       supplier_id:       po.supplier_id,
       purchase_price:    poItem.unit_price,
       received_quantity: Number(received_quantity),
       remaining_quantity: Number(received_quantity),
-      received_date:     received_date || new Date().toISOString().split('T')[0],
+      received_date,
       expiry_date,
-      status: 'Active',
-    });
+      status: expiry_date < getStoreLocalDate() ? 'Expired' : 'Active',
+    }, { transaction });
 
-    // --- Sync product stock + expiry ---
-    await syncProductFromBatches(product_id);
+    await syncProductFromBatches(Number(product_id), transaction);
 
-    // --- Sync alerts ---
-    const updatedProduct = await products.findByPk(product_id);
-    if (updatedProduct) await syncAlertsForProduct(updatedProduct).catch(() => {});
+    const allItemsReceived = await Promise.all(po.po_items.map(async (item) => {
+      const received = await batch_inventory.sum('received_quantity', {
+        where: { product_id: item.product_id, purchase_order_id: po_id },
+        transaction,
+      });
+      return Number(received || 0) >= Number(item.quantity);
+    }));
+    if (allItemsReceived.every(Boolean) && po.status !== 'Received') {
+      await po.update({
+        status: 'Received',
+        actual_delivery_date: getStoreLocalDate(),
+      }, { transaction });
+    }
 
+    const updatedProduct = await products.findByPk(product_id, { transaction });
+    await transaction.commit();
+
+    if (updatedProduct) {
+      try {
+        await syncAlertsForProduct(updatedProduct);
+      } catch (error) {
+        console.error(`[Batch Receive] Alert sync failed for product ${product_id}: ${error.message}`);
+      }
+    }
     const io = req.app.get('io');
     if (io) io.emit('products:updated');
 
-    // --- Mark PO as Received if all items fully received ---
-    const totalOrdered = po.po_items.reduce((s, i) => s + i.quantity, 0);
-    const totalReceivedNow = (await batch_inventory.sum('received_quantity', {
-      where: { purchase_order_id: po_id },
-    })) || 0;
-
-    if (totalReceivedNow >= totalOrdered && po.status !== 'Received') {
-      await po.update({
-        status: 'Received',
-        actual_delivery_date: new Date().toISOString().split('T')[0],
-      });
-    }
-
     res.status(201).json({ message: 'Order received and batch created successfully.', batch });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    if (transaction && !transaction.finished) await transaction.rollback();
+    res.status(err.statusCode || 500).json({ error: err.message });
   }
 };
 

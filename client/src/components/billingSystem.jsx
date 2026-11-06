@@ -551,27 +551,14 @@ const BillingSystem = () => {
       const batches = Array.isArray(batchRes.data) ? batchRes.data : [];
       if (batches.length > 0) {
         const today = new Date(); today.setHours(0, 0, 0, 0);
-        const allExpired = batches.every(
-          b => b.expiry_date && new Date(b.expiry_date) < today
-        );
         const hasValidBatch = batches.some(
           b => b.remaining_quantity > 0 &&
             (!b.expiry_date || new Date(b.expiry_date) >= today)
         );
-        if (allExpired) {
+        if (!hasValidBatch) {
           setExpiredProduct(product);
           setShowExpiredModal(true);
-          toast.error(
-            <div>
-              <div style={{ fontWeight: 600 }}>Product has expired</div>
-              <div style={{ fontSize: '0.875rem' }}>This product cannot be sold.</div>
-            </div>,
-            { duration: 3000 }
-          );
-          return;
-        }
-        if (!hasValidBatch) {
-          toast.error('No valid batch is available for this product.');
+          toast.error('This product batch has expired. Sales are not allowed.', { duration: 4000 });
           return;
         }
       }
@@ -844,11 +831,11 @@ const BillingSystem = () => {
       refreshCatalog();
     } catch (err) {
       const msg = err.response?.data?.error || err.message || 'Checkout failed. Please try again.';
-      // Highlight stock shortage messages prominently
-      const isStockError = msg.toLowerCase().includes('stock') || msg.toLowerCase().includes('unavailable');
+      const isExpiredError = msg.toLowerCase().includes('expired') || msg.toLowerCase().includes('batch');
+      const isStockError = !isExpiredError && (msg.toLowerCase().includes('stock') || msg.toLowerCase().includes('unavailable'));
       toast.error(
         <div>
-          <div style={{ fontWeight: 600 }}>{isStockError ? 'Stock shortage' : 'Checkout failed'}</div>
+          <div style={{ fontWeight: 600 }}>{isExpiredError ? 'Batch Expired' : isStockError ? 'Stock shortage' : 'Checkout failed'}</div>
           <div style={{ fontSize: '0.875rem' }}>{msg}</div>
         </div>,
         { duration: 5000 }
@@ -1372,9 +1359,10 @@ const BillingSystem = () => {
             </div>
             <h3 className="expired-modal-title">Product Expired</h3>
             <div className="expired-modal-body">
-              <p>This product expired on</p>
-              <p className="expired-modal-date"><strong>{formatExpiryDate(expiredProduct.expiry_date)}</strong></p>
-              <p className="expired-modal-sub">This product cannot be sold.</p>
+              <p>This product batch has expired. Sales are not allowed.</p>
+              {expiredProduct?.expiry_date && (
+                <p className="expired-modal-date"><strong>Expired: {formatExpiryDate(expiredProduct.expiry_date)}</strong></p>
+              )}
             </div>
             <button className="expired-modal-btn" onClick={() => setShowExpiredModal(false)}>
               OK

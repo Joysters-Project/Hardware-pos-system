@@ -125,7 +125,8 @@ function ItemCommentCell({ item, poId, supplierHasEmail }) {
   );
 }
 
-const TODAY = new Date().toISOString().split('T')[0];
+const now = new Date();
+const TODAY = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
 function ReceiveItemModal({ item, po, onClose }) {
   const receiveMutation = useReceiveOrderItem();
@@ -147,7 +148,7 @@ function ReceiveItemModal({ item, po, onClose }) {
     if (Number(form.received_quantity) > item.quantity) return setError(`Received Quantity cannot exceed ordered quantity (${item.quantity}).`);
     if (!form.received_date) return setError('Received Date is required.');
     if (!form.expiry_date) return setError('Expiry Date is required.');
-    if (new Date(form.expiry_date) < new Date(form.received_date)) return setError('Expiry Date cannot be earlier than Received Date.');
+    if (form.expiry_date < form.received_date) return setError('Expiry Date cannot be earlier than Received Date.');
 
     try {
       await receiveMutation.mutateAsync({
