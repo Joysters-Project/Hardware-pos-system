@@ -21,6 +21,8 @@ export async function setupInventoryApi(page) {
     const [resource, id, action] = new URL(request.url()).pathname.split('/api/')[1].split('/');
     const method = request.method();
     if (!(resource in data)) {
+      // Pass through unknown GETs (layout-level profile/notification calls)
+      // so the app can render normally with real server data.
       if (method === 'GET') return route.continue();
       unexpected.push(`${method} ${request.url()}`);
       return route.abort();

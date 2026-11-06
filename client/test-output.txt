@@ -1,0 +1,305 @@
+◇ injected env (4) from .env.test // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+
+Running 247 tests using 1 worker
+
+◇ injected env (0) from .env.test // tip: ⌘ override existing { override: true }
+
+[1/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:58:1 › customer create, edit, view and delete
+[2/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:77:1 › invalid NIC prevents submission
+[3/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:85:1 › new cheque defaults to local today and five percent discount
+[4/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:91:1 › cheque create, edit, deposit, bounce, repay and delete
+[5/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:116:1 › save error retains values and allows retry
+[6/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:127:1 › empty report and PDF download
+[7/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:146:5 › add customer rejects invalid customer_name
+[8/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:146:5 › add customer rejects invalid nic_number
+[9/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:146:5 › add customer rejects invalid phone_number
+[10/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:146:5 › add customer rejects invalid address
+[11/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:146:5 › edit customer rejects invalid customer_name
+[12/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:146:5 › edit customer rejects invalid nic_number
+[13/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:146:5 › edit customer rejects invalid phone_number
+[14/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:146:5 › edit customer rejects invalid address
+[15/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:160:3 › customer requires customer_name
+[16/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:160:3 › customer requires nic_number
+[17/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:160:3 › customer requires phone_number
+[18/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:160:3 › customer requires address
+[19/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:169:1 › customer edit prefills values and cancel discards changes
+[20/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:182:1 › customer accepts legacy NIC and trims submitted values
+[21/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:195:1 › customer view shows identity and empty cheque history
+[22/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:206:3 › customer view handles API failure without losing record
+[23/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:206:3 › customer edit handles API failure without losing record
+[24/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:206:3 › customer delete handles API failure without losing record
+[25/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:223:1 › declining customer deletion keeps record
+[26/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:231:3 › cheque requires cheque_number
+[27/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:231:3 › cheque requires bank_name
+[28/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:231:3 › cheque requires account_holder_name
+[29/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:231:3 › cheque requires cheque_amount
+[30/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:231:3 › cheque requires cheque_date
+[31/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:231:3 › cheque requires expected_clearance_date
+  1) [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:231:3 › cheque requires expected_clearance_date 
+
+    TimeoutError: page.goto: Timeout 20000ms exceeded.
+    Call log:
+      - navigating to "http://localhost:5173/customer-cheque-exchange", waiting until "load"
+
+
+      45 | test.beforeEach(async ({ page, exchange }) => {
+      46 |   expect(exchange).toBeTruthy();
+    > 47 |   await page.goto('/customer-cheque-exchange');
+         |              ^
+      48 |   await expect(page.locator('.cce-table')).toContainText('Amal Perera');
+      49 | });
+      50 |
+        at d:\Hardware-pos-system\client\tests\customer-cheque\customer-cheque-exchange.specs.js:47:14
+
+    Error Context: test-results\run-artifacts\customer-cheque-customer-c-6a995-res-expected-clearance-date-customer-cheque\error-context.md
+
+
+◇ injected env (0) from .env.test // tip: ◈ secrets for agents [www.dotenvx.com]
+
+[32/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:240:1 › typing customer without selecting prevents cheque submission
+[33/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:248:1 › future received date prevents cheque submission
+[34/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:265:1 › cheque edit prefills values, saves changes and survives reload
+[35/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:281:1 › cancel cheque edit and reopen new form clears old values
+[36/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:295:3 › cheque delete cancel preserves record
+[37/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:295:3 › cheque delete API failure preserves record
+[38/247] [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:307:1 › customer details includes recorded cheque history
+◇ injected env (0) from .env.test // tip: ⌁ auth for agents [www.vestauth.com]
+
+[39/247] [finance] › tests\finance\expense-validation.spec.js:5:1 › expense validation prevents zero amount and missing Other description
+[40/247] [finance] › tests\finance\expense-validation.spec.js:23:5 › Expense Validation - Required Fields and Amount Rules › expense_type rejects empty input
+[41/247] [finance] › tests\finance\expense-validation.spec.js:23:5 › Expense Validation - Required Fields and Amount Rules › amount rejects empty input
+[42/247] [finance] › tests\finance\expense-validation.spec.js:23:5 › Expense Validation - Required Fields and Amount Rules › expense_date rejects empty input
+[43/247] [finance] › tests\finance\expense-validation.spec.js:23:5 › Expense Validation - Required Fields and Amount Rules › amount rejects -1 input
+[44/247] [finance] › tests\finance\expense-validation.spec.js:23:5 › Expense Validation - Required Fields and Amount Rules › amount rejects 1.001 input
+[45/247] [finance] › tests\finance\expense-validation.spec.js:39:3 › Expense Validation - Required Fields and Amount Rules › Other rejects whitespace-only description
+[46/247] [finance] › tests\finance\expense-validation.spec.js:51:3 › Expense Validation - Required Fields and Amount Rules › optional associations and description can be empty
+[47/247] [finance] › tests\finance\expense-validation.spec.js:62:3 › Expense Validation - Required Fields and Amount Rules › asset-linked expense cannot be deleted
+[48/247] [finance] › tests\finance\expenses.spec.js:5:1 › expenses search, filters and pagination
+[49/247] [finance] › tests\finance\expenses.spec.js:20:1 › expense create, view, edit and delete persist across reload
+[50/247] [finance] › tests\finance\expenses.spec.js:45:1 › deleting last expense on page returns to remaining records
+[51/247] [finance] › tests\finance\expenses.spec.js:53:1 › /expenses reports API failure
+[52/247] [finance] › tests\finance\expenses.spec.js:61:3 › Expenses - Page Structure and Modal Behavior › heading, column headers and first-page controls are visible
+[53/247] [finance] › tests\finance\expenses.spec.js:69:3 › Expenses - Page Structure and Modal Behavior › empty dataset shows empty message and no pagination
+[54/247] [finance] › tests\finance\expenses.spec.js:76:3 › Expenses - Page Structure and Modal Behavior › cancel discards form values before reopening
+[55/247] [finance] › tests\finance\expenses.spec.js:87:3 › Expenses - Page Structure and Modal Behavior › close icon dismisses the add modal
+[56/247] [finance] › tests\finance\expenses.spec.js:95:3 › Expenses - Page Structure and Modal Behavior › declining deletion keeps the record
+[57/247] [finance] › tests\finance\expenses.spec.js:103:3 › Expenses - Page Structure and Modal Behavior › delete API failure retains the record and displays the server error
+[58/247] [finance] › tests\finance\expenses.spec.js:114:3 › Expenses - Page Structure and Modal Behavior › blocked print popup displays an actionable error
+[59/247] [finance] › tests\finance\finance-navigation.spec.js:5:1 › finance navigation keeps Salary active on history and returns to expenses
+[60/247] [finance] › tests\finance\salary-history.spec.js:5:1 › salary history pagination, employee summary, search and month filter
+[61/247] [finance] › tests\finance\salary-history.spec.js:18:1 › /salary/history reports API failure
+[62/247] [finance] › tests\finance\salary-history.spec.js:25:3 › Salary History - Structure, Totals and Filters › total includes paid records only and payslips exclude pending records
+[63/247] [finance] › tests\finance\salary-history.spec.js:33:3 › Salary History - Structure, Totals and Filters › empty dataset hides pagination and total bar
+[64/247] [finance] › tests\finance\salary-history.spec.js:41:3 › Salary History - Structure, Totals and Filters › clearing employee filter hides employee summary
+[65/247] [finance] › tests\finance\salary-history.spec.js:49:3 › Salary History - Structure, Totals and Filters › employee with no payments shows an empty table
+[66/247] [finance] › tests\finance\salary-history.spec.js:55:3 › Salary History - Structure, Totals and Filters › year filter excludes records from other years
+[67/247] [finance] › tests\finance\salary-history.spec.js:63:3 › Salary History - Structure, Totals and Filters › blocked payslip popup shows feedback
+[68/247] [finance] › tests\finance\salary-management.spec.js:6:3 › create monthly salary with employee selection and calculation
+[69/247] [finance] › tests\finance\salary-management.spec.js:6:3 › create daily salary with employee selection and calculation
+[70/247] [finance] › tests\finance\salary-management.spec.js:26:1 › salary edit clearly identifies update and saves changes
+[71/247] [finance] › tests\finance\salary-management.spec.js:36:1 › mark pending salary as paid updates available actions
+[72/247] [finance] › tests\finance\salary-management.spec.js:45:1 › salary deletion recovers the previous page
+[73/247] [finance] › tests\finance\salary-management.spec.js:56:1 › /salary reports API failure
+[74/247] [finance] › tests\finance\salary-management.spec.js:64:3 › Salary Management - Page Structure and Modal Behavior › heading, column headers and first-page controls are visible
+[75/247] [finance] › tests\finance\salary-management.spec.js:72:3 › Salary Management - Page Structure and Modal Behavior › empty dataset shows empty message and no pagination
+[76/247] [finance] › tests\finance\salary-management.spec.js:79:3 › Salary Management - Page Structure and Modal Behavior › cancel discards form values before reopening
+[77/247] [finance] › tests\finance\salary-management.spec.js:90:3 › Salary Management - Page Structure and Modal Behavior › close icon dismisses the add modal
+[78/247] [finance] › tests\finance\salary-management.spec.js:98:3 › Salary Management - Page Structure and Modal Behavior › declining deletion keeps the record
+[79/247] [finance] › tests\finance\salary-management.spec.js:106:3 › Salary Management - Page Structure and Modal Behavior › delete API failure retains the record and displays the server error
+  2) [finance] › tests\finance\salary-management.spec.js:106:3 › Salary Management - Page Structure and Modal Behavior › delete API failure retains the record and displays the server error 
+
+    TimeoutError: page.goto: Timeout 20000ms exceeded.
+    Call log:
+      - navigating to "http://localhost:5173/salary", waiting until "load"
+
+
+      105 |
+      106 |   test('delete API failure retains the record and displays the server error', async ({ page, finance }) => {
+    > 107 |     await page.goto('/salary');
+          |                ^
+      108 |     await expect(page.locator('.sal-table tbody tr')).toHaveCount(10);
+      109 |     finance.fail = '/salary/1';
+      110 |     page.once('dialog', dialog => dialog.accept());
+        at d:\Hardware-pos-system\client\tests\finance\salary-management.spec.js:107:16
+
+    Error Context: test-results\run-artifacts\finance-salary-management--a5cbb-d-displays-the-server-error-finance\error-context.md
+
+
+◇ injected env (0) from .env.test // tip: ◈ encrypted .env [www.dotenvx.com]
+
+[80/247] [finance] › tests\finance\salary-management.spec.js:117:3 › Salary Management - Page Structure and Modal Behavior › blocked print popup displays an actionable error
+[81/247] [finance] › tests\finance\salary-management.spec.js:128:5 › Salary Management - Filters and Payment Failures › Pending filter returns only matching salaries
+[82/247] [finance] › tests\finance\salary-management.spec.js:128:5 › Salary Management - Filters and Payment Failures › Paid filter returns only matching salaries
+[83/247] [finance] › tests\finance\salary-management.spec.js:136:3 › Salary Management - Filters and Payment Failures › daily category filter excludes monthly records
+[84/247] [finance] › tests\finance\salary-management.spec.js:144:3 › Salary Management - Filters and Payment Failures › unknown employee search shows no results and clearing restores records
+[85/247] [finance] › tests\finance\salary-management.spec.js:152:3 › Salary Management - Filters and Payment Failures › payment failure leaves salary pending and allows retry
+[86/247] [finance] › tests\finance\salary-validation.spec.js:5:1 › salary dates use local calendar boundaries
+[87/247] [finance] › tests\finance\salary-validation.spec.js:14:1 › negative final salary is rejected without a write
+[88/247] [finance] › tests\finance\salary-validation.spec.js:30:5 › Salary Validation - Required Fields and Numeric Boundaries › #payment_month rejects empty input
+[89/247] [finance] › tests\finance\salary-validation.spec.js:30:5 › Salary Validation - Required Fields and Numeric Boundaries › .sal-modal input[type=date] rejects empty input
+[90/247] [finance] › tests\finance\salary-validation.spec.js:30:5 › Salary Validation - Required Fields and Numeric Boundaries › .sal-modal input[type=date] rejects 2026-08-31 input
+[91/247] [finance] › tests\finance\salary-validation.spec.js:30:5 › Salary Validation - Required Fields and Numeric Boundaries › .sal-modal input[type=date] rejects 2026-10-01 input
+[92/247] [finance] › tests\finance\salary-validation.spec.js:30:5 › Salary Validation - Required Fields and Numeric Boundaries › #bonus_amount rejects -1 input
+[93/247] [finance] › tests\finance\salary-validation.spec.js:30:5 › Salary Validation - Required Fields and Numeric Boundaries › #deduction_amount rejects -1 input
+[94/247] [finance] › tests\finance\salary-validation.spec.js:30:5 › Salary Validation - Required Fields and Numeric Boundaries › #bonus_amount rejects 1.001 input
+[95/247] [finance] › tests\finance\salary-validation.spec.js:30:5 › Salary Validation - Required Fields and Numeric Boundaries › .sal-modal input[type=number] rejects empty input
+[96/247] [finance] › tests\finance\salary-validation.spec.js:47:3 › Salary Validation - Required Fields and Numeric Boundaries › typing an unselected employee prevents submission
+[97/247] [finance] › tests\finance\salary-validation.spec.js:55:3 › Salary Validation - Required Fields and Numeric Boundaries › changing employee text clears the previous selection
+◇ injected env (0) from .env.test // tip: ◈ secrets for agents [www.dotenvx.com]
+
+[98/247] [auth-setup] › tests\auth\auth.setup.js:17:1 › authenticate as admin
+◇ injected env (0) from .env.test // tip: ⌘ enable debugging { debug: true }
+
+[99/247] [people] › tests\people\department-validation.spec.js:23:3 › Department Validation — Name Rules › empty name shows error toast
+[100/247] [people] › tests\people\department-validation.spec.js:30:3 › Department Validation — Name Rules › whitespace-only name shows error toast
+[101/247] [people] › tests\people\department-validation.spec.js:38:3 › Department Validation — Name Rules › valid name with letters and spaces is accepted
+[102/247] [people] › tests\people\department-validation.spec.js:57:3 › Department Validation — Name Rules › backend rejects name with special characters
+[103/247] [people] › tests\people\department-validation.spec.js:75:3 › Department Validation — Name Rules › backend rejects duplicate department name
+[104/247] [people] › tests\people\department-validation.spec.js:105:3 › Department Validation — Budget Rules › empty budget shows error toast
+[105/247] [people] › tests\people\department-validation.spec.js:112:3 › Department Validation — Budget Rules › zero budget shows error toast
+[106/247] [people] › tests\people\department-validation.spec.js:120:3 › Department Validation — Budget Rules › negative budget is blocked by native validation
+[107/247] [people] › tests\people\department-validation.spec.js:129:3 › Department Validation — Budget Rules › positive budget is accepted
+[108/247] [people] › tests\people\department-validation.spec.js:148:3 › Department Validation — Budget Rules › budget with two decimal places is accepted
+[109/247] [people] › tests\people\department-validation.spec.js:167:3 › Department Validation — Budget Rules › budget input has min=0 and step=0.01 attributes
+[110/247] [people] › tests\people\department-validation.spec.js:175:3 › Department Validation — Budget Rules › description field is optional — form submits without it
+[111/247] [people] › tests\people\department-validation.spec.js:200:3 › Department Validation — Inactive Status Rules › setting department Inactive with active employees is blocked
+[112/247] [people] › tests\people\department-validation.spec.js:227:3 › Department Validation — Inactive Status Rules › setting department Inactive succeeds when no active employees
+[113/247] [people] › tests\people\department-validation.spec.js:260:3 › Department Validation — Inactive Status Rules › backend blocks Inactive status with active employees via API
+[114/247] [people] › tests\people\department-validation.spec.js:297:3 › Department Validation — Delete Constraints › deleting department with assigned employees is blocked by backend
+[115/247] [people] › tests\people\department-validation.spec.js:326:3 › Department Validation — Delete Constraints › UI blocks delete when department has assets (asset_count > 0)
+[116/247] [people] › tests\people\department-validation.spec.js:361:3 › Department Validation — Employee Count › employee count on card increments after assigning an employee
+[117/247] [people] › tests\people\department-validation.spec.js:389:3 › Department Validation — Employee Count › employee details appear in department detail view after assignment
+[118/247] [people] › tests\people\departments.spec.js:24:3 › Departments — Page Structure › heading, stats, and cards grid are visible
+[119/247] [people] › tests\people\departments.spec.js:30:3 › Departments — Page Structure › stat cards show Total, Active, Employees, Assets
+[120/247] [people] › tests\people\departments.spec.js:39:3 › Departments — Page Structure › Add Department button is present
+[121/247] [people] › tests\people\departments.spec.js:44:3 › Departments — Page Structure › loading skeleton is shown before data arrives
+[122/247] [people] › tests\people\departments.spec.js:55:3 › Departments — Page Structure › empty state shows "No departments found" when search has no results
+[123/247] [people] › tests\people\departments.spec.js:67:3 › Departments — Search and Filters › search filters department cards
+[124/247] [people] › tests\people\departments.spec.js:74:3 › Departments — Search and Filters › All filter tab shows all departments
+[125/247] [people] › tests\people\departments.spec.js:81:3 › Departments — Search and Filters › Active filter tab shows only Active departments
+[126/247] [people] › tests\people\departments.spec.js:88:3 › Departments — Search and Filters › Inactive filter tab shows only Inactive departments
+[127/247] [people] › tests\people\departments.spec.js:95:3 › Departments — Search and Filters › combined search + Active filter works
+[128/247] [people] › tests\people\departments.spec.js:102:3 › Departments — Search and Filters › filter resets page to 1
+[129/247] [people] › tests\people\departments.spec.js:122:3 › Departments — Pagination › pagination appears with 19 controlled records
+[130/247] [people] › tests\people\departments.spec.js:128:3 › Departments — Pagination › next/prev pagination buttons work
+[131/247] [people] › tests\people\departments.spec.js:159:3 › Departments — CRUD › Add Department modal opens and closes without saving
+[132/247] [people] › tests\people\departments.spec.js:168:3 › Departments — CRUD › Cancel button closes modal without saving
+[133/247] [people] › tests\people\departments.spec.js:175:3 › Departments — CRUD › creates a new department and verifies persistence after reload
+[134/247] [people] › tests\people\departments.spec.js:199:3 › Departments — CRUD › view modal shows department details
+[135/247] [people] › tests\people\departments.spec.js:211:3 › Departments — CRUD › edit form pre-fills existing values
+[136/247] [people] › tests\people\departments.spec.js:223:3 › Departments — CRUD › edit department updates values and persists after reload
+[137/247] [people] › tests\people\departments.spec.js:241:3 › Departments — CRUD › delete confirmation — cancel keeps department
+[138/247] [people] › tests\people\departments.spec.js:251:3 › Departments — CRUD › delete department — accept removes it
+[139/247] [people] › tests\people\departments.spec.js:269:3 › Departments — Detail View › detail view shows budget, spent, remaining, employee and asset counts
+[140/247] [people] › tests\people\departments.spec.js:302:3 › Departments — Detail View › detail view shows empty state when no employees or assets
+[141/247] [people] › tests\people\departments.spec.js:328:3 › Departments — Detail View › detail view shows employee table when employees are assigned
+[142/247] [people] › tests\people\departments.spec.js:357:3 › Departments — Detail View › employee print button is present in detail view when employees exist
+[143/247] [people] › tests\people\departments.spec.js:391:3 › Departments — API Error Handling › shows error toast when department list API fails
+[144/247] [people] › tests\people\departments.spec.js:402:3 › Departments — API Error Handling › submit button shows "Saving..." while request is in flight
+[145/247] [people] › tests\people\employee-validation.spec.js:69:3 › Employee Validation — Required Fields › empty first name shows error toast
+[146/247] [people] › tests\people\employee-validation.spec.js:76:3 › Employee Validation — Required Fields › empty last name shows error toast
+[147/247] [people] › tests\people\employee-validation.spec.js:83:3 › Employee Validation — Required Fields › empty NIC shows error toast
+[148/247] [people] › tests\people\employee-validation.spec.js:90:3 › Employee Validation — Required Fields › empty email shows error toast
+[149/247] [people] › tests\people\employee-validation.spec.js:97:3 › Employee Validation — Required Fields › empty phone shows error toast
+[150/247] [people] › tests\people\employee-validation.spec.js:104:3 › Employee Validation — Required Fields › empty position shows error toast
+[151/247] [people] › tests\people\employee-validation.spec.js:111:3 › Employee Validation — Required Fields › empty salary shows error toast
+[152/247] [people] › tests\people\employee-validation.spec.js:124:3 › Employee Validation — Name Rules › first name with only letters and spaces passes name check
+[153/247] [people] › tests\people\employee-validation.spec.js:132:3 › Employee Validation — Name Rules › first name with digits is rejected
+[154/247] [people] › tests\people\employee-validation.spec.js:139:3 › Employee Validation — Name Rules › first name with symbols is rejected
+[155/247] [people] › tests\people\employee-validation.spec.js:146:3 › Employee Validation — Name Rules › whitespace-only first name is rejected
+[156/247] [people] › tests\people\employee-validation.spec.js:154:3 › Employee Validation — Name Rules › last name with digits is rejected
+[157/247] [people] › tests\people\employee-validation.spec.js:161:3 › Employee Validation — Name Rules › last name with symbols is rejected
+[158/247] [people] › tests\people\employee-validation.spec.js:174:3 › Employee Validation — NIC Rules › 9 digits + V is accepted
+[159/247] [people] › tests\people\employee-validation.spec.js:182:3 › Employee Validation — NIC Rules › 9 digits + v (lowercase) is accepted
+[160/247] [people] › tests\people\employee-validation.spec.js:190:3 › Employee Validation — NIC Rules › 9 digits + X is accepted
+[161/247] [people] › tests\people\employee-validation.spec.js:198:3 › Employee Validation — NIC Rules › 12 digits is accepted
+[162/247] [people] › tests\people\employee-validation.spec.js:206:3 › Employee Validation — NIC Rules › 8 digits + V is rejected
+[163/247] [people] › tests\people\employee-validation.spec.js:213:3 › Employee Validation — NIC Rules › 10 digits + V is rejected
+[164/247] [people] › tests\people\employee-validation.spec.js:220:3 › Employee Validation — NIC Rules › 11 digits only is rejected
+[165/247] [people] › tests\people\employee-validation.spec.js:227:3 › Employee Validation — NIC Rules › letter in wrong position is rejected
+[166/247] [people] › tests\people\employee-validation.spec.js:240:3 › Employee Validation — Email Rules › valid email is accepted
+[167/247] [people] › tests\people\employee-validation.spec.js:248:3 › Employee Validation — Email Rules › email without @ is rejected
+[168/247] [people] › tests\people\employee-validation.spec.js:255:3 › Employee Validation — Email Rules › email without domain is rejected
+[169/247] [people] › tests\people\employee-validation.spec.js:262:3 › Employee Validation — Email Rules › email without TLD is rejected
+[170/247] [people] › tests\people\employee-validation.spec.js:275:3 › Employee Validation — Position Rules › position with letters and spaces is accepted
+[171/247] [people] › tests\people\employee-validation.spec.js:283:3 › Employee Validation — Position Rules › position with digits is rejected
+[172/247] [people] › tests\people\employee-validation.spec.js:290:3 › Employee Validation — Position Rules › position with symbols is rejected
+[173/247] [people] › tests\people\employee-validation.spec.js:303:3 › Employee Validation — Salary Rules › salary of zero is rejected
+[174/247] [people] › tests\people\employee-validation.spec.js:310:3 › Employee Validation — Salary Rules › negative salary is rejected
+[175/247] [people] › tests\people\employee-validation.spec.js:317:3 › Employee Validation — Salary Rules › empty department is rejected without sending a mutation
+[176/247] [people] › tests\people\employee-validation.spec.js:328:3 › Employee Validation — Salary Rules › positive salary passes salary check
+[177/247] [people] › tests\people\employee-validation.spec.js:342:3 › Employee Validation — Join Date Rules › empty join date is rejected
+[178/247] [people] › tests\people\employee-validation.spec.js:350:3 › Employee Validation — Join Date Rules › future join date is blocked without sending a mutation
+[179/247] [people] › tests\people\employee-validation.spec.js:364:3 › Employee Validation — Join Date Rules › join date has max set to today
+[180/247] [people] › tests\people\employee-validation.spec.js:371:3 › Employee Validation — Join Date Rules › past join date is accepted
+[181/247] [people] › tests\people\employee-validation.spec.js:380:3 › Employee Validation — Join Date Rules › today as join date is accepted
+[182/247] [people] › tests\people\employee-validation.spec.js:396:3 › Employee Validation — Phone Rules › valid 10-digit 071 prefix is accepted
+[183/247] [people] › tests\people\employee-validation.spec.js:404:3 › Employee Validation — Phone Rules › valid 078 prefix is accepted
+[184/247] [people] › tests\people\employee-validation.spec.js:412:3 › Employee Validation — Phone Rules › 9-digit number is rejected
+[185/247] [people] › tests\people\employee-validation.spec.js:419:3 › Employee Validation — Phone Rules › wrong prefix 079 is blocked by input filter
+[186/247] [people] › tests\people\employee-validation.spec.js:427:3 › Employee Validation — Phone Rules › non-digit input is stripped by filterSriLankanPhoneInput
+[187/247] [people] › tests\people\employee-validation.spec.js:435:3 › Employee Validation — Phone Rules › phone input maxlength is 10
+[188/247] [people] › tests\people\employee-validation.spec.js:442:3 › Employee Validation — Phone Rules › digit counter shows 10/10 when full number entered
+[189/247] [people] › tests\people\employee-validation.spec.js:455:3 › Employee Validation — Duplicate Name › duplicate full name (case-insensitive) is rejected
+[190/247] [people] › tests\people\employee-validation.spec.js:498:3 › Employee Validation — Duplicate Name › editing without changing name does not trigger self-duplicate error
+[191/247] [people] › tests\people\employee-validation.spec.js:541:3 › Employee Validation — Photo Size › photo exactly 1 MiB is accepted
+[192/247] [people] › tests\people\employee-validation.spec.js:551:3 › Employee Validation — Photo Size › photo below 1 MiB is accepted (preview shown)
+[193/247] [people] › tests\people\employee-validation.spec.js:563:3 › Employee Validation — Photo Size › photo above 1 MiB is rejected with toast
+[194/247] [people] › tests\people\employee-validation.spec.js:577:3 › Employee Validation — Backend Uniqueness (API) › backend rejects duplicate NIC
+[195/247] [people] › tests\people\employee-validation.spec.js:618:3 › Employee Validation — Backend Uniqueness (API) › backend rejects duplicate email
+[196/247] [people] › tests\people\employees.spec.js:25:3 › Employees — Page Structure › heading, stats, and table are visible
+[197/247] [people] › tests\people\employees.spec.js:32:3 › Employees — Page Structure › stat cards show Total, Active, Resigned, Inactive
+[198/247] [people] › tests\people\employees.spec.js:41:3 › Employees — Page Structure › table has correct column headers
+[199/247] [people] › tests\people\employees.spec.js:50:3 › Employees — Page Structure › loading state shows "Loading..." row
+[200/247] [people] › tests\people\employees.spec.js:63:3 › Employees — Page Structure › empty state shows "No employees found" when search has no results
+[201/247] [people] › tests\people\employees.spec.js:69:3 › Employees — Page Structure › Export PDF button is present
+[202/247] [people] › tests\people\employees.spec.js:74:3 › Employees — Page Structure › Add Employee button is present
+[203/247] [people] › tests\people\employees.spec.js:85:3 › Employees — Search and Filters › search by name filters results
+[204/247] [people] › tests\people\employees.spec.js:92:3 › Employees — Search and Filters › status filter — Active shows only Active rows
+[205/247] [people] › tests\people\employees.spec.js:103:3 › Employees — Search and Filters › status filter — Resigned shows only Resigned rows
+[206/247] [people] › tests\people\employees.spec.js:113:3 › Employees — Search and Filters › department filter reduces results
+[207/247] [people] › tests\people\employees.spec.js:124:3 › Employees — Search and Filters › combined status + department filter works without error
+[208/247] [people] › tests\people\employees.spec.js:135:3 › Employees — Search and Filters › search resets to page 1
+[209/247] [people] › tests\people\employees.spec.js:159:3 › Employees — Pagination › pagination appears with 21 controlled records
+[210/247] [people] › tests\people\employees.spec.js:165:3 › Employees — Pagination › next/prev pagination buttons work
+[211/247] [people] › tests\people\employees.spec.js:214:3 › Employees — CRUD › Add Employee modal opens and closes without saving
+[212/247] [people] › tests\people\employees.spec.js:223:3 › Employees — CRUD › Cancel button closes modal without saving
+[213/247] [people] › tests\people\employees.spec.js:231:3 › Employees — CRUD › reopening Add modal has clean/default state
+[214/247] [people] › tests\people\employees.spec.js:244:3 › Employees — CRUD › creates a new employee and verifies persistence after reload
+[215/247] [people] › tests\people\employees.spec.js:279:3 › Employees — CRUD › view modal shows correct employee details
+[216/247] [people] › tests\people\employees.spec.js:293:3 › Employees — CRUD › edit form pre-fills existing values
+[217/247] [people] › tests\people\employees.spec.js:308:3 › Employees — CRUD › edit employee updates values and persists after reload
+[218/247] [people] › tests\people\employees.spec.js:329:3 › Employees — CRUD › delete confirmation — cancel keeps employee
+[219/247] [people] › tests\people\employees.spec.js:340:3 › Employees — CRUD › delete employee — accept confirmation removes employee
+[220/247] [people] › tests\people\employees.spec.js:358:3 › Employees — Salary Categories › salary_category dropdown has Monthly Worker and Daily Worker options
+[221/247] [people] › tests\people\employees.spec.js:367:3 › Employees — Salary Categories › table shows "Monthly Worker" / "Daily Worker" in Salary Category column
+[222/247] [people] › tests\people\employees.spec.js:384:3 › Employees — Department Assignment › only Active departments appear in the department dropdown
+[223/247] [people] › tests\people\employees.spec.js:419:3 › Employees — Photo Upload › photo upload area is present in Add modal
+[224/247] [people] › tests\people\employees.spec.js:426:3 › Employees — Photo Upload › uploading a valid image shows preview
+[225/247] [people] › tests\people\employees.spec.js:450:3 › Employees — Export PDF › Export PDF opens a new window with employee report content
+[226/247] [people] › tests\people\employees.spec.js:474:3 › Employees — API Error Handling › shows error toast when employee list API fails
+[227/247] [people] › tests\people\employees.spec.js:485:3 › Employees — API Error Handling › submit button shows "Saving..." while request is in flight
+[228/247] [people] › tests\people\people-navigation.spec.js:16:3 › People — Top Navigation Structure › People heading is visible on Employees page
+[229/247] [people] › tests\people\people-navigation.spec.js:21:3 › People — Top Navigation Structure › People heading is visible on Departments page
+[230/247] [people] › tests\people\people-navigation.spec.js:26:3 › People — Top Navigation Structure › top-nav contains Employees and Departments links
+[231/247] [people] › tests\people\people-navigation.spec.js:33:3 › People — Top Navigation Structure › Employees link is active on /employees
+[232/247] [people] › tests\people\people-navigation.spec.js:39:3 › People — Top Navigation Structure › Departments link is active on /departments
+[233/247] [people] › tests\people\people-navigation.spec.js:45:3 › People — Top Navigation Structure › no /people route exists — navigating to /people redirects away
+[234/247] [people] › tests\people\people-navigation.spec.js:58:3 › People — Switching Between Pages › clicking Departments link navigates to /departments
+[235/247] [people] › tests\people\people-navigation.spec.js:65:3 › People — Switching Between Pages › clicking Employees link navigates to /employees
+[236/247] [people] › tests\people\people-navigation.spec.js:72:3 › People — Switching Between Pages › direct navigation to /employees loads correctly
+[237/247] [people] › tests\people\people-navigation.spec.js:79:3 › People — Switching Between Pages › direct navigation to /departments loads correctly
+[238/247] [people] › tests\people\people-navigation.spec.js:86:3 › People — Switching Between Pages › browser refresh on /employees keeps the page loaded
+[239/247] [people] › tests\people\people-navigation.spec.js:93:3 › People — Switching Between Pages › browser refresh on /departments keeps the page loaded
+[240/247] [people] › tests\people\people-navigation.spec.js:106:3 › People — Admin Routes › /employees is accessible as admin
+[241/247] [people] › tests\people\people-navigation.spec.js:112:3 › People — Admin Routes › /departments is accessible as admin
+[242/247] [people] › tests\people\people-navigation.spec.js:118:3 › People — Admin Routes › admin Employees nav link points to /employees (no /manager prefix)
+[243/247] [people] › tests\people\people-navigation.spec.js:125:3 › People — Admin Routes › admin Departments nav link points to /departments (no /manager prefix)
+[244/247] [people] › tests\people\people-navigation.spec.js:138:3 › People — Unauthenticated Redirect › unauthenticated access to /employees redirects to login
+[245/247] [people] › tests\people\people-navigation.spec.js:149:3 › People — Unauthenticated Redirect › unauthenticated access to /departments redirects to login
+[246/247] [people] › tests\people\people-navigation.spec.js:168:3 › People — Manager Route Behavior (admin session) › /manager/employees with admin session does not stay on that route
+[247/247] [people] › tests\people\people-navigation.spec.js:175:3 › People — Manager Route Behavior (admin session) › /manager/departments with admin session does not stay on that route
+  2 failed
+    [customer-cheque] › tests\customer-cheque\customer-cheque-exchange.specs.js:231:3 › cheque requires expected_clearance_date 
+    [finance] › tests\finance\salary-management.spec.js:106:3 › Salary Management - Page Structure and Modal Behavior › delete API failure retains the record and displays the server error 
+  245 passed (17.2m)

@@ -12,7 +12,7 @@ import "../styles/Departments.css";
 
 export const DashboardLayoutContext = createContext(false);
 
-function DashboardLayoutShell({ children, active }) {
+function DashboardLayoutShell({ children, active, onBackNavigation }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, role } = useAuth();
@@ -37,6 +37,10 @@ function DashboardLayoutShell({ children, active }) {
 
   /* Handle UI back button click */
   const handleBackNavigation = () => {
+    if (onBackNavigation) {
+      onBackNavigation();
+      return;
+    }
     const targetDash = getDashboardPath();
     if (location.pathname === targetDash) {
       setShowLogoutModal(true);
@@ -48,6 +52,7 @@ function DashboardLayoutShell({ children, active }) {
   /* Handle browser back button navigation without adding extra history entries. */
   useEffect(() => {
     const handlePopState = () => {
+      if (onBackNavigation) return;
       const targetDash = getDashboardPath();
       if (window.location.pathname === targetDash) {
         setShowLogoutModal(true);
@@ -58,7 +63,7 @@ function DashboardLayoutShell({ children, active }) {
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [location.pathname, role, navigate]);
+  }, [location.pathname, role, navigate, onBackNavigation]);
 
   const handleLogoutClick = () => {
     setShowLogoutModal(true);
@@ -129,13 +134,16 @@ function DashboardLayoutShell({ children, active }) {
   );
 }
 
-export default function DashboardLayout({ children, active }) {
+export default function DashboardLayout({ children, active, onBackNavigation }) {
   const isNested = useContext(DashboardLayoutContext);
 
   if (isNested) {
     return <>{children}</>;
   }
 
-  return <DashboardLayoutShell active={active}>{children}</DashboardLayoutShell>;
+  return (
+    <DashboardLayoutShell active={active} onBackNavigation={onBackNavigation}>
+      {children}
+    </DashboardLayoutShell>
+  );
 }
-

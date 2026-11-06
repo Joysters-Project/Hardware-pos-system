@@ -27,6 +27,7 @@ import {
   Archive,
   FolderOpen,
   Banknote,
+  LineChart,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import "../styles/Sidebar.css";
@@ -131,6 +132,12 @@ const getNavItems = (role) => {
       icon: Bell,
       path: `${prefix}/alerts`,
     },
+    {
+      key: "analysis",
+      label: "Analysis Report",
+      icon: LineChart,
+      path: `${prefix}/analysis-report`,
+    },
   ];
 };
 
@@ -223,6 +230,8 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
         );
       case "alerts":
         return active === "alerts" || path.includes("/alerts");
+      case "analysis":
+        return active === "analysis" || path.includes("/analysis-report");
       default:
         return false;
     }

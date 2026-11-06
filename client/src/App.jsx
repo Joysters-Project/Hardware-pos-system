@@ -58,6 +58,7 @@ import ForecastDashboard from "./pages/procurement/ForecastDashboard";
 import NotificationCenter from "./pages/procurement/NotificationCenter";
 import ProcurementReports from "./pages/procurement/ProcurementReports";
 import BatchInventory from "./pages/inventory/BatchInventory";
+import AnalysisReport from "./pages/AnalysisReport";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
@@ -195,6 +196,9 @@ function AppRoutes() {
         <Route path="reports"             element={<ProcurementReports />} />
         <Route path="notifications"       element={<NotificationCenter />} />
       </Route>
+
+      <Route path="/analysis-report"         element={<ProtectedRoute><AnalysisReport /></ProtectedRoute>} />
+      <Route path="/manager/analysis-report" element={<ProtectedRoute requiredRole="manager"><AnalysisReport /></ProtectedRoute>} />
 
       <Route path="/inventory/batches"         element={<ProtectedRoute><BatchInventory /></ProtectedRoute>} />
       <Route path="/manager/inventory/batches" element={<ProtectedRoute requiredRole="manager"><BatchInventory /></ProtectedRoute>} />

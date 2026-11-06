@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useLocation, useSearchParams, Link } from "react-router-dom";
 import {
   ChevronLeft, ChevronRight, Search, Download,
-  RefreshCw, ArrowLeft
+  ArrowLeft
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
@@ -107,7 +107,12 @@ function SalaryHistoryPage() {
   useEffect(() => {
     setPage(current => Math.min(current, Math.max(1, totalPages)));
   }, [totalPages]);
-  const paginated   = payments.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const paginated   = [...payments]
+    .sort((left, right) => {
+      const statusDifference = (left.payment_status === "Paid" ? 1 : 0) - (right.payment_status === "Paid" ? 1 : 0);
+      return statusDifference || Number(left.salary_payment_id) - Number(right.salary_payment_id);
+    })
+    .slice((page - 1) * PER_PAGE, page * PER_PAGE);
   const selectedEmp = employees.find(e => String(e.employee_id) === String(filterEmp));
   const totalPaid   = payments
     .filter(p => p.payment_status === "Paid")
@@ -126,9 +131,6 @@ function SalaryHistoryPage() {
           <Link to="/salary" className="sal-btn-outline">
             <ArrowLeft size={15} /> Back to Salary
           </Link>
-          <button className="sal-btn-outline" onClick={loadHistory} disabled={loading}>
-            <RefreshCw size={14} className={loading ? "spin" : ""} /> Refresh
-          </button>
         </div>
       </div>
 
@@ -194,7 +196,7 @@ function SalaryHistoryPage() {
         <table className="sal-table">
           <thead>
             <tr>
-              <th>#</th><th>Employee</th><th>Period</th>
+              <th>ID</th><th>Employee</th><th>Period</th>
               <th>Basic (LKR)</th><th>Bonus</th><th>Deduction</th>
               <th>Final (LKR)</th><th>Date Paid</th><th>Method</th><th>Status</th><th>Payslip</th>
             </tr>

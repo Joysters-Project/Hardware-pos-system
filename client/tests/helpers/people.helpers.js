@@ -7,14 +7,13 @@
  * @param {import('@playwright/test').Page} page
  */
 export async function restoreSession(page) {
-  await page.addInitScript(() => {
-    const keys = ['token', 'role', 'userName', 'userId', 'userFirstName',
-                  'userLastName', 'userFullName', 'loginTime'];
-    for (const key of keys) {
-      const val = localStorage.getItem(key);
-      if (val && !sessionStorage.getItem(key)) {
-        sessionStorage.setItem(key, val);
-      }
+  await page.addInitScript((defaults) => {
+    if (location.origin === 'null') return;
+
+    for (let index = 0; index < localStorage.length; index++) {
+      const key = localStorage.key(index);
+      const value = localStorage.getItem(key);
+      if (value !== null) sessionStorage.setItem(key, value);
     }
   });
 }

@@ -237,7 +237,7 @@ function EmployeesPage() {
       <div class="hdr"><div><h1>Employees Report — Mathumithan Hardware</h1>
       <p style="font-size:11px;color:#888;margin-top:3px">Total: ${filtered.length} employee(s)</p></div>
       <div class="meta">Generated: ${new Date().toLocaleString()}</div></div>
-      <table><thead><tr><th>#</th><th>Name</th><th>NIC</th><th>Position</th><th>Department</th><th>Salary Category</th><th>Join Date</th><th>Phone</th><th>Email</th><th>Salary</th><th>Status</th></tr></thead>
+      <table><thead><tr><th>ID</th><th>Name</th><th>NIC</th><th>Position</th><th>Department</th><th>Salary Category</th><th>Join Date</th><th>Phone</th><th>Email</th><th>Salary</th><th>Status</th></tr></thead>
       <tbody>${rows}</tbody></table>
       <div class="footer">Mathumithan Hardware POS System &bull; Employees Report &bull; Confidential</div>
       </body></html>`);
@@ -277,7 +277,7 @@ function EmployeesPage() {
     const term = search.toLowerCase();
     const matchSearch = !term || [e.first_name, e.last_name, e.email, e.phone_no, e.nic].some(v => (v || "").toLowerCase().includes(term));
     return matchSearch && (!filterStatus || e.status === filterStatus) && (!filterDept || String(e.department_id) === String(filterDept));
-  });
+  }).sort((left, right) => Number(left.employee_id) - Number(right.employee_id));
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
@@ -327,7 +327,7 @@ function EmployeesPage() {
       <div className="emp-table-wrap">
         <table className="emp-table">
           <thead><tr>
-            <th>Photo</th><th>#</th><th>Name</th><th>NIC</th><th>Position</th><th>Department</th><th>Salary Category</th><th>Join Date</th>
+            <th>Photo</th><th>ID</th><th>Name</th><th>NIC</th><th>Position</th><th>Department</th><th>Salary Category</th><th>Join Date</th>
             <th>Phone</th><th>Salary (LKR)</th><th>Status</th><th>Actions</th>
           </tr></thead>
           <tbody>
