@@ -18,6 +18,21 @@ body {
   color: var(--text);
 }
 
+/* ── Remove number input spinners/steppers globally (No Up/Down arrows) ── */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  display: none !important;
+  margin: 0 !important;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield !important;
+  -webkit-appearance: textfield !important;
+  appearance: textfield !important;
+}
+
 /* Print Media Query: Hides UI and only shows Receipt (Task: Success modal + Print) */
 @media print {
   body * {

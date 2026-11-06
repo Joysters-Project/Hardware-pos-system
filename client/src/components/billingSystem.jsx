@@ -5,9 +5,9 @@ import {
   CreditCard, Printer, Download, XCircle, CheckCircle,
   User, Phone, MapPin, DollarSign, Receipt, Tag,
   AlertCircle, AlertTriangle, ArrowRight, Sparkles,
-  TrendingUp, Clock, Zap, LayoutGrid, ListOrdered, FolderOpen, Calendar
+  TrendingUp, Clock, Zap, LayoutGrid, ListOrdered, FolderOpen, Calendar, Camera
 } from 'lucide-react';
-import api from '../api/axios';
+import api, { productService } from '../services/api';
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
 import { subscribeToEvent } from '../services/socketSingleton';
 import { jsPDF } from 'jspdf';
@@ -16,6 +16,10 @@ import { printWithTemplate, escapeHtml } from '../utils/printTemplate';
 import SuccessAnim from './SuccessAnim';
 import ProjectsTab from './ProjectsTab';
 import toast from 'react-hot-toast';
+import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
+import { playScanSuccessBeep, playScanErrorBeep } from '../utils/barcodeAudio';
+import CameraScannerModal from './scanner/CameraScannerModal';
+import AttachBarcodeModal from './scanner/AttachBarcodeModal';
 import '../styles/BillingSystem.css';
 import '../styles/Procurement.css';
 
@@ -39,6 +43,13 @@ const BillingSystem = () => {
   const [expiredProduct, setExpiredProduct] = useState(null);
   const searchInputRef = useRef(null);
   const navigate = useNavigate();
+
+  // Barcode and Scanner state
+  const [isCameraScannerOpen, setIsCameraScannerOpen] = useState(false);
+  const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
+  const [unrecognizedBarcode, setUnrecognizedBarcode] = useState('');
+  const [highlightedItemId, setHighlightedItemId] = useState(null);
+  const highlightTimerRef = useRef(null);
 
   // Success Animation state
   const [showSuccess, setShowSuccess] = useState(false);
@@ -362,12 +373,32 @@ const BillingSystem = () => {
     }
   };
 
-  // Handle Enter key for fast Barcode Scanner input
+  // Handle Enter key for search and manual barcode entry
   const handleSearchKeyDown = async (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const query = searchQuery.trim();
       if (!query) return;
+
+      // Try exact barcode lookup first
+      try {
+        const barcodeRes = await productService.getByBarcode(query);
+        if (barcodeRes.data?.product) {
+          const { product, matched_unit } = barcodeRes.data;
+          const targetUnitId = matched_unit?.unit_id || product.unit_id;
+          await handleAddToCart(product, targetUnitId);
+          playScanSuccessBeep();
+          setHighlightedItemId(`${product.product_id}_${targetUnitId}`);
+          if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+          highlightTimerRef.current = setTimeout(() => setHighlightedItemId(null), 1500);
+          setSearchQuery('');
+          setSearchResults([]);
+          setShowResults(false);
+          return;
+        }
+      } catch (err) {
+        // Not an exact barcode match, proceed to normal query search
+      }
 
       let items = searchResults;
       if (items.length === 0) {
@@ -380,6 +411,7 @@ const BillingSystem = () => {
       }
 
       if (items.length === 0) {
+        playScanErrorBeep();
         toast.error(`No product found for barcode/query "${query}"`);
         return;
       }
@@ -410,6 +442,10 @@ const BillingSystem = () => {
 
       if (matchedProduct) {
         handleAddToCart(matchedProduct, matchedAltUnitId);
+        playScanSuccessBeep();
+        setHighlightedItemId(`${matchedProduct.product_id}_${matchedAltUnitId || matchedProduct.unit_id}`);
+        if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+        highlightTimerRef.current = setTimeout(() => setHighlightedItemId(null), 1500);
         setSearchQuery('');
         setSearchResults([]);
         setShowResults(false);
@@ -609,6 +645,90 @@ const BillingSystem = () => {
     setSearchQuery('');
     setShowResults(false);
   };
+
+  // Shared Barcode Scan Handler (Hardware Scanner & Camera Scanner)
+  const handleBarcodeScan = async (code) => {
+    if (!code) return;
+    const cleanCode = typeof code === 'string' ? code.trim() : '';
+    if (!cleanCode) return;
+
+    try {
+      const res = await productService.getByBarcode(cleanCode);
+      const { product, matched_unit } = res.data;
+
+      if (!product) {
+        throw new Error('Product not found');
+      }
+
+      // Check warnings: inactive, out of stock, expired
+      const isInactive = String(product.status).toLowerCase() === 'inactive';
+      const isOutOfStock = (product.stock_quantity ?? 0) <= 0;
+      const isExpired = product.expiry_date && new Date(product.expiry_date) < new Date();
+
+      if (isInactive || isOutOfStock || isExpired) {
+        const issues = [];
+        if (isInactive) issues.push('INACTIVE');
+        if (isOutOfStock) issues.push('OUT OF STOCK');
+        if (isExpired) issues.push('EXPIRED');
+
+        const warningMsg = `Warning: "${product.product_name}" is ${issues.join(' and ')}. Do you want to proceed and add it to the bill?`;
+        const proceed = window.confirm(warningMsg);
+        if (!proceed) {
+          return;
+        }
+      }
+
+      const targetUnitId = matched_unit?.unit_id || product.unit_id;
+      await handleAddToCart(product, targetUnitId);
+
+      // Play success audio chime
+      playScanSuccessBeep();
+
+      // Highlight the updated/added item in the cart
+      setHighlightedItemId(`${product.product_id}_${targetUnitId}`);
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+      highlightTimerRef.current = setTimeout(() => {
+        setHighlightedItemId(null);
+      }, 1500);
+
+      toast.success(
+        <div>
+          <div style={{ fontWeight: 600 }}>Scanned: {product.product_name}</div>
+          <div style={{ fontSize: '0.8rem', color: '#555' }}>
+            Unit: {matched_unit?.unit_name || 'Base'} | Barcode: {cleanCode}
+          </div>
+        </div>,
+        { duration: 2500 }
+      );
+    } catch (err) {
+      console.warn('Barcode scan lookup failed:', err);
+      // Play error buzz
+      playScanErrorBeep();
+
+      // Open AttachBarcodeModal
+      setUnrecognizedBarcode(cleanCode);
+      setIsAttachModalOpen(true);
+      toast.error(`Barcode "${cleanCode}" not found. You can attach it to a product.`);
+    }
+  };
+
+  const handleBarcodeAttached = (product, unitId) => {
+    const targetUnitId = unitId || product.unit_id;
+    handleAddToCart(product, targetUnitId);
+    playScanSuccessBeep();
+    setHighlightedItemId(`${product.product_id}_${targetUnitId}`);
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    highlightTimerRef.current = setTimeout(() => {
+      setHighlightedItemId(null);
+    }, 1500);
+  };
+
+  // Hardware Scanner (keyboard-wedge) listener
+  useBarcodeScanner({
+    onScan: handleBarcodeScan,
+    searchInputId: 'pos-search',
+    enabled: true,
+  });
 
   const handleUnitChange = (index, targetUnitId) => {
     setCart(cart.map((item, i) => {
@@ -971,6 +1091,15 @@ const BillingSystem = () => {
                     <X size={16} />
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => setIsCameraScannerOpen(true)}
+                  className="pos-search-camera-btn"
+                  title="Scan Barcode / QR with Camera"
+                >
+                  <Camera size={16} />
+                  <span>Scan</span>
+                </button>
                 <span className="pos-search-kbd-modern">F1</span>
               </div>
 
@@ -1053,62 +1182,65 @@ const BillingSystem = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {cart.map((item, idx) => (
-                        <tr key={idx}>
-                          <td>
-                            <div className="table-item-name" title={item.product_name}>{item.product_name}</div>
-                            <div className="table-item-price">Rs.{item.unit_price.toFixed(2)} per {item.selected_unit_name || 'unit'}</div>
-                          </td>
+                      {cart.map((item, idx) => {
+                        const isHighlighted = highlightedItemId === `${item.product_id}_${item.selected_unit_id}`;
+                        return (
+                          <tr key={idx} className={isHighlighted ? 'row-scan-highlight' : ''}>
+                            <td>
+                              <div className="table-item-name" title={item.product_name}>{item.product_name}</div>
+                              <div className="table-item-price">Rs.{item.unit_price.toFixed(2)} per {item.selected_unit_name || 'unit'}</div>
+                            </td>
 
-                          {/* Unit column — always a select; shows options if multi-unit, single option if not */}
-                          <td style={{ textAlign: 'center' }}>
-                            <select id="select_field" name="select_field"
-                              className={`unit-select-table${item.available_units && item.available_units.length > 1 ? ' multi' : ' single'}`}
-                              value={item.selected_unit_id}
-                              onChange={(e) => handleUnitChange(idx, e.target.value)}
-                              disabled={!item.available_units || item.available_units.length <= 1}
-                            >
-                              {(item.available_units || []).map(au => (
-                                <option key={au.unit_id} value={au.unit_id}>
-                                  {au.unit_name}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
+                            {/* Unit column — always a select; shows options if multi-unit, single option if not */}
+                            <td style={{ textAlign: 'center' }}>
+                              <select id="select_field" name="select_field"
+                                className={`unit-select-table${item.available_units && item.available_units.length > 1 ? ' multi' : ' single'}`}
+                                value={item.selected_unit_id}
+                                onChange={(e) => handleUnitChange(idx, e.target.value)}
+                                disabled={!item.available_units || item.available_units.length <= 1}
+                              >
+                                {(item.available_units || []).map(au => (
+                                  <option key={au.unit_id} value={au.unit_id}>
+                                    {au.unit_name}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
 
-                          <td style={{ textAlign: 'center' }}>
-                            <input id="quantity" name="quantity"
-                              type="number"
-                              className="qty-input-table"
-                              value={item.quantity}
-                              onChange={(e) => handleUpdateQty(idx, parseFloat(e.target.value) || 0)}
-                              min="0.01"
-                              step="0.01"
-                            />
-                          </td>
-                          <td style={{ textAlign: 'center' }}>
-                            <input id="number_field" name="number_field"
-                              type="text"
-                              inputMode="decimal"
-                              className="discount-input-table"
-                              value={item.discountInput !== undefined ? item.discountInput : (item.discount || 0)}
-                              onChange={(e) => handleUpdateDiscount(idx, e.target.value)}
-                              onBlur={() => handleBlurDiscount(idx)}
-                            />
-                          </td>
-                          <td style={{ textAlign: 'right' }}>
-                            <strong>Rs.{((item.unit_price * item.quantity) - (item.discount || 0)).toFixed(2)}</strong>
-                            {((item.unit_price * item.quantity) - (item.discount || 0)) < (item.cost_price || 0) * item.quantity && (
-                              <div className="discount-warning">Final price below cost</div>
-                            )}
-                          </td>
-                          <td>
-                            <button className="table-remove-btn" onClick={() => handleRemoveFromCart(idx)}>
-                              <X size={14} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                            <td style={{ textAlign: 'center' }}>
+                              <input id="quantity" name="quantity"
+                                type="number"
+                                className="qty-input-table"
+                                value={item.quantity}
+                                onChange={(e) => handleUpdateQty(idx, parseFloat(e.target.value) || 0)}
+                                min="0.01"
+                                step="0.01"
+                              />
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              <input id="number_field" name="number_field"
+                                type="text"
+                                inputMode="decimal"
+                                className="discount-input-table"
+                                value={item.discountInput !== undefined ? item.discountInput : (item.discount || 0)}
+                                onChange={(e) => handleUpdateDiscount(idx, e.target.value)}
+                                onBlur={() => handleBlurDiscount(idx)}
+                              />
+                            </td>
+                            <td style={{ textAlign: 'right' }}>
+                              <strong>Rs.{((item.unit_price * item.quantity) - (item.discount || 0)).toFixed(2)}</strong>
+                              {((item.unit_price * item.quantity) - (item.discount || 0)) < (item.cost_price || 0) * item.quantity && (
+                                <div className="discount-warning">Final price below cost</div>
+                              )}
+                            </td>
+                            <td>
+                              <button className="table-remove-btn" onClick={() => handleRemoveFromCart(idx)}>
+                                <X size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1457,6 +1589,21 @@ const BillingSystem = () => {
           </div>
         </div>
       )}
+
+      {/* Camera Barcode Scanner Modal */}
+      <CameraScannerModal
+        isOpen={isCameraScannerOpen}
+        onClose={() => setIsCameraScannerOpen(false)}
+        onScan={handleBarcodeScan}
+      />
+
+      {/* Attach Unrecognized Barcode Modal */}
+      <AttachBarcodeModal
+        isOpen={isAttachModalOpen}
+        barcode={unrecognizedBarcode}
+        onClose={() => setIsAttachModalOpen(false)}
+        onAttached={handleBarcodeAttached}
+      />
     </div>
   );
 };

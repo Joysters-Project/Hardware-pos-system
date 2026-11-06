@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Pencil, Trash2, Eye, Plus, RefreshCw, FileDown, Layers, Settings, Check, X } from "lucide-react";
+import { Pencil, Trash2, Eye, Plus, RefreshCw, FileDown, Layers, Settings, Check, X, Tag, Printer } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../api/axios";
 import { escapeHtml, printWithTemplate } from "../utils/printTemplate";
 import { formatPurchaseOrderNumber } from "../utils/purchaseOrderNumber";
+import { generateEAN13 } from "../utils/ean13";
+import BarcodeLabelPrintModal from "../components/scanner/BarcodeLabelPrintModal";
 import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
 import ModuleWorkspace from "../components/navigation/ModuleWorkspace";
@@ -37,11 +39,7 @@ const buildPayload = (form) => ({
 
 const EMPTY_ALT_UNIT = { unit_id: "", conversion_factor: "", unit_price: "", cost_price: "", barcode: "" };
 
-const generateBarcode = () => {
-  const timePart = Date.now().toString().slice(-8);
-  const randomPart = Math.random().toString().slice(2, 6).padStart(4, "0");
-  return `${timePart}${randomPart}`;
-};
+const generateBarcode = () => generateEAN13("479");
 
 const EDIT_FIELDS = [
   { name: "product_name", placeholder: "Product Name *", type: "text" },
@@ -230,6 +228,7 @@ function ProductsPage() {
   const [search,     setSearch]     = useState("");
   const [loading,    setLoading]    = useState(false);
   const [unitsModal, setUnitsModal] = useState(false);
+  const [labelProduct, setLabelProduct] = useState(null);
 
   /* Edit modal */
   const [editModal,  setEditModal]  = useState(false);
@@ -583,6 +582,11 @@ function ProductsPage() {
                     <button className="icon-btn edit" title="Edit" onClick={() => openEdit(p)}>
                       <Pencil size={15} />
                     </button>
+                    {p.barcode && (
+                      <button className="icon-btn" title="Print Barcode Label" onClick={() => setLabelProduct(p)} style={{ color: "#8b3a3a" }}>
+                        <Tag size={15} />
+                      </button>
+                    )}
                     <button className="icon-btn delete" title="Delete" onClick={() => deleteProduct(p.product_id)}>
                       <Trash2 size={15} />
                     </button>
@@ -1015,6 +1019,13 @@ function ProductsPage() {
           }}
         />
       )}
+
+      {/* Barcode & QR Label Printing Modal */}
+      <BarcodeLabelPrintModal
+        isOpen={Boolean(labelProduct)}
+        onClose={() => setLabelProduct(null)}
+        product={labelProduct}
+      />
     </div>
   );
 }

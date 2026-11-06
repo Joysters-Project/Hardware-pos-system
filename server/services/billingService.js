@@ -31,13 +31,23 @@ class BillingService {
             
             // 1. Handle Customer (For Partial Payments or Records)
             let customerId = null;
-            const isPartial = parseFloat(saleData.balance_due) > 0;
+            const rawBalanceDue = saleData.balance_due ?? saleData['balance-due'] ?? saleData.balanceDue;
+            const balanceDue = Math.max(0, parseFloat(rawBalanceDue) || 0);
+            const isPartial = balanceDue > 0;
+            const expPaymentDate = saleData.expected_payment_date 
+              || saleData['expected-payment-date'] 
+              || saleData.expectedPaymentDate 
+              || null;
+            const billDate = saleData.bill_date 
+              || saleData['bill-date'] 
+              || saleData.billDate 
+              || undefined;
 
             if (isPartial) {
                 if (!saleData.customer || !saleData.customer.name || !saleData.customer.phone) {
                     throw new Error('Customer name and phone number are required for partial payments.');
                 }
-                if (!saleData.expected_payment_date) {
+                if (!expPaymentDate) {
                     throw new Error('Expected payment date is required for partial payments.');
                 }
             }
@@ -113,17 +123,21 @@ class BillingService {
             }
 
             // 4. Create Bill (Include Balance Due for Partial Payments)
-            const bill = await bills.create({
+            const billPayload = {
                 bill_no,
                 user_id: userId,
                 customer_id: customerId,
                 subtotal: saleData.subtotal,
                 discount: saleData.discount,
                 total_amount: saleData.total_amount,
-                balance_due: saleData.balance_due || 0,
-                status: saleData.balance_due > 0 ? 'PARTIAL' : 'PAID',
-                expected_payment_date: (saleData.balance_due > 0 && saleData.expected_payment_date) ? saleData.expected_payment_date : null
-            }, { transaction: t });
+                balance_due: balanceDue,
+                status: balanceDue > 0 ? 'PARTIAL' : 'PAID',
+                expected_payment_date: isPartial ? expPaymentDate : (expPaymentDate || null)
+            };
+            if (billDate) {
+                billPayload.bill_date = billDate;
+            }
+            const bill = await bills.create(billPayload, { transaction: t });
 
             // 5. Update Inventory & Items
             const lowStockAlerts = [];

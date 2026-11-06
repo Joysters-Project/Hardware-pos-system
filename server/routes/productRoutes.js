@@ -65,6 +65,12 @@ router.get('/', (req, res, next) => {
   return productController.getAllProducts(req, res, next);
 });
 
+// BARCODE LOOKUP (must come before /:id)
+router.get('/barcode/:code', productController.lookupByBarcode);
+
+// ATTACH BARCODE TO PRODUCT OR UNIT
+router.post('/:id/barcode', authMiddleware, productController.attachBarcode);
+
 // GET Product by ID
 router.get('/:id', productController.getProductById);
 
