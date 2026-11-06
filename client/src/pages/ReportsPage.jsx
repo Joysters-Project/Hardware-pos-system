@@ -160,6 +160,18 @@ const buildTimeSeriesData = (records, timeframe, dateAccessor, amountAccessor) =
 };
 
 function TimeframeSelector({ value, onChange }) {
+  const [ripple, setRipple] = useState(null);
+
+  const handleClick = (optionValue, e) => {
+    const btn = e.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    setRipple({ value: optionValue, x, y, id: Date.now() });
+    setTimeout(() => setRipple(null), 500);
+    onChange(optionValue);
+  };
+
   return (
     <div className="rp-timeframe-row">
       {TIMEFRAME_OPTIONS.map((option) => (
@@ -167,9 +179,16 @@ function TimeframeSelector({ value, onChange }) {
           key={option.value}
           type="button"
           className={`rp-timeframe-btn${value === option.value ? ' active' : ''}`}
-          onClick={() => onChange(option.value)}
+          onClick={(e) => handleClick(option.value, e)}
         >
           {option.label}
+          {ripple && ripple.value === option.value && (
+            <span
+              className="rp-timeframe-ripple"
+              style={{ left: ripple.x, top: ripple.y }}
+              key={ripple.id}
+            />
+          )}
         </button>
       ))}
     </div>
@@ -355,7 +374,7 @@ function SalesReport() {
         )}
       </div>
       {/* Sales Revenue Chart */}
-      <div className="chart-container" style={{ height: '300px', marginBottom: '20px' }}>
+      <div className="chart-container" key={`sales-chart-${timeframe}`} style={{ height: '300px', marginBottom: '20px' }}>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={salesChartData} margin={{ top: 8, right: 20, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
@@ -368,7 +387,7 @@ function SalesReport() {
         </ResponsiveContainer>
       </div>
       {/* Summary cards */}
-      <div className="rp-stats-row">
+      <div className="rp-stats-row" key={`sales-stats-${timeframe}`}>
         <div className="rp-stat-card">
           <div className="rp-stat-label">Total Bills</div>
           <div className="rp-stat-value">{filtered.length}</div>
@@ -790,11 +809,11 @@ function ReturnsReport() {
             Viewing Today&apos;s Returns Only
           </div>
         ) : (
-          <TimeframeSelector value={timeframe} onChange={setTimeframe} />
+          <TimeframeSelector value={timeframe} onChange={(v) => { setTimeframe(v); setPage(1); }} />
         )}
       </div>
       {/* Summary cards */}
-      <div className="rp-stats-row">
+      <div className="rp-stats-row" key={`ret-stats-${timeframe}`}>
         <div className="rp-stat-card">
           <div className="rp-stat-label">Total Returns</div>
           <div className="rp-stat-value">{filteredReturns.length}</div>
@@ -809,7 +828,7 @@ function ReturnsReport() {
         </div>
       </div>
       {/* Returns Refund Chart */}
-      <div className="chart-container" style={{ height: '300px', marginBottom: '20px' }}>
+      <div className="chart-container" key={`ret-chart-${timeframe}`} style={{ height: '300px', marginBottom: '20px' }}>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={returnsChartData} margin={{ top: 8, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
@@ -1156,7 +1175,7 @@ function BorrowReport() {
         )}
       </div>
       {/* Sales vs Borrow Chart */}
-      <div className="chart-container" style={{ height: '320px', marginBottom: '24px' }}>
+      <div className="chart-container" key={`borrow-chart-${timeframe}`} style={{ height: '320px', marginBottom: '24px' }}>
         <h3 style={{ textAlign: 'center', marginBottom: '8px', fontSize: '14px', color: '#800000', fontWeight: '700', letterSpacing: '0.4px' }}>
           📊 Monthly Sales Revenue vs Borrow Outstanding (Rs.)
         </h3>
@@ -1175,7 +1194,7 @@ function BorrowReport() {
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <div className="rp-stats-row">
+      <div className="rp-stats-row" key={`borrow-stats-${timeframe}`}>
         <div className="rp-stat-card">
           <div className="rp-stat-label">Total Partial Bills</div>
           <div className="rp-stat-value">{filtered.length}</div>

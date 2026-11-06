@@ -1,5 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
+import logo from "../assets/logo.png";
 import {
   LayoutDashboard,
   Building2,
@@ -12,7 +13,6 @@ import {
   LogOut,
   Menu,
   X,
-  Hexagon,
   ChevronLeft,
   ChevronRight,
   ShoppingCart,
@@ -307,7 +307,7 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
         <div className="sidebar-float__header">
           <div className="sidebar-float__logo-wrapper">
             <div className="sidebar-float__logo">
-              <Hexagon size={20} />
+              <img src={logo} alt="Mathumithan logo" className="sidebar-float__logo-image" />
             </div>
             <div className="sidebar-float__brand-info">
               <div className="sidebar-float__brand">Mathumithan</div>

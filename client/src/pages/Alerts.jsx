@@ -1076,7 +1076,7 @@ function AlertCenterPage() {
                       <td><strong>{product.stock_quantity ?? "-"}</strong></td>
                       <td>{product.min_stock_quantity ?? "-"}</td>
                       <td>{product.reorder_level ?? "-"}</td>
-                      <td><span className="proc-mono">{alert.batch_number || "-"}</span></td>
+                      <td>{alert.batch_number || "-"}</td>
                       <td>{product.expiry_date ? new Date(product.expiry_date).toLocaleDateString() : "-"}</td>
                       <td>
                         <span style={{

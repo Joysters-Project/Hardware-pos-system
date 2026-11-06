@@ -90,15 +90,26 @@
 
 .sidebar-float__logo {
   flex-shrink: 0;
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #8b3a3a 0%, #a84545 100%);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(139, 58, 58, 0.35);
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(139, 58, 58, 0.25);
+  padding: 0;
+}
+
+.sidebar-float__logo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  border-radius: 50%;
+  background: transparent;
 }
 
 .sidebar-float__brand-info {
@@ -434,7 +445,7 @@
 }
 
 .sidebar-float.collapsed .sidebar-float__logo-wrapper {
-  width: 38px;
+  width: 56px;
   margin: 0 auto;
   gap: 0;
 }

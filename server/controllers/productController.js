@@ -1,7 +1,8 @@
-const { products, category, brands, units, batch_inventory, product_units } = require('../models');
+const { products, category, brands, units, batch_inventory, product_units, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { logActivity } = require('../services/auditService');
 const { syncAlertsForProduct } = require('../services/alertService');
+const { getProductBatchSummaries, getStoreLocalDate, syncProductFromBatches } = require('../services/batchService');
 const EXCLUDE = ['repair_quantity'];
 const getIp   = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
 
@@ -75,6 +76,7 @@ async function validateBarcodes({ baseBarcode, altUnits = [], excludeProductId =
 
 exports.createProduct = async (req, res) => {
   const ip = getIp(req);
+  let transaction;
   try {
     const safeBody = req.body;
 
@@ -101,9 +103,32 @@ exports.createProduct = async (req, res) => {
           barcode: item.barcode || null
         };
       });
-      await product_units.bulkCreate(altUnits);
+      await product_units.bulkCreate(altUnits, { transaction });
     }
 
+    // Keep initial stock in the same batch ledger used by receiving and sales.
+    const initQty = parseFloat(safeBody.stock_quantity) || 0;
+    if (initQty > 0) {
+      const batchNumber = typeof safeBody.batch_no === 'string' && safeBody.batch_no.trim()
+        ? safeBody.batch_no.trim()
+        : `OPENING-${product.product_id}`;
+      await batch_inventory.create({
+        batch_number:       batchNumber,
+        product_id:         product.product_id,
+        purchase_order_id:  null,
+        supplier_id:        null,
+        purchase_price:     parseFloat(safeBody.cost_price) || 0,
+        received_quantity:  initQty,
+        remaining_quantity: initQty,
+        received_date:      getStoreLocalDate(),
+        expiry_date:        safeBody.expiry_date || null,
+        status: safeBody.expiry_date && safeBody.expiry_date < getStoreLocalDate() ? 'Expired' : 'Active',
+      }, { transaction });
+      await syncProductFromBatches(product.product_id, transaction);
+    }
+
+    await transaction.commit();
+    await product.reload();
     await syncAlertsForProduct(product);
     const io = req.app.get('io');
     if (io) { io.emit('alerts:updated'); io.emit('products:updated'); }
@@ -111,6 +136,7 @@ exports.createProduct = async (req, res) => {
       `Product added: "${product.product_name}" (ID: ${product.product_id}), Stock: ${product.stock_quantity}, Price: ${product.unit_price}`, ip);
     res.status(201).json({ message: 'Product created successfully', data: product });
   } catch (error) {
+    if (transaction && !transaction.finished) await transaction.rollback();
     console.error('createProduct error:', error.message);
     const isValidation = error.message && (error.message.includes('Barcode') || error.message.includes('Duplicate barcode'));
     res.status(isValidation ? 400 : 500).json({ error: error.message });
@@ -134,7 +160,21 @@ exports.getAllProducts = async (req, res) => {
         }
       ],
     });
-    res.status(200).json(productList);
+    const summaries = await getProductBatchSummaries(productList.map(product => product.product_id));
+    const result = productList.map(product => {
+      const data = product.toJSON();
+      const summary = summaries.get(Number(product.product_id));
+      if (summary?.has_batches) {
+        data.stock_quantity = summary.stock_quantity;
+        data.batch_no = summary.batch_no;
+        data.batch_number = summary.batch_number;
+        data.expiry_date = summary.expiry_date;
+      } else {
+        data.batch_number = data.batch_no || null;
+      }
+      return data;
+    });
+    res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -160,13 +200,12 @@ exports.getProductById = async (req, res) => {
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
     const plain = product.toJSON();
-    if (batch_inventory) {
-      const batch = await batch_inventory.findOne({
-        where: { product_id: plain.product_id, remaining_quantity: { [Op.gt]: 0 }, status: 'Active' },
-        attributes: ['batch_number'],
-        order: [['expiry_date', 'ASC']],
-      });
-      plain.batch_number = batch?.batch_number || plain.batch_no || null;
+    const summary = (await getProductBatchSummaries([plain.product_id])).get(Number(plain.product_id));
+    if (summary?.has_batches) {
+      plain.stock_quantity = summary.stock_quantity;
+      plain.batch_no = summary.batch_no;
+      plain.batch_number = summary.batch_number;
+      plain.expiry_date = summary.expiry_date;
     } else {
       plain.batch_number = plain.batch_no || null;
     }
@@ -179,6 +218,7 @@ exports.getProductById = async (req, res) => {
 
 exports.updateProduct = async (req, res) => {
   const ip = getIp(req);
+  let transaction;
   try {
     const product = await products.findByPk(req.params.id, { attributes: { exclude: EXCLUDE } });
     if (!product) return res.status(404).json({ message: 'Product not found' });
@@ -209,8 +249,9 @@ exports.updateProduct = async (req, res) => {
     if (safeBody.barcode !== undefined && product.barcode !== safeBody.barcode)
       changes.push(`Barcode changed to "${safeBody.barcode}"`);
 
-    await product.update(safeBody);
-    await product.reload();
+    const productFields = { ...safeBody };
+    delete productFields.alternative_units;
+    await product.update(productFields, { transaction });
 
     if (cleanAltUnits !== undefined) {
       await product_units.destroy({ where: { product_id: product.product_id } });
@@ -232,6 +273,27 @@ exports.updateProduct = async (req, res) => {
       }
     }
 
+    if (!summary?.has_batches && Number(product.stock_quantity) > 0) {
+      const batchNumber = typeof product.batch_no === 'string' && product.batch_no.trim()
+        ? product.batch_no.trim()
+        : `OPENING-${product.product_id}`;
+      await batch_inventory.create({
+        batch_number: batchNumber,
+        product_id: product.product_id,
+        purchase_order_id: null,
+        supplier_id: null,
+        purchase_price: Number(product.cost_price) || 0,
+        received_quantity: Number(product.stock_quantity),
+        remaining_quantity: Number(product.stock_quantity),
+        received_date: getStoreLocalDate(),
+        expiry_date: product.expiry_date || null,
+        status: product.expiry_date && String(product.expiry_date).slice(0, 10) < getStoreLocalDate() ? 'Expired' : 'Active',
+      }, { transaction });
+      await syncProductFromBatches(product.product_id, transaction);
+    }
+
+    await product.reload({ transaction });
+    await transaction.commit();
     await syncAlertsForProduct(product);
     const io = req.app.get('io');
     if (io) { io.emit('alerts:updated'); io.emit('products:updated'); }

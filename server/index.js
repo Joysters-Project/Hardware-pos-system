@@ -54,7 +54,6 @@ db.sequelize.sync({ force: false })
     await ensureUserSchema();
     await ensureChequeExchangeSchema();
     await ensureSupplierPaymentSchema();
-    await ensureBarcodeSchema();
     await seedDefaultAdmin();
     startNearExpiryCron();
   })

@@ -1,4 +1,4 @@
-const { purchase_orders, po_items, products, suppliers, alerts, auto_reorder_suggestions, sequelize } = require('../models');
+const { purchase_orders, po_items, products, suppliers, alerts, auto_reorder_suggestions, batch_inventory, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { logActivity } = require('../services/auditService');
 const supplierPaymentService = require('../services/supplierPaymentService');
@@ -7,7 +7,7 @@ const procurementNotificationService = require('../services/procurementNotificat
 const forecastService = require('../services/forecastService');
 const supplierPerformanceService = require('../services/supplierPerformanceService');
 const { syncAlertsForProduct } = require('../services/alertService');
-const { createBatchFromPOItem } = require('../services/batchService');
+const { getStoreLocalDate } = require('../services/batchService');
 const { formatPurchaseOrderNumber } = require('../utils/purchaseOrderNumber');
 
 const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0] || req.socket?.remoteAddress || null;
@@ -128,7 +128,7 @@ exports.createPurchaseOrder = async (req, res) => {
 
     res.status(201).json({ message: 'Purchase Order created successfully', data: serializePurchaseOrder(po) });
   } catch (error) {
-    await transaction.rollback();
+    if (!transaction.finished) await transaction.rollback();
     res.status(500).json({ error: error.message });
   }
 };
@@ -220,22 +220,24 @@ exports.updateStatus = async (req, res) => {
       }
     }
 
-    // On Received: create batches, record delivery date, resolve alerts, close suggestions
+    // Receiving line items is the only operation that creates batch records.
     if (status === 'Received') {
-      updateData.actual_delivery_date = new Date().toISOString().split('T')[0];
+      for (const item of po.po_items) {
+        const received = await batch_inventory.sum('received_quantity', {
+          where: { product_id: item.product_id, purchase_order_id: po.po_id },
+          transaction,
+        }) || 0;
+        if (Number(received) < Number(item.quantity)) {
+          await transaction.rollback();
+          return res.status(400).json({
+            error: `Receive all units for product ${item.product_id} through batch inventory before marking this order received.`,
+          });
+        }
+      }
+
+      updateData.actual_delivery_date = getStoreLocalDate();
 
       for (const item of po.po_items) {
-        // Create a batch for each PO line item
-        await createBatchFromPOItem({
-          productId:       item.product_id,
-          purchaseOrderId: po.po_id,
-          supplierId:      po.supplier_id,
-          purchasePrice:   item.unit_price,
-          quantity:        item.quantity,
-          expiryDate:      item.expiry_date || null,
-          receivedDate:    new Date().toISOString().split('T')[0],
-        }).catch(err => console.error(`[PO Received] Batch creation failed for product ${item.product_id}: ${err.message}`));
-
         // Record inventory movement
         await logActivity(
           req.user?.user_id, req.user?.role,
@@ -332,7 +334,7 @@ exports.updateStatus = async (req, res) => {
 
     res.status(200).json({ message: `Purchase Order ${status.toLowerCase()} successfully`, data: serializePurchaseOrder(po) });
   } catch (error) {
-    await transaction.rollback();
+    if (!transaction.finished) await transaction.rollback();
     res.status(500).json({ error: error.message });
   }
 };
