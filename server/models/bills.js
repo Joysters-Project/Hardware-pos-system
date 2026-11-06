@@ -47,6 +47,11 @@ module.exports = (sequelize) => {
       allowNull: false, 
       defaultValue: 'PAID' 
     },
+    // Expected payment date for partial payments / customer credit
+    expected_payment_date: {
+      type: DataTypes.DATEONLY,
+      allowNull: true
+    },
     // Foreign Keys (Ensure these match your User and Customer table PKs)
     user_id: { 
       type: DataTypes.INTEGER, 

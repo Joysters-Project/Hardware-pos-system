@@ -19,6 +19,7 @@ const DueCollection = () => {
   const [selectedBills, setSelectedBills] = useState([]);
   const [paymentMethod, setPaymentMethod] = useState("Cash");
   const [amountInput, setAmountInput] = useState("");
+  const [newExpectedDate, setNewExpectedDate] = useState("");
   const [paymentHistory, setPaymentHistory] = useState([]);
   const [successAmount, setSuccessAmount] = useState(0);
   const [dueCheckQuery, setDueCheckQuery] = useState("");
@@ -70,6 +71,7 @@ const DueCollection = () => {
       setSelectedBill(null);
       setSelectedBills([]);
       setAmountInput("");
+      setNewExpectedDate("");
     } catch (error) {
       console.error(error);
       if (error.response?.status === 404) {
@@ -94,6 +96,7 @@ const DueCollection = () => {
         const single = next[0];
         setSelectedBill(single);
         setAmountInput(single.balance_due);
+        setNewExpectedDate(single.expected_payment_date || "");
         api.get(`/payments?bill_id=${single.bill_id}`).then((histRes) => {
           setPaymentHistory(histRes.data || []);
         }).catch(() => {
@@ -103,6 +106,7 @@ const DueCollection = () => {
       } else {
         setSelectedBill(null);
         setPaymentHistory([]);
+        setNewExpectedDate("");
         if (next.length > 1) {
           const total = next.reduce((acc, item) => acc + parseFloat(item.balance_due || 0), 0);
           setAmountInput(total.toFixed(2));
@@ -222,6 +226,7 @@ const DueCollection = () => {
         amount_paid: collectAmount,
         payment_method: paymentMethod.toUpperCase(),
         collected_by: cashierId,
+        expected_payment_date: (collectAmount < balanceDue && newExpectedDate) ? newExpectedDate : null,
       });
 
       setSuccessAmount(collectAmount);
@@ -312,6 +317,7 @@ const DueCollection = () => {
                     </th>
                     <th>Bill No.</th>
                     <th>Date</th>
+                    <th>Expected Date</th>
                     <th>Total</th>
                     <th>Balance Due</th>
                     <th>Status</th>
@@ -334,6 +340,7 @@ const DueCollection = () => {
                           <span className="proc-code-badge">{bill.bill_no}</span>
                         </td>
                         <td>{formatDate(bill.bill_date)}</td>
+                        <td>{formatDate(bill.expected_payment_date) || "—"}</td>
                         <td><strong>Rs.</strong> {parseFloat(bill.total_amount).toFixed(2)}</td>
                         <td className="proc-amount" style={{ color: "#c62828" }}>Rs. {parseFloat(bill.balance_due).toFixed(2)}</td>
                         <td>
@@ -428,6 +435,25 @@ const DueCollection = () => {
           )}
         </div>
 
+        {selectedBill && afterCollection > 0 && (
+          <div className="amount-input-group" style={{ marginTop: "12px", marginBottom: "12px" }}>
+            <label htmlFor="new-expected-date">Expected Payment Date</label>
+            <input
+              id="new-expected-date"
+              name="new-expected-date"
+              type="date"
+              min={new Date().toISOString().split("T")[0]}
+              value={newExpectedDate || ""}
+              onChange={(event) => setNewExpectedDate(event.target.value)}
+            />
+            {selectedBill.expected_payment_date && (
+              <small style={{ color: "#777", display: "block", marginTop: "4px" }}>
+                Current Expected: {formatDate(selectedBill.expected_payment_date)}
+              </small>
+            )}
+          </div>
+        )}
+
         <button
           className="collect-btn"
           disabled={selectedCount > 1 ? selectedTotalBalance <= 0 : !selectedBill || collectAmount <= 0 || collectAmount > balanceDue}
@@ -498,6 +524,7 @@ const DueCollection = () => {
                   <tr>
                     <th>Bill No.</th>
                     <th>Date</th>
+                    <th>Expected Date</th>
                     <th>Total</th>
                     <th>Paid</th>
                     <th>Balance Due</th>
@@ -512,6 +539,7 @@ const DueCollection = () => {
                         <tr>
                           <td><span className="proc-code-badge">{bill.bill_no}</span></td>
                           <td>{formatDate(bill.bill_date)}</td>
+                          <td>{formatDate(bill.expected_payment_date) || "—"}</td>
                           <td><strong>Rs.</strong> {parseFloat(bill.total_amount || 0).toFixed(2)}</td>
                           <td><strong>Rs.</strong> {paidAmount(bill).toFixed(2)}</td>
                           <td className="proc-amount" style={{ color: "#c62828" }}>Rs. {parseFloat(bill.balance_due || 0).toFixed(2)}</td>
@@ -531,7 +559,7 @@ const DueCollection = () => {
                         </tr>
                         {isExpanded && (
                           <tr className="due-details-row">
-                            <td colSpan="6">
+                            <td colSpan="7">
                               <div className="due-product-details">
                                 <div className="due-product-details-header">Product details</div>
                                 {(bill.bill_items || []).length > 0 ? (

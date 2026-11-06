@@ -246,3 +246,89 @@ exports.getExpiryAlerts = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// GET /api/alerts/customer-due-alerts
+exports.getCustomerDueAlerts = async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const rows = await db.bills.findAll({
+      where: {
+        status: 'PARTIAL',
+        balance_due: { [Op.gt]: 0 },
+        expected_payment_date: { [Op.ne]: null }
+      },
+      include: [
+        {
+          model: db.customers,
+          attributes: ['customer_id', 'customer_name', 'phone_no', 'address']
+        }
+      ],
+      order: [['expected_payment_date', 'ASC']]
+    });
+
+    const DUE_SOON_DAYS = 3;
+    const alertsList = [];
+
+    function parseLocalDate(dateStr) {
+      if (!dateStr) return null;
+      const parts = String(dateStr).split('T')[0].split('-');
+      if (parts.length === 3) {
+        return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      }
+      return new Date(dateStr);
+    }
+
+    for (const bill of rows) {
+      if (!bill.expected_payment_date) continue;
+
+      const expDate = parseLocalDate(bill.expected_payment_date);
+      if (!expDate || isNaN(expDate.getTime())) continue;
+
+      const diffMs = expDate.getTime() - today.getTime();
+      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+      let alert_type;
+      if (diffDays < 0) {
+        alert_type = 'Overdue';
+      } else if (diffDays === 0) {
+        alert_type = 'Due Today';
+      } else if (diffDays <= DUE_SOON_DAYS) {
+        alert_type = 'Due Soon';
+      } else {
+        // Not yet within alertable window
+        continue;
+      }
+
+      const customerObj = bill.customer || bill.Customer;
+
+      alertsList.push({
+        bill_id: bill.bill_id,
+        invoice_number: bill.bill_no,
+        customer_id: bill.customer_id,
+        customer_name: customerObj?.customer_name || 'Walk-in Customer',
+        phone_no: customerObj?.phone_no || '—',
+        address: customerObj?.address || '—',
+        expected_payment_date: bill.expected_payment_date,
+        due_amount: parseFloat(bill.balance_due || 0),
+        total_amount: parseFloat(bill.total_amount || 0),
+        bill_status: bill.status,
+        alert_type,
+        days_remaining: diffDays
+      });
+    }
+
+    const summary = {
+      dueSoon:  alertsList.filter(a => a.alert_type === 'Due Soon').length,
+      dueToday: alertsList.filter(a => a.alert_type === 'Due Today').length,
+      overdue:  alertsList.filter(a => a.alert_type === 'Overdue').length,
+      total:    alertsList.length
+    };
+
+    res.json({ alerts: alertsList, summary });
+  } catch (error) {
+    console.error('getCustomerDueAlerts error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};

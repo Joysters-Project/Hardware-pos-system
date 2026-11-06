@@ -490,6 +490,9 @@ function SalesReport() {
                             <h3>Customer &amp; Bill Info</h3>
                             <div className="rp-detail-line"><strong>Bill Number:</strong> <span>#{b.bill_no}</span></div>
                             <div className="rp-detail-line"><strong>Bill Date:</strong> <span>{fmtDateTime(b.bill_date)}</span></div>
+                            {b.expected_payment_date && (
+                              <div className="rp-detail-line"><strong>Expected Payment Date:</strong> <span style={{ fontWeight: 'bold', color: '#c62828' }}>{fmtDate(b.expected_payment_date)}</span></div>
+                            )}
                             <div className="rp-detail-line"><strong>Status:</strong> <span className={`rp-badge ${(b.status || '').toLowerCase()}`}>{b.status || '–'}</span></div>
                             <div className="rp-detail-line"><strong>Customer:</strong> <span>{getName(b)}</span></div>
                             <div className="rp-detail-line"><strong>Phone:</strong> <span>{getPhone(b)}</span></div>
@@ -1133,10 +1136,11 @@ function BorrowReport() {
   const totalPaid = filtered.reduce((s, b) => s + (Number(b.total_amount || 0) - Number(b.balance_due || 0)), 0);
   const totalDue = filtered.reduce((s, b) => s + Number(b.balance_due || 0), 0);
 
-  const borrowHeaders = ['Bill No', 'Date', 'Customer', 'Phone', 'Total Amount', 'Paid Amount', 'Balance Due', 'Items'];
+  const borrowHeaders = ['Bill No', 'Date', 'Expected Due Date', 'Customer', 'Phone', 'Total Amount', 'Paid Amount', 'Balance Due', 'Items'];
   const borrowRows = filtered.map((b) => [
     b.bill_no,
     fmtDate(b.bill_date),
+    fmtDate(b.expected_payment_date),
     getCustomerName(b),
     getCustomerPhone(b),
     fmt(b.total_amount),
@@ -1243,13 +1247,13 @@ function BorrowReport() {
           <table className="rp-table proc-table">
             <thead>
               <tr>
-                <th>Bill No</th><th>Date</th><th>Customer</th><th>Phone</th>
+                <th>Bill No</th><th>Date</th><th>Expected Due Date</th><th>Customer</th><th>Phone</th>
                 <th className="right">Total Amount (Rs.)</th><th className="right">Paid (Rs.)</th><th className="right">Balance Due (Rs.)</th><th>Items</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
-                <tr><td colSpan={8} className="rp-empty">No partially paid bills found.</td></tr>
+                <tr><td colSpan={9} className="rp-empty">No partially paid bills found.</td></tr>
               ) : rows.map(b => (
                 <React.Fragment key={b.bill_id}>
                   <tr
@@ -1258,6 +1262,7 @@ function BorrowReport() {
                   >
                     <td className="bold">#{b.bill_no}</td>
                     <td>{fmtDate(b.bill_date)}</td>
+                    <td>{fmtDate(b.expected_payment_date)}</td>
                     <td>{getCustomerName(b)}</td>
                     <td>{getCustomerPhone(b)}</td>
                     <td className="right">{fmtNum(b.total_amount)}</td>
@@ -1267,13 +1272,14 @@ function BorrowReport() {
                   </tr>
                   {expandedBill === b.bill_id && b.bill_items?.length > 0 && (
                     <tr className="rp-expanded-row">
-                      <td colSpan={8}>
+                      <td colSpan={9}>
                         <div className="rp-vertical-details">
                           {/* 1. Customer & Bill Info */}
                           <div className="rp-details-col">
                             <h3>Customer &amp; Bill Info</h3>
                             <div className="rp-detail-line"><strong>Bill Number:</strong> <span>#{b.bill_no}</span></div>
                             <div className="rp-detail-line"><strong>Bill Date:</strong> <span>{fmtDate(b.bill_date)}</span></div>
+                            <div className="rp-detail-line"><strong>Expected Payment Date:</strong> <span style={{ fontWeight: 'bold', color: '#c62828' }}>{fmtDate(b.expected_payment_date)}</span></div>
                             <div className="rp-detail-line"><strong>Status:</strong> <span className={`rp-badge ${(b.status || '').toLowerCase()}`}>{b.status || '–'}</span></div>
                             <div className="rp-detail-line"><strong>Customer:</strong> <span>{getCustomerName(b)}</span></div>
                             <div className="rp-detail-line"><strong>Phone:</strong> <span>{getCustomerPhone(b)}</span></div>

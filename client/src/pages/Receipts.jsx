@@ -231,6 +231,7 @@ const Receipts = () => {
                   <tr>
                     <th>Bill No</th>
                     <th>Date</th>
+                    <th>Expected Date</th>
                     <th>Customer</th>
                     <th>Phone</th>
                     <th className="right">Total</th>
@@ -242,6 +243,7 @@ const Receipts = () => {
                     <tr key={bill.bill_no || bill.id}>
                       <td>{bill.bill_no}</td>
                       <td>{formatDate(bill.bill_date)}</td>
+                      <td>{formatDate(bill.expected_payment_date)}</td>
                       <td>{getCustomerName(bill)}</td>
                       <td>{getCustomerPhone(bill)}</td>
                       <td className="right">{formatMoney(bill.total_amount)}</td>

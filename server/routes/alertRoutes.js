@@ -14,6 +14,7 @@ router.post('/generate', alertController.generateAlerts);
 router.get('/summary',  alertController.getAlertSummary);
 router.get('/count',    alertController.getAlertCount);
 router.get('/expiry-alerts', alertController.getExpiryAlerts);
+router.get('/customer-due-alerts', alertController.getCustomerDueAlerts);
 router.get('/',         alertController.getAllAlerts);
 
 // GET /api/alerts/:id

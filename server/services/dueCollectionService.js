@@ -47,16 +47,25 @@ class DueCollectionService {
       const newBalance = currentBalance - payAmount;
       const newStatus = (newBalance <= 0) ? 'PAID' : 'PARTIAL';
 
-      await bill.update({
+      const updateData = {
         balance_due: newBalance,
         status: newStatus
-      }, { transaction: t });
+      };
+
+      if (newStatus === 'PAID') {
+        updateData.expected_payment_date = null;
+      } else if (paymentData.expected_payment_date) {
+        updateData.expected_payment_date = paymentData.expected_payment_date;
+      }
+
+      await bill.update(updateData, { transaction: t });
 
       // Return both sets of updated contextual data
       return {
         payment,
         billStatus: newStatus,
-        balanceRemaining: newBalance
+        balanceRemaining: newBalance,
+        expectedPaymentDate: updateData.expected_payment_date !== undefined ? updateData.expected_payment_date : bill.expected_payment_date
       };
     });
   }
