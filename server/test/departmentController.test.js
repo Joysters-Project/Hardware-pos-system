@@ -12,10 +12,10 @@ test('department detail, update and delete support the installed Sequelize API',
     update: async payload => Object.assign(data, payload),
     destroy: async () => { destroyed = true; },
   };
-  // Sequelize 3 provides findById, not findByPk or Sequelize.Op.
+  // Sequelize 6 provides findByPk for primary-key lookups.
   const db = {
     Sequelize: {},
-    departments: { findById: async () => department },
+    departments: { findByPk: async () => department },
     employees: { findAll: async () => [], count: async () => 0 },
     assets: {}, expenses: {},
   };
