@@ -232,20 +232,20 @@
   color: #d14646;
 }
 
-.amount-input-group label {
+.due-right .amount-input-group label {
   display: block;
   color: #666;
   margin-bottom: 10px;
 }
 
-.amount-input-group .amount-symbol {
+.due-right .amount-input-group .amount-symbol {
   position: absolute;
   font-size: 32px;
   color: #333;
   margin-top: 3px;
 }
 
-.amount-input-group input {
+.due-right .amount-input-group input {
   width: 100%;
   background: transparent;
   border: none;
@@ -257,7 +257,7 @@
   margin-bottom: 30px;
   outline: none;
 }
-.amount-input-group input:focus {
+.due-right .amount-input-group input:focus {
   border-bottom: 2px solid #800000;
 }
 

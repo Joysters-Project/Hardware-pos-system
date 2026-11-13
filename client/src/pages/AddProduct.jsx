@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import api from "../api/axios";
 import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
+import { generateEAN13 } from "../utils/ean13";
 import "../styles/AddProduct.css";
 
 const INITIAL_FORM = {
@@ -28,11 +29,7 @@ const toNumberOrNull = (value, parser = Number) => {
 	return parser(value);
 };
 
-const generateBarcode = () => {
-	const timePart = Date.now().toString().slice(-8);
-	const randomPart = Math.random().toString().slice(2, 6).padStart(4, "0");
-	return `${timePart}${randomPart}`;
-};
+const generateBarcode = () => generateEAN13("479");
 
 function AddProductPage() {
 	const navigate = useNavigate();

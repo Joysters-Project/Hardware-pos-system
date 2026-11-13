@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Save, Loader2, Package, Tag, DollarSign, Boxes, Hash, Calendar } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Package, Tag, DollarSign, Boxes, Hash, Calendar, Printer } from 'lucide-react';
 import { productService, categoryService, brandService, unitService } from '../../services/api';
+import { generateEAN13 } from '../../utils/ean13';
+import BarcodeLabelPrintModal from '../../components/scanner/BarcodeLabelPrintModal';
 import toast from 'react-hot-toast';
 import '../../styles/ProductForm.css';
 
@@ -11,11 +13,7 @@ const fieldVariants = {
   visible: { opacity: 1, x: 0 },
 };
 
-const generateBarcode = () => {
-  const timePart = Date.now().toString().slice(-8);
-  const randomPart = Math.random().toString().slice(2, 6).padStart(4, '0');
-  return `${timePart}${randomPart}`;
-};
+const generateBarcode = () => generateEAN13('479');
 
 export default function ProductForm() {
   const navigate = useNavigate();
@@ -33,6 +31,7 @@ export default function ProductForm() {
   const [units,      setUnits]      = useState([]);
   const [loading,    setLoading]    = useState(false);
   const [fetching,   setFetching]   = useState(isEdit);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [error,      setError]      = useState(null);
   const [alternativeUnits, setAlternativeUnits] = useState([]);
 
@@ -307,6 +306,29 @@ export default function ProductForm() {
                 >
                   Auto Generate
                 </button>
+                {formData.barcode && (
+                  <button
+                    type="button"
+                    onClick={() => setIsPrintModalOpen(true)}
+                    style={{
+                      border: '1px solid #991b1b',
+                      background: '#fef2f2',
+                      color: '#991b1b',
+                      borderRadius: '8px',
+                      padding: '9px 14px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      fontSize: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <Printer size={14} />
+                    Print Label
+                  </button>
+                )}
               </div>
             </motion.div>
 
@@ -478,6 +500,18 @@ export default function ProductForm() {
           </div>
         </motion.div>
       </form>
+
+      {/* Barcode & QR Label Printing Modal */}
+      <BarcodeLabelPrintModal
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        product={{
+          product_name: formData.product_name,
+          unit_price: formData.unit_price,
+          barcode: formData.barcode,
+          unit: units.find(u => String(u.unit_id) === String(formData.unit_id))
+        }}
+      />
     </motion.div>
   );
 }

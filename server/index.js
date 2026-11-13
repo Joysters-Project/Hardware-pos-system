@@ -19,6 +19,7 @@ const ensureAlertSchema = require('./scripts/ensureAlertSchema');
 const ensureUserSchema  = require('./scripts/ensureUserSchema');
 const ensureChequeExchangeSchema = require('./scripts/ensureChequeExchangeSchema');
 const ensureSupplierPaymentSchema = require('./scripts/ensureSupplierPaymentSchema');
+const ensureBarcodeSchema = require('./scripts/ensureBarcodeSchema');
 const { startNearExpiryCron } = require('./cron/nearExpiryCron');
 
 const app    = express();

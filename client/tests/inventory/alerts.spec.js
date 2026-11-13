@@ -174,8 +174,8 @@ test.describe('Alerts - List Loading', () => {
   test('batch number is shown for batched alerts', async ({ page }) => {
     await setupAlertsApi(page);
     await gotoAlerts(page);
-    await expect(page.locator('.proc-mono').filter({ hasText: 'BATCH-001' })).toBeVisible();
-    await expect(page.locator('.proc-mono').filter({ hasText: 'BATCH-002' })).toBeVisible();
+    await expect(page.getByRole('row').filter({ hasText: 'Lubricant Oil' }).getByRole('cell', { name: 'BATCH-001', exact: true })).toBeVisible();
+    await expect(page.getByRole('row').filter({ hasText: 'Rust Remover' }).getByRole('cell', { name: 'BATCH-002', exact: true })).toBeVisible();
   });
 
   test('alert status pills are displayed correctly', async ({ page }) => {
