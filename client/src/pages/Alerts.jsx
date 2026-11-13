@@ -736,7 +736,7 @@ function CustomerDueAlertsTab() {
 }
 
 function AlertCenterPage() {
-  const isCashier = (localStorage.getItem("role") || "").toLowerCase() === "cashier";
+  const isCashier = (sessionStorage.getItem("role") || "").toLowerCase() === "cashier";
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [alerts, setAlerts] = useState([]);

@@ -10,6 +10,10 @@ function Login() {
   const navigate = useNavigate();
   const { role } = useParams();
   const { login, isAuthenticated, role: userRole } = useAuth();
+  const [userName, setUserName] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // If already authenticated, redirect to dashboard
   if (isAuthenticated) {
@@ -17,11 +21,6 @@ function Login() {
     const dashPath = normRole === "manager" ? "/dashboard/manager" : normRole === "cashier" ? "/dashboard/cashier" : "/dashboard/admin";
     return <Navigate to={dashPath} replace />;
   }
-
-  const [userName, setUserName] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   const roleParam = role || "User";  // fallback if undefined
 
