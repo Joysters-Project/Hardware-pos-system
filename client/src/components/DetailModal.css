@@ -8,7 +8,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
+  padding: 1.25rem;
+  overflow: hidden;
   animation: dm-fade-in 0.18s ease;
 }
 
@@ -73,8 +74,28 @@
 /* Scrollable body */
 .dm-body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 1.5rem;
+  overscroll-behavior: contain;
+}
+
+.dm-body::-webkit-scrollbar {
+  width: 5px;
+}
+
+.dm-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dm-body::-webkit-scrollbar-thumb {
+  background: rgba(139, 58, 58, 0.3);
+  border-radius: 4px;
+}
+
+.dm-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 58, 58, 0.55);
 }
 
 /* Footer */
@@ -202,6 +223,8 @@
 }
 
 @media (max-width: 640px) {
+  .dm-overlay { padding: 0.5rem; }
+  .dm-box { max-height: 95vh; border-radius: 12px; }
   .dm-grid-2, .dm-grid-3 { grid-template-columns: 1fr; }
   .dm-body { padding: 1rem; }
 }

@@ -94,18 +94,6 @@ function DashboardLayoutShell({ children, active, onBackNavigation }) {
         />
         <main className="admin-content">
           <div className="admin-topbar-header">
-            {location.pathname !== getDashboardPath() && (
-              <button
-                type="button"
-                className="admin-back-btn"
-                onClick={handleBackNavigation}
-                title="Back to Dashboard"
-                id="topbar-back-btn"
-              >
-                <ArrowLeft size={16} />
-                <span>Back to Dashboard</span>
-              </button>
-            )}
             <div className="admin-topbar-bell">
               <NavbarNotificationBell />
             </div>

@@ -384,9 +384,10 @@ function ProjectsPage() {
     <div className="procurement-workspace">
 
       {/* ── Procurement-style Header + Nav ── */}
-      <header className="procurement-header">
-        <div className="procurement-title-block" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
+      <header className="procurement-header project-page-header">
+        <div className="proc-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+            <div className="proc-header-icon"><FolderOpen size={22} /></div>
             <h1>Project Management</h1>
           </div>
           <button className="proc-btn-primary" onClick={openAdd} style={{ marginBottom: '14px' }}>
