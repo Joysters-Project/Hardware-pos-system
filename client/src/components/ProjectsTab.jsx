@@ -553,6 +553,7 @@ export default function ProjectsTab() {
           <input id="projectSearchQ" name="projectSearchQ"
             placeholder="Type to search active project by name, owner, or location..."
             value={projectSearchQ}
+            maxLength={100}
             onChange={(event) => setProjectSearchQ(event.target.value)}
           />
           {projectSearchQ && (
@@ -751,7 +752,7 @@ export default function ProjectsTab() {
                           <Phone size={15} className="pt-input-icon" />
                           <input id="receiverPhone" name="receiverPhone"
                             ref={receiverPhoneRef}
-                            placeholder="e.g. 0712345678 (10 digits)"
+                            placeholder="Mobile or landline"
                             value={receiverPhone}
                             maxLength={10}
                             onChange={(event) => {

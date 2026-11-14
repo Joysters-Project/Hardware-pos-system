@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useParams, useNavigate, Link, Navigate } from "react-router-dom";
+import { Eye, EyeOff } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
@@ -94,7 +95,7 @@ function Login() {
               />
             </div>
 
-            <div className="input-box" style={{position:"relative"}}>
+            <div className="input-box password-input-box">
               <input id="password" name="password"
                 type={showPassword ? "text" : "password"}
                 placeholder="Password"
@@ -103,10 +104,14 @@ function Login() {
                 required
                 disabled={loading}
               />
-              <span
+              <button
+                type="button"
+                className="password-toggle"
                 onClick={() => setShowPassword(v => !v)}
-                style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",cursor:"pointer",userSelect:"none",fontSize:18}}
-              >{showPassword ? "🙈" : "👁️"}</span>
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
 
             <button className="login-btn" type="submit" disabled={loading}>
@@ -115,7 +120,7 @@ function Login() {
 
             <div className="links">
               <Link to="/forgot-password">Forgot Password?</Link>
-              <Link to="/signup">Signup</Link>
+              {roleParam.toLowerCase() !== "admin" && <Link to="/signup">Signup</Link>}
             </div>
           </form>
           <button type="button" className="login-btn" onClick={handleBack}> Home</button>

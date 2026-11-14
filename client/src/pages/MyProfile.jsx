@@ -13,7 +13,8 @@ import "../styles/MyProfile.css";
 import "../styles/Procurement.css";
 
 const BASE_URL = import.meta.env.VITE_API_URL;
-const SL_PHONE  = /^(?:\+94|0)?7(?:0|1|2|4|5|6|7|8)\d{7}$/;
+// Matches Sri Lankan mobile (07X XXXXXXX) and landline (0XX XXXXXXX) — 10 digits total
+const SL_PHONE = /^(?:0(?:7[0-8]|1[1-9]|2[1-9]|3[1-9]|4[1-9]|5[1-9]|6[1-9])\d{7}|(?:\+94)7[0-8]\d{7})$/
 const EMAIL_RE  = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const getInitials = (v) =>
@@ -259,7 +260,7 @@ export default function MyProfile() {
     if (!EMAIL_RE.test(form.email))
       return toast.error("Enter a valid email address");
     if (form.phone_no && !SL_PHONE.test(form.phone_no.trim()))
-      return toast.error("Enter a valid Sri Lankan phone number");
+      return toast.error("Enter a valid Sri Lankan phone number (mobile or landline)");
 
     setSaving(true);
     try {
@@ -572,7 +573,7 @@ export default function MyProfile() {
                   <label>Phone Number</label>
                   <Phone size={15} className="pf-field-icon" />
                   <input type="tel" name="phone_no" value={form.phone_no}
-                    placeholder="07XXXXXXXX"
+                    placeholder="07XXXXXXXX or 011XXXXXXX"
                     onChange={(e) => setForm((f) => ({ ...f, phone_no: e.target.value }))} />
                 </div>
                 <div className="pf-field pf-field--full">

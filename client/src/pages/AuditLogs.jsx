@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Search, RefreshCw, ChevronLeft, ChevronRight, ShieldAlert, Eye, X, Clock, User, Shield, Activity, Globe, FileText } from 'lucide-react';
+import { RefreshCw, ChevronLeft, ChevronRight, ShieldAlert, Eye, X, Clock, User, Shield, Activity, Globe, FileText, Archive } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../utils/axios';
 import AdminDashboard from './AdminDashboard';
@@ -57,6 +57,7 @@ function AuditLogPage() {
   const [pages,       setPages]       = useState(1);
   const [loading,     setLoading]     = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
+  const [view,        setView]        = useState('recent'); // 'recent' | 'archived'
 
   const [search,    setSearch]    = useState('');
   const [action,    setAction]    = useState('');
@@ -74,7 +75,8 @@ function AuditLogPage() {
       if (from)   params.from   = from;
       if (to)     params.to     = to;
 
-      const res = await api.get('/audit_log', { params });
+      const endpoint = view === 'archived' ? '/audit_log/archived' : '/audit_log';
+      const res = await api.get(endpoint, { params });
       setLogs(res.data.data);
       setTotal(res.data.total);
       setPages(res.data.pages);
@@ -83,7 +85,7 @@ function AuditLogPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, action, from, to, page]);
+  }, [search, action, from, to, page, view]);
 
   const loadActions = useCallback(async () => {
     try {
@@ -96,6 +98,11 @@ function AuditLogPage() {
   useEffect(() => { loadActions(); }, [loadActions]);
 
   const resetFilters = () => {
+    setSearch(''); setAction(''); setFrom(''); setTo(''); setPage(1);
+  };
+
+  const switchView = (v) => {
+    setView(v);
     setSearch(''); setAction(''); setFrom(''); setTo(''); setPage(1);
   };
 
@@ -127,11 +134,22 @@ function AuditLogPage() {
         </div>
         <div className="proc-header-actions">
           <span className="proc-count-badge">{total.toLocaleString()} records</span>
-          <button className="proc-refresh-btn" onClick={load} disabled={loading}>
-            <RefreshCw size={14} className={loading ? 'proc-spin-fast' : ''} />
+          <button
+            className={`proc-btn-outline${view === 'archived' ? ' active' : ''}`}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem' }}
+            onClick={() => switchView(view === 'archived' ? 'recent' : 'archived')}
+          >
+            <Archive size={15} />
+            {view === 'archived' ? 'View Recent' : 'View Archived'}
           </button>
         </div>
       </div>
+
+      {view === 'archived' && (
+        <div style={{ padding: '8px 14px', background: '#fff8e1', border: '1px solid #f9a825', borderRadius: 8, fontSize: '0.83rem', color: '#e65100', marginBottom: '0.75rem', fontWeight: 600 }}>
+          Showing archived logs (6–18 months old). Records older than 18 months are automatically deleted.
+        </div>
+      )}
 
       {/* Filters */}
       <div className="proc-filters-row">

@@ -1,106 +1,48 @@
 /**
- * Sri Lankan Phone Number Validation Utility (Server-side)
- * Supports mobile numbers only (not landline):
- * - Mobile: 07X XXXXXX (e.g., 0712345678)
- * - Only 10 digits, numbers only
+ * Sri Lankan Phone Number Validation Utility
+ * Supports mobile (07X XXXXXXX) and landline (0XX XXXXXXX) — 10 digits total.
+ *
+ * Mobile prefixes : 070–078
+ * Landline prefixes: 011 (Colombo), 031–038, 041, 045, 047, 051, 052, 054, 055, 057, 063, 065–067
  */
 
-/**
- * Validates a Sri Lankan mobile phone number
- * @param {string} phoneNumber - The phone number to validate (10 digits, numbers only)
- * @returns {object} - { isValid: boolean, message: string, formatted: string, type: string }
- */
+const MOBILE_PREFIXES   = ['070','071','072','073','074','075','076','077','078'];
+const LANDLINE_PREFIXES = [
+  '011','031','032','033','034','035','036','037','038',
+  '041','045','047','051','052','054','055','057',
+  '063','065','066','067',
+];
+const ALL_PREFIXES = new Set([...MOBILE_PREFIXES, ...LANDLINE_PREFIXES]);
+
 const validateSriLankanPhone = (phoneNumber) => {
-  if (!phoneNumber || typeof phoneNumber !== 'string') {
-    return {
-      isValid: false,
-      message: 'Phone number is required',
-      formatted: '',
-      type: null
-    };
-  }
+  if (!phoneNumber || typeof phoneNumber !== 'string')
+    return { isValid: false, message: 'Phone number is required', formatted: '', type: null };
 
-  // Remove all whitespace
-  let cleaned = phoneNumber.trim().replace(/\s/g, '');
+  const cleaned = phoneNumber.trim().replace(/\s/g, '');
 
-  // Check if it contains only numbers
-  if (!/^[0-9]+$/.test(cleaned)) {
-    return {
-      isValid: false,
-      message: 'Only numbers allowed',
-      formatted: '',
-      type: null
-    };
-  }
+  if (!/^\d+$/.test(cleaned))
+    return { isValid: false, message: 'Only numbers allowed', formatted: '', type: null };
 
-  // Check if it's exactly 10 digits
-  if (cleaned.length !== 10) {
-    return {
-      isValid: false,
-      message: 'Must be exactly 10 digits',
-      formatted: '',
-      type: null
-    };
-  }
+  if (cleaned.length !== 10)
+    return { isValid: false, message: 'Must be exactly 10 digits', formatted: '', type: null };
 
-  // Check if it starts with 0
-  if (!cleaned.startsWith('0')) {
-    return {
-      isValid: false,
-      message: 'Must start with 0',
-      formatted: '',
-      type: null
-    };
-  }
+  if (!cleaned.startsWith('0'))
+    return { isValid: false, message: 'Must start with 0', formatted: '', type: null };
 
-  // Check if it's a valid mobile prefix (07X)
   const prefix = cleaned.slice(0, 3);
-  const validMobilePrefixes = ['070', '071', '072', '073', '074', '075', '076', '077', '078'];
 
-  if (!validMobilePrefixes.includes(prefix)) {
-    return {
-      isValid: false,
-      message: 'Invalid mobile prefix. Use 070-078',
-      formatted: '',
-      type: null
-    };
-  }
+  if (!ALL_PREFIXES.has(prefix))
+    return { isValid: false, message: 'Invalid prefix. Use a valid Sri Lankan mobile (07X) or landline area code', formatted: '', type: null };
 
-  // Format the number as-is (10 digits)
-  const formatted = cleaned;
-
-  return {
-    isValid: true,
-    message: 'Valid mobile number',
-    formatted: formatted,
-    type: 'mobile'
-  };
+  const type = MOBILE_PREFIXES.includes(prefix) ? 'mobile' : 'landline';
+  return { isValid: true, message: `Valid ${type} number`, formatted: cleaned, type };
 };
 
-/**
- * Normalizes a phone number for storage/comparison
- * Removes all formatting, returns just digits
- * @param {string} phoneNumber - The phone number to normalize
- * @returns {string} - Normalized phone number (digits only)
- */
 const normalizeSriLankanPhone = (phoneNumber) => {
   if (!phoneNumber) return '';
-  
-  // Remove all non-numeric characters
   return phoneNumber.replace(/[^0-9]/g, '');
 };
 
-/**
- * Check if a phone number is valid
- * @param {string} phoneNumber - The phone number to check
- * @returns {boolean} - True if valid
- */
-const isValidSriLankanPhone = (phoneNumber) => {
-  return validateSriLankanPhone(phoneNumber).isValid;
-};
+const isValidSriLankanPhone = (phoneNumber) => validateSriLankanPhone(phoneNumber).isValid;
 
-module.exports = {
-  validateSriLankanPhone,
-  normalizeSriLankanPhone,
-  isValidSriLankanPhone
-};
+module.exports = { validateSriLankanPhone, normalizeSriLankanPhone, isValidSriLankanPhone };

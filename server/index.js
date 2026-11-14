@@ -21,6 +21,7 @@ const ensureChequeExchangeSchema = require('./scripts/ensureChequeExchangeSchema
 const ensureSupplierPaymentSchema = require('./scripts/ensureSupplierPaymentSchema');
 const ensureBarcodeSchema = require('./scripts/ensureBarcodeSchema');
 const { startNearExpiryCron } = require('./cron/nearExpiryCron');
+const { performRetention }    = require('./controllers/auditLogController');
 
 const app    = express();
 const server = http.createServer(app);
@@ -220,6 +221,15 @@ cron.schedule('30 8 * * *', async () => {
     }
     console.log(`[Cron] Customer due check: ${dueCount} bill(s) due or overdue.`);
   } catch (e) { console.error('[Cron] Customer due alert error:', e.message); }
+});
+
+// Daily 02:00 — Audit log retention (delete records older than 18 months)
+cron.schedule('0 2 * * *', async () => {
+  try {
+    const result = await performRetention();
+    if (result.deleted > 0)
+      console.log(`[Cron] Audit retention: deleted ${result.deleted} log(s) older than ${result.retention_months} months.`);
+  } catch (e) { console.error('[Cron] Audit retention error:', e.message); }
 });
 
 // ── Default & Health Routes ───────────────────────────────────────────────────

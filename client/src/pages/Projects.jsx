@@ -3,9 +3,9 @@ import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
-  FolderOpen, Plus, X, Eye, Edit2, Trash2,
+  Plus, X, Eye, Edit2, Trash2,
   BarChart2, TrendingUp, Package, ShoppingCart,
-  ChevronDown, ChevronUp, Calendar, Printer
+  ChevronDown, ChevronUp, Calendar, Printer, Briefcase, FileText
 } from 'lucide-react';
 import api from '../utils/axios';
 import { buildTableHtml, escapeHtml, printWithTemplate } from '../utils/printTemplate';
@@ -123,12 +123,39 @@ function ProjectsPage() {
     e.preventDefault();
     if (!form.project_name || !form.start_date) { toast.error('Name and start date required'); return; }
 
-    const startDate = parseDateInput(form.start_date);
-    const deadline = parseDateInput(form.deadline);
-    const endDate = parseDateInput(form.end_date);
-    if (!startDate || (form.deadline && !deadline) || (form.end_date && !endDate)) {
-      toast.error('Use dd/mm/yyyy for all project dates');
+    // Owner name must not contain digits
+    if (form.project_owner && /\d/.test(form.project_owner)) {
+      toast.error('Invalid Owner name');
       return;
+    }
+
+    const startDate = parseDateInput(form.start_date);
+    const deadline  = parseDateInput(form.deadline);
+    const endDate   = parseDateInput(form.end_date);
+    if (!startDate || (form.deadline && !deadline) || (form.end_date && !endDate)) {
+      toast.error('Invalid date format');
+      return;
+    }
+
+    // Start date must be before deadline
+    if (deadline && startDate >= deadline) {
+      toast.error('Invalid date range');
+      return;
+    }
+
+    // Start date must be before actual end date
+    if (endDate && startDate >= endDate) {
+      toast.error('Invalid date range');
+      return;
+    }
+
+    // If actual end date is in the past, status cannot be Active
+    if (endDate) {
+      const today = new Date().toISOString().slice(0, 10);
+      if (endDate < today && form.status === 'Active') {
+        toast.error('Invalid Status');
+        return;
+      }
     }
 
     if (editId && ['Completed', 'Cancelled'].includes(form.status)) {
@@ -284,8 +311,6 @@ function ProjectsPage() {
   }, [activeTab, projects]);
 
   const statusPillClass = (s) => ({ Active: 'active', Completed: 'completed', 'On Hold': 'on-hold', Cancelled: 'cancelled' }[s] || '');
-  const typeIcon    = () => '📁';
-  
   const fmtDate = (d) => {
     if (!d) return '—';
     const dateObj = new Date(d);
@@ -374,7 +399,7 @@ function ProjectsPage() {
   };
 
   const projNavItems = [
-    { key: 'projects',        label: 'Projects',                icon: FolderOpen },
+    { key: 'projects',        label: 'Projects',                icon: Briefcase },
     { key: 'billing-counter', label: 'Project Billing Counter', icon: ShoppingCart },
     { key: 'monthly',         label: 'Monthly Report',          icon: BarChart2 },
     { key: 'yearly',          label: 'Yearly Report',           icon: TrendingUp },
@@ -387,7 +412,6 @@ function ProjectsPage() {
       <header className="procurement-header project-page-header">
         <div className="proc-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-            <div className="proc-header-icon"><FolderOpen size={22} /></div>
             <h1>Project Management</h1>
           </div>
           <button className="proc-btn-primary" onClick={openAdd} style={{ marginBottom: '14px' }}>
@@ -454,7 +478,6 @@ function ProjectsPage() {
                     <tr key={p.project_id}>
                       <td>
                         <div className="proc-name-cell">
-                          <span className="proj-type-icon">{typeIcon()}</span>
                           <span style={{ fontWeight: 600 }}>{p.project_name}</span>
                         </div>
                       </td>
@@ -536,7 +559,6 @@ function ProjectsPage() {
                     style={{ padding: '1rem 1.25rem', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                     onClick={() => setExpandedProject(expandedProject === pg.project.project_id ? null : pg.project.project_id)}>
                     <div className="proj-report-group-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span>{typeIcon()}</span>
                       <strong>{pg.project.project_name}</strong>
                     </div>
                     <div className="proj-report-group-meta" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -654,7 +676,8 @@ function ProjectsPage() {
                   </div>
                   <div className="proc-field">
                     <label>Project Owner</label>
-                    <input id="project_owner" name="project_owner" className="proc-input" value={form.project_owner} onChange={f('project_owner')}
+                    <input id="project_owner" name="project_owner" className="proc-input" value={form.project_owner}
+                      onChange={e => { if (/\d/.test(e.target.value)) return; setForm({ ...form, project_owner: e.target.value }); }}
                       placeholder="e.g. John Silva" />
                   </div>
                   <div className="proc-field">
@@ -714,7 +737,7 @@ function ProjectsPage() {
         <div className="proc-modal-overlay" onClick={() => setViewProject(null)}>
           <div className="proc-modal proc-modal-lg" onClick={e => e.stopPropagation()}>
             <div className="proc-modal-header">
-              <h2>{typeIcon()} {viewProject.project_name}</h2>
+              <h2><FileText size={18} /> {viewProject.project_name}</h2>
               <button className="proc-modal-close" onClick={() => setViewProject(null)}><X size={18} /></button>
             </div>
 
@@ -776,7 +799,7 @@ function ProjectsPage() {
                                 style={{ cursor: 'pointer' }}
                                 onClick={() => setExpandedViewMonth(expandedViewMonth === g.monthKey ? null : g.monthKey)}
                               >
-                                <span className="proj-items-month-title">📅 {g.monthLabel}</span>
+                                <span className="proj-items-month-title"><Calendar size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />{g.monthLabel}</span>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                   <span className="proc-count-badge">{g.items.length} item(s)</span>
                                   {expandedViewMonth === g.monthKey ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
