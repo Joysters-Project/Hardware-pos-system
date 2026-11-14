@@ -53,8 +53,16 @@ function BatchInventoryPage() {
 
   const handleDispose = async (batch) => {
     if (!window.confirm(`Dispose batch ${batch.batch_number}? This cannot be undone.`)) return;
+    const disposal_reason = window.prompt("Enter the disposal reason:");
+    if (!disposal_reason?.trim()) return;
+    const today = new Date();
+    const disposal_date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
     try {
-      await api.post(`/batch-inventory/${batch.batch_id}/dispose`);
+      await api.post(`/batch-inventory/${batch.batch_id}/dispose`, {
+        quantity: Number(batch.remaining_quantity),
+        disposal_date,
+        disposal_reason: disposal_reason.trim(),
+      });
       toast.success("Batch disposed successfully");
       load();
     } catch (err) {
@@ -130,7 +138,7 @@ function BatchInventoryPage() {
                       <button className="icon-btn view" title="View" onClick={() => setViewBatch(b)}>
                         <Eye size={15} />
                       </button>
-                      {b.status === "Expired" && (
+                      {b.status === "Expired" && Number(b.remaining_quantity) > 0 && (
                         <button className="icon-btn delete" title="Dispose" onClick={() => handleDispose(b)}>
                           <Trash2 size={15} />
                         </button>

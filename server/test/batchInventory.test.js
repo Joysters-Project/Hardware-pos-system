@@ -5,8 +5,10 @@ const { Op } = require('sequelize');
 
 const state = {
   batches: [],
+  alerts: [],
   product: null,
   purchaseOrder: null,
+  otherPurchaseOrders: [],
   bills: [],
   billItems: [],
   payments: [],
@@ -14,6 +16,14 @@ const state = {
 };
 
 const makeBatch = (data) => ({
+  ...data,
+  async update(values) {
+    Object.assign(this, values);
+    return this;
+  },
+});
+
+const makeAlert = (data) => ({
   ...data,
   async update(values) {
     Object.assign(this, values);
@@ -35,6 +45,7 @@ function matches(batch, where = {}) {
         if (operator === Op.notIn && value.includes(batch[key])) return false;
         if (operator === Op.gt && !(Number(batch[key]) > Number(value))) return false;
         if (operator === Op.lt && !(String(batch[key]) < String(value))) return false;
+        if (operator === Op.ne && batch[key] === value) return false;
         if (operator === Op.gte && !(String(batch[key]) >= String(value))) return false;
       }
     } else if (batch[key] !== expected) {
@@ -110,8 +121,33 @@ const db = {
       Object.assign(state.product, values);
     },
   },
+  alerts: {
+    async findOne({ where = {} }) {
+      return state.alerts.find(alert => matches(alert, where)) || null;
+    },
+    async findAll({ where = {} }) {
+      return state.alerts.filter(alert => matches(alert, where));
+    },
+    async create(values) {
+      const alert = makeAlert({ alert_id: state.alerts.length + 1, ...values });
+      state.alerts.push(alert);
+      return alert;
+    },
+    async update(values, { where = {} }) {
+      const matching = state.alerts.filter(alert => matches(alert, where));
+      matching.forEach(alert => Object.assign(alert, values));
+      return [matching.length];
+    },
+  },
   purchase_orders: {
     async findByPk() { return state.purchaseOrder; },
+    async findAll({ where = {}, include = [] }) {
+      const productId = include[0]?.where?.product_id;
+      return [state.purchaseOrder, ...state.otherPurchaseOrders]
+        .filter(order => order && matches(order, where))
+        .filter(order => order.po_items.some(item => Number(item.product_id) === Number(productId)))
+        .map(order => ({ po_id: order.po_id }));
+    },
   },
   po_items: {},
   suppliers: {},
@@ -136,19 +172,15 @@ const db = {
     async create(data) { state.payments.push(data); return data; },
   },
   users: {},
-  alerts: {},
 };
 
 const originalLoad = Module._load;
 Module._load = function (request, parent, ...args) {
-  if (request === '../models' && /server[\\/]services[\\/](batchService|billingService)\.js$/.test(parent.filename)) {
+  if (request === '../models' && /server[\\/]services[\\/](batchService|billingService|alertService)\.js$/.test(parent.filename)) {
     return db;
   }
   if (request === '../models' && /server[\\/]controllers[\\/]batchController\.js$/.test(parent.filename)) {
     return db;
-  }
-  if (request === '../services/alertService' && /batchController\.js$/.test(parent.filename)) {
-    return { syncAlertsForProduct: async () => {} };
   }
   if (request === './auditService' && /billingService\.js$/.test(parent.filename)) {
     return { logActivity: async () => {} };
@@ -169,6 +201,7 @@ Module._load = originalLoad;
 
 function reset({ batches = [], stock = 0 } = {}) {
   state.batches = batches.map((batch, index) => makeBatch({ batch_id: index + 1, ...batch }));
+  state.alerts = [];
   state.product = {
     product_id: 1,
     product_name: 'Milk Powder',
@@ -185,6 +218,7 @@ function reset({ batches = [], stock = 0 } = {}) {
     po_items: [{ product_id: 1, quantity: 100, unit_price: 10 }],
     async update(values) { Object.assign(this, values); },
   };
+  state.otherPurchaseOrders = [];
   state.bills = [];
   state.billItems = [];
   state.payments = [];
@@ -242,6 +276,154 @@ test('receiving a PO adds a distinct batch and FEFO sales switch the active batc
   assert.equal(state.product.stock_quantity, 90);
   assert.equal(state.product.batch_no, 'B002');
   assert.equal(state.product.expiry_date, '2097-06-10');
+});
+
+test('partial PO receipt keeps its linked alert ordered and full receipt recalculates it without duplicates', async () => {
+  reset({ stock: 0 });
+  state.product.min_stock_quantity = 150;
+  state.product.reorder_level = 5;
+  state.purchaseOrder.po_items[0].quantity = 100;
+  state.alerts.push(makeAlert({
+    alert_id: 1,
+    product_id: 1,
+    alert_type: 'Low Stock',
+    status: 'Purchase Ordered',
+    purchase_order_id: 7,
+    is_resolved: false,
+  }));
+
+  const receive = async (batchNumber, quantity) => {
+    const res = response();
+    await batchController.receiveOrderItem({
+      body: {
+        po_id: 7,
+        product_id: 1,
+        supplier_batch_number: batchNumber,
+        expiry_date: '2097-06-10',
+        received_date: '2096-11-06',
+        received_quantity: quantity,
+      },
+      app: { get: () => null },
+    }, res);
+    return res;
+  };
+
+  assert.equal((await receive('PO-7-A', 40)).statusCode, 201);
+  assert.equal(state.purchaseOrder.status, 'Shipped');
+  assert.equal(state.alerts[0].status, 'Purchase Ordered');
+  assert.equal(state.alerts[0].purchase_order_id, 7);
+
+  assert.equal((await receive('PO-7-B', 60)).statusCode, 201);
+  assert.equal(state.purchaseOrder.status, 'Received');
+  assert.equal(state.product.stock_quantity, 100);
+  assert.equal(state.alerts.length, 1);
+  assert.equal(state.alerts[0].status, 'Active');
+  assert.equal(state.alerts[0].purchase_order_id, null);
+  assert.equal(state.alerts[0].is_resolved, false);
+});
+
+test('full PO receipt resolves a sufficient-stock alert and preserves history', async () => {
+  reset({ stock: 0 });
+  state.product.min_stock_quantity = 10;
+  state.product.reorder_level = 5;
+  state.purchaseOrder.po_items[0].quantity = 10;
+  state.alerts.push(makeAlert({
+    alert_id: 1,
+    product_id: 1,
+    alert_type: 'Out of Stock',
+    status: 'Purchase Ordered',
+    purchase_order_id: 7,
+    is_resolved: false,
+  }));
+
+  const res = response();
+  await batchController.receiveOrderItem({
+    body: {
+      po_id: 7,
+      product_id: 1,
+      supplier_batch_number: 'PO-7-FULL',
+      expiry_date: '2097-06-10',
+      received_date: '2096-11-06',
+      received_quantity: 10,
+    },
+    app: { get: () => null },
+  }, res);
+
+  assert.equal(res.statusCode, 201);
+  assert.equal(state.product.stock_quantity, 10);
+  assert.equal(state.alerts[0].is_resolved, true);
+  assert.equal(state.alerts[0].status, 'Resolved');
+  assert.equal(state.alerts[0].purchase_order_id, null);
+});
+
+test('multiple open POs keep one linked alert ordered and re-evaluate it after the last receipt', async () => {
+  reset({ stock: 0 });
+  state.product.min_stock_quantity = 100;
+  state.product.reorder_level = 5;
+  state.purchaseOrder.po_items[0].quantity = 10;
+  state.otherPurchaseOrders = [{
+    po_id: 8,
+    status: 'Shipped',
+    po_items: [{ product_id: 1 }],
+  }];
+  state.alerts.push(makeAlert({
+    alert_id: 1,
+    product_id: 1,
+    alert_type: 'Low Stock',
+    status: 'Purchase Ordered',
+    purchase_order_id: 7,
+    is_resolved: false,
+  }));
+
+  const firstReceipt = response();
+  await batchController.receiveOrderItem({
+    body: {
+      po_id: 7,
+      product_id: 1,
+      supplier_batch_number: 'PO-7-MULTI',
+      expiry_date: '2097-06-10',
+      received_date: '2096-11-06',
+      received_quantity: 10,
+    },
+    app: { get: () => null },
+  }, firstReceipt);
+
+  assert.equal(firstReceipt.statusCode, 201);
+  assert.equal(state.alerts.length, 1);
+  assert.equal(state.alerts[0].status, 'Purchase Ordered');
+  assert.equal(state.alerts[0].purchase_order_id, 8);
+
+  state.purchaseOrder = {
+    po_id: 8,
+    supplier_id: 3,
+    status: 'Shipped',
+    po_items: [{ product_id: 1, quantity: 5, unit_price: 10 }],
+    async update(values) { Object.assign(this, values); },
+  };
+  state.otherPurchaseOrders = [{
+    po_id: 7,
+    status: 'Received',
+    po_items: [{ product_id: 1 }],
+  }];
+
+  const secondReceipt = response();
+  await batchController.receiveOrderItem({
+    body: {
+      po_id: 8,
+      product_id: 1,
+      supplier_batch_number: 'PO-8-MULTI',
+      expiry_date: '2097-06-10',
+      received_date: '2096-11-06',
+      received_quantity: 5,
+    },
+    app: { get: () => null },
+  }, secondReceipt);
+
+  assert.equal(secondReceipt.statusCode, 201);
+  assert.equal(state.product.stock_quantity, 15);
+  assert.equal(state.alerts.length, 1);
+  assert.equal(state.alerts[0].status, 'Active');
+  assert.equal(state.alerts[0].purchase_order_id, null);
 });
 
 test('FEFO skips expired stock and treats expiry today as valid', async () => {

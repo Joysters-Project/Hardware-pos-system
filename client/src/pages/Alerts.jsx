@@ -31,6 +31,7 @@ const ALERT_FILTERS = [
 
 const CASHIER_ALLOWED_FILTERS = ["", "out-of-stock", "low-stock", "reorder", "near-expiry", "expired"];
 
+const EXPIRED_BATCH_ALERT = "Expired Stock – Disposal Required";
 const CASHIER_INVENTORY_TYPES = ["Out of Stock", "Low Stock", "Reorder", "Near Expiry", "Expired"];
 
 const ALERT_TYPE_MAP = {
@@ -43,16 +44,18 @@ const ALERT_TYPE_MAP = {
 };
 
 function DisposeModal({ target, onClose, onConfirm, disposing }) {
-  const available = target?.product?.stock_quantity ?? 0;
+  const available = Number(target?.batch?.remaining_quantity ?? 0);
   const [qty, setQty] = useState(available);
-
-  // Reset qty whenever the target changes
-  useEffect(() => { setQty(available); }, [available]);
+  const [disposalDate, setDisposalDate] = useState(() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  });
+  const [reason, setReason] = useState("");
 
   if (!target) return null;
 
   const { product } = target;
-  const invalid = qty < 1 || qty > available;
+  const invalid = qty < 1 || qty > available || !disposalDate || !reason.trim();
 
   return (
     <div className="proc-modal-overlay" onClick={onClose}>
@@ -67,19 +70,19 @@ function DisposeModal({ target, onClose, onConfirm, disposing }) {
               <span className="proc-view-label">Product</span>
               <span className="proc-view-value">{product.product_name || "—"}</span>
             </div>
-            {product.batch_no && (
+            {target.batch_number && (
               <div className="proc-view-row">
                 <span className="proc-view-label">Batch No.</span>
-                <span className="proc-view-value">{product.batch_no}</span>
+                <span className="proc-view-value">{target.batch_number}</span>
               </div>
             )}
             <div className="proc-view-row">
-              <span className="proc-view-label">Available Qty</span>
+              <span className="proc-view-label">Expired Quantity Available</span>
               <span className="proc-view-value" style={{ color: "#991b1b", fontWeight: 800 }}>{available}</span>
             </div>
           </div>
           <div className="proc-field" style={{ marginTop: "1rem" }}>
-            <label htmlFor="dispose-qty">Dispose Qty</label>
+            <label htmlFor="dispose-qty">Expired Quantity</label>
             <input
               id="dispose-qty"
               type="number"
@@ -91,8 +94,32 @@ function DisposeModal({ target, onClose, onConfirm, disposing }) {
               disabled={disposing}
             />
           </div>
+          <div className="proc-field" style={{ marginTop: "0.75rem" }}>
+            <label htmlFor="disposal-date">Disposal Date</label>
+            <input
+              id="disposal-date"
+              type="date"
+              value={disposalDate}
+              onChange={e => setDisposalDate(e.target.value)}
+              className="proc-input"
+              disabled={disposing}
+            />
+          </div>
+          <div className="proc-field" style={{ marginTop: "0.75rem" }}>
+            <label htmlFor="disposal-reason">Disposal Reason</label>
+            <textarea
+              id="disposal-reason"
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              className="proc-input"
+              rows={3}
+              disabled={disposing}
+            />
+          </div>
           {invalid && (
-            <p style={{ color: "#c62828", fontSize: "0.85rem", marginTop: "0.5rem" }}>Quantity must be between 1 and {available}.</p>
+            <p style={{ color: "#c62828", fontSize: "0.85rem", marginTop: "0.5rem" }}>
+              Enter a quantity between 1 and {available}, a disposal date, and a reason.
+            </p>
           )}
         </div>
         <div className="proc-modal-footer">
@@ -100,7 +127,7 @@ function DisposeModal({ target, onClose, onConfirm, disposing }) {
           <button
             className="proc-btn-primary"
             style={{ background: "#c62828" }}
-            onClick={() => onConfirm(qty)}
+            onClick={() => onConfirm({ quantity: qty, disposal_date: disposalDate, disposal_reason: reason.trim() })}
             disabled={invalid || disposing}
           >
             {disposing ? "Disposing…" : "Confirm Dispose"}
@@ -834,14 +861,13 @@ function AlertCenterPage() {
     setSearchParams(searchParams);
   };
 
-  const handleDispose = async (qty) => {
+  const handleDispose = async (disposal) => {
     if (!disposeTarget) return;
     const { product } = disposeTarget;
-    const newStock = (product.stock_quantity ?? 0) - qty;
     setDisposing(true);
     try {
-      await api.put(`/products/${product.product_id}`, { stock_quantity: newStock });
-      toast.success(`Disposed ${qty} unit${qty !== 1 ? "s" : ""} of ${product.product_name}.`);
+      await api.post(`/batch-inventory/${disposeTarget.batch_id}/dispose`, disposal);
+      toast.success(`Disposed ${disposal.quantity} unit${disposal.quantity !== 1 ? "s" : ""} of ${product.product_name}.`);
       setDisposeTarget(null);
       await Promise.all([fetchAlerts(), fetchSummary()]);
     } catch (err) {
@@ -891,6 +917,7 @@ function AlertCenterPage() {
   return (
     <div className="alerts-container">
       <DisposeModal
+        key={disposeTarget?.alert_id || "closed"}
         target={disposeTarget}
         onClose={() => !disposing && setDisposeTarget(null)}
         onConfirm={handleDispose}
@@ -1070,21 +1097,22 @@ function AlertCenterPage() {
                       </td>
                       <td>
                         <span className="proc-status-pill" style={{ background: color + "18", color }}>
-                          {type}
+                          {alert.alert_label || type}
                         </span>
                       </td>
                       <td><strong>{product.stock_quantity ?? "-"}</strong></td>
                       <td>{product.min_stock_quantity ?? "-"}</td>
                       <td>{product.reorder_level ?? "-"}</td>
                       <td>{alert.batch_number || "-"}</td>
-                      <td>{product.expiry_date ? new Date(product.expiry_date).toLocaleDateString() : "-"}</td>
+                      <td>{(alert.expiry_date || product.expiry_date) ? new Date(alert.expiry_date || product.expiry_date).toLocaleDateString() : "-"}</td>
                       <td>
                         <span style={{
                           fontWeight: 700,
                           color: (() => {
-                            if (!product.expiry_date) return "#6b7280";
+                            const expiryDate = alert.expiry_date || product.expiry_date;
+                            if (!expiryDate) return "#6b7280";
                             const today = new Date(); today.setHours(0, 0, 0, 0);
-                            const expiry = new Date(product.expiry_date); expiry.setHours(0, 0, 0, 0);
+                            const expiry = new Date(expiryDate); expiry.setHours(0, 0, 0, 0);
                             const diff = Math.round((expiry - today) / 86400000);
                             if (diff < 0)  return "#991b1b";
                             if (diff === 0) return "#991b1b";
@@ -1092,7 +1120,7 @@ function AlertCenterPage() {
                             return "#374151";
                           })(),
                         }}>
-                          {daysRemaining(product.expiry_date)}
+                          {daysRemaining(alert.expiry_date || product.expiry_date)}
                         </span>
                       </td>
                       <td>
@@ -1127,7 +1155,7 @@ function AlertCenterPage() {
                           if (type === "Expired") {
                             return (
                               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                                <button className="proc-btn-primary" style={{ padding: "0.3rem 0.65rem", fontSize: "0.8rem", background: "#c62828" }} onClick={() => setDisposeTarget(alert)}>
+                                <button className="proc-btn-primary" style={{ padding: "0.3rem 0.65rem", fontSize: "0.8rem", background: "#c62828" }} onClick={() => setDisposeTarget(alert)} disabled={!alert.batch_id || Number(alert.batch?.remaining_quantity) <= 0}>
                                   Dispose
                                 </button>
                                 <button className="proc-btn-outline" style={{ padding: "0.3rem 0.65rem", fontSize: "0.8rem" }} onClick={viewBatch}>

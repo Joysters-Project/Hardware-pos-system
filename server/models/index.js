@@ -105,6 +105,7 @@ const auto_reorder_suggestions = require('./auto_reorder_suggestions');
 const email_logs = require('./email_logs');
 const supplier_documents = require('./supplier_documents');
 const batch_inventory    = require('./batch_inventory');
+const expired_stock_disposals = require('./expired_stock_disposals');
 const product_units = require('./product_units');
 const inventory_statuses = require('./inventory_statuses');
 const product_warranties = require('./product_warranties');
@@ -147,6 +148,7 @@ const db = {
   email_logs:       email_logs(sequelize),
   supplier_documents: supplier_documents(sequelize),
   batch_inventory:     batch_inventory(sequelize),
+  expired_stock_disposals: expired_stock_disposals(sequelize),
   product_units:    product_units(sequelize),
   inventory_statuses: inventory_statuses(sequelize),
   product_warranties: product_warranties(sequelize),
@@ -174,6 +176,8 @@ db.units.hasMany(db.products,  { foreignKey: 'unit_id' });
 db.products.belongsTo(db.units, { foreignKey: 'unit_id' });
 db.products.hasMany(db.alerts,  { foreignKey: 'product_id' });
 db.alerts.belongsTo(db.products, { foreignKey: 'product_id' });
+db.batch_inventory.hasMany(db.alerts, { foreignKey: 'batch_id' });
+db.alerts.belongsTo(db.batch_inventory, { foreignKey: 'batch_id' });
 db.products.hasMany(db.product_units, { foreignKey: 'product_id', as: 'alternative_units' });
 db.product_units.belongsTo(db.products, { foreignKey: 'product_id' });
 db.product_units.belongsTo(db.units, { foreignKey: 'unit_id', as: 'unit_details' });
@@ -285,6 +289,8 @@ db.customer_cheques.belongsTo(db.users, { foreignKey: 'created_by', as: 'creator
 // Batch Inventory
 db.products.hasMany(db.batch_inventory, { foreignKey: 'product_id' });
 db.batch_inventory.belongsTo(db.products, { foreignKey: 'product_id' });
+db.batch_inventory.hasMany(db.expired_stock_disposals, { foreignKey: 'batch_id' });
+db.expired_stock_disposals.belongsTo(db.batch_inventory, { foreignKey: 'batch_id' });
 db.purchase_orders.hasMany(db.batch_inventory, { foreignKey: 'purchase_order_id' });
 db.batch_inventory.belongsTo(db.purchase_orders, { foreignKey: 'purchase_order_id' });
 db.suppliers.hasMany(db.batch_inventory, { foreignKey: 'supplier_id' });

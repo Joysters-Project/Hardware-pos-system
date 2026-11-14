@@ -6,10 +6,14 @@ const emailService = require('../services/emailService');
 const procurementNotificationService = require('../services/procurementNotificationService');
 const forecastService = require('../services/forecastService');
 const supplierPerformanceService = require('../services/supplierPerformanceService');
-const { syncAlertsForProduct } = require('../services/alertService');
+const {
+  reconcilePurchaseOrderedAlertsAfterReceipt,
+  syncAlertsForProduct,
+} = require('../services/alertService');
 const { getStoreLocalDate } = require('../services/batchService');
 const { formatPurchaseOrderNumber } = require('../utils/purchaseOrderNumber');
 
+const STOCK_ALERT_TYPES = ['Out of Stock', 'Low Stock', 'Reorder'];
 const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0] || req.socket?.remoteAddress || null;
 
 const serializePurchaseOrder = (purchaseOrder) => {
@@ -65,23 +69,39 @@ exports.createPurchaseOrder = async (req, res) => {
     }));
     await po_items.bulkCreate(itemsData, { transaction });
 
-    await transaction.commit();
-
-    const STOCK_ALERT_TYPES = ['Out of Stock', 'Low Stock', 'Reorder'];
-    for (const item of items) {
-      const existing = await alerts.findOne({
-        where: { product_id: item.product_id, alert_type: { [Op.in]: STOCK_ALERT_TYPES }, status: 'Purchase Ordered', is_resolved: false }
-      }).catch(() => null);
-      if (existing) {
-        await existing.update({ purchase_order_id: po.po_id })
-          .catch(err => console.error(`[PO Controller] Alert update failed for product ${item.product_id}: ${err.message}`));
-      } else {
+    for (const productId of new Set(items.map(item => Number(item.product_id)))) {
+      const [alreadyOrdered] = await alerts.update(
+        { purchase_order_id: po.po_id },
+        {
+          where: {
+            product_id: productId,
+            alert_type: { [Op.in]: STOCK_ALERT_TYPES },
+            status: 'Purchase Ordered',
+            is_resolved: false,
+          },
+          transaction,
+        }
+      );
+      if (!alreadyOrdered) {
         await alerts.update(
           { status: 'Purchase Ordered', purchase_order_id: po.po_id },
-          { where: { product_id: item.product_id, alert_type: { [Op.in]: STOCK_ALERT_TYPES }, status: 'Active', is_resolved: false } }
-        ).catch(err => console.error(`[PO Controller] Alert update failed for product ${item.product_id}: ${err.message}`));
+          {
+            where: {
+              product_id: productId,
+              alert_type: { [Op.in]: STOCK_ALERT_TYPES },
+              status: 'Active',
+              is_resolved: false,
+            },
+            transaction,
+          }
+        );
       }
     }
+
+    await transaction.commit();
+
+    const io = req.app.get('io');
+    if (io) io.emit('alerts:updated');
 
     // 1. Auto-create pending payment record
     await supplierPaymentService.createPaymentRecord(
@@ -246,17 +266,9 @@ exports.updateStatus = async (req, res) => {
           getIp(req)
         ).catch(() => {});
 
-        // Resolve any low-stock alerts for this product
-        await alerts.update(
-          { is_resolved: true, resolved_date: new Date() },
-          { where: { product_id: item.product_id, is_resolved: false }, transaction }
-        ).catch(() => {});
-
-        // Sync alerts based on actual post-receipt stock level
-        const updatedProduct = await products.findByPk(item.product_id, { transaction });
-        if (updatedProduct) {
-          await syncAlertsForProduct(updatedProduct).catch(() => {});
-        }
+        // Release only stock alerts linked to this PO. Stock conditions are
+        // recalculated after the receipt transaction commits.
+        await reconcilePurchaseOrderedAlertsAfterReceipt(item.product_id, po.po_id, transaction);
 
         // Close related auto-reorder suggestions for this product
         await auto_reorder_suggestions.update(
@@ -270,8 +282,13 @@ exports.updateStatus = async (req, res) => {
     await transaction.commit();
 
     if (status === 'Received') {
+      for (const productId of new Set(po.po_items.map(item => Number(item.product_id)))) {
+        const updatedProduct = await products.findByPk(productId);
+        if (updatedProduct) await syncAlertsForProduct(updatedProduct);
+      }
       const io = req.app.get('io');
       if (io) io.emit('products:updated');
+      if (io) io.emit('alerts:updated');
     }
 
     // ─── Post-Commit Hooks (Asynchronous) ──────────────────────────────────
