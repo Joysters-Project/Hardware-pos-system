@@ -1073,7 +1073,9 @@ export default function CustomerChequeExchange() {
       {activeTab === 'reports' && renderReports()}
 
       {isCustomerModalOpen && (
-        <div className="cce-overlay" onClick={() => setCustomerModalOpen(false)}>
+        <div className="cce-overlay" onDoubleClick={(event) => {
+          if (event.target === event.currentTarget) setCustomerModalOpen(false);
+        }}>
           <div className="cce-modal cce-modal-lg" onClick={(event) => event.stopPropagation()}>
             <div className="cce-modal-header">
               <h2>{editingCustomerId ? 'Edit customer' : 'Add customer'}</h2>
@@ -1113,7 +1115,9 @@ export default function CustomerChequeExchange() {
       )}
 
       {isChequeModalOpen && (
-        <div className="cce-overlay" onClick={() => setChequeModalOpen(false)}>
+        <div className="cce-overlay" onDoubleClick={(event) => {
+          if (event.target === event.currentTarget) setChequeModalOpen(false);
+        }}>
           <div className="cce-modal cce-modal-lg" onClick={(event) => event.stopPropagation()}>
             <div className="cce-modal-header">
               <h2>{editingChequeId ? 'Edit cheque' : 'Record cheque'}</h2>
@@ -1216,7 +1220,9 @@ export default function CustomerChequeExchange() {
       )}
 
       {isCustomerDetailOpen && selectedCustomer && (
-        <div className="cce-overlay" onClick={() => setCustomerDetailOpen(false)}>
+        <div className="cce-overlay" onDoubleClick={(event) => {
+          if (event.target === event.currentTarget) setCustomerDetailOpen(false);
+        }}>
           <div className="cce-modal cce-modal-lg" onClick={(event) => event.stopPropagation()}>
             <div className="cce-modal-header">
               <h2>Customer details</h2>

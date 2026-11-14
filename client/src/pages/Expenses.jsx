@@ -246,7 +246,9 @@ function ExpensesPage() {
 
           {/* Add/Edit Modal */}
           {showModal && createPortal(
-            <div className="proc-modal-overlay" onClick={closeModal}>
+            <div className="proc-modal-overlay" onDoubleClick={(event) => {
+              if (event.target === event.currentTarget) closeModal();
+            }}>
               <div className="proc-modal proc-modal-lg" onClick={e => e.stopPropagation()}>
                 <div className="proc-modal-header">
                   <h2>{editId ? 'Edit Expense' : 'Add Expense'}</h2>
@@ -307,7 +309,9 @@ function ExpensesPage() {
 
           {/* View Modal */}
           {viewExpense && createPortal(
-            <div className="proc-modal-overlay" onClick={() => setViewExpense(null)}>
+            <div className="proc-modal-overlay" onDoubleClick={(event) => {
+              if (event.target === event.currentTarget) setViewExpense(null);
+            }}>
               <div className="proc-modal" onClick={e => e.stopPropagation()}>
                 <div className="proc-modal-header">
                   <h2>Expense Details</h2>

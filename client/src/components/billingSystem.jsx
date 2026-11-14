@@ -1505,7 +1505,9 @@ const BillingSystem = () => {
 
       {/* Receipt Modal */}
       {lastBill && (
-        <div className="receipt-overlay-modern" onClick={(e) => { if (e.target === e.currentTarget) setLastBill(null); }}>
+        <div className="receipt-overlay-modern" onDoubleClick={(event) => {
+          if (event.target === event.currentTarget) setLastBill(null);
+        }}>
           <div className="receipt-modal-modern">
             <div className="receipt-header">
               <div className="receipt-store">MATHUMITHAN HARDWARE AND TIMPERDEPOT</div>

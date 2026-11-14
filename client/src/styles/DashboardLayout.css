@@ -9,7 +9,57 @@
   min-height: 100vh;
   width: 100%;
   background: linear-gradient(135deg, #f5f5f5 0%, #fafafa 100%);
-  font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: Inter, Arial, sans-serif;
+}
+
+body:has(
+  .dept-overlay,
+  .emp-overlay,
+  .asset-overlay,
+  .exp-overlay,
+  .proc-modal-overlay,
+  .modal-overlay,
+  .cce-overlay,
+  .sal-overlay,
+  .pt-modal-overlay,
+  .ret-modal-overlay,
+  .expired-modal-overlay,
+  .receipt-overlay-modern,
+  .dm-overlay,
+  .lcm-overlay,
+  .audit-modal-overlay,
+  .proj-overlay,
+  .pf-crop-overlay,
+  .schema-panel-overlay,
+  .success-backdrop,
+  .scan-modal-overlay
+) {
+  overflow: hidden;
+}
+
+body:has(
+  .dept-overlay,
+  .emp-overlay,
+  .asset-overlay,
+  .exp-overlay,
+  .proc-modal-overlay,
+  .modal-overlay,
+  .cce-overlay,
+  .sal-overlay,
+  .pt-modal-overlay,
+  .ret-modal-overlay,
+  .expired-modal-overlay,
+  .receipt-overlay-modern,
+  .dm-overlay,
+  .lcm-overlay,
+  .audit-modal-overlay,
+  .proj-overlay,
+  .pf-crop-overlay,
+  .schema-panel-overlay,
+  .success-backdrop,
+  .scan-modal-overlay
+) .admin-content {
+  overflow: hidden;
 }
 
 /* ---------- Main Content Area ---------- */
