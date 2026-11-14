@@ -1,7 +1,20 @@
-const { batch_inventory, products, purchase_orders, po_items, suppliers, sequelize } = require('../models');
+const {
+  batch_inventory,
+  products,
+  purchase_orders,
+  po_items,
+  suppliers,
+  alerts,
+  expired_stock_disposals,
+  sequelize,
+} = require('../models');
 const { Op } = require('sequelize');
 const { getStoreLocalDate, syncProductFromBatches, refreshBatchStatuses } = require('../services/batchService');
-const { syncAlertsForProduct } = require('../services/alertService');
+const {
+  EXPIRED_BATCH_ALERT,
+  reconcilePurchaseOrderedAlertsAfterReceipt,
+  syncAlertsForProduct,
+} = require('../services/alertService');
 
 const isDateOnly = (value) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return false;
@@ -108,25 +121,36 @@ exports.receiveOrderItem = async (req, res) => {
       });
       return Number(received || 0) >= Number(item.quantity);
     }));
-    if (allItemsReceived.every(Boolean) && po.status !== 'Received') {
+    const purchaseOrderFullyReceived = allItemsReceived.every(Boolean);
+    if (purchaseOrderFullyReceived && po.status !== 'Received') {
       await po.update({
         status: 'Received',
         actual_delivery_date: getStoreLocalDate(),
       }, { transaction });
+
+      for (const receivedProductId of new Set(po.po_items.map(item => Number(item.product_id)))) {
+        await reconcilePurchaseOrderedAlertsAfterReceipt(receivedProductId, po_id, transaction);
+      }
     }
 
-    const updatedProduct = await products.findByPk(product_id, { transaction });
     await transaction.commit();
 
-    if (updatedProduct) {
-      try {
-        await syncAlertsForProduct(updatedProduct);
-      } catch (error) {
-        console.error(`[Batch Receive] Alert sync failed for product ${product_id}: ${error.message}`);
+    const affectedProductIds = purchaseOrderFullyReceived
+      ? new Set(po.po_items.map(item => Number(item.product_id)))
+      : new Set([Number(product_id)]);
+    for (const affectedProductId of affectedProductIds) {
+      const updatedProduct = await products.findByPk(affectedProductId);
+      if (updatedProduct) {
+        try {
+          await syncAlertsForProduct(updatedProduct);
+        } catch (error) {
+          console.error(`[Batch Receive] Alert sync failed for product ${affectedProductId}: ${error.message}`);
+        }
       }
     }
     const io = req.app.get('io');
     if (io) io.emit('products:updated');
+    if (io) io.emit('alerts:updated');
 
     res.status(201).json({ message: 'Order received and batch created successfully.', batch });
   } catch (err) {
@@ -188,17 +212,116 @@ exports.getBatchById = async (req, res) => {
 
 // POST /api/batch-inventory/:id/dispose
 exports.disposeBatch = async (req, res) => {
+  const body = req.body || {};
+  const quantity = Number(body.quantity);
+  const disposalDate = body.disposal_date || getStoreLocalDate();
+  const disposalReason = String(body.disposal_reason || '').trim();
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    return res.status(400).json({ error: 'Disposal quantity must be a positive whole number.' });
+  }
+  if (!isDateOnly(disposalDate)) {
+    return res.status(400).json({ error: 'Disposal date is required in YYYY-MM-DD format.' });
+  }
+  if (!disposalReason) {
+    return res.status(400).json({ error: 'Disposal reason is required.' });
+  }
+
+  let transaction;
   try {
-    const batch = await batch_inventory.findByPk(req.params.id);
-    if (!batch) return res.status(404).json({ message: 'Batch not found' });
-    if (batch.status !== 'Expired') {
-      return res.status(400).json({ error: 'Only Expired batches can be disposed' });
+    transaction = await sequelize.transaction();
+    const batch = await batch_inventory.findByPk(req.params.id, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    if (!batch) {
+      const error = new Error('Batch not found.');
+      error.statusCode = 404;
+      throw error;
     }
-    await batch.update({ status: 'Disposed', remaining_quantity: 0, disposed_at: new Date() });
-    await syncProductFromBatches(batch.product_id);
+    if (!batch.expiry_date || batch.expiry_date >= getStoreLocalDate()) {
+      const error = new Error('Only expired batches can be disposed.');
+      error.statusCode = 400;
+      throw error;
+    }
+    const remaining = Number(batch.remaining_quantity);
+    if (remaining <= 0 || quantity > remaining) {
+      const error = new Error(`Disposal quantity must not exceed the remaining batch quantity (${remaining}).`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const product = await products.findByPk(batch.product_id, { transaction });
+    if (!product) {
+      const error = new Error('Batch product not found.');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const remainingQuantity = remaining - quantity;
+    await batch.update({
+      remaining_quantity: remainingQuantity,
+      status: remainingQuantity === 0 ? 'Disposed' : 'Expired',
+      disposed_at: remainingQuantity === 0 ? new Date() : null,
+    }, { transaction });
+    const disposal = await expired_stock_disposals.create({
+      batch_id: batch.batch_id,
+      product_name: product.product_name,
+      batch_number: batch.batch_number,
+      expired_quantity: quantity,
+      disposal_date: disposalDate,
+      disposal_reason: disposalReason,
+    }, { transaction });
+
+    const expiredAlert = await alerts.findOne({
+      where: { batch_id: batch.batch_id, alert_type: EXPIRED_BATCH_ALERT },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    if (expiredAlert) {
+      if (remainingQuantity === 0) {
+        await expiredAlert.update({
+          is_resolved: true,
+          resolved_date: new Date(),
+          status: 'Resolved',
+        }, { transaction });
+      } else {
+        await expiredAlert.update({
+          is_resolved: false,
+          resolved_date: null,
+          status: 'Active',
+        }, { transaction });
+      }
+    }
+    await syncProductFromBatches(batch.product_id, transaction);
+    const updatedProduct = await products.findByPk(batch.product_id, { transaction });
+    await transaction.commit();
+
+    if (updatedProduct) await syncAlertsForProduct(updatedProduct);
     const io = req.app.get('io');
     if (io) io.emit('products:updated');
-    res.json({ message: 'Batch disposed successfully', batch });
+    if (io) io.emit('alerts:updated');
+    res.json({ message: 'Expired stock disposal recorded successfully.', batch, disposal });
+  } catch (err) {
+    if (transaction && !transaction.finished) await transaction.rollback();
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+};
+
+// GET /api/batch-inventory/disposals
+exports.getDisposalHistory = async (req, res) => {
+  try {
+    const where = {};
+    if (req.query.batch_id) {
+      if (!Number.isInteger(Number(req.query.batch_id)) || Number(req.query.batch_id) <= 0) {
+        return res.status(400).json({ error: 'Batch ID must be a positive integer.' });
+      }
+      where.batch_id = Number(req.query.batch_id);
+    }
+    const history = await expired_stock_disposals.findAll({
+      where,
+      order: [['disposal_date', 'DESC'], ['disposal_id', 'DESC']],
+    });
+    res.json(history);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

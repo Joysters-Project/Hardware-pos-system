@@ -97,7 +97,7 @@ All routes are prefixed with `/api/`. Routes marked 🔒 require a valid JWT (`A
 | `/api/salary` | Salary records | — |
 | `/api/projects` | Project management | — |
 | `/api/audit_log` | Audit log viewer | — |
-| `/api/batch-inventory` | Batch inventory tracking | — |
+| `/api/batch-inventory` | Batch inventory tracking and expired-stock disposal history | — |
 | `/api/cheque-exchange` | Customer cheque exchange | — |
 | `/api/dashboard` | Dashboard KPIs | 🔒 |
 | `/api/schema` | Internal schema inspection | — |
@@ -124,8 +124,13 @@ All routes are prefixed with `/api/`. Routes marked 🔒 require a valid JWT (`A
 - **Sync mode**: `{ force: false }` — tables are created if missing, never dropped
 - **Schema patches**: Applied at startup via `scripts/ensure*.js` files (additive `ALTER TABLE` migrations)
 
-### Key Models (38 total)
-`users`, `employees`, `departments`, `products`, `suppliers`, `customers`, `bills`, `bill_items`, `payments`, `returns`, `return_items`, `supplier_services`, `purchase_orders`, `po_items`, `supplier_payments`, `supplier_payment_transactions`, `supplier_documents`, `supplier_returns`, `brands`, `category`, `units`, `product_units`, `product_warranties`, `batch_inventory`, `inventory_statuses`, `assets`, `expenses`, `salary_payments`, `projects`, `project_items`, `alerts`, `audit_log`, `auto_reorder_suggestions`, `procurement_notifications`, `email_logs`, `cheque_customers`, `customer_cheques`
+### Key Models (39 total)
+`users`, `employees`, `departments`, `products`, `suppliers`, `customers`, `bills`, `bill_items`, `payments`, `returns`, `return_items`, `supplier_services`, `purchase_orders`, `po_items`, `supplier_payments`, `supplier_payment_transactions`, `supplier_documents`, `supplier_returns`, `brands`, `category`, `units`, `product_units`, `product_warranties`, `batch_inventory`, `expired_stock_disposals`, `inventory_statuses`, `assets`, `expenses`, `salary_payments`, `projects`, `project_items`, `alerts`, `audit_log`, `auto_reorder_suggestions`, `procurement_notifications`, `email_logs`, `cheque_customers`, `customer_cheques`
+
+### Expired stock disposal
+- Expired batches with positive remaining quantity generate one `Expired` alert per batch; Alert Center displays it as `Expired Stock – Disposal Required` while preserving the existing alert type for dashboards.
+- `POST /api/batch-inventory/:id/dispose` accepts `{ quantity, disposal_date, disposal_reason }`; quantities can be partial, and fully disposed batches automatically resolve their alert.
+- `GET /api/batch-inventory/disposals` returns disposal history; filter by `batch_id` to view one batch.
 
 ---
 
