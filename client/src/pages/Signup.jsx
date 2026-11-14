@@ -87,6 +87,7 @@ function Signup() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formRef.current?.reportValidity()) return;
     
     const step2Fields = ["username", "role", "employee_id"];
     const newErrors = {};
@@ -143,6 +144,8 @@ function Signup() {
   };
 
   const handleNextStep = () => {
+    if (!formRef.current?.reportValidity()) return;
+
     const step1Fields = ["firstName", "lastName", "email", "password"];
     const newErrors = {};
 
@@ -181,11 +184,10 @@ function Signup() {
                   onChange={handleChange}
                   onBlur={handleBlur}
                   disabled={loading}
+                  required
+                  minLength={2}
                   className={errors.firstName ? "input-error" : ""}
                 />
-                {errors.firstName && (
-                  <span className="error-message">{errors.firstName}</span>
-                )}
               </div>
 
               <div className="form-group">
@@ -197,11 +199,10 @@ function Signup() {
                   onChange={handleChange}
                   onBlur={handleBlur}
                   disabled={loading}
+                  required
+                  minLength={2}
                   className={errors.lastName ? "input-error" : ""}
                 />
-                {errors.lastName && (
-                  <span className="error-message">{errors.lastName}</span>
-                )}
               </div>
 
               <div className="form-group">
@@ -213,11 +214,9 @@ function Signup() {
                   onChange={handleChange}
                   onBlur={handleBlur}
                   disabled={loading}
+                  required
                   className={errors.email ? "input-error" : ""}
                 />
-                {errors.email && (
-                  <span className="error-message">{errors.email}</span>
-                )}
               </div>
 
               <div className="form-group">
@@ -229,11 +228,10 @@ function Signup() {
                   onChange={handleChange}
                   onBlur={handleBlur}
                   disabled={loading}
+                  required
+                  minLength={6}
                   className={errors.password ? "input-error" : ""}
                 />
-                {errors.password && (
-                  <span className="error-message">{errors.password}</span>
-                )}
               </div>
 
               <button type="button" onClick={handleNextStep} disabled={loading}>
@@ -253,11 +251,10 @@ function Signup() {
                   onChange={handleChange}
                   onBlur={handleBlur}
                   disabled={loading}
+                  required
+                  minLength={3}
                   className={errors.username ? "input-error" : ""}
                 />
-                {errors.username && (
-                  <span className="error-message">{errors.username}</span>
-                )}
               </div>
               
               <div className="form-group">
@@ -267,6 +264,7 @@ function Signup() {
                   onChange={handleChange}
                   onBlur={handleBlur}
                   disabled={loading}
+                  required
                   className={errors.role ? "input-error" : ""}
                 >
                   <option value="" disabled hidden>Select Role</option>
@@ -274,9 +272,6 @@ function Signup() {
                   <option value="Manager">Manager</option>
                   <option value="Cashier">Cashier</option>
                 </select>
-                {errors.role && (
-                  <span className="error-message">{errors.role}</span>
-                )}
               </div>
 
               <div className="form-group">
@@ -290,10 +285,8 @@ function Signup() {
                   disabled={loading}
                   className={errors.employee_id ? "input-error" : ""}
                   min="1"
+                  required
                 />
-                {errors.employee_id && (
-                  <span className="error-message">{errors.employee_id}</span>
-                )}
               </div>
 
               <button type="button" onClick={() => setStep(1)} disabled={loading}>

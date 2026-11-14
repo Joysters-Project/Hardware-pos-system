@@ -5,16 +5,20 @@
 }
 
 .login-page {
-  height: 100vh;
+  min-height: 100vh;
+  min-height: 100dvh;
   width: 100vw;
   display: flex;
   font-family: Arial, Helvetica, sans-serif;
   background-image: url("../assets/tool.png");
   background-repeat: no-repeat;
-  background-size: cover;
+  background-size: 100% 100%;
+  background-position: center;
   justify-content: center;
   align-items: center;
   background-color: rgba(16, 7, 12, 0.85);
+  overflow: auto;
+  padding: 24px;
 }
 
 .login-right {
@@ -25,10 +29,10 @@
 }
 
 .login-card {
-  width: 420px;
+  width: min(420px, 100%);
   min-height: 500px;
   height: auto;
-  padding: 40px;
+  padding: clamp(24px, 5vw, 40px);
   border-radius: 16px;
   background: rgba(0, 0, 0, 0.55);
   border: 1px solid rgba(220, 172, 172, 0.25);
@@ -131,6 +135,8 @@
 }
 
 .login-btn {
+  position: relative;
+  overflow: hidden;
   width: 100%;
   padding: 13px;
   border: none;
@@ -142,6 +148,19 @@
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
   background: linear-gradient(90deg, #8b1f24, #5f0d11);
   letter-spacing: 0.5px;
+}
+
+.login-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.11) 50%, transparent 62%);
+  background-size: 220% 100%;
+  animation: btnShimmer 2.6s linear infinite;
+}
+@keyframes btnShimmer {
+  from { background-position: 220% 0; }
+  to   { background-position: -220% 0; }
 }
 
 .login-btn:hover:not(:disabled) {
@@ -179,28 +198,184 @@
   margin-top: 12px;
 }
 
-.back-btn {
-  width: 100%;
-  padding: 13px;
-  border: none;
+.login-home-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 104px;
+  padding: 9px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: 6px;
   font-weight: 600;
-  font-size: 16px;
+  font-size: 14px;
   cursor: pointer;
-  color: white;
+  color: #fff;
+  background: transparent;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
-  background: linear-gradient(90deg, #8b1f24, #5f0d11);
   letter-spacing: 0.5px;
-  margin-top: 10px;
+  margin-top: 12px;
   transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
 }
 
-.back-btn:hover {
-  transform: scale(1.05);
+.login-home-btn:hover,
+.login-home-btn:focus-visible,
+.login-home-btn:active {
+  background: linear-gradient(90deg, #8b1f24, #5f0d11);
+  border-color: #8b1f24;
+  color: #fff;
+}
+
+.login-home-btn:hover {
+  transform: translateY(-1px);
   opacity: 0.95;
 }
 
-.back-btn:active {
+.login-home-btn:active {
   transform: translateY(0);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+
+@media (max-width: 520px) {
+  .login-page {
+    padding: 16px;
+  }
+
+  .login-card {
+    min-height: auto;
+  }
+
+  .title {
+    font-size: clamp(26px, 8vw, 32px);
+  }
+
+  .logo {
+    width: clamp(110px, 35vw, 150px);
+    height: clamp(110px, 35vw, 150px);
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   ADMIN LOGIN — graphical effects only
+   Card layout is identical to other roles.
+   Effects are layered behind the existing card.
+═══════════════════════════════════════════════ */
+
+/* Keep the tool.png background but darken it more for admin */
+.login-page--admin {
+  position: relative;
+  background-color: rgba(8, 3, 5, 0.92);
+}
+
+/* Particle canvas sits behind everything */
+.admin-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Faint red grid lines */
+.admin-grid-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(139, 58, 58, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139, 58, 58, 0.055) 1px, transparent 1px);
+  background-size: 52px 52px;
+}
+
+/* Ambient glow orbs */
+.admin-orb {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(90px);
+  z-index: 0;
+}
+.admin-orb--1 {
+  width: 560px;
+  height: 560px;
+  top: -180px;
+  left: -180px;
+  background: radial-gradient(circle, rgba(130, 28, 28, 0.38) 0%, transparent 70%);
+  animation: adminOrb1 9s ease-in-out infinite alternate;
+}
+.admin-orb--2 {
+  width: 420px;
+  height: 420px;
+  bottom: -130px;
+  right: -110px;
+  background: radial-gradient(circle, rgba(95, 18, 18, 0.32) 0%, transparent 70%);
+  animation: adminOrb2 11s ease-in-out infinite alternate;
+}
+.admin-orb--3 {
+  width: 320px;
+  height: 320px;
+  top: 50%;
+  left: 50%;
+  background: radial-gradient(circle, rgba(110, 22, 22, 0.14) 0%, transparent 70%);
+  animation: adminOrb3 7s ease-in-out infinite alternate;
+}
+@keyframes adminOrb1 {
+  from { opacity: 0.65; transform: scale(1) translate(0, 0); }
+  to   { opacity: 1;    transform: scale(1.1) translate(20px, 15px); }
+}
+@keyframes adminOrb2 {
+  from { opacity: 0.6;  transform: scale(1) translate(0, 0); }
+  to   { opacity: 0.95; transform: scale(1.08) translate(-15px, -20px); }
+}
+@keyframes adminOrb3 {
+  from { opacity: 0.6;  transform: translate(-50%, -50%) scale(1); }
+  to   { opacity: 1;    transform: translate(-50%, -50%) scale(1.12); }
+}
+
+/* Ensure the card and its siblings sit above the effects */
+.login-page--admin .login-right {
+  position: relative;
+  z-index: 1;
+}
+
+/* Stronger card glow for admin */
+.login-page--admin .login-card {
+  border-color: rgba(200, 100, 100, 0.3);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(160, 60, 60, 0.15),
+    0 0 40px rgba(120, 25, 25, 0.18);
+  animation: adminCardIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes adminCardIn {
+  from { opacity: 0; transform: translateY(22px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.login-page--admin .login-card:hover {
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(180, 70, 70, 0.22),
+    0 0 56px rgba(130, 28, 28, 0.22);
+}
+
+/* Logo gentle float for admin */
+.login-page--admin .logo {
+  animation: adminLogoFloat 5s ease-in-out infinite;
+  filter: drop-shadow(0 0 14px rgba(200, 70, 70, 0.3));
+}
+@keyframes adminLogoFloat {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-6px); }
+}
+
+/* Login button stronger glow for admin */
+.login-page--admin .login-btn {
+  box-shadow: 0 4px 18px rgba(139, 31, 36, 0.5), 0 0 0 1px rgba(200, 80, 80, 0.18);
+}
+
+/* Input focus glow for admin */
+.login-page--admin .input-box input:focus {
+  border-color: rgba(190, 70, 70, 0.65);
+  box-shadow: 0 0 0 3px rgba(150, 40, 40, 0.22), 0 0 14px rgba(150, 40, 40, 0.12);
 }
