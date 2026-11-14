@@ -274,6 +274,16 @@
 	animation: prod-modal-fade-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+.modal-overlay.product-modal-overlay {
+	inset: 0;
+	background: rgba(0, 0, 0, 0.5);
+	backdrop-filter: blur(0px);
+	-webkit-backdrop-filter: blur(0px);
+	z-index: 1000;
+	padding: 1rem;
+	animation: product-dept-modal-fade-in 0.18s ease;
+}
+
 .admin-shell.sidebar-collapsed .modal-overlay {
 	left: 112px;
 }
@@ -285,6 +295,11 @@
 		padding: 24px 16px;
 		z-index: 1200;
 	}
+}
+
+@keyframes product-dept-modal-fade-in {
+	from { opacity: 0; }
+	to { opacity: 1; }
 }
 
 @keyframes prod-modal-fade-in {
