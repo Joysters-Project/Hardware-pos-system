@@ -3,6 +3,7 @@ import { Bell, X, ChevronRight, Package, AlertTriangle, RefreshCw, Clock, Shoppi
 import api from "../api/axios";
 import { useNavigate } from "react-router-dom";
 import { useUnreadNotificationsCount, useChequeAlerts, useCustomerDueAlerts } from "../services/procurementApi";
+import { useAuth } from "../context/AuthContext";
 import { subscribeToEvent } from "../services/socketSingleton";
 import "../styles/NavbarNotificationBell.css";
 
@@ -30,7 +31,8 @@ const INVENTORY_ITEMS = [
 ];
 
 export default function NavbarNotificationBell() {
-  const isCashier = (sessionStorage.getItem("role") || "").toLowerCase() === "cashier";
+  const { role } = useAuth();
+  const isCashier = (role || "").toLowerCase() === "cashier";
   const [open, setOpen]       = useState(false);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -90,7 +92,7 @@ export default function NavbarNotificationBell() {
   }, []);
 
   const inventoryTotal = summary?.total || 0;
-  const badgeCount     = inventoryTotal + customerDueTotal + (isCashier ? 0 : procUnread + chequeTotal);
+  const badgeCount     = inventoryTotal + customerDueTotal + chequeTotal + (isCashier ? 0 : procUnread);
   const timestamp      = relativeTime(summary?.updated_at);
 
   const close = () => setOpen(false);
@@ -175,10 +177,10 @@ export default function NavbarNotificationBell() {
               )}
 
               {/* ── Divider ── */}
-              {!isCashier && <div className="nbell-divider" />}
+              {(!isCashier || chequeTotal > 0) && <div className="nbell-divider" />}
 
               {/* ── Section 2: Payment Alerts ── */}
-              {!isCashier && chequeTotal > 0 && (
+              {chequeTotal > 0 && (
               <>
               <div className="nbell-section-label">
                 <CreditCard size={12} />
@@ -195,9 +197,12 @@ export default function NavbarNotificationBell() {
                   <div
                     key={key}
                     className={`nbell-inv-row ${count === 0 ? "nbell-inv-row--zero" : ""}`}
-                    onClick={() => { close(); navigate(`/alerts?tab=payment&type=${key}`); }}
-                    role="button" tabIndex={0}
-                    onKeyDown={(e) => e.key === "Enter" && (close(), navigate(`/alerts?tab=payment&type=${key}`))}
+                    onClick={!isCashier ? () => { close(); navigate(`/alerts?tab=payment&type=${key}`); } : undefined}
+                    role={!isCashier ? "button" : undefined}
+                    tabIndex={!isCashier ? 0 : undefined}
+                    onKeyDown={!isCashier ? (e) => e.key === "Enter" && (close(), navigate(`/alerts?tab=payment&type=${key}`)) : undefined}
+                    aria-disabled={isCashier}
+                    style={isCashier ? { cursor: "default" } : undefined}
                   >
                     <span className="nbell-inv-icon" style={{ background: `${color}18`, color }}>
                       <CreditCard size={13} />

@@ -11,13 +11,20 @@ function analyticsEmpty() {
   return { kpis: {}, recentTransactions: [], timeSeries: { daily: empty, weekly: empty, monthly: empty } };
 }
 
-async function setupAuthApi(page, { loginStatus = 200, loginMessage = 'Invalid Username or Password' } = {}) {
+async function setupAuthApi(page, {
+  loginStatus = 200,
+  loginMessage = 'Invalid Username or Password',
+  chequeAlerts = { summary: {}, alerts: [] },
+  customerDueAlerts = { summary: {}, alerts: [] },
+} = {}) {
   const calls = [];
-  await page.route('http://localhost:5000/api/**', async route => {
+  await page.route('**/api/**', async route => {
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname;
     const method = request.method();
+
+    if (!path.startsWith('/api/')) return route.continue();
 
     if (path === '/api/auth/login' && method === 'POST') {
       const body = request.postDataJSON();
@@ -35,8 +42,9 @@ async function setupAuthApi(page, { loginStatus = 200, loginMessage = 'Invalid U
     if (path === '/api/dashboard/analytical') return route.fulfill({ json: analyticsEmpty() });
     if (path === '/api/dashboard/cashier') return route.fulfill({ json: { salesToday: 0, itemsSold: 0, returnsCount: 0, transactionsCount: 0, recentTransactions: [] } });
     if (path === '/api/alerts/summary') return route.fulfill({ json: {} });
+    if (path === '/api/alerts/customer-due-alerts') return route.fulfill({ json: customerDueAlerts });
     if (path === '/api/alerts') return route.fulfill({ json: [] });
-    if (path === '/api/procurement/payments/cheque-alerts') return route.fulfill({ json: { summary: {}, alerts: [] } });
+    if (path === '/api/procurement/payments/cheque-alerts') return route.fulfill({ json: chequeAlerts });
     if (path === '/api/audit_log/actions') return route.fulfill({ json: ['LOGIN', 'LOGOUT'] });
     if (path === '/api/audit_log') return route.fulfill({ json: { data: [], total: 0, pages: 1 } });
     if (path === '/api/products') return route.fulfill({ json: [] });
@@ -164,6 +172,93 @@ test.describe('Protected Routes and Role Authorization', () => {
     await page.goto('/procurement');
     await expect(page).toHaveURL('/dashboard/cashier');
     await expect(page.getByRole('heading', { name: /Welcome, cashier-user!/ })).toBeVisible();
+  });
+
+  test('cashier can open payment alerts read-only without being redirected', async ({ page }) => {
+    await setupAuthApi(page, {
+      chequeAlerts: {
+        summary: { total: 1, dueSoon: 1, dueToday: 0, overdue: 0, bounced: 0 },
+        alerts: [{
+          payment_id: 42,
+          supplier_name: 'Read Only Supplier',
+          cheque_number: 'CHQ-42',
+          bank_name: 'Example Bank',
+          clearing_date: '2026-11-16',
+          amount: 1250,
+          days_remaining: 2,
+          alert_type: 'Due Soon',
+        }],
+      },
+    });
+    await page.goto('/');
+    await page.evaluate(() => {
+      sessionStorage.setItem('token', 'token-cashier');
+      sessionStorage.setItem('role', 'cashier');
+      sessionStorage.setItem('userName', 'cashier-user');
+      localStorage.setItem('role', 'cashier');
+      localStorage.setItem('userName', 'cashier-user');
+    });
+    await page.reload();
+
+    await page.goto('/alerts?tab=payment');
+
+    await expect(page).toHaveURL('/alerts?tab=payment');
+    await expect(page.locator('.alert-tab-btn').filter({ hasText: 'Payment Alerts' })).toBeVisible();
+    for (const category of [
+      'All Payment Alerts',
+      'Cheques Due Soon',
+      'Cheques Due Today',
+      'Cheques Overdue',
+      'Cheques Bounced',
+    ]) {
+      await expect(page.getByRole('button', { name: new RegExp(category) })).toBeVisible();
+    }
+
+    const table = page.locator('.proc-table');
+    await expect(table.locator('thead th')).toHaveText([
+      'ID', 'Supplier', 'Cheque No.', 'Bank', 'Clearing Date',
+      'Amount', 'Days Remaining', 'Alert Status',
+    ]);
+    const alertRow = table.getByRole('row').filter({ hasText: 'CHQ-42' });
+    await expect(alertRow).toContainText('Read Only Supplier');
+    await expect(alertRow).toContainText('Example Bank');
+    await expect(alertRow).toContainText('LKR 1,250.00');
+    await expect(table.getByRole('columnheader', { name: 'Actions' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Mark Cleared|Resolve Bounced|Confirm Payment/ })).toHaveCount(0);
+  });
+
+  test('cashier can open Collect Due from Customer Due Alerts', async ({ page }) => {
+    await setupAuthApi(page, {
+      customerDueAlerts: {
+        summary: { total: 1, dueSoon: 0, dueToday: 1, overdue: 0 },
+        alerts: [{
+          bill_id: 7,
+          invoice_number: 'INV-7',
+          customer_name: 'Due Customer',
+          phone_no: '0771234567',
+          expected_payment_date: '2026-11-14',
+          total_amount: 1000,
+          due_amount: 500,
+          alert_type: 'Due Today',
+          days_remaining: 0,
+        }],
+      },
+    });
+    await page.goto('/');
+    await page.evaluate(() => {
+      sessionStorage.setItem('token', 'token-cashier');
+      sessionStorage.setItem('role', 'cashier');
+      sessionStorage.setItem('userName', 'cashier-user');
+      localStorage.setItem('role', 'cashier');
+      localStorage.setItem('userName', 'cashier-user');
+    });
+    await page.reload();
+    await page.goto('/alerts?tab=customer-due');
+
+    await expect(page.getByRole('row').filter({ hasText: 'INV-7' })).toContainText('Due Customer');
+    await page.getByRole('button', { name: 'Collect Due' }).click();
+    await expect(page).toHaveURL('/cashier-panel/due-collection/collect');
+    await expect(page.locator('#due-collection-search')).toBeVisible();
   });
 
   test('an authenticated session is restored after a page reload', async ({ page }) => {
