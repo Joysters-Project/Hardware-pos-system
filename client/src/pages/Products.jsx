@@ -599,7 +599,7 @@ function ProductsPage() {
       </div>
 
       {editModal && createPortal(
-        <div className="modal-overlay">
+        <div className="modal-overlay product-modal-overlay">
           <div className="modal-box edit-product-modal">
             <div className="modal-header">
               <h2>Edit Product: #{editId}</h2>
@@ -859,7 +859,7 @@ function ProductsPage() {
       )}
 
       {viewProduct && createPortal(
-        <div className="modal-overlay" onClick={() => setViewProduct(null)}>
+        <div className="modal-overlay product-modal-overlay" onClick={() => setViewProduct(null)}>
           <div className="modal-box view-modal" style={{ maxWidth: 620 }} onClick={(e) => e.stopPropagation()} ref={printRef}>
             <div className="modal-header">
               <h2>Product Details</h2>
