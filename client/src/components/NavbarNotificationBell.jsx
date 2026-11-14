@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Bell, X, ChevronRight, Package, AlertTriangle, RefreshCw, Clock, ShoppingCart, CreditCard } from "lucide-react";
+import { Bell, X, ChevronRight, Package, AlertTriangle, RefreshCw, Clock, ShoppingCart, CreditCard, Users } from "lucide-react";
 import api from "../api/axios";
 import { useNavigate } from "react-router-dom";
-import { useUnreadNotificationsCount, useChequeAlerts } from "../services/procurementApi";
+import { useUnreadNotificationsCount, useChequeAlerts, useCustomerDueAlerts } from "../services/procurementApi";
+import { useAuth } from "../context/AuthContext";
 import { subscribeToEvent } from "../services/socketSingleton";
 import "../styles/NavbarNotificationBell.css";
 
@@ -30,7 +31,8 @@ const INVENTORY_ITEMS = [
 ];
 
 export default function NavbarNotificationBell() {
-  const isCashier = (localStorage.getItem("role") || "").toLowerCase() === "cashier";
+  const { role } = useAuth();
+  const isCashier = (role || "").toLowerCase() === "cashier";
   const [open, setOpen]       = useState(false);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -45,6 +47,11 @@ export default function NavbarNotificationBell() {
   const { data: chequeData } = useChequeAlerts();
   const chequeSummary = chequeData?.summary || {};
   const chequeTotal   = chequeSummary.total || 0;
+
+  /* Customer due alerts */
+  const { data: customerDueData, isError: customerDueError } = useCustomerDueAlerts();
+  const customerDueSummary = customerDueData?.summary || {};
+  const customerDueTotal = customerDueSummary.total || 0;
 
   /* ── Existing fetch (unchanged) ── */
   const fetchSummary = useCallback(async () => {
@@ -85,7 +92,7 @@ export default function NavbarNotificationBell() {
   }, []);
 
   const inventoryTotal = summary?.total || 0;
-  const badgeCount     = inventoryTotal + (isCashier ? 0 : procUnread + chequeTotal);
+  const badgeCount     = inventoryTotal + customerDueTotal + chequeTotal + (isCashier ? 0 : procUnread);
   const timestamp      = relativeTime(summary?.updated_at);
 
   const close = () => setOpen(false);
@@ -170,10 +177,10 @@ export default function NavbarNotificationBell() {
               )}
 
               {/* ── Divider ── */}
-              {!isCashier && <div className="nbell-divider" />}
+              {(!isCashier || chequeTotal > 0) && <div className="nbell-divider" />}
 
               {/* ── Section 2: Payment Alerts ── */}
-              {!isCashier && chequeTotal > 0 && (
+              {chequeTotal > 0 && (
               <>
               <div className="nbell-section-label">
                 <CreditCard size={12} />
@@ -190,9 +197,12 @@ export default function NavbarNotificationBell() {
                   <div
                     key={key}
                     className={`nbell-inv-row ${count === 0 ? "nbell-inv-row--zero" : ""}`}
-                    onClick={() => { close(); navigate(`/alerts?tab=payment&type=${key}`); }}
-                    role="button" tabIndex={0}
-                    onKeyDown={(e) => e.key === "Enter" && (close(), navigate(`/alerts?tab=payment&type=${key}`))}
+                    onClick={!isCashier ? () => { close(); navigate(`/alerts?tab=payment&type=${key}`); } : undefined}
+                    role={!isCashier ? "button" : undefined}
+                    tabIndex={!isCashier ? 0 : undefined}
+                    onKeyDown={!isCashier ? (e) => e.key === "Enter" && (close(), navigate(`/alerts?tab=payment&type=${key}`)) : undefined}
+                    aria-disabled={isCashier}
+                    style={isCashier ? { cursor: "default" } : undefined}
                   >
                     <span className="nbell-inv-icon" style={{ background: `${color}18`, color }}>
                       <CreditCard size={13} />
@@ -208,7 +218,44 @@ export default function NavbarNotificationBell() {
               </>
               )}
 
-              {/* ── Section 3: Procurement Summary ── */}
+              {/* ── Section 3: Customer Due Alerts ── */}
+              <div className="nbell-section-label">
+                <Users size={12} />
+                Customer Due Alerts
+                <span className="nbell-section-count">{customerDueError ? "—" : customerDueTotal}</span>
+              </div>
+              <div className="nbell-inv-list">
+                {[
+                  { key: "due-today", label: "Due Today", count: customerDueSummary.dueToday || 0, color: "#c62828" },
+                  { key: "overdue", label: "Overdue", count: customerDueSummary.overdue || 0, color: "#991b1b" },
+                  { key: "due-soon", label: "Due Soon", count: customerDueSummary.dueSoon || 0, color: "#d97706" },
+                ].map(({ key, label, count, color }) => (
+                  <div
+                    key={key}
+                    className={`nbell-inv-row ${count === 0 && !customerDueError ? "nbell-inv-row--zero" : ""}`}
+                    onClick={() => { close(); navigate(`/alerts?tab=customer-due&type=${key}`); }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === "Enter" && (close(), navigate(`/alerts?tab=customer-due&type=${key}`))}
+                  >
+                    <span className="nbell-inv-icon" style={{ background: `${color}18`, color }}>
+                      {key === "overdue" ? <AlertTriangle size={13} /> : <Clock size={13} />}
+                    </span>
+                    <span className="nbell-inv-label">{label}</span>
+                    <span className="nbell-inv-badge" style={count > 0 && !customerDueError ? { background: `${color}18`, color } : {}}>
+                      {customerDueError ? "—" : count}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {customerDueError && (
+                <div style={{ padding: "2px 20px 8px", color: "#b91c1c", fontSize: "0.72rem" }}>
+                  Unable to load customer due counts
+                </div>
+              )}
+              <div className="nbell-divider" />
+
+              {/* ── Section 4: Procurement Summary ── */}
               {!isCashier && (
               <>
               <div className="nbell-section-label">

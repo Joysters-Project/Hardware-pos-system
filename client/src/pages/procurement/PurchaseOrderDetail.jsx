@@ -168,7 +168,9 @@ function ReceiveItemModal({ item, po, onClose }) {
   return (
     <motion.div className="proc-modal-overlay"
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      onClick={onClose}>
+      onDoubleClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}>
       <motion.div className="proc-modal" style={{ maxWidth: 500 }}
         initial={{ scale: 0.93, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.93, opacity: 0 }}

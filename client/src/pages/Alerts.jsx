@@ -7,6 +7,7 @@ import api from "../api/axios";
 import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
 import { useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import "../styles/Alerts.css";
 import "../styles/Procurement.css";
 import "../styles/ProcurementPages.css";
@@ -31,6 +32,7 @@ const ALERT_FILTERS = [
 
 const CASHIER_ALLOWED_FILTERS = ["", "out-of-stock", "low-stock", "reorder", "near-expiry", "expired"];
 
+const EXPIRED_BATCH_ALERT = "Expired Stock – Disposal Required";
 const CASHIER_INVENTORY_TYPES = ["Out of Stock", "Low Stock", "Reorder", "Near Expiry", "Expired"];
 
 const ALERT_TYPE_MAP = {
@@ -43,16 +45,18 @@ const ALERT_TYPE_MAP = {
 };
 
 function DisposeModal({ target, onClose, onConfirm, disposing }) {
-  const available = target?.product?.stock_quantity ?? 0;
+  const available = Number(target?.batch?.remaining_quantity ?? 0);
   const [qty, setQty] = useState(available);
-
-  // Reset qty whenever the target changes
-  useEffect(() => { setQty(available); }, [available]);
+  const [disposalDate, setDisposalDate] = useState(() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  });
+  const [reason, setReason] = useState("");
 
   if (!target) return null;
 
   const { product } = target;
-  const invalid = qty < 1 || qty > available;
+  const invalid = qty < 1 || qty > available || !disposalDate || !reason.trim();
 
   return (
     <div className="proc-modal-overlay" onClick={onClose}>
@@ -67,19 +71,19 @@ function DisposeModal({ target, onClose, onConfirm, disposing }) {
               <span className="proc-view-label">Product</span>
               <span className="proc-view-value">{product.product_name || "—"}</span>
             </div>
-            {product.batch_no && (
+            {target.batch_number && (
               <div className="proc-view-row">
                 <span className="proc-view-label">Batch No.</span>
-                <span className="proc-view-value">{product.batch_no}</span>
+                <span className="proc-view-value">{target.batch_number}</span>
               </div>
             )}
             <div className="proc-view-row">
-              <span className="proc-view-label">Available Qty</span>
+              <span className="proc-view-label">Expired Quantity Available</span>
               <span className="proc-view-value" style={{ color: "#991b1b", fontWeight: 800 }}>{available}</span>
             </div>
           </div>
           <div className="proc-field" style={{ marginTop: "1rem" }}>
-            <label htmlFor="dispose-qty">Dispose Qty</label>
+            <label htmlFor="dispose-qty">Expired Quantity</label>
             <input
               id="dispose-qty"
               type="number"
@@ -91,8 +95,32 @@ function DisposeModal({ target, onClose, onConfirm, disposing }) {
               disabled={disposing}
             />
           </div>
+          <div className="proc-field" style={{ marginTop: "0.75rem" }}>
+            <label htmlFor="disposal-date">Disposal Date</label>
+            <input
+              id="disposal-date"
+              type="date"
+              value={disposalDate}
+              onChange={e => setDisposalDate(e.target.value)}
+              className="proc-input"
+              disabled={disposing}
+            />
+          </div>
+          <div className="proc-field" style={{ marginTop: "0.75rem" }}>
+            <label htmlFor="disposal-reason">Disposal Reason</label>
+            <textarea
+              id="disposal-reason"
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              className="proc-input"
+              rows={3}
+              disabled={disposing}
+            />
+          </div>
           {invalid && (
-            <p style={{ color: "#c62828", fontSize: "0.85rem", marginTop: "0.5rem" }}>Quantity must be between 1 and {available}.</p>
+            <p style={{ color: "#c62828", fontSize: "0.85rem", marginTop: "0.5rem" }}>
+              Enter a quantity between 1 and {available}, a disposal date, and a reason.
+            </p>
           )}
         </div>
         <div className="proc-modal-footer">
@@ -100,7 +128,7 @@ function DisposeModal({ target, onClose, onConfirm, disposing }) {
           <button
             className="proc-btn-primary"
             style={{ background: "#c62828" }}
-            onClick={() => onConfirm(qty)}
+            onClick={() => onConfirm({ quantity: qty, disposal_date: disposalDate, disposal_reason: reason.trim() })}
             disabled={invalid || disposing}
           >
             {disposing ? "Disposing…" : "Confirm Dispose"}
@@ -417,7 +445,7 @@ function PayNowModal({ alert, onClose }) {
   );
 }
 
-function PaymentAlertsTab() {
+function PaymentAlertsTab({ readOnly = false }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeType = searchParams.get("type") || "";
   const [viewCheque, setViewCheque] = useState(null);
@@ -474,7 +502,7 @@ function PaymentAlertsTab() {
           <ChequeDetailContent cheque={viewCheque} />
         </DetailModal>
       )}
-      {payAlert && (
+      {!readOnly && payAlert && (
         <PayNowModal alert={payAlert} onClose={() => setPayAlert(null)} />
       )}
 
@@ -524,15 +552,15 @@ function PaymentAlertsTab() {
                 <th>Clearing Date</th>
                 <th>Amount</th>
                 <th>Days Remaining</th>
-                <th>Alert</th>
-                <th>Actions</th>
+                <th>{readOnly ? "Alert Status" : "Alert"}</th>
+                {!readOnly && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={9} className="proc-empty">Loading payment alerts...</td></tr>
+                <tr><td colSpan={readOnly ? 8 : 9} className="proc-empty">Loading payment alerts...</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={9} className="proc-empty">No payment alerts found.</td></tr>
+                <tr><td colSpan={readOnly ? 8 : 9} className="proc-empty">No payment alerts found.</td></tr>
               ) : filtered.map((a) => {
                 const color = PAYMENT_ALERT_COLORS[a.alert_type] || "#6b7280";
                 const alertAction = resolvePaymentAlertAction(a);
@@ -550,7 +578,7 @@ function PaymentAlertsTab() {
                     <td className="proc-name-cell">{a.supplier_name}</td>
                     <td style={{ fontWeight: 600, color }}>{a.cheque_number || "—"}</td>
                     <td>{a.bank_name || "—"}</td>
-                    <td style={{ color: a.alert_type === "Overdue" ? "#991b1b" : "inherit" }}>{fmtD(a.clearing_date)}</td>
+                    <td style={{ color: "#000" }}>{fmtD(a.clearing_date)}</td>
                     <td className="proc-amount">{fmt(a.amount)}</td>
                     <td>
                       <span style={{ fontWeight: 700, color }}>{daysLabel(a)}</span>
@@ -558,11 +586,13 @@ function PaymentAlertsTab() {
                     <td>
                       <span className="proc-status-pill" style={{ background: color + "18", color }}>{a.alert_type}</span>
                     </td>
-                    <td>
-                      <button className="proc-btn-outline" style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem" }} onClick={() => setPayAlert(a)}>
-                        {alertAction === "view-only" ? "Payment Details" : alertAction === "confirm-payment" ? "Confirm Payment" : alertAction === "resolve-bounced" ? "Resolve Bounced" : "Mark Cleared"}
-                      </button>
-                    </td>
+                    {!readOnly && (
+                      <td>
+                        <button className="proc-btn-outline" style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem" }} onClick={() => setPayAlert(a)}>
+                          {alertAction === "view-only" ? "Payment Details" : alertAction === "confirm-payment" ? "Confirm Payment" : alertAction === "resolve-bounced" ? "Resolve Bounced" : "Mark Cleared"}
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -587,7 +617,7 @@ const CUSTOMER_DUE_COLORS = {
   "Due Soon": "#d97706",
 };
 
-function CustomerDueAlertsTab() {
+function CustomerDueAlertsTab({ isCashier }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const activeType = searchParams.get("type") || "";
@@ -700,7 +730,7 @@ function CustomerDueAlertsTab() {
                     <td><span className="proc-code-badge">{a.invoice_number}</span></td>
                     <td className="proc-name-cell">{a.customer_name}</td>
                     <td style={{ fontWeight: 500 }}>{a.phone_no}</td>
-                    <td style={{ color: a.alert_type === "Overdue" ? "#991b1b" : "inherit", fontWeight: a.alert_type === "Overdue" ? 700 : 500 }}>
+                    <td>
                       {fmtD(a.expected_payment_date)}
                     </td>
                     <td className="proc-amount">{fmt(a.total_amount)}</td>
@@ -736,7 +766,8 @@ function CustomerDueAlertsTab() {
 }
 
 function AlertCenterPage() {
-  const isCashier = (localStorage.getItem("role") || "").toLowerCase() === "cashier";
+  const { role } = useAuth();
+  const isCashier = (role || "").toLowerCase() === "cashier";
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [alerts, setAlerts] = useState([]);
@@ -751,9 +782,9 @@ function AlertCenterPage() {
   const activeTab    = searchParams.get("tab") || "inventory";
   const activeFilter = searchParams.get("type") || "";
 
-  // Payment alert count for tab badge (non-cashier only)
+  // Payment alert count for the tab badge
   const { data: chequeData } = useChequeAlerts();
-  const paymentTabCount = isCashier ? 0 : (chequeData?.summary?.total || 0);
+  const paymentTabCount = chequeData?.summary?.total || 0;
 
   // Customer due alert count for tab badge
   const { data: customerDueData } = useCustomerDueAlerts();
@@ -834,14 +865,13 @@ function AlertCenterPage() {
     setSearchParams(searchParams);
   };
 
-  const handleDispose = async (qty) => {
+  const handleDispose = async (disposal) => {
     if (!disposeTarget) return;
     const { product } = disposeTarget;
-    const newStock = (product.stock_quantity ?? 0) - qty;
     setDisposing(true);
     try {
-      await api.put(`/products/${product.product_id}`, { stock_quantity: newStock });
-      toast.success(`Disposed ${qty} unit${qty !== 1 ? "s" : ""} of ${product.product_name}.`);
+      await api.post(`/batch-inventory/${disposeTarget.batch_id}/dispose`, disposal);
+      toast.success(`Disposed ${disposal.quantity} unit${disposal.quantity !== 1 ? "s" : ""} of ${product.product_name}.`);
       setDisposeTarget(null);
       await Promise.all([fetchAlerts(), fetchSummary()]);
     } catch (err) {
@@ -891,6 +921,7 @@ function AlertCenterPage() {
   return (
     <div className="alerts-container">
       <DisposeModal
+        key={disposeTarget?.alert_id || "closed"}
         target={disposeTarget}
         onClose={() => !disposing && setDisposeTarget(null)}
         onConfirm={handleDispose}
@@ -939,24 +970,22 @@ function AlertCenterPage() {
             <span className="alert-tab-count">{customerDueTabCount}</span>
           )}
         </button>
-        {!isCashier && (
-          <button
-            className={`alert-tab-btn ${activeTab === "payment" ? "alert-tab-btn--active" : ""}`}
-            onClick={() => setTab("payment")}
-          >
-            <CreditCard size={16} className="alert-tab-icon" />
-            Payment Alerts
-            {paymentTabCount > 0 && (
-              <span className="alert-tab-count">{paymentTabCount}</span>
-            )}
-          </button>
-        )}
+        <button
+          className={`alert-tab-btn ${activeTab === "payment" ? "alert-tab-btn--active" : ""}`}
+          onClick={() => setTab("payment")}
+        >
+          <CreditCard size={16} className="alert-tab-icon" />
+          Payment Alerts
+          {paymentTabCount > 0 && (
+            <span className="alert-tab-count">{paymentTabCount}</span>
+          )}
+        </button>
       </div>
 
       {activeTab === "customer-due" ? (
-        <CustomerDueAlertsTab />
-      ) : activeTab === "payment" && !isCashier ? (
-        <PaymentAlertsTab />
+        <CustomerDueAlertsTab isCashier={isCashier} />
+      ) : activeTab === "payment" ? (
+        <PaymentAlertsTab readOnly={isCashier} />
       ) : (
       <>
       <div className="alert-chips">
@@ -1070,21 +1099,22 @@ function AlertCenterPage() {
                       </td>
                       <td>
                         <span className="proc-status-pill" style={{ background: color + "18", color }}>
-                          {type}
+                          {alert.alert_label || type}
                         </span>
                       </td>
-                      <td><strong>{product.stock_quantity ?? "-"}</strong></td>
+                      <td>{product.stock_quantity ?? "-"}</td>
                       <td>{product.min_stock_quantity ?? "-"}</td>
                       <td>{product.reorder_level ?? "-"}</td>
                       <td>{alert.batch_number || "-"}</td>
-                      <td>{product.expiry_date ? new Date(product.expiry_date).toLocaleDateString() : "-"}</td>
+                      <td>{(alert.expiry_date || product.expiry_date) ? new Date(alert.expiry_date || product.expiry_date).toLocaleDateString() : "-"}</td>
                       <td>
                         <span style={{
                           fontWeight: 700,
                           color: (() => {
-                            if (!product.expiry_date) return "#6b7280";
+                            const expiryDate = alert.expiry_date || product.expiry_date;
+                            if (!expiryDate) return "#6b7280";
                             const today = new Date(); today.setHours(0, 0, 0, 0);
-                            const expiry = new Date(product.expiry_date); expiry.setHours(0, 0, 0, 0);
+                            const expiry = new Date(expiryDate); expiry.setHours(0, 0, 0, 0);
                             const diff = Math.round((expiry - today) / 86400000);
                             if (diff < 0)  return "#991b1b";
                             if (diff === 0) return "#991b1b";
@@ -1092,7 +1122,7 @@ function AlertCenterPage() {
                             return "#374151";
                           })(),
                         }}>
-                          {daysRemaining(product.expiry_date)}
+                          {daysRemaining(alert.expiry_date || product.expiry_date)}
                         </span>
                       </td>
                       <td>
@@ -1127,7 +1157,7 @@ function AlertCenterPage() {
                           if (type === "Expired") {
                             return (
                               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                                <button className="proc-btn-primary" style={{ padding: "0.3rem 0.65rem", fontSize: "0.8rem", background: "#c62828" }} onClick={() => setDisposeTarget(alert)}>
+                                <button className="proc-btn-primary" style={{ padding: "0.3rem 0.65rem", fontSize: "0.8rem", background: "#c62828" }} onClick={() => setDisposeTarget(alert)} disabled={!alert.batch_id || Number(alert.batch?.remaining_quantity) <= 0}>
                                   Dispose
                                 </button>
                                 <button className="proc-btn-outline" style={{ padding: "0.3rem 0.65rem", fontSize: "0.8rem" }} onClick={viewBatch}>

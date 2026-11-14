@@ -167,7 +167,13 @@ export default function SupplierServiceTracking() {
 
       {/* Complete Repair Modal */}
       {selectedService && (
-        <div className="ret-modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
+        <div
+          className="ret-modal-overlay"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}
+          onDoubleClick={(event) => {
+            if (event.target === event.currentTarget) setSelectedService(null);
+          }}
+        >
           <div style={{ background: 'white', borderRadius: '12px', padding: '24px', maxWidth: '480px', width: '90%' }}>
             <h3 style={{ margin: '0 0 12px', color: '#800000', fontSize: '18px' }}>
               Complete Supplier Service #{selectedService.id}

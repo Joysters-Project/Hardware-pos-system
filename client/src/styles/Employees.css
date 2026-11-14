@@ -301,7 +301,22 @@
 }
 
 /* ── Modals ── */
-.emp-overlay, .asset-overlay, .exp-overlay {
+.emp-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  box-sizing: border-box;
+  animation: emp-dept-modal-fade-in 0.18s ease;
+}
+
+.asset-overlay, .exp-overlay {
   position: fixed;
   top: 0;
   bottom: 0;
@@ -319,20 +334,27 @@
   animation: emp-modal-fade-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.admin-shell.sidebar-collapsed .emp-overlay,
 .admin-shell.sidebar-collapsed .asset-overlay,
 .admin-shell.sidebar-collapsed .exp-overlay {
   left: 112px;
 }
 
 @media (max-width: 992px) {
-  .emp-overlay, .asset-overlay, .exp-overlay,
-  .admin-shell.sidebar-collapsed .emp-overlay,
+  .asset-overlay, .exp-overlay,
   .admin-shell.sidebar-collapsed .asset-overlay,
   .admin-shell.sidebar-collapsed .exp-overlay {
     left: 0;
     padding: 24px 16px;
     z-index: 1200;
+  }
+}
+
+@keyframes emp-dept-modal-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 

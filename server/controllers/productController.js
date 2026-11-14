@@ -87,7 +87,8 @@ exports.createProduct = async (req, res) => {
     });
     safeBody.barcode = cleanBase;
 
-    const product = await products.create(safeBody);
+    transaction = await sequelize.transaction();
+    const product = await products.create(safeBody, { transaction });
     
     if (cleanAltUnits && cleanAltUnits.length > 0) {
       const baseCost = parseFloat(product.cost_price || safeBody.cost_price || 0);

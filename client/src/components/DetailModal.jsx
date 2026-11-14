@@ -24,7 +24,9 @@ export default function DetailModal({ title, onClose, children }) {
   }, []);
 
   return (
-    <div className="dm-overlay" onClick={onClose}>
+    <div className="dm-overlay" onDoubleClick={(event) => {
+      if (event.target === event.currentTarget) onClose();
+    }}>
       <div className="dm-box" onClick={(e) => e.stopPropagation()}>
         <div className="dm-header">
           <h2 className="dm-title">{title}</h2>

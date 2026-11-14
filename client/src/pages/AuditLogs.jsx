@@ -225,7 +225,9 @@ function AuditLogPage() {
 
       {/* Action Details Modal Portal */}
       {selectedLog && createPortal(
-        <div className="proc-modal-overlay" onClick={() => setSelectedLog(null)}>
+        <div className="proc-modal-overlay" onDoubleClick={(event) => {
+          if (event.target === event.currentTarget) setSelectedLog(null);
+        }}>
           <div className="proc-modal proc-modal-lg" onClick={e => e.stopPropagation()}>
             <div className="proc-modal-header">
               <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#8b3a3a' }}>

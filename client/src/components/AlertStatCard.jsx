@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import api from "../api/axios";
 import PaymentAlertsWidget from "./PaymentAlertsWidget";
+import CustomerDueAlertsWidget from "./CustomerDueAlertsWidget";
 import ActionRequiredWidget from "./ActionRequiredWidget";
 
 const ALERT_TYPES = [
@@ -153,11 +154,13 @@ export default function AlertStatCard() {
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }} className="dash-alert-row">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16, marginTop: 20 }} className="dash-alert-row">
         <PaymentAlertsWidget />
+        <CustomerDueAlertsWidget />
         <ActionRequiredWidget />
       </div>
       <style>{`
+        @media (max-width: 1200px) { .dash-alert-row { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
         @media (max-width: 900px) { .dash-alert-row { grid-template-columns: 1fr !important; } }
       `}</style>
 

@@ -847,7 +847,9 @@ export default function ProjectsTab() {
         )}
 
       {summaryProduct && createPortal(
-        <div className="pt-modal-overlay" onClick={() => setSummaryProduct(null)}>
+        <div className="pt-modal-overlay" onDoubleClick={(event) => {
+          if (event.target === event.currentTarget) setSummaryProduct(null);
+        }}>
           <div className="pt-project-details-modal pt-summary-detail-modal" onClick={(event) => event.stopPropagation()}>
             <div className="pt-modal-top-bar">
               <div className="pt-modal-top-title">

@@ -11,9 +11,15 @@
   --accent-soft: rgba(128, 0, 0, 0.14);
 }
 
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: Inter, Arial, sans-serif;
   background-color: var(--bg-gray);
   color: var(--text);
 }

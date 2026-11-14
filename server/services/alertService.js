@@ -1,23 +1,26 @@
-const { alerts, products, batch_inventory } = require('../models');
+const { alerts, products, batch_inventory, purchase_orders, po_items } = require('../models');
 const { Op } = require('sequelize');
+const { getStoreLocalDate } = require('./batchService');
 
 const NEAR_EXPIRY_DAYS = 30;
-const ALL_TYPES = ['Out of Stock', 'Low Stock', 'Reorder', 'Near Expiry', 'Expired'];
+const EXPIRED_BATCH_ALERT = 'Expired';
+const ALL_TYPES = ['Out of Stock', 'Low Stock', 'Reorder', 'Near Expiry'];
 
-function getApplicableTypes(product, nearestBatchExpiry) {
-  const types   = [];
+function getApplicableStockAlertTypes(product) {
   const stock   = parseInt(product.stock_quantity)     || 0;
   const minQty  = parseInt(product.min_stock_quantity) || 0;
   const reorder = parseInt(product.reorder_level)      || 0;
 
-  // Mutually exclusive stock alerts — priority order
   if (stock === 0) {
-    types.push('Out of Stock');
-  } else if (stock > 0 && stock <= minQty) {
-    types.push('Low Stock');
-  } else if (stock === reorder) {
-    types.push('Reorder');
+    return ['Out of Stock'];
   }
+  if (stock > 0 && stock <= minQty) return ['Low Stock'];
+  if (stock === reorder) return ['Reorder'];
+  return [];
+}
+
+function getApplicableTypes(product, nearestBatchExpiry) {
+  const types = getApplicableStockAlertTypes(product);
 
   // Expiry alerts — use nearest batch expiry, fallback to product.expiry_date
   const expiryDate = nearestBatchExpiry || product.expiry_date;
@@ -26,14 +29,65 @@ function getApplicableTypes(product, nearestBatchExpiry) {
     const expiry   = new Date(expiryDate);
     const daysLeft = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
 
-    if (daysLeft <= 0) {
-      types.push('Expired');
-    } else if (daysLeft <= NEAR_EXPIRY_DAYS) {
+    if (daysLeft >= 0 && daysLeft <= NEAR_EXPIRY_DAYS) {
       types.push('Near Expiry');
     }
   }
 
   return types;
+}
+
+async function reconcilePurchaseOrderedAlertsAfterReceipt(productId, purchaseOrderId, transaction) {
+  const product = await products.findByPk(productId, { transaction });
+  if (!product) return;
+
+  const otherOpenOrders = await purchase_orders.findAll({
+    attributes: ['po_id'],
+    where: {
+      po_id: { [Op.ne]: purchaseOrderId },
+      status: { [Op.notIn]: ['Received', 'Cancelled'] },
+    },
+    include: [{
+      model: po_items,
+      attributes: ['product_id'],
+      where: { product_id: productId },
+      required: true,
+    }],
+    transaction,
+  });
+  const otherOpenOrderIds = new Set(otherOpenOrders.map(order => Number(order.po_id)));
+  const applicableStockTypes = new Set(getApplicableStockAlertTypes(product));
+  const orderedAlerts = await alerts.findAll({
+    where: {
+      product_id: productId,
+      alert_type: { [Op.in]: ['Out of Stock', 'Low Stock', 'Reorder'] },
+      status: 'Purchase Ordered',
+      is_resolved: false,
+    },
+    transaction,
+    lock: transaction.LOCK.UPDATE,
+  });
+
+  for (const alert of orderedAlerts) {
+    if (!applicableStockTypes.has(alert.alert_type)) {
+      await alert.update({
+        is_resolved: true,
+        resolved_date: new Date(),
+        status: 'Resolved',
+        purchase_order_id: null,
+      }, { transaction });
+    } else if (!otherOpenOrderIds.size) {
+      await alert.update({
+        status: 'Active',
+        resolved_date: null,
+        purchase_order_id: null,
+      }, { transaction });
+    } else if (!otherOpenOrderIds.has(Number(alert.purchase_order_id))) {
+      await alert.update({
+        purchase_order_id: otherOpenOrderIds.values().next().value,
+      }, { transaction });
+    }
+  }
 }
 
 // Get the nearest expiry date from batches with remaining stock (any non-Disposed status)
@@ -49,6 +103,76 @@ async function getNearestBatchExpiry(productId) {
     order: [['expiry_date', 'ASC']],
   }).catch(() => null);
   return batch?.expiry_date || null;
+}
+
+async function syncExpiredBatchAlerts(productId, transaction = null) {
+  if (!batch_inventory) return { created: 0, resolved: 0 };
+  const today = getStoreLocalDate();
+  const options = transaction ? { transaction } : {};
+  const expiredBatches = await batch_inventory.findAll({
+    where: {
+      product_id: productId,
+      expiry_date: { [Op.lt]: today },
+      remaining_quantity: { [Op.gt]: 0 },
+    },
+    ...options,
+  });
+  const activeBatchIds = new Set(expiredBatches.map(batch => Number(batch.batch_id)));
+  let created = 0;
+  let resolved = 0;
+
+  for (const batch of expiredBatches) {
+    const alert = await alerts.findOne({
+      where: { batch_id: batch.batch_id, alert_type: EXPIRED_BATCH_ALERT },
+      ...options,
+    });
+    if (!alert) {
+      await alerts.create({
+        product_id: Number(productId),
+        batch_id: batch.batch_id,
+        alert_type: EXPIRED_BATCH_ALERT,
+        is_resolved: false,
+        status: 'Active',
+      }, options);
+      created += 1;
+    } else if (alert.is_resolved || alert.status !== 'Active') {
+      await alert.update({
+        is_resolved: false,
+        resolved_date: null,
+        status: 'Active',
+      }, options);
+    }
+  }
+
+  const existingAlerts = await alerts.findAll({
+    where: {
+      product_id: productId,
+      alert_type: EXPIRED_BATCH_ALERT,
+      batch_id: { [Op.ne]: null },
+      is_resolved: false,
+    },
+    ...options,
+  });
+  for (const alert of existingAlerts) {
+    if (!activeBatchIds.has(Number(alert.batch_id))) {
+      await alert.update({
+        is_resolved: true,
+        resolved_date: new Date(),
+        status: 'Resolved',
+      }, options);
+      resolved += 1;
+    }
+  }
+
+  const [legacyResolved] = await alerts.update(
+    { is_resolved: true, resolved_date: new Date(), status: 'Resolved' },
+    {
+      where: { product_id: productId, alert_type: 'Expired', batch_id: null, is_resolved: false },
+      ...options,
+    }
+  );
+  resolved += legacyResolved;
+  return { created, resolved };
 }
 
 async function syncAlertsForProduct(product) {
@@ -74,10 +198,11 @@ async function syncAlertsForProduct(product) {
     const toResolve = ALL_TYPES.filter(t => !applicable.includes(t));
     for (const alert_type of toResolve) {
       await alerts.update(
-        { is_resolved: true, resolved_date: new Date() },
+        { is_resolved: true, resolved_date: new Date(), status: 'Resolved' },
         { where: { product_id: product.product_id, alert_type, is_resolved: false, status: 'Active' } }
       );
     }
+    await syncExpiredBatchAlerts(product.product_id);
   } catch (err) {
     console.warn(`[AlertService] syncAlertsForProduct failed for product ${product.product_id}:`, err.message);
   }
@@ -113,14 +238,24 @@ async function generateAllAlerts() {
     const toResolve = ALL_TYPES.filter(t => !applicable.includes(t));
     for (const alert_type of toResolve) {
       const [count] = await alerts.update(
-        { is_resolved: true, resolved_date: new Date() },
+        { is_resolved: true, resolved_date: new Date(), status: 'Resolved' },
         { where: { product_id: product.product_id, alert_type, is_resolved: false, status: 'Active' } }
       );
       autoResolved += count;
     }
+    const expiredBatchAlerts = await syncExpiredBatchAlerts(product.product_id);
+    created += expiredBatchAlerts.created;
+    autoResolved += expiredBatchAlerts.resolved;
   }
 
   return { productsScanned: allProducts.length, alertsCreated: created, alertsAutoResolved: autoResolved };
 }
 
-module.exports = { syncAlertsForProduct, generateAllAlerts };
+module.exports = {
+  EXPIRED_BATCH_ALERT,
+  getApplicableStockAlertTypes,
+  reconcilePurchaseOrderedAlertsAfterReceipt,
+  syncAlertsForProduct,
+  syncExpiredBatchAlerts,
+  generateAllAlerts,
+};

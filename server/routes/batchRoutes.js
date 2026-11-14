@@ -3,6 +3,7 @@ const router = express.Router();
 const ctrl = require('../controllers/batchController');
 
 router.post('/receive',                ctrl.receiveOrderItem);
+router.get('/disposals',               ctrl.getDisposalHistory);
 router.get('/',                        ctrl.getAllBatches);
 router.get('/product/:productId',      ctrl.getBatchesByProduct);
 router.get('/:id',                     ctrl.getBatchById);

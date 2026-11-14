@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
 import {
   LayoutDashboard,
@@ -137,6 +137,7 @@ const getNavItems = (role) => {
 export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed }) {
   const { user, role, profilePhoto } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [avatarImageFailed, setAvatarImageFailed] = useState(false);
   const navRef = useRef(null);
@@ -145,6 +146,7 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
   const displayRole = role || "admin";
   const normalizedRole = displayRole.toLowerCase();
   const navItems = getNavItems(displayRole);
+  const dashboardPath = navItems.find((item) => item.key === "home").path;
 
   const isItemActive = (item) => {
     if (active === item.key) return true;
@@ -306,9 +308,15 @@ export default function Sidebar({ active, onLogout, isCollapsed, setIsCollapsed 
         {/* Header */}
         <div className="sidebar-float__header">
           <div className="sidebar-float__logo-wrapper">
-            <div className="sidebar-float__logo">
+            <button
+              type="button"
+              className="sidebar-float__logo"
+              onClick={() => navigate(dashboardPath)}
+              aria-label="Back to dashboard"
+              title="Back to dashboard"
+            >
               <img src={logo} alt="Mathumithan logo" className="sidebar-float__logo-image" />
-            </div>
+            </button>
             <div className="sidebar-float__brand-info">
               <div className="sidebar-float__brand">Mathumithan</div>
               <div className="sidebar-float__brand-sub">Hardware POS</div>

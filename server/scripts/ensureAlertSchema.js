@@ -24,6 +24,27 @@ async function ensureAlertSchema() {
       });
     }
 
+    if (!alertsTable.batch_id) {
+      console.log('⚡ Adding missing batch_id column to alerts table...');
+      await queryInterface.addColumn('alerts', 'batch_id', {
+        type: db.Sequelize.INTEGER,
+        allowNull: true,
+        references: { model: 'batch_inventory', key: 'batch_id' },
+        onUpdate: 'CASCADE',
+        onDelete: 'SET NULL',
+      });
+    }
+
+    const alertIndexes = await queryInterface.showIndex('alerts');
+    if (!alertIndexes.some(index => index.name === 'uq_alerts_batch_alert_type')) {
+      await queryInterface.addIndex('alerts', ['batch_id', 'alert_type'], {
+        name: 'uq_alerts_batch_alert_type',
+        unique: true,
+      });
+    }
+
+    await db.expired_stock_disposals.sync();
+
     const billsTable = await queryInterface.describeTable('bills');
     if (!billsTable.expected_payment_date) {
       console.log('⚡ Adding missing expected_payment_date column to bills table...');
