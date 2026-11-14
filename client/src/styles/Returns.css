@@ -151,7 +151,8 @@
   cursor: pointer;
   transition: box-shadow 0.2s, background 0.15s;
 }
-.ret-bill-result-item:hover {
+.ret-bill-result-item:hover,
+.ret-bill-result-item.selected {
   background: #fdf2f2;
   box-shadow: 0 2px 8px rgba(128,0,0,0.08);
 }

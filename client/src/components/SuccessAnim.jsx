@@ -1,7 +1,22 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import './SuccessAnim.css';
 
 const SuccessAnim = ({ show, animate, onDismiss, message, subMessage }) => {
+  useEffect(() => {
+    if (!show) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        event.stopPropagation();
+        onDismiss();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [show, onDismiss]);
+
   if (!show) return null;
 
   return (
