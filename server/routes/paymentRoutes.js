@@ -1,9 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const paymentController = require('../controllers/paymentController');
+const roleGuard = require('../middleware/roleGuard');
+
+const collectPaymentRoles = roleGuard(['admin', 'manager', 'cashier']);
+const managePaymentRoles = roleGuard(['admin', 'manager']);
 
 // CREATE Payment
-router.post('/', paymentController.createPayment);
+router.post('/', collectPaymentRoles, paymentController.createPayment);
 
 // GET All Payments
 router.get('/', paymentController.getAllPayments);
@@ -12,9 +16,9 @@ router.get('/', paymentController.getAllPayments);
 router.get('/:id', paymentController.getPaymentById);
 
 // UPDATE Payment
-router.put('/:id', paymentController.updatePayment);
+router.put('/:id', managePaymentRoles, paymentController.updatePayment);
 
 // DELETE Payment
-router.delete('/:id', paymentController.deletePayment);
+router.delete('/:id', managePaymentRoles, paymentController.deletePayment);
 
 module.exports = router;

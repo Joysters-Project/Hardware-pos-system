@@ -221,7 +221,7 @@ function ExpensesPage() {
                           <td>
                             <div className="proc-action-btns">
                               <button className="proc-icon-btn view" title="View" onClick={() => setViewExpense(exp)}><Eye size={14} /></button>
-                              <button className="proc-icon-btn edit" title="Edit" onClick={() => openEdit(exp)}><Pencil size={14} /></button>
+                              {!exp.asset_id && <button className="proc-icon-btn edit" title="Edit" onClick={() => openEdit(exp)}><Pencil size={14} /></button>}
                               <button className="proc-icon-btn delete" title="Delete" onClick={() => handleDelete(exp.expense_id)}><Trash2 size={14} /></button>
                             </div>
                           </td>
@@ -246,7 +246,9 @@ function ExpensesPage() {
 
           {/* Add/Edit Modal */}
           {showModal && createPortal(
-            <div className="proc-modal-overlay" onClick={closeModal}>
+            <div className="proc-modal-overlay" onDoubleClick={(event) => {
+              if (event.target === event.currentTarget) closeModal();
+            }}>
               <div className="proc-modal proc-modal-lg" onClick={e => e.stopPropagation()}>
                 <div className="proc-modal-header">
                   <h2>{editId ? 'Edit Expense' : 'Add Expense'}</h2>
@@ -277,13 +279,15 @@ function ExpensesPage() {
                           {departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
                         </select>
                       </div>
-                      <div className="proc-field">
-                        <label>Linked Asset</label>
-                        <select className="proc-input" id="asset_id" name="asset_id" value={form.asset_id} onChange={e => setForm({ ...form, asset_id: e.target.value })}>
-                          <option value="">None</option>
-                          {assets.map(a => <option key={a.asset_id} value={a.asset_id}>{a.asset_name}</option>)}
-                        </select>
-                      </div>
+                      {(!editId || form.asset_id) && (
+                        <div className="proc-field">
+                          <label>Linked Asset</label>
+                            <select className="proc-input" id="asset_id" name="asset_id" value={form.asset_id} onChange={e => setForm({ ...form, asset_id: e.target.value })}>
+                              <option value="">None</option>
+                              {assets.map(a => <option key={a.asset_id} value={a.asset_id}>{a.asset_name}</option>)}
+                            </select>
+                        </div>
+                      )}
                       <div className="proc-field proc-field-full">
                         <label>Description {form.expense_type === 'Other' ? <span className="req">*</span> : '(Optional)'}</label>
                         <textarea className="proc-input proc-textarea" id="description" name="description"
@@ -307,7 +311,9 @@ function ExpensesPage() {
 
           {/* View Modal */}
           {viewExpense && createPortal(
-            <div className="proc-modal-overlay" onClick={() => setViewExpense(null)}>
+            <div className="proc-modal-overlay" onDoubleClick={(event) => {
+              if (event.target === event.currentTarget) setViewExpense(null);
+            }}>
               <div className="proc-modal" onClick={e => e.stopPropagation()}>
                 <div className="proc-modal-header">
                   <h2>Expense Details</h2>

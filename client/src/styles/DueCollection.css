@@ -191,6 +191,11 @@
   background: #fdf2f2;
 }
 
+.due-left .proc-table tbody tr.keyboard-highlight td {
+  background: #fdf2f2;
+  outline: 1px solid rgba(128, 0, 0, 0.18);
+}
+
 .bills-table tr:hover {
   background: rgba(128, 0, 0, 0.05);
   cursor: pointer;

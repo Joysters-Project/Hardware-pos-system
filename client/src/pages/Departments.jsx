@@ -365,7 +365,9 @@ function DepartmentsPage() {
 
       {/* Add / Edit Modal */}
       {showModal && (
-        <div className="dept-overlay" onClick={closeModal}>
+        <div className="dept-overlay" onDoubleClick={(event) => {
+          if (event.target === event.currentTarget) closeModal();
+        }}>
           <div className="dept-modal" onClick={e => e.stopPropagation()}>
             <div className="dept-modal-header">
               <div className="dept-modal-title">
@@ -424,7 +426,9 @@ function DepartmentsPage() {
 
       {/* View Modal */}
       {viewDept && (
-        <div className="dept-overlay" onClick={() => setViewDept(null)}>
+        <div className="dept-overlay" onDoubleClick={(event) => {
+          if (event.target === event.currentTarget) setViewDept(null);
+        }}>
           <div className="dept-modal dept-modal-lg" onClick={e => e.stopPropagation()}>
             <div className="dept-modal-header">
               <div className="dept-modal-title">

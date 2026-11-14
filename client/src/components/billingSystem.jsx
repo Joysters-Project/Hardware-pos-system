@@ -37,11 +37,13 @@ const BillingSystem = () => {
   const [lastBill, setLastBill] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [selectedSearchResultIndex, setSelectedSearchResultIndex] = useState(-1);
   const [showResults, setShowResults] = useState(false);
   const [recentItems, setRecentItems] = useState([]);
   const [showExpiredModal, setShowExpiredModal] = useState(false);
   const [expiredProduct, setExpiredProduct] = useState(null);
   const searchInputRef = useRef(null);
+  const amountPaidInputRef = useRef(null);
   const navigate = useNavigate();
 
   // Barcode and Scanner state
@@ -50,6 +52,7 @@ const BillingSystem = () => {
   const [unrecognizedBarcode, setUnrecognizedBarcode] = useState('');
   const [highlightedItemId, setHighlightedItemId] = useState(null);
   const highlightTimerRef = useRef(null);
+  const searchResultRefs = useRef([]);
 
   // Success Animation state
   const [showSuccess, setShowSuccess] = useState(false);
@@ -141,7 +144,11 @@ const BillingSystem = () => {
         e.preventDefault();
         searchInputRef.current?.focus();
       }
-      if (e.key === 'F9') {
+      if (e.key === 'F6' && !showSuccess && !lastBill) {
+        e.preventDefault();
+        amountPaidInputRef.current?.focus();
+      }
+      if (e.key === 'F9' && !showSuccess && !lastBill) {
         e.preventDefault();
         if (cart.length > 0) {
           handleCheckout();
@@ -150,106 +157,403 @@ const BillingSystem = () => {
       if (e.key === 'Escape' && showResults) {
         setShowResults(false);
         setSearchQuery('');
+        setSelectedSearchResultIndex(-1);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [cart, payData, customerExists, showResults]);
+  }, [cart, payData, customerExists, showResults, showSuccess, lastBill]);
 
-  const generateInvoiceHtml = () => {
+  const formatMoney = (value) => {
+    const number = Number(value || 0);
+    return number.toLocaleString('en-LK', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
+  const formatBillStatus = () => {
+    if (!lastBill) return 'PAID';
+    if (lastBill.payment_status) return String(lastBill.payment_status).toUpperCase();
+    if (lastBill.status) return String(lastBill.status).toUpperCase();
+    if (Number(lastBill.due_amount || 0) > 0) return 'PARTIAL';
+    return 'PAID';
+  };
+
+  const getBillBalanceDue = () => {
+    if (!lastBill) return 0;
+    if (lastBill.balance_due !== undefined && lastBill.balance_due !== null) return Number(lastBill.balance_due || 0);
+    if (lastBill.due_amount !== undefined && lastBill.due_amount !== null) return Number(lastBill.due_amount || 0);
+    const total = Number(lastBill.total_amount || 0);
+    const paid = Number(lastBill.amount_paid || 0);
+    return Math.max(total - paid, 0);
+  };
+
+  const getItemQtyValue = (item) => {
+    const qty = Number(item.billed_quantity ?? item.quantity ?? 0);
+    return Number.isFinite(qty) ? qty : 0;
+  };
+
+  const getItemUnit = (item) => {
+    return item.selected_unit_name || item.billed_unit?.unit_name || item.product?.unit?.unit_name || 'Unit';
+  };
+
+  const getItemPrice = (item) => Number(item.price_per_unit ?? item.unit_price ?? 0);
+  const getItemDiscount = (item) => Number(item.discount ?? 0);
+  const getLineTotal = (item) => {
+    const qty = getItemQtyValue(item);
+    const price = getItemPrice(item);
+    const discount = getItemDiscount(item);
+    return Math.max((qty * price) - discount, 0);
+  };
+
+  const buildThermalBillHtml = () => {
     if (!lastBill) return '';
 
-    const rows = lastBill.items?.map((item) => {
-      const itemDiscount = parseFloat(item.discount || 0);
-      const qty = parseFloat(item.billed_quantity !== undefined ? item.billed_quantity : item.quantity);
+    const items = (lastBill.items || []).map((item) => {
+      const productName = item.product_name || item.product?.product_name || 'Product';
+      const qty = getItemQtyValue(item);
+      const unit = getItemUnit(item);
+      const unitPrice = getItemPrice(item);
+      const total = getLineTotal(item);
 
-      let unitName = 'Unit';
-      if (item.selected_unit_name) {
-        unitName = item.selected_unit_name;
-      } else if (item.billed_unit?.unit_name) {
-        unitName = item.billed_unit.unit_name;
-      } else if (item.product?.unit?.unit_name) {
-        unitName = item.product.unit.unit_name;
-      }
+      return {
+        productName,
+        qty,
+        unit,
+        unitPrice,
+        total,
+      };
+    });
 
-      const priceVal = parseFloat(item.price_per_unit || item.unit_price);
-      const itemTotal = (priceVal * qty) - itemDiscount;
-      const displayProductName = item.product_name || item.product?.product_name || 'Product';
+    const billStatus = formatBillStatus();
+    const balanceDue = getBillBalanceDue();
+    const totalQty = items.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
+    const pad = (value, width) => String(value).padEnd(width, ' ').slice(0, width);
+    const rightPad = (value, width) => String(value).padStart(width, ' ').slice(-width);
+
+    return `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <title>Thermal Receipt</title>
+        <style>
+          @page { size: 80mm auto; margin: 0; }
+          * { box-sizing: border-box; }
+          html, body {
+            margin: 0;
+            padding: 0;
+            background: #fff;
+            color: #111827;
+            font-family: "Courier New", Courier, monospace;
+          }
+          body {
+            width: 80mm;
+            margin: 0 auto;
+            padding: 6px 8px 10px;
+          }
+          .receipt {
+            width: 100%;
+            font-size: 11px;
+            line-height: 1.35;
+          }
+          .center { text-align: center; }
+          .line {
+            border-top: 1px solid #111827;
+            margin: 4px 0;
+          }
+          .header-line { border-top: 2px solid #111827; margin: 4px 0; }
+          .row { display: flex; justify-content: space-between; gap: 6px; }
+          .strong { font-weight: 700; }
+          .small { font-size: 10px; }
+        </style>
+      </head>
+      <body>
+        <div class="receipt">
+          <div class="header-line"></div>
+          <div class="center">
+            <div>MATHUMITHAN Hardware and</div>
+            <div>Lumber and Furniture Dealer</div>
+            <div>A9 Road, School Near, Kanagarayankulam</div>
+            <div>South, Vavuniya</div>
+            <div>Tel: 0772521943</div>
+          </div>
+          <div class="header-line"></div>
+          <div class="row"><span>Bill No : ${lastBill.bill_no || '—'}</span><span>Date : ${new Date(lastBill.bill_date).toLocaleDateString('en-GB')}</span></div>
+          <div class="row"><span>Time    : ${new Date(lastBill.bill_date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })}</span><span>Cashier : ${lastBill.cashier_name || '—'}</span></div>
+          <div class="row"><span>Customer: ${lastBill.customer?.name || 'Walk-in Customer'}</span><span>Phone : ${lastBill.customer?.phone || '—'}</span></div>
+          <div class="line"></div>
+          <div class="row"><span>Item</span><span>Qty</span><span>Total</span></div>
+          <div class="line"></div>
+          ${items.map((item) => `
+            <div class="row">
+              <span>${pad(item.productName.slice(0, 18), 18)}</span>
+              <span>${rightPad(String(item.qty), 4)}</span>
+              <span>${rightPad(formatMoney(item.total), 10)}</span>
+            </div>
+            <div class="small row"><span>${pad(item.unit, 8)}</span><span>${rightPad(formatMoney(item.unitPrice), 10)}</span></div>
+          `).join('')}
+          <div class="line"></div>
+          <div class="row"><span>Subtotal</span><span>${rightPad(formatMoney(lastBill.subtotal ?? 0), 12)}</span></div>
+          <div class="row"><span>Discount</span><span>${rightPad(formatMoney(lastBill.discount ?? 0), 12)}</span></div>
+          <div class="row strong"><span>TOTAL (LKR)</span><span>${rightPad(formatMoney(lastBill.total_amount ?? 0), 12)}</span></div>
+          <div class="line"></div>
+          <div class="row"><span>Amount Paid</span><span>${rightPad(formatMoney(lastBill.amount_paid ?? 0), 12)}</span></div>
+          <div class="row"><span>Balance Due</span><span>${rightPad(formatMoney(balanceDue), 12)}</span></div>
+          <div class="row"><span>Status</span><span>${billStatus}</span></div>
+          <div class="row"><span>Expected Pay Date</span><span>${lastBill.expected_payment_date || '—'}</span></div>
+          <div class="line"></div>
+          <div class="row"><span>Items: ${items.length}</span><span>Total Qty: ${Number.isInteger(totalQty) ? totalQty : totalQty.toFixed(1)}</span></div>
+          <div class="line"></div>
+          <div class="center" style="margin-top: 8px;">
+            <div>Thank you! Please come again.</div>
+            <div>Warranty items: keep this bill.</div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  };
+
+  const buildA4InvoiceHtml = () => {
+    if (!lastBill) return '';
+
+    const items = (lastBill.items || []).map((item, index) => {
+      const qty = getItemQtyValue(item);
+      const unit = getItemUnit(item);
+      const unitPrice = getItemPrice(item);
+      const discount = getItemDiscount(item);
+      const total = getLineTotal(item);
       return `
-          <tr>
-            <td style="padding:12px 0;border-bottom:1px solid #f0f0f0;">
-              <div style="font-weight:600;">${displayProductName}</div>
-              <div style="font-size:13px;color:#666;">${priceVal.toFixed(2)} x ${qty} ${unitName}${itemDiscount ? ` - ${itemDiscount.toFixed(2)} disc` : ''}</div>
-            </td>
-            <td style="text-align:center;padding:12px 0;border-bottom:1px solid #f0f0f0;">${qty} ${unitName}</td>
-            <td style="text-align:right;padding:12px 0;border-bottom:1px solid #f0f0f0;"><strong>Rs. ${itemTotal.toFixed(2)}</strong></td>
-          </tr>`;
+        <tr>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #dfe3e8;">${index + 1}</td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #dfe3e8;">${escapeHtml(item.product_name || item.product?.product_name || 'Product')}</td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #dfe3e8;">${escapeHtml(unit)}</td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #dfe3e8; text-align: right;">${qty}</td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #dfe3e8; text-align: right;">${formatMoney(unitPrice)}</td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #dfe3e8; text-align: right;">${formatMoney(discount)}</td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #dfe3e8; text-align: right; font-weight: 700;">${formatMoney(total)}</td>
+        </tr>
+      `;
     }).join('');
 
+    const balanceDue = getBillBalanceDue();
+    const billStatus = formatBillStatus();
+    const customerName = lastBill.customer?.name || 'Walk-in Customer';
+    const phone = lastBill.customer?.phone || '—';
+
     return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Invoice ${lastBill.bill_no}</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 40px 20px; color: #1a1a2e; }
-    .invoice-wrapper { max-width: 480px; margin: 0 auto; background: white; border-radius: 24px; box-shadow: 0 20px 35px -8px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.02); overflow: hidden; }
-    .invoice-header { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; padding: 32px 28px; text-align: center; }
-    .invoice-header h2 { font-size: 28px; letter-spacing: 2px; margin-bottom: 8px; font-weight: 700; }
-    .invoice-header p { opacity: 0.85; font-size: 13px; margin-top: 4px; }
-    .invoice-body { padding: 28px; }
-    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: #f8f9fc; padding: 16px; border-radius: 16px; margin-bottom: 24px; }
-    .meta-item { font-size: 13px; }
-    .meta-item strong { color: #666; font-weight: 500; display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-    .meta-item span { color: #1a1a2e; font-weight: 600; font-size: 14px; }
-    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-    th { text-align: left; padding: 12px 0; color: #666; font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #eef2f6; }
-    td { padding: 12px 0; border-bottom: 1px solid #eef2f6; }
-    .totals { margin-top: 24px; padding-top: 16px; border-top: 2px dashed #e0e4e8; }
-    .total-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; }
-    .total-row.grand { margin-top: 8px; padding-top: 12px; border-top: 1px solid #e0e4e8; font-weight: 700; font-size: 18px; color: #1e3c72; }
-    .footer { margin-top: 32px; text-align: center; font-size: 12px; color: #888; padding-top: 20px; border-top: 1px solid #eef2f6; }
-    .badge { display: inline-block; background: #e8f0fe; color: #1e3c72; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 500; margin-top: 12px; }
-  </style>
-</head>
-<body>
-  <div class="invoice-wrapper">
-    <div class="invoice-header">
-      <h2>MATHUMITHAN HARDWARE AND TIMPERDEPOT</h2>
-      <p>HARDWARE & TIMBER DEPOT</p>
-      <div class="badge">TAX INVOICE</div>
-    </div>
-    <div class="invoice-body">
-      <div class="meta-grid">
-        <div class="meta-item"><strong>BILL NO</strong><span>${lastBill.bill_no}</span></div>
-        <div class="meta-item"><strong>DATE</strong><span>${formatDateTime(lastBill.bill_date)}</span></div>
-        ${lastBill.customer?.name ? `<div class="meta-item"><strong>CUSTOMER</strong><span>${lastBill.customer.name}</span></div>` : ''}
-        ${lastBill.customer?.phone ? `<div class="meta-item"><strong>PHONE</strong><span>${lastBill.customer.phone}</span></div>` : ''}
-      </div>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <title>Invoice ${escapeHtml(lastBill.bill_no || 'Receipt')}</title>
+        <style>
+          @page { size: A4 portrait; margin: 12mm; }
+          * { box-sizing: border-box; }
+          body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            color: #111827;
+            background: #fff;
+          }
+          .invoice {
+            width: 100%;
+            max-width: 190mm;
+            margin: 0 auto;
+            border: 1px solid #dfe3e8;
+            border-radius: 8px;
+            overflow: hidden;
+          }
+          .header {
+            background: #f8fafc;
+            border-bottom: 2px solid #dfe3e8;
+            padding: 18px 20px 16px;
+          }
+          .brand {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+          }
+          .logo {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #dbeafe;
+            color: #1d4ed8;
+            font-weight: 700;
+          }
+          .title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1f2937;
+          }
+          .meta-line {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #4b5563;
+          }
+          .bill-top {
+            display: grid;
+            grid-template-columns: 1.3fr 1fr;
+            gap: 12px;
+            padding: 16px 20px;
+            background: #fff;
+          }
+          .card {
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 12px 14px;
+          }
+          .label {
+            font-size: 12px;
+            color: #6b7280;
+            display: block;
+            margin-bottom: 4px;
+          }
+          .value {
+            font-size: 13px;
+            font-weight: 700;
+            color: #111827;
+          }
+          .table-wrap { padding: 0 20px 10px; }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 12px;
+          }
+          th {
+            background: #f3f4f6;
+            color: #374151;
+            padding: 10px 8px;
+            text-align: left;
+            font-weight: 700;
+          }
+          td { color: #1f2937; }
+          .totals {
+            display: flex;
+            justify-content: flex-end;
+            padding: 0 20px 20px;
+          }
+          .totals table {
+            width: 320px;
+            font-size: 12px;
+          }
+          .totals td {
+            padding: 7px 10px;
+            border-bottom: 1px solid #e5e7eb;
+          }
+          .grand { font-weight: 700; font-size: 14px; }
+          .notes {
+            padding: 10px 20px 20px;
+            font-size: 12px;
+            color: #4b5563;
+          }
+          .signature-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 18px 20px 22px;
+            border-top: 1px solid #e5e7eb;
+            font-size: 12px;
+            color: #4b5563;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="invoice">
+          <div class="header">
+            <div class="brand">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div class="logo">[LOGO]</div>
+                <div>
+                  <div class="title">MATHUMITHAN Hardware and Lumber</div>
+                  <div class="title" style="font-size:16px;">and Furniture Dealer</div>
+                </div>
+              </div>
+              <div style="font-weight:700; font-size:18px; text-align:right;">INVOICE</div>
+            </div>
+            <div class="meta-line">A9 Road, School Near, Kanagarayankulam &nbsp; &nbsp; &nbsp; No: ${escapeHtml(lastBill.bill_no || 'INV-....')}</div>
+            <div class="meta-line">South, Vavuniya &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; Date: ${escapeHtml(new Date(lastBill.bill_date).toLocaleDateString('en-GB'))}</div>
+            <div class="meta-line">Tel: 0772521943</div>
+          </div>
 
-      <table>
-        <thead><tr><th>Item</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Total</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
+          <div class="bill-top">
+            <div class="card">
+              <span class="label">Bill To</span>
+              <div class="value">${escapeHtml(customerName)}</div>
+              <div style="margin-top: 8px; color: #4b5563; font-size: 12px;">Phone / Address: ${escapeHtml(phone)}</div>
+            </div>
+            <div class="card">
+              <span class="label">Details</span>
+              <div class="value">Cashier: ${escapeHtml(lastBill.cashier_name || '—')}</div>
+              <div style="margin-top: 8px; color: #4b5563; font-size: 12px;">Status: ${escapeHtml(billStatus)}</div>
+            </div>
+          </div>
 
-      <div class="totals">
-        <div class="total-row"><span>Subtotal</span><span>Rs. ${(lastBill.subtotal ?? 0).toFixed(2)}</span></div>
-        <div class="total-row"><span>Discount</span><span>Rs. ${(lastBill.discount ?? 0).toFixed(2)}</span></div>
-        <div class="total-row grand"><span>Total Amount</span><span>Rs. ${(lastBill.total_amount ?? 0).toFixed(2)}</span></div>
-        <div class="total-row"><span>Amount Paid</span><span>Rs. ${(lastBill.amount_paid ?? 0).toFixed(2)}</span></div>
-        <div class="total-row"><span>Change Returned</span><span>Rs. ${(lastBill.change_returned ?? 0).toFixed(2)}</span></div>
-        ${lastBill.due_amount > 0 ? `<div class="total-row" style="color:#e53e3e;"><span>Due Balance</span><span>Rs. ${lastBill.due_amount.toFixed(2)}</span></div>` : ''}
-      </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 7%;">#</th>
+                  <th style="width: 42%;">Item / Description</th>
+                  <th style="width: 12%;">Unit</th>
+                  <th style="width: 10%; text-align: right;">Qty</th>
+                  <th style="width: 12%; text-align: right;">Price</th>
+                  <th style="width: 9%; text-align: right;">Disc</th>
+                  <th style="width: 12%; text-align: right;">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${items}
+              </tbody>
+            </table>
+          </div>
 
-      <div class="footer">
-        <p>Cashier: ${lastBill.cashier_name} (${lastBill.cashier_id})</p>
-        <p style="margin-top:12px;">Thank you for shopping with us!</p>
-      </div>
-    </div>
-  </div>
-</body>
-</html>`;
+          <div class="totals">
+            <table>
+              <tr><td>Subtotal</td><td style="text-align:right;">${formatMoney(lastBill.subtotal ?? 0)}</td></tr>
+              <tr><td>Discount</td><td style="text-align:right;">${formatMoney(lastBill.discount ?? 0)}</td></tr>
+              <tr class="grand"><td>TOTAL</td><td style="text-align:right;">${formatMoney(lastBill.total_amount ?? 0)}</td></tr>
+              <tr><td>Paid</td><td style="text-align:right;">${formatMoney(lastBill.amount_paid ?? 0)}</td></tr>
+              <tr><td>BALANCE DUE</td><td style="text-align:right;">${formatMoney(balanceDue)}</td></tr>
+            </table>
+          </div>
+
+          <div class="notes">
+            <div>Notes:</div>
+            <div>- Warranty as per card</div>
+            <div style="margin-top: 8px;">Amount in words: ${escapeHtml(lastBill.amount_in_words || '—')}</div>
+          </div>
+
+          <div class="signature-row">
+            <div>Customer signature</div>
+            <div>Authorized signature</div>
+          </div>
+          <div style="padding: 0 20px 20px; text-align:center; font-size:12px; color:#4b5563;">Thank you for your business!</div>
+        </div>
+      </body>
+      </html>`;
+  };
+
+  const generateInvoiceHtml = () => buildA4InvoiceHtml();
+
+  const openPrintableBill = ({ title, html, pageSize }) => {
+    const popup = window.open('', '_blank', 'width=900,height=1000');
+    if (!popup) {
+      toast.error('Allow pop-ups to print the invoice.');
+      return false;
+    }
+
+    popup.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8" /><title>${escapeHtml(title)}</title><style>@page { size: ${pageSize}; margin: 0; } body { margin: 0; background: #fff; } @media print { body { margin: 0; } }</style></head><body>${html}</body></html>`);
+    popup.document.close();
+    popup.focus();
+    setTimeout(() => popup.print(), 300);
+    return true;
   };
 
   const handleDownloadInvoice = () => {
@@ -268,85 +572,39 @@ const BillingSystem = () => {
 
   const handleDownloadPdf = async () => {
     if (!lastBill) return;
-    try {
-      const invoiceRows = (lastBill.items || []).map((item) => {
-        const qty = parseFloat(item.billed_quantity !== undefined ? item.billed_quantity : item.quantity || 0);
-        const unitPrice = parseFloat(item.price_per_unit || item.unit_price || 0);
-        const itemDiscount = parseFloat(item.discount || 0);
-        const lineTotal = (unitPrice * qty) - itemDiscount;
-        const unitName = item.selected_unit_name || item.billed_unit?.unit_name || item.product?.unit?.unit_name || 'Unit';
-        const productName = item.product_name || item.product?.product_name || 'Product';
-        return `
-          <tr>
-            <td>${escapeHtml(productName)}</td>
-            <td style="text-align: center;">${qty} ${escapeHtml(unitName)}</td>
-            <td style="text-align: right;">Rs. ${unitPrice.toFixed(2)}</td>
-            <td style="text-align: right;">${itemDiscount > 0 ? `Rs. ${itemDiscount.toFixed(2)}` : 'Rs. 0.00'}</td>
-            <td style="text-align: right;"><strong>Rs. ${lineTotal.toFixed(2)}</strong></td>
-          </tr>
-        `;
-      }).join('');
-
-      const contentHtml = `
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; padding: 12px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 12px; line-height: 1.6;">
-          <div>
-            <div><strong>Bill No:</strong> <span style="font-weight: 600; color: #7f1d24;">${escapeHtml(lastBill.bill_no || '—')}</span></div>
-            <div><strong>Date / Time:</strong> ${escapeHtml(formatDateTime(lastBill.bill_date))}</div>
-            <div><strong>Cashier:</strong> ${escapeHtml(lastBill.cashier_name || '—')} (${escapeHtml(lastBill.cashier_id || '—')})</div>
-          </div>
-          <div style="text-align: right;">
-            <div><strong>Customer:</strong> ${escapeHtml(lastBill.customer?.name || 'Walk-in Customer')}</div>
-            <div><strong>Phone:</strong> ${escapeHtml(lastBill.customer?.phone || '—')}</div>
-          </div>
-        </div>
-
-        <table class="tpl-table">
-          <thead>
-            <tr>
-              <th style="text-align: left; width: 42%;">Item</th>
-              <th style="text-align: center; width: 14%;">Qty</th>
-              <th style="text-align: right; width: 15%;">Unit Price</th>
-              <th style="text-align: right; width: 14%;">Discount</th>
-              <th style="text-align: right; width: 15%;">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${invoiceRows || '<tr><td colspan="5" class="tpl-empty">No items</td></tr>'}
-          </tbody>
-        </table>
-
-        <div style="display: flex; justify-content: flex-end; margin-top: 14px;">
-          <table style="width: 300px; border-collapse: collapse; font-size: 12px;">
-            <tr><td style="padding: 4px 8px; color: #64748b;">Subtotal:</td><td style="padding: 4px 8px; text-align: right; font-weight: 600;">Rs. ${(lastBill.subtotal ?? 0).toFixed(2)}</td></tr>
-            <tr><td style="padding: 4px 8px; color: #64748b;">Discount:</td><td style="padding: 4px 8px; text-align: right; font-weight: 600;">Rs. ${(lastBill.discount ?? 0).toFixed(2)}</td></tr>
-            <tr style="border-top: 2px solid #7f1d24; border-bottom: 2px solid #7f1d24;"><td style="padding: 6px 8px; font-size: 14px; font-weight: 700; color: #7f1d24;">Total Amount:</td><td style="padding: 6px 8px; text-align: right; font-size: 14px; font-weight: 700; color: #7f1d24;">Rs. ${(lastBill.total_amount ?? 0).toFixed(2)}</td></tr>
-            <tr><td style="padding: 4px 8px; color: #64748b;">Amount Paid:</td><td style="padding: 4px 8px; text-align: right; font-weight: 600;">Rs. ${(lastBill.amount_paid ?? 0).toFixed(2)}</td></tr>
-            <tr><td style="padding: 4px 8px; color: #64748b;">Change Returned:</td><td style="padding: 4px 8px; text-align: right; font-weight: 600;">Rs. ${(lastBill.change_returned ?? 0).toFixed(2)}</td></tr>
-            ${lastBill.due_amount > 0 ? `<tr><td style="padding: 4px 8px; color: #dc2626; font-weight: 600;">Due Balance:</td><td style="padding: 4px 8px; text-align: right; color: #dc2626; font-weight: 700;">Rs. ${lastBill.due_amount.toFixed(2)}</td></tr>` : ''}
-          </table>
-        </div>
-
-        <div style="margin-top: 24px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px dashed #cbd5e1; padding-top: 10px;">
-          <p style="font-weight: 500;">Thank you for shopping with us!</p>
-        </div>
-      `;
-
-      const opened = printWithTemplate({
-        title: 'MATHUMITHAN HARDWARE AND TIMPERDEPOT',
-        subtitle: `TAX INVOICE - ${lastBill.bill_no || ''}`.trim(),
-        contentHtml,
-        useTemplate: false,
-        headerTitle: 'MATHUMITHAN HARDWARE AND TIMPERDEPOT',
-      });
-
-      if (!opened) {
-        toast.error('Allow pop-ups to export the invoice as PDF.');
-      }
-    } catch (err) {
-      console.error('PDF generation failed', err);
-      alert('Failed to generate PDF. Try printing instead.');
-    }
+    const html = buildA4InvoiceHtml();
+    if (!html) return;
+    openPrintableBill({ title: 'A4 Invoice', html, pageSize: 'A4 portrait' });
   };
+
+  const handleThermalPrint = () => {
+    if (!lastBill) return;
+    const html = buildThermalBillHtml();
+    if (!html) return;
+    openPrintableBill({ title: 'Thermal Receipt', html, pageSize: '80mm auto' });
+  };
+
+  useEffect(() => {
+    if (!lastBill || showSuccess) return undefined;
+
+    const handleInvoiceShortcut = (event) => {
+      if (!['F7', 'F8', 'F9'].includes(event.key)) return;
+      event.preventDefault();
+
+      if (event.key === 'F8') {
+        setLastBill(null);
+      } else if (event.key === 'F9') {
+        handleThermalPrint();
+        setLastBill(null);
+      } else {
+        handleDownloadPdf();
+        setLastBill(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleInvoiceShortcut);
+    return () => window.removeEventListener('keydown', handleInvoiceShortcut);
+  }, [lastBill, showSuccess, handleDownloadPdf, handleThermalPrint]);
 
   // Search for products
   const handleSearch = async (query) => {
@@ -355,6 +613,7 @@ const BillingSystem = () => {
 
     if (!trimmedQuery) {
       setSearchResults([]);
+      setSelectedSearchResultIndex(-1);
       setShowResults(false);
       return;
     }
@@ -365,16 +624,37 @@ const BillingSystem = () => {
       });
       const products = Array.isArray(res.data) ? res.data : [];
       setSearchResults(products);
+      setSelectedSearchResultIndex(products.length ? 0 : -1);
       setShowResults(products.length > 0);
     } catch (err) {
       console.error('Search error:', err);
       setSearchResults([]);
+      setSelectedSearchResultIndex(-1);
       setShowResults(false);
     }
   };
 
+  useEffect(() => {
+    if (!showResults || selectedSearchResultIndex < 0) return;
+    searchResultRefs.current[selectedSearchResultIndex]?.scrollIntoView({
+      block: 'nearest',
+      inline: 'nearest',
+      behavior: 'smooth',
+    });
+  }, [searchResults, selectedSearchResultIndex, showResults]);
+
   // Handle Enter key for search and manual barcode entry
   const handleSearchKeyDown = async (e) => {
+    if (showResults && searchResults.length > 0 && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      e.preventDefault();
+      setSelectedSearchResultIndex((currentIndex) => {
+        const startIndex = currentIndex < 0 ? 0 : currentIndex;
+        const direction = e.key === 'ArrowDown' ? 1 : -1;
+        return (startIndex + direction + searchResults.length) % searchResults.length;
+      });
+      return;
+    }
+
     if (e.key === 'Enter') {
       e.preventDefault();
       const query = searchQuery.trim();
@@ -393,11 +673,20 @@ const BillingSystem = () => {
           highlightTimerRef.current = setTimeout(() => setHighlightedItemId(null), 1500);
           setSearchQuery('');
           setSearchResults([]);
+          setSelectedSearchResultIndex(-1);
           setShowResults(false);
           return;
         }
       } catch (err) {
         // Not an exact barcode match, proceed to normal query search
+      }
+
+      if (showResults && searchResults.length > 0) {
+        const selectedProduct = searchResults[selectedSearchResultIndex] || searchResults[0];
+        await handleAddToCart(selectedProduct);
+        setSearchResults([]);
+        setSelectedSearchResultIndex(-1);
+        return;
       }
 
       let items = searchResults;
@@ -448,8 +737,11 @@ const BillingSystem = () => {
         highlightTimerRef.current = setTimeout(() => setHighlightedItemId(null), 1500);
         setSearchQuery('');
         setSearchResults([]);
+        setSelectedSearchResultIndex(-1);
         setShowResults(false);
       } else if (items.length > 1) {
+        setSearchResults(items);
+        setSelectedSearchResultIndex(0);
         setShowResults(true);
       }
     }
@@ -630,6 +922,8 @@ const BillingSystem = () => {
     }
 
     setSearchQuery('');
+    setSearchResults([]);
+    setSelectedSearchResultIndex(-1);
     setShowResults(false);
   };
 
@@ -997,6 +1291,53 @@ const BillingSystem = () => {
     handleAddToCart(product);
   };
 
+  const handleCartGridKeyDown = (event) => {
+    const source = event.target;
+    const sourceRow = Number(source.dataset.cartRow);
+    const sourceField = source.dataset.cartField;
+    const fields = ['unit', 'quantity', 'discount'];
+    const fieldIndex = fields.indexOf(sourceField);
+
+    if (!Number.isInteger(sourceRow) || fieldIndex < 0) return;
+
+    if (event.key === 'Backspace') {
+      event.preventDefault();
+      handleRemoveFromCart(sourceRow);
+      return;
+    }
+
+    const table = event.currentTarget.querySelector('.cart-table-modern');
+    if (!table) return;
+
+    let destination;
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+      const direction = event.key === 'ArrowDown' ? 1 : -1;
+      for (let row = sourceRow + direction; row >= 0 && row < cart.length; row += direction) {
+        const candidate = table.querySelector(`[data-cart-row="${row}"][data-cart-field="${sourceField}"]`);
+        if (candidate && !candidate.disabled) {
+          destination = candidate;
+          break;
+        }
+      }
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      const direction = event.key === 'ArrowRight' ? 1 : -1;
+      for (let field = fieldIndex + direction; field >= 0 && field < fields.length; field += direction) {
+        const candidate = table.querySelector(`[data-cart-row="${sourceRow}"][data-cart-field="${fields[field]}"]`);
+        if (candidate && !candidate.disabled) {
+          destination = candidate;
+          break;
+        }
+      }
+    } else {
+      return;
+    }
+
+    event.preventDefault();
+    if (destination) {
+      destination.focus();
+    }
+  };
+
   return (
     <div className="proc-container">
       {/* Modern Page Header */}
@@ -1095,9 +1436,9 @@ const BillingSystem = () => {
                 <div className="pos-search-dropdown-modern">
                   <div className="search-results-header">
                     <span>Products found ({searchResults.length})</span>
-                    <span className="hint-text">Click or Press Enter to add</span>
+                    <span className="hint-text">↑ ↓ to navigate · Enter to add</span>
                   </div>
-                  {searchResults.map((product) => {
+                  {searchResults.map((product, index) => {
                     const allBarcodes = Array.from(new Set([
                       product.barcode,
                       ...(product.alternative_units || []).map(au => au.barcode)
@@ -1106,7 +1447,9 @@ const BillingSystem = () => {
                     return (
                       <div
                         key={product.product_id}
-                        className="pos-search-result-modern"
+                        ref={(element) => { searchResultRefs.current[index] = element; }}
+                        className={`pos-search-result-modern ${index === selectedSearchResultIndex ? 'selected' : ''}`}
+                        onMouseEnter={() => setSelectedSearchResultIndex(index)}
                         onClick={() => handleAddToCart(product)}
                       >
                         <div className="result-icon">
@@ -1156,7 +1499,7 @@ const BillingSystem = () => {
                   <div className="empty-cart-sub">Search or click a product to add</div>
                 </div>
               ) : (
-                <div className="cart-items-modern">
+                <div className="cart-items-modern" onKeyDown={handleCartGridKeyDown}>
                   <table className="cart-table-modern">
                     <thead>
                       <tr>
@@ -1182,6 +1525,8 @@ const BillingSystem = () => {
                             <td style={{ textAlign: 'center' }}>
                               <select id="select_field" name="select_field"
                                 className={`unit-select-table${item.available_units && item.available_units.length > 1 ? ' multi' : ' single'}`}
+                                data-cart-row={idx}
+                                data-cart-field="unit"
                                 value={item.selected_unit_id}
                                 onChange={(e) => handleUnitChange(idx, e.target.value)}
                                 disabled={!item.available_units || item.available_units.length <= 1}
@@ -1198,6 +1543,8 @@ const BillingSystem = () => {
                               <input id="quantity" name="quantity"
                                 type="number"
                                 className="qty-input-table"
+                                data-cart-row={idx}
+                                data-cart-field="quantity"
                                 value={item.quantity}
                                 onChange={(e) => handleUpdateQty(idx, parseFloat(e.target.value) || 0)}
                                 min="0.01"
@@ -1209,6 +1556,8 @@ const BillingSystem = () => {
                                 type="text"
                                 inputMode="decimal"
                                 className="discount-input-table"
+                                data-cart-row={idx}
+                                data-cart-field="discount"
                                 value={item.discountInput !== undefined ? item.discountInput : (item.discount || 0)}
                                 onChange={(e) => handleUpdateDiscount(idx, e.target.value)}
                                 onBlur={() => handleBlurDiscount(idx)}
@@ -1299,8 +1648,8 @@ const BillingSystem = () => {
                 {/* Amount Received */}
                 <div className="amount-input-group">
                   <label className="amount-label">
-
                     Amount Received
+                    <span className="pos-search-kbd-modern">F6</span>
                   </label>
                   <div className="amount-input-wrapper">
                     <span className="currency-prefix">Rs.</span>
@@ -1308,6 +1657,7 @@ const BillingSystem = () => {
                       id="amountPaid"
                       name="amountPaid"
                       className="amount-input"
+                      ref={amountPaidInputRef}
                       type="number"
                       value={payData.amountPaid || ''}
                       onChange={(e) => setPayData({ ...payData, amountPaid: e.target.value })}
@@ -1505,7 +1855,9 @@ const BillingSystem = () => {
 
       {/* Receipt Modal */}
       {lastBill && (
-        <div className="receipt-overlay-modern" onClick={(e) => { if (e.target === e.currentTarget) setLastBill(null); }}>
+        <div className="receipt-overlay-modern" onDoubleClick={(event) => {
+          if (event.target === event.currentTarget) setLastBill(null);
+        }}>
           <div className="receipt-modal-modern">
             <div className="receipt-header">
               <div className="receipt-store">MATHUMITHAN HARDWARE AND TIMPERDEPOT</div>
@@ -1564,14 +1916,14 @@ const BillingSystem = () => {
             </div>
 
             <div className="receipt-actions">
-              <button className="receipt-btn print" onClick={handleDownloadPdf}>
-                <Printer size={14} /> Print
+              <button className="receipt-btn print" onClick={handleThermalPrint}>
+                <Printer size={14} /> Print Thermal (F9)
               </button>
               <button className="receipt-btn download" onClick={handleDownloadPdf}>
-                <Download size={14} /> Download PDF
+                <Download size={14} /> A4 Invoice (F7)
               </button>
               <button className="receipt-btn close" onClick={() => setLastBill(null)}>
-                Close
+                Close (F8)
               </button>
             </div>
           </div>

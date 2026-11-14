@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
 
 // Use the shared axios instance that already has the JWT interceptor
 import api from '../api/axios';
@@ -812,6 +813,7 @@ export function useDownloadSupplierReportPDF() {
 
 export function useChequeAlerts() {
   const qc = useQueryClient();
+  const { role } = useAuth();
 
   // Socket-driven instant refresh when cheque status changes
   useEffect(() => {
@@ -821,7 +823,7 @@ export function useChequeAlerts() {
   }, [qc]);
 
   return useQuery({
-    queryKey: ['cheque-alerts'],
+    queryKey: ['cheque-alerts', role],
     queryFn: async () => (await api.get('/procurement/payments/cheque-alerts')).data,
     refetchInterval: 30000, // poll every 30 s as fallback
     enabled: hasAuthToken(),

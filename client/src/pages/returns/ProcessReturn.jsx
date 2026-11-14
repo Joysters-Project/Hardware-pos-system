@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../../api/axios';
@@ -462,7 +462,7 @@ function SummaryPanel({ selectedItems, globalDecision, onGlobalDecisionChange, s
             disabled={total === 0 || submitting}
             onClick={onSubmit}
           >
-            {submitting ? 'Processing…' : 'Confirm & Process Return'}
+            {submitting ? 'Processing…' : 'Confirm & Process Return (F9)'}
           </button>
         </>
       )}
@@ -573,6 +573,9 @@ export default function ProcessReturn() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [billsList, setBillsList] = useState([]);
+  const [selectedBillIndex, setSelectedBillIndex] = useState(-1);
+  const billResultRefs = useRef([]);
+  const searchTermInputRef = useRef(null);
   const [selectedBill, setSelectedBill] = useState(null);
   const [suppliers, setSuppliers] = useState([]);
 
@@ -588,6 +591,25 @@ export default function ProcessReturn() {
   const currentStep = !selectedBill ? 1 : selectedList.length === 0 ? 2 : 3;
 
   const [unitsList, setUnitsList] = useState([]);
+
+  useEffect(() => {
+    if (selectedBillIndex < 0) return;
+    billResultRefs.current[selectedBillIndex]?.scrollIntoView({
+      block: 'nearest',
+      behavior: 'smooth',
+    });
+  }, [billsList, selectedBillIndex]);
+
+  useEffect(() => {
+    const handleSearchShortcut = (event) => {
+      if (event.key !== 'F1' || selectedBill) return;
+      event.preventDefault();
+      searchTermInputRef.current?.focus();
+    };
+
+    window.addEventListener('keydown', handleSearchShortcut);
+    return () => window.removeEventListener('keydown', handleSearchShortcut);
+  }, [selectedBill]);
 
   useEffect(() => {
     api.get('/suppliers')
@@ -609,12 +631,18 @@ export default function ProcessReturn() {
   // ── Bill search ──
   const handleSearch = async (e) => {
     if (e) e.preventDefault();
+    if (billsList.length > 1) {
+      selectBill(billsList[selectedBillIndex] || billsList[0]);
+      return;
+    }
     if (!searchTerm.trim()) { toast.error('Enter a bill number or customer phone'); return; }
 
     try {
       setLoading(true);
       setSelectedBill(null);
       setSuccessResult(null);
+      setBillsList([]);
+      setSelectedBillIndex(-1);
       const params = searchType === 'bill'
         ? { bill_no: searchTerm.trim() }
         : { phone: searchTerm.trim() };
@@ -622,13 +650,17 @@ export default function ProcessReturn() {
       const data = res.data;
       if (data.success && data.data?.length > 0) {
         setBillsList(data.data);
+        setSelectedBillIndex(data.data.length > 1 ? 0 : -1);
         if (data.data.length === 1) selectBill(data.data[0]);
       } else {
         toast.error(data.error || 'No matching bill found');
         setBillsList([]);
+        setSelectedBillIndex(-1);
       }
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to lookup bill');
+      setBillsList([]);
+      setSelectedBillIndex(-1);
     } finally {
       setLoading(false);
     }
@@ -664,6 +696,23 @@ export default function ProcessReturn() {
       };
     }
     setSelectedItems(init);
+  };
+
+  const handleBillResultsKeyDown = (event) => {
+    if (billsList.length <= 1 || loading) return;
+
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const direction = event.key === 'ArrowDown' ? 1 : -1;
+      setSelectedBillIndex((currentIndex) => {
+        const startIndex = currentIndex < 0 ? 0 : currentIndex;
+        return (startIndex + direction + billsList.length) % billsList.length;
+      });
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      const bill = billsList[selectedBillIndex] || billsList[0];
+      selectBill(bill);
+    }
   };
 
   // ── Item state helpers ──
@@ -794,6 +843,17 @@ export default function ProcessReturn() {
     }
   };
 
+  useEffect(() => {
+    const handleFinishReturnShortcut = (event) => {
+      if (event.key !== 'F9' || !selectedBill || selectedList.length === 0 || submitting || successResult) return;
+      event.preventDefault();
+      handleSubmit();
+    };
+
+    window.addEventListener('keydown', handleFinishReturnShortcut);
+    return () => window.removeEventListener('keydown', handleFinishReturnShortcut);
+  }, [selectedBill, selectedList, submitting, successResult, handleSubmit]);
+
   const handleReset = () => {
     setSuccessResult(null);
     setSelectedBill(null);
@@ -841,12 +901,17 @@ export default function ProcessReturn() {
             </label>
           </div>
 
-          <form onSubmit={handleSearch} className="ret-search-box">
+          <form onSubmit={handleSearch} onKeyDownCapture={handleBillResultsKeyDown} className="ret-search-box">
             <input id="searchTerm" name="searchTerm"
+              ref={searchTermInputRef}
               type="text"
               placeholder={searchType === 'bill' ? 'Enter Invoice / Bill No…' : 'Enter Customer Phone Number…'}
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setBillsList([]);
+                setSelectedBillIndex(-1);
+              }}
             />
             <button type="submit" disabled={loading}>
               <Search size={16} style={{ display: 'inline', marginRight: 6 }} />
@@ -856,9 +921,17 @@ export default function ProcessReturn() {
 
           {billsList.length > 1 && (
             <div className="ret-bill-results">
-              <h3 style={{ fontSize: '14px', color: '#555', margin: '0 0 10px' }}>Select an Invoice:</h3>
-              {billsList.map(bill => (
-                <div key={bill.bill_id} className="ret-bill-result-item" onClick={() => selectBill(bill)}>
+              <h3 style={{ fontSize: '14px', color: '#555', margin: '0 0 10px' }}>
+                Select an Invoice: <span style={{ fontWeight: 400 }}>Use ↑/↓ then Enter</span>
+              </h3>
+              {billsList.map((bill, index) => (
+                <div
+                  key={bill.bill_id}
+                  ref={(element) => { billResultRefs.current[index] = element; }}
+                  className={`ret-bill-result-item ${index === selectedBillIndex ? 'selected' : ''}`}
+                  onMouseEnter={() => setSelectedBillIndex(index)}
+                  onClick={() => selectBill(bill)}
+                >
                   <div>
                     <div className="bill-no">{bill.bill_no || `INV-${bill.bill_id}`}</div>
                     <div className="bill-date">

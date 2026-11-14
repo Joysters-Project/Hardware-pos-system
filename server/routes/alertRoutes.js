@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const alertController = require('../controllers/alertController');
 const authMiddleware = require('../middleware/authMiddleware');
+const roleGuard = require('../middleware/roleGuard');
 
 router.use(authMiddleware);
 
@@ -14,7 +15,7 @@ router.post('/generate', alertController.generateAlerts);
 router.get('/summary',  alertController.getAlertSummary);
 router.get('/count',    alertController.getAlertCount);
 router.get('/expiry-alerts', alertController.getExpiryAlerts);
-router.get('/customer-due-alerts', alertController.getCustomerDueAlerts);
+router.get('/customer-due-alerts', roleGuard(['admin', 'manager', 'cashier']), alertController.getCustomerDueAlerts);
 router.get('/',         alertController.getAllAlerts);
 
 // GET /api/alerts/:id

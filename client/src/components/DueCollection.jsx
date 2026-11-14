@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useMatch } from "react-router-dom";
 import { Search, CreditCard, Receipt, FolderOpen, Wallet } from "lucide-react";
 import api from "../api/axios";
@@ -15,6 +15,8 @@ const DueCollection = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [customer, setCustomer] = useState(null);
   const [bills, setBills] = useState([]);
+  const [highlightedBillIndex, setHighlightedBillIndex] = useState(-1);
+  const billRowRefs = useRef([]);
   const [selectedBill, setSelectedBill] = useState(null);
   const [selectedBills, setSelectedBills] = useState([]);
   const [paymentMethod, setPaymentMethod] = useState("Cash");
@@ -27,6 +29,8 @@ const DueCollection = () => {
   const [dueCheckBills, setDueCheckBills] = useState([]);
   const [dueCheckLoading, setDueCheckLoading] = useState(false);
   const [expandedBillId, setExpandedBillId] = useState(null);
+  const collectionSearchRef = useRef(null);
+  const dueCheckSearchRef = useRef(null);
 
   const [showSuccess, setShowSuccess] = useState(false);
   const [animSuccess, setAnimSuccess] = useState(false);
@@ -37,6 +41,18 @@ const DueCollection = () => {
     const timer = window.setTimeout(() => setViewEnter(true), 16);
     return () => window.clearTimeout(timer);
   }, [activeView]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const handleSearchShortcut = (event) => {
+      if (event.key !== "F1") return;
+      event.preventDefault();
+      const searchInput = activeView === "collection" ? collectionSearchRef.current : dueCheckSearchRef.current;
+      searchInput?.focus();
+    };
+
+    window.addEventListener("keydown", handleSearchShortcut);
+    return () => window.removeEventListener("keydown", handleSearchShortcut);
+  }, [activeView]);
 
   const handleSuccessDismiss = () => {
     setAnimSuccess(false);
@@ -55,6 +71,12 @@ const DueCollection = () => {
       return toast.error(phoneValidation.message);
     }
 
+    setBills([]);
+    setHighlightedBillIndex(-1);
+    setSelectedBills([]);
+    setSelectedBill(null);
+    setCustomer(null);
+
     try {
       const cusRes = await api.get(`/customers?phone=${encodeURIComponent(phoneValidation.formatted)}`);
       const foundCus = cusRes.data?.data || cusRes.data;
@@ -68,6 +90,7 @@ const DueCollection = () => {
       const billRes = await api.get(`/bills?customer_id=${foundCus.customer_id}&status=PARTIAL`);
       const billList = Array.isArray(billRes.data) ? billRes.data : billRes.data?.data || [];
       setBills(billList);
+      setHighlightedBillIndex(billList.length ? 0 : -1);
       setSelectedBill(null);
       setSelectedBills([]);
       setAmountInput("");
@@ -157,6 +180,29 @@ const DueCollection = () => {
     }
   };
 
+  const handleBillListKeyDown = (event) => {
+    if (bills.length === 0) {
+      if (event.key === "Enter" && event.target.id === "due-collection-search") {
+        event.preventDefault();
+        handleSearch();
+      }
+      return;
+    }
+
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const direction = event.key === "ArrowDown" ? 1 : -1;
+      setHighlightedBillIndex((currentIndex) => {
+        const startIndex = currentIndex < 0 ? 0 : currentIndex;
+        return (startIndex + direction + bills.length) % bills.length;
+      });
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      const bill = bills[highlightedBillIndex] || bills[0];
+      handleSelectBill(bill);
+    }
+  };
+
   const billTotal = selectedBill ? parseFloat(selectedBill.total_amount) : 0;
   const balanceDue = selectedBill ? parseFloat(selectedBill.balance_due) : 0;
   const paidSoFar = billTotal - balanceDue;
@@ -168,6 +214,14 @@ const DueCollection = () => {
   const totalOutstanding = bills.reduce((acc, bill) => acc + parseFloat(bill.balance_due || 0), 0);
   const dueCheckOutstanding = dueCheckBills.reduce((acc, bill) => acc + parseFloat(bill.balance_due || 0), 0);
   const paidAmount = (bill) => parseFloat(bill.total_amount || 0) - parseFloat(bill.balance_due || 0);
+
+  useEffect(() => {
+    if (highlightedBillIndex < 0) return;
+    billRowRefs.current[highlightedBillIndex]?.scrollIntoView({
+      block: "nearest",
+      behavior: "smooth",
+    });
+  }, [bills, highlightedBillIndex]);
 
   const formatDate = (value) => {
     if (!value) return "";
@@ -242,9 +296,20 @@ const DueCollection = () => {
     }
   };
 
+  useEffect(() => {
+    const handleCollectShortcut = (event) => {
+      if (event.key !== "F9" || activeView !== "collection" || showSuccess || selectedCount === 0) return;
+      event.preventDefault();
+      submitPayment();
+    };
+
+    window.addEventListener("keydown", handleCollectShortcut);
+    return () => window.removeEventListener("keydown", handleCollectShortcut);
+  }, [activeView, selectedCount, showSuccess, submitPayment]);
+
   const renderCollectionView = () => (
     <div className="due-content" style={{ marginTop: "8px" }}>
-      <div className="due-left">
+      <div className="due-left" onKeyDown={handleBillListKeyDown}>
         <div className="due-search-box">
           <label htmlFor="due-collection-search" className="sr-only">
             Search by phone number
@@ -252,11 +317,19 @@ const DueCollection = () => {
           <input
             id="due-collection-search"
             name="due-collection-search"
+            ref={collectionSearchRef}
             type="tel"
-            placeholder="Search by 10-digit phone number (070-078)..."
+            placeholder="Search by phone number..."
             value={searchQuery}
-            onChange={(event) => setSearchQuery(filterSriLankanPhoneInput(event.target.value))}
-            onKeyDown={(event) => event.key === "Enter" && handleSearch()}
+            onChange={(event) => {
+              setSearchQuery(filterSriLankanPhoneInput(event.target.value));
+              setBills([]);
+              setHighlightedBillIndex(-1);
+              setSelectedBills([]);
+              setSelectedBill(null);
+              setAmountInput("");
+              setCustomer(null);
+            }}
             maxLength="10"
             autoComplete="tel"
           />
@@ -286,7 +359,10 @@ const DueCollection = () => {
           </div>
         )}
 
-        <div className="card-title" style={{ marginTop: "1rem", marginBottom: "0.5rem" }}>Outstanding bills</div>
+        <div className="card-title" style={{ marginTop: "1rem", marginBottom: "0.5rem", display: "flex", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
+          <span>Outstanding bills</span>
+          <small style={{ fontWeight: 400 }}>↑/↓ navigate · Enter select · F9 collect</small>
+        </div>
         <div className="proc-card">
           <div className="proc-table-wrap">
             {bills.length === 0 ? (
@@ -324,13 +400,21 @@ const DueCollection = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {bills.map((bill) => {
+                  {bills.map((bill, index) => {
                     const isSelected = !!selectedBills.find((selected) => selected.bill_id === bill.bill_id);
                     return (
                       <tr
                         key={bill.bill_id}
-                        className={isSelected ? "selected" : ""}
-                        onClick={() => handleSelectBill(bill)}
+                        ref={(element) => { billRowRefs.current[index] = element; }}
+                        className={`${isSelected ? "selected" : ""} ${index === highlightedBillIndex ? "keyboard-highlight" : ""}`}
+                        tabIndex={0}
+                        onFocus={() => setHighlightedBillIndex(index)}
+                        onClick={(event) => {
+                          setHighlightedBillIndex(index);
+                          handleSelectBill(bill);
+                          event.currentTarget.focus();
+                        }}
+                        onMouseEnter={() => setHighlightedBillIndex(index)}
                         style={{ cursor: "pointer" }}
                       >
                         <td>
@@ -464,6 +548,7 @@ const DueCollection = () => {
           ) : (
             <>Collect <strong>Rs.</strong> {collectAmount ? collectAmount.toFixed(2) : "0.00"}</>
           )}
+          <span style={{ marginLeft: "8px", fontSize: "11px", opacity: 0.8 }}>F9</span>
         </button>
       </div>
     </div>
@@ -479,6 +564,7 @@ const DueCollection = () => {
           <input
             id="due-check-search"
             name="due-check-search"
+            ref={dueCheckSearchRef}
             type="tel"
             placeholder="Search by phone number"
             value={dueCheckQuery}

@@ -7,6 +7,7 @@ import api from "../api/axios";
 import AdminDashboard from "./AdminDashboard";
 import ManagerDashboard from "./ManagerDashboard";
 import { useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import "../styles/Alerts.css";
 import "../styles/Procurement.css";
 import "../styles/ProcurementPages.css";
@@ -444,7 +445,7 @@ function PayNowModal({ alert, onClose }) {
   );
 }
 
-function PaymentAlertsTab() {
+function PaymentAlertsTab({ readOnly = false }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeType = searchParams.get("type") || "";
   const [viewCheque, setViewCheque] = useState(null);
@@ -501,7 +502,7 @@ function PaymentAlertsTab() {
           <ChequeDetailContent cheque={viewCheque} />
         </DetailModal>
       )}
-      {payAlert && (
+      {!readOnly && payAlert && (
         <PayNowModal alert={payAlert} onClose={() => setPayAlert(null)} />
       )}
 
@@ -551,15 +552,15 @@ function PaymentAlertsTab() {
                 <th>Clearing Date</th>
                 <th>Amount</th>
                 <th>Days Remaining</th>
-                <th>Alert</th>
-                <th>Actions</th>
+                <th>{readOnly ? "Alert Status" : "Alert"}</th>
+                {!readOnly && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={9} className="proc-empty">Loading payment alerts...</td></tr>
+                <tr><td colSpan={readOnly ? 8 : 9} className="proc-empty">Loading payment alerts...</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={9} className="proc-empty">No payment alerts found.</td></tr>
+                <tr><td colSpan={readOnly ? 8 : 9} className="proc-empty">No payment alerts found.</td></tr>
               ) : filtered.map((a) => {
                 const color = PAYMENT_ALERT_COLORS[a.alert_type] || "#6b7280";
                 const alertAction = resolvePaymentAlertAction(a);
@@ -577,7 +578,7 @@ function PaymentAlertsTab() {
                     <td className="proc-name-cell">{a.supplier_name}</td>
                     <td style={{ fontWeight: 600, color }}>{a.cheque_number || "—"}</td>
                     <td>{a.bank_name || "—"}</td>
-                    <td style={{ color: a.alert_type === "Overdue" ? "#991b1b" : "inherit" }}>{fmtD(a.clearing_date)}</td>
+                    <td style={{ color: "#000" }}>{fmtD(a.clearing_date)}</td>
                     <td className="proc-amount">{fmt(a.amount)}</td>
                     <td>
                       <span style={{ fontWeight: 700, color }}>{daysLabel(a)}</span>
@@ -585,11 +586,13 @@ function PaymentAlertsTab() {
                     <td>
                       <span className="proc-status-pill" style={{ background: color + "18", color }}>{a.alert_type}</span>
                     </td>
-                    <td>
-                      <button className="proc-btn-outline" style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem" }} onClick={() => setPayAlert(a)}>
-                        {alertAction === "view-only" ? "Payment Details" : alertAction === "confirm-payment" ? "Confirm Payment" : alertAction === "resolve-bounced" ? "Resolve Bounced" : "Mark Cleared"}
-                      </button>
-                    </td>
+                    {!readOnly && (
+                      <td>
+                        <button className="proc-btn-outline" style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem" }} onClick={() => setPayAlert(a)}>
+                          {alertAction === "view-only" ? "Payment Details" : alertAction === "confirm-payment" ? "Confirm Payment" : alertAction === "resolve-bounced" ? "Resolve Bounced" : "Mark Cleared"}
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -614,7 +617,7 @@ const CUSTOMER_DUE_COLORS = {
   "Due Soon": "#d97706",
 };
 
-function CustomerDueAlertsTab() {
+function CustomerDueAlertsTab({ isCashier }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const activeType = searchParams.get("type") || "";
@@ -727,7 +730,7 @@ function CustomerDueAlertsTab() {
                     <td><span className="proc-code-badge">{a.invoice_number}</span></td>
                     <td className="proc-name-cell">{a.customer_name}</td>
                     <td style={{ fontWeight: 500 }}>{a.phone_no}</td>
-                    <td style={{ color: a.alert_type === "Overdue" ? "#991b1b" : "inherit", fontWeight: a.alert_type === "Overdue" ? 700 : 500 }}>
+                    <td>
                       {fmtD(a.expected_payment_date)}
                     </td>
                     <td className="proc-amount">{fmt(a.total_amount)}</td>
@@ -763,7 +766,8 @@ function CustomerDueAlertsTab() {
 }
 
 function AlertCenterPage() {
-  const isCashier = (sessionStorage.getItem("role") || "").toLowerCase() === "cashier";
+  const { role } = useAuth();
+  const isCashier = (role || "").toLowerCase() === "cashier";
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [alerts, setAlerts] = useState([]);
@@ -778,9 +782,9 @@ function AlertCenterPage() {
   const activeTab    = searchParams.get("tab") || "inventory";
   const activeFilter = searchParams.get("type") || "";
 
-  // Payment alert count for tab badge (non-cashier only)
+  // Payment alert count for the tab badge
   const { data: chequeData } = useChequeAlerts();
-  const paymentTabCount = isCashier ? 0 : (chequeData?.summary?.total || 0);
+  const paymentTabCount = chequeData?.summary?.total || 0;
 
   // Customer due alert count for tab badge
   const { data: customerDueData } = useCustomerDueAlerts();
@@ -966,24 +970,22 @@ function AlertCenterPage() {
             <span className="alert-tab-count">{customerDueTabCount}</span>
           )}
         </button>
-        {!isCashier && (
-          <button
-            className={`alert-tab-btn ${activeTab === "payment" ? "alert-tab-btn--active" : ""}`}
-            onClick={() => setTab("payment")}
-          >
-            <CreditCard size={16} className="alert-tab-icon" />
-            Payment Alerts
-            {paymentTabCount > 0 && (
-              <span className="alert-tab-count">{paymentTabCount}</span>
-            )}
-          </button>
-        )}
+        <button
+          className={`alert-tab-btn ${activeTab === "payment" ? "alert-tab-btn--active" : ""}`}
+          onClick={() => setTab("payment")}
+        >
+          <CreditCard size={16} className="alert-tab-icon" />
+          Payment Alerts
+          {paymentTabCount > 0 && (
+            <span className="alert-tab-count">{paymentTabCount}</span>
+          )}
+        </button>
       </div>
 
       {activeTab === "customer-due" ? (
-        <CustomerDueAlertsTab />
-      ) : activeTab === "payment" && !isCashier ? (
-        <PaymentAlertsTab />
+        <CustomerDueAlertsTab isCashier={isCashier} />
+      ) : activeTab === "payment" ? (
+        <PaymentAlertsTab readOnly={isCashier} />
       ) : (
       <>
       <div className="alert-chips">
@@ -1100,7 +1102,7 @@ function AlertCenterPage() {
                           {alert.alert_label || type}
                         </span>
                       </td>
-                      <td><strong>{product.stock_quantity ?? "-"}</strong></td>
+                      <td>{product.stock_quantity ?? "-"}</td>
                       <td>{product.min_stock_quantity ?? "-"}</td>
                       <td>{product.reorder_level ?? "-"}</td>
                       <td>{alert.batch_number || "-"}</td>

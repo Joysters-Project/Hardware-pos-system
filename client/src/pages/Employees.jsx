@@ -370,7 +370,9 @@ function EmployeesPage() {
 
       {/* Add/Edit Modal */}
       {showModal && createPortal(
-        <div className="emp-overlay" onClick={closeModal}>
+        <div className="emp-overlay" onDoubleClick={(event) => {
+          if (event.target === event.currentTarget) closeModal();
+        }}>
           <div className="emp-modal emp-modal-lg" onClick={e => e.stopPropagation()}>
             <div className="emp-modal-header">
               <h2>{editId ? "Edit Employee" : "Add Employee"}</h2>
@@ -465,7 +467,9 @@ function EmployeesPage() {
 
       {/* View Modal */}
       {viewEmp && createPortal(
-        <div className="emp-overlay" onClick={() => setViewEmp(null)}>
+        <div className="emp-overlay" onDoubleClick={(event) => {
+          if (event.target === event.currentTarget) setViewEmp(null);
+        }}>
           <div className="emp-modal emp-modal-lg" onClick={e => e.stopPropagation()}>
             <div className="emp-modal-header">
               <h2>Employee Details</h2>
