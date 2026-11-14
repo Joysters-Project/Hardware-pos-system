@@ -1,7 +1,7 @@
 const { alerts, products, batch_inventory } = require('../models');
 const db = require('../models');
 const { Op } = require('sequelize');
-const { syncAlertsForProduct, generateAllAlerts } = require('../services/alertService');
+const { EXPIRED_BATCH_ALERT, syncAlertsForProduct, generateAllAlerts } = require('../services/alertService');
 
 const NEAR_EXPIRY_DAYS = 30; // dashboard uses 30-day window
 
@@ -28,7 +28,7 @@ exports.getAlertSummary = async (req, res) => {
       alerts.findAll({ where: { alert_type: 'Low Stock',    is_resolved: false }, include: baseInclude }),
       alerts.count({ where: { alert_type: 'Reorder',      is_resolved: false } }),
       alerts.count({ where: { alert_type: 'Near Expiry',  is_resolved: false } }),
-      alerts.count({ where: { alert_type: 'Expired',      is_resolved: false } }),
+      alerts.count({ where: { alert_type: 'Expired', is_resolved: false } }),
       alerts.count({ where: { status: 'Active' } }),
       alerts.count({ where: { status: 'Purchase Ordered', is_resolved: false }, distinct: true, col: 'product_id' }),
     ]);
@@ -64,7 +64,7 @@ exports.getAllAlerts = async (req, res) => {
     const { limit, search, alert_type, status } = req.query;
     const where = { is_resolved: false };
     if (status) where.status = status;
-    if (alert_type) where.alert_type = alert_type;
+    if (alert_type) where.alert_type = alert_type === EXPIRED_BATCH_ALERT ? 'Expired' : alert_type;
 
     if (search) {
       where[Op.or] = [
@@ -116,14 +116,19 @@ exports.getAllAlerts = async (req, res) => {
       }
     }
 
-    if (alert_type === 'Expired') {
-      // Expired alert transitions are handled by generateAllAlerts / syncAlertsForProduct
-    }
-
     // Build FIFO batch map: batch_inventory (Active, remaining_qty > 0) takes priority,
     // fallback to product.batch_no if no inventory record exists.
     const productIds = [...new Set(response.map(a => a.product_id).filter(Boolean))];
+    const batchIds = [...new Set(response.map(a => a.batch_id).filter(Boolean))];
     const batchMap = {};
+    const alertBatchMap = {};
+    if (batch_inventory && batchIds.length) {
+      const batches = await batch_inventory.findAll({
+        where: { batch_id: { [Op.in]: batchIds } },
+        attributes: ['batch_id', 'batch_number', 'expiry_date', 'remaining_quantity'],
+      });
+      for (const batch of batches) alertBatchMap[batch.batch_id] = batch;
+    }
     if (batch_inventory && productIds.length) {
       const batches = await batch_inventory.findAll({
         where: { product_id: productIds, remaining_quantity: { [Op.gt]: 0 }, status: 'Active' },
@@ -137,7 +142,12 @@ exports.getAllAlerts = async (req, res) => {
 
     const mapped = response.map(alert => {
       const plain = alert.toJSON();
-      plain.batch_number = batchMap[plain.product_id] || plain.product?.batch_no || null;
+      plain.batch = alertBatchMap[plain.batch_id] || null;
+      plain.batch_number = plain.batch?.batch_number || batchMap[plain.product_id] || plain.product?.batch_no || null;
+      plain.expiry_date = plain.batch?.expiry_date || plain.product?.expiry_date || null;
+      plain.alert_label = plain.batch_id && plain.alert_type === 'Expired'
+        ? 'Expired Stock – Disposal Required'
+        : plain.alert_type;
       return plain;
     });
 
