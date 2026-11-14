@@ -319,6 +319,52 @@
 
 }
 
+.signup-password-wrap {
+  position: relative;
+}
+
+.signup-password-wrap input {
+  padding-right: 44px;
+  caret-color: #fff;
+}
+
+.signup-password-toggle {
+  position: absolute !important;
+  top: 0;
+  right: 0;
+  width: 42px !important;
+  height: 44px;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #888 !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.signup-password-toggle:hover {
+  transform: none !important;
+  opacity: 1 !important;
+}
+
+.signup-password-toggle svg {
+  display: block;
+}
+
+.signup-password-toggle::after {
+  display: none;
+}
+
+.signup-password-wrap input[type="password"]::-ms-reveal,
+.signup-password-wrap input[type="password"]::-ms-clear {
+  display: none;
+}
+
 .form-group select option {
   color: #30232d;
   /*background: hsl(0, 0%, 100%);*/

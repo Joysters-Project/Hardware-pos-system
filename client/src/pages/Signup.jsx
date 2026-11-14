@@ -1,5 +1,6 @@
 import React, { useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { Eye, EyeOff } from "lucide-react";
 import toast from "react-hot-toast";
 import "../styles/Signup.css";
 import logo from "../assets/logo.png";
@@ -20,6 +21,7 @@ function Signup() {
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
 
   // Validation rules for all fields
   const validateField = (name, value) => {
@@ -220,18 +222,28 @@ function Signup() {
               </div>
 
               <div className="form-group">
-                <input
-                  type="password"
-                  name="password"
-                  placeholder="Password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  disabled={loading}
-                  required
-                  minLength={6}
-                  className={errors.password ? "input-error" : ""}
-                />
+                <div className="signup-password-wrap">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    placeholder="Password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    disabled={loading}
+                    required
+                    minLength={6}
+                    className={errors.password ? "input-error" : ""}
+                  />
+                  <button
+                    type="button"
+                    className="signup-password-toggle"
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                  </button>
+                </div>
               </div>
 
               <button type="button" onClick={handleNextStep} disabled={loading}>
@@ -300,7 +312,7 @@ function Signup() {
         </form>
 
         <p style={{ marginTop: "15px", textAlign: "center" }}>
-          Already have an account? <Link to="/" style={{ color: "#dc3545",textDecoration: "none",fontWeight: "bold",marginLeft: "5px"}}>Login here</Link>
+          Already have an account? <Link to="/" style={{ color: "#E6B85C",textDecoration: "none",fontWeight: "bold",marginLeft: "5px"}}>Login here</Link>
         </p>
       </div>
     </div>
