@@ -639,7 +639,7 @@ export default function CustomerChequeExchange() {
       <div className="cce-filters">
         <div className="cce-search-wrap">
           <Search size={15} className="cce-search-icon" />
-          <input id="search" name="search" className="cce-search" placeholder="Search by customer ID, name, NIC or phone" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <input id="search" name="search" className="cce-search" placeholder="Search by name, phone or NIC" value={search} onChange={(event) => setSearch(event.target.value)} />
         </div>
         <button className="cce-refresh-btn" onClick={resetFilters}>
           <RefreshCw size={14} /> Reset

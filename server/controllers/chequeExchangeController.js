@@ -199,10 +199,36 @@ const getCheques = async (req, res) => {
 
     if (search) {
       const s = `%${search}%`;
+      const normalizedSearch = `%${search.toLowerCase()}%`;
+      const matchingCustomers = await db.cheque_customers.findAll({
+        attributes: ['customer_id'],
+        where: {
+          [Op.or]: [
+            db.Sequelize.where(
+              db.Sequelize.fn('LOWER', db.Sequelize.col('customer_name')),
+              { [Op.like]: normalizedSearch }
+            ),
+            db.Sequelize.where(
+              db.Sequelize.fn('LOWER', db.Sequelize.col('nic_number')),
+              { [Op.like]: normalizedSearch }
+            ),
+            db.Sequelize.where(
+              db.Sequelize.fn('LOWER', db.Sequelize.col('phone_number')),
+              { [Op.like]: normalizedSearch }
+            ),
+          ],
+        },
+        raw: true,
+      });
+      const customerIds = matchingCustomers.map((customer) => customer.customer_id);
+      if (/^\d+$/.test(search)) customerIds.push(Number(search));
+
       where[Op.or] = [
         { cheque_number:        { [Op.like]: s } },
         { bank_name:            { [Op.like]: s } },
         { account_holder_name:  { [Op.like]: s } },
+        ...(customerIds.length ? [{ customer_id: { [Op.in]: customerIds } }] : []),
+        ...(/^\d+$/.test(search) ? [{ cheque_id: Number(search) }] : []),
       ];
     }
 
@@ -214,26 +240,7 @@ const getCheques = async (req, res) => {
       order: [['created_at', 'DESC']],
     });
 
-    // Apply customer-level search filter to support customer fields as well as cheque fields.
-    let result = cheques;
-    if (search) {
-      const s = search.toLowerCase();
-      result = cheques.filter(ch => {
-        const cust = ch.customer;
-        return (
-          (ch.cheque_number || '').toLowerCase().includes(s) ||
-          (ch.bank_name || '').toLowerCase().includes(s) ||
-          (ch.account_holder_name || '').toLowerCase().includes(s) ||
-          (cust && (cust.customer_name || '').toLowerCase().includes(s)) ||
-          (cust && (cust.nic_number || '').toLowerCase().includes(s)) ||
-          (cust && (cust.phone_number || '').toLowerCase().includes(s)) ||
-          String(ch.cheque_id) === s ||
-          (cust && String(cust.customer_id) === s)
-        );
-      });
-    }
-
-    res.json({ success: true, data: result });
+    res.json({ success: true, data: cheques });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
