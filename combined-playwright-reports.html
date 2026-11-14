@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hardware Management - Test Reports</title>
+<style>
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f4f6fa;
+    color: #202938;
+}
+header {
+    background: #172554;
+    color: white;
+    padding: 28px 35px;
+}
+header h1 { margin: 0 0 8px; font-size: 25px; }
+header p { margin: 0; color: #cbd5e1; }
+main { max-width: 1100px; margin: 30px auto; padding: 0 20px; }
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 18px;
+}
+.card {
+    background: white;
+    padding: 23px;
+    border-radius: 12px;
+    border: 1px solid #e1e7ef;
+    box-shadow: 0 3px 12px #0000000a;
+}
+.card h2 { font-size: 18px; margin: 0 0 10px; }
+.card p { color: #64748b; font-size: 14px; min-height: 38px; }
+a {
+    display: inline-block;
+    background: #2563eb;
+    color: white;
+    text-decoration: none;
+    padding: 11px 16px;
+    border-radius: 7px;
+    font-size: 14px;
+    font-weight: bold;
+}
+a:hover { background: #1d4ed8; }
+footer {
+    text-align: center;
+    color: #64748b;
+    padding: 30px;
+    font-size: 13px;
+}
+</style>
+</head>
+<body>
+<header>
+    <h1>Hardware Management System</h1>
+    <p>Playwright End-to-End Testing Reports</p>
+</header>
+<main>
+    <h2>Test Report Dashboard</h2>
+    <p>Select a report below to view its test results.</p>
+    <div class="grid">
+        <section class="card">
+            <h2>Client Playwright Report</h2>
+            <p>Client test execution report.</p>
+            <a href="client/playwright-report/index.html">View Report</a>
+        </section>
+        <section class="card">
+            <h2>Client Nested Report</h2>
+            <p>Additional client test report.</p>
+            <a href="client/playwright-report/report/index.html">View Report</a>
+        </section>
+        <section class="card">
+            <h2>Client Additional Report</h2>
+            <p>Additional Playwright report output.</p>
+            <a href="client/playwright-reports/index.html">View Report</a>
+        </section>
+        <section class="card">
+            <h2>Root Playwright Report</h2>
+            <p>Root-level test execution report.</p>
+            <a href="playwright-report/index.html">View Report</a>
+        </section>
+    </div>
+</main>
+<footer>Hardware Management System | Automated Testing Documentation</footer>
+</body>
+</html>
