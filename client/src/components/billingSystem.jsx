@@ -140,6 +140,11 @@ const BillingSystem = () => {
   // Keyboard shortcut handlers
   useEffect(() => {
     const handleKeyDown = (e) => {
+      if (e.key === 'Enter' && showExpiredModal) {
+        e.preventDefault();
+        setShowExpiredModal(false);
+        return;
+      }
       if (e.key === 'F1') {
         e.preventDefault();
         searchInputRef.current?.focus();
@@ -162,7 +167,7 @@ const BillingSystem = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [cart, payData, customerExists, showResults, showSuccess, lastBill]);
+  }, [cart, payData, customerExists, showResults, showSuccess, lastBill, showExpiredModal]);
 
   const formatMoney = (value) => {
     const number = Number(value || 0);
