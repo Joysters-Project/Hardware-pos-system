@@ -153,7 +153,9 @@ function BatchInventoryPage() {
       </div>
 
       {viewBatch && (
-        <div className="modal-overlay" onClick={() => setViewBatch(null)}>
+        <div className="modal-overlay" onDoubleClick={(event) => {
+          if (event.target === event.currentTarget) setViewBatch(null);
+        }}>
           <div className="modal-box view-modal" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Batch Details</h2>

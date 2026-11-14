@@ -470,7 +470,9 @@ export default function PaymentDashboard() {
         {showModal && selectedPay && (
           <motion.div className="proc-modal-overlay"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            onClick={() => setShowModal(false)}>
+            onDoubleClick={(event) => {
+              if (event.target === event.currentTarget) setShowModal(false);
+            }}>
             <motion.div className="proc-modal"
               initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.92, opacity: 0 }} onClick={e => e.stopPropagation()}>

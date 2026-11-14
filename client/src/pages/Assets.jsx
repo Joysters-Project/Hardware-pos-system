@@ -248,7 +248,9 @@ function AssetsPage() {
 
       {/* Add/Edit Modal */}
       {showModal && createPortal(
-        <div className="proc-modal-overlay" onClick={closeModal}>
+        <div className="proc-modal-overlay" onDoubleClick={(event) => {
+          if (event.target === event.currentTarget) closeModal();
+        }}>
           <div className="proc-modal proc-modal-lg" onClick={e => e.stopPropagation()}>
             <div className="proc-modal-header">
               <h2>{editId ? "Edit Asset" : "Add Asset"}</h2>
@@ -310,7 +312,9 @@ function AssetsPage() {
 
       {/* View Modal */}
       {viewAsset && createPortal(
-        <div className="proc-modal-overlay" onClick={() => setViewAsset(null)}>
+        <div className="proc-modal-overlay" onDoubleClick={(event) => {
+          if (event.target === event.currentTarget) setViewAsset(null);
+        }}>
           <div className="proc-modal" onClick={e => e.stopPropagation()}>
             <div className="proc-modal-header">
               <h2>Asset Details</h2>

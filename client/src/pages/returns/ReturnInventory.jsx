@@ -462,7 +462,9 @@ export default function ReturnInventory() {
       <div ref={printRef} style={{ display: "none" }} />
 
       {viewProduct && (
-        <div className="modal-overlay" onClick={() => setViewProduct(null)}>
+        <div className="modal-overlay" onDoubleClick={(event) => {
+          if (event.target === event.currentTarget) setViewProduct(null);
+        }}>
           <div className="modal-box view-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Product Details</h2>

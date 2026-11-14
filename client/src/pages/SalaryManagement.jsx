@@ -531,7 +531,12 @@ function SalaryPage() {
 
       {/* Create Modal */}
       {showModal && createPortal(
-        <div className="sal-overlay" onClick={() => { resetSalaryModal(); setShowModal(false); }}>
+        <div className="sal-overlay" onDoubleClick={(event) => {
+          if (event.target === event.currentTarget) {
+            resetSalaryModal();
+            setShowModal(false);
+          }
+        }}>
           <div className="sal-modal sal-modal-lg" onClick={e => e.stopPropagation()}>
             <div className="sal-modal-header">
               <h2>{editingId ? 'Edit Salary Payment' : 'New Salary Payment'}</h2>

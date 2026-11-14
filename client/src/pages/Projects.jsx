@@ -638,7 +638,9 @@ function ProjectsPage() {
 
       {/* CREATE / EDIT MODAL portal */}
       {showModal && createPortal(
-        <div className="proc-modal-overlay" onClick={closeModal}>
+        <div className="proc-modal-overlay" onDoubleClick={(event) => {
+          if (event.target === event.currentTarget) closeModal();
+        }}>
           <div className="proc-modal proc-modal-lg" onClick={e => e.stopPropagation()}>
             <div className="proc-modal-header">
               <h2>{editId ? 'Edit Project' : 'New Project'}</h2>
@@ -711,7 +713,9 @@ function ProjectsPage() {
 
       {/* VIEW MODAL portal */}
       {viewProject && createPortal(
-        <div className="proc-modal-overlay" onClick={() => setViewProject(null)}>
+        <div className="proc-modal-overlay" onDoubleClick={(event) => {
+          if (event.target === event.currentTarget) setViewProject(null);
+        }}>
           <div className="proc-modal proc-modal-lg" onClick={e => e.stopPropagation()}>
             <div className="proc-modal-header">
               <h2>{typeIcon()} {viewProject.project_name}</h2>
