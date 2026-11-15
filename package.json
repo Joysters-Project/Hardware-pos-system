@@ -21,7 +21,7 @@
   "bugs": {
     "url": "https://github.com/Joysters-Project/Hardware-pos-system/issues"
   },
-  "homepage": "https://github.com/Joysters-Project/Hardware-pos-system#readme",
+  "homepage": "https://github.com/Joesters-Project/Hardware-pos-system#readme",
   "devDependencies": {
     "@playwright/test": "^1.63.0",
     "@types/node": "^26.5.0"
