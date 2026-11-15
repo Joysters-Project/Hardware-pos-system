@@ -248,7 +248,7 @@ export default function ProductForm() {
             <motion.div className="pf-field" variants={fieldVariants} initial="hidden" animate="visible" transition={{ delay: 0.12 }}>
               <label className="pf-label"><Tag size={13} /> Product Name <span className="pf-req">*</span></label>
               <input className="pf-input" name="product_name" value={formData.product_name}
-                onChange={handleChange} placeholder="Enter product name" required />
+                maxLength={200} onChange={handleChange} placeholder="Enter product name" required />
             </motion.div>
 
             {/* Type, Batch, Expiry */}
@@ -256,12 +256,12 @@ export default function ProductForm() {
               <div className="pf-field">
                 <label className="pf-label"><Package size={13} /> Product Type</label>
                 <input className="pf-input" name="type" value={formData.type}
-                  onChange={handleChange} placeholder="e.g. Hardware" />
+                  maxLength={50} onChange={handleChange} placeholder="e.g. Hardware" />
               </div>
               <div className="pf-field">
                 <label className="pf-label"><Hash size={13} /> Batch Number</label>
                 <input className="pf-input" name="batch_no" value={formData.batch_no}
-                  onChange={handleChange} placeholder="e.g. BATCH-001" />
+                  maxLength={100} onChange={handleChange} placeholder="e.g. BATCH-001" />
               </div>
               <div className="pf-field">
                 <label className="pf-label"><Calendar size={13} /> Expiry Date</label>
@@ -288,7 +288,7 @@ export default function ProductForm() {
               <label className="pf-label">Barcode (Optional)</label>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <input className="pf-input" name="barcode" value={formData.barcode}
-                  onChange={handleChange} placeholder="Optional" style={{ flex: 1 }} />
+                  maxLength={100} onChange={handleChange} placeholder="Optional" style={{ flex: 1 }} />
                 <button
                   type="button"
                   onClick={() => setFormData(prev => ({ ...prev, barcode: generateBarcode() }))}
@@ -451,7 +451,7 @@ export default function ProductForm() {
                     <div className="pf-field">
                       <label className="pf-label">Barcode (Optional)</label>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <input className="pf-input" type="text" placeholder="e.g. 123456789" value={item.barcode} onChange={(e) => handleAltUnitChange(idx, "barcode", e.target.value)} style={{ flex: 1 }} />
+                        <input className="pf-input" type="text" maxLength={100} placeholder="e.g. 123456789" value={item.barcode} onChange={(e) => handleAltUnitChange(idx, "barcode", e.target.value)} style={{ flex: 1 }} />
                         <button
                           type="button"
                           onClick={() => handleAltUnitChange(idx, "barcode", generateBarcode())}
