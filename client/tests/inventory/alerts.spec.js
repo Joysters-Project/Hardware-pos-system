@@ -501,12 +501,12 @@ test.describe('Alerts - Alert Type Priority Display', () => {
 // ── K. Expired Batch Actions ─────────────────────────────────────────────────
 
 test.describe('Alerts - Expired Batch Actions', () => {
-  test('Expired alert row shows Dispose and Batch buttons', async ({ page }) => {
+  test('Expired alert row shows Dispose and View buttons', async ({ page }) => {
     await setupAlertsApi(page);
     await gotoAlerts(page);
     const row = page.locator('tbody tr').filter({ hasText: 'Rust Remover' });
     await expect(row.getByRole('button', { name: 'Dispose' })).toBeVisible();
-    await expect(row.getByRole('button', { name: 'Batch' })).toBeVisible();
+    await expect(row.getByRole('button', { name: 'View' })).toBeVisible();
   });
 
   test('Near Expiry alert row shows View button but not Dispose', async ({ page }) => {
