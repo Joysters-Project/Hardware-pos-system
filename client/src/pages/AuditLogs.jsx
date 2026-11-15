@@ -1,12 +1,13 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, ChevronLeft, ChevronRight, ShieldAlert, Eye, X, Clock, User, Shield, Activity, Globe, FileText, Archive } from 'lucide-react';
+import { RefreshCw, ChevronLeft, ChevronRight, ShieldAlert, Eye, X, Clock, User, Shield, Activity, FileText, Archive, CalendarDays } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../utils/axios';
 import AdminDashboard from './AdminDashboard';
 import { useAuth } from '../context/AuthContext';
 import '../styles/Procurement.css';
+import '../styles/AuditLog.css';
 
 const ACTION_COLORS = {
   LOGIN:                 { bg: '#e8f5e9', color: '#2e7d32' },
@@ -50,6 +51,36 @@ const ACTION_COLORS = {
 
 const getActionStyle = (action) => ACTION_COLORS[action] || { bg: '#f5f5f5', color: '#555' };
 
+const parseDateValue = (value) => {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    value = `${value.slice(8)}-${value.slice(5, 7)}-${value.slice(0, 4)}`;
+  }
+  const match = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/.exec(value.trim());
+  if (!match) return { display: value, iso: '', error: value ? 'Enter a date as DD-MM-YYYY.' : '' };
+
+  const [, day, month, year] = match;
+  const date = new Date(Number(year), Number(month) - 1, Number(day));
+  if (
+    date.getFullYear() !== Number(year) ||
+    date.getMonth() !== Number(month) - 1 ||
+    date.getDate() !== Number(day)
+  ) {
+    return { display: value, iso: '', error: 'Enter a valid calendar date.' };
+  }
+  const display = `${day.padStart(2, '0')}-${month.padStart(2, '0')}-${year}`;
+  return { display, iso: `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`, error: '' };
+};
+
+const formatDateSearchValue = (value) => {
+  const parsed = parseDateValue(value);
+  if (parsed.iso) return parsed.display;
+  return value.replace(/[^\d/-]/g, '').slice(0, 10);
+};
+
+const toIsoDate = (value) => {
+  return parseDateValue(value).iso;
+};
+
 function AuditLogPage() {
   const [logs,        setLogs]        = useState([]);
   const [actions,     setActions]     = useState([]);
@@ -63,6 +94,8 @@ function AuditLogPage() {
   const [action,    setAction]    = useState('');
   const [from,      setFrom]      = useState('');
   const [to,        setTo]        = useState('');
+  const [dateErrors, setDateErrors] = useState({ from: '', to: '' });
+  const datePickerRefs = useRef({});
   const [page,      setPage]      = useState(1);
   const PER_PAGE = 20;
 
@@ -72,8 +105,10 @@ function AuditLogPage() {
       const params = { page, limit: PER_PAGE };
       if (search) params.search = search;
       if (action) params.action = action;
-      if (from)   params.from   = from;
-      if (to)     params.to     = to;
+      const fromDate = toIsoDate(from);
+      const toDate = toIsoDate(to);
+      if (fromDate) params.from = fromDate;
+      if (toDate)   params.to   = toDate;
 
       const endpoint = view === 'archived' ? '/audit_log/archived' : '/audit_log';
       const res = await api.get(endpoint, { params });
@@ -98,12 +133,29 @@ function AuditLogPage() {
   useEffect(() => { loadActions(); }, [loadActions]);
 
   const resetFilters = () => {
-    setSearch(''); setAction(''); setFrom(''); setTo(''); setPage(1);
+    setSearch(''); setAction(''); setFrom(''); setTo('');
+    setDateErrors({ from: '', to: '' });
+    setPage(1);
   };
 
   const switchView = (v) => {
     setView(v);
-    setSearch(''); setAction(''); setFrom(''); setTo(''); setPage(1);
+    setSearch(''); setAction(''); setFrom(''); setTo('');
+    setDateErrors({ from: '', to: '' });
+    setPage(1);
+  };
+
+  const updateDate = (field, value) => {
+    const display = formatDateSearchValue(value);
+    const parsed = parseDateValue(display);
+    if (field === 'from') setFrom(display);
+    else setTo(display);
+    const hasCompleteDateShape = (display.match(/[-/]/g) || []).length >= 2;
+    setDateErrors(errors => ({
+      ...errors,
+      [field]: parsed.iso || !display || !hasCompleteDateShape ? '' : parsed.error,
+    }));
+    setPage(1);
   };
 
   const formatTime = (t) => {
@@ -161,8 +213,53 @@ function AuditLogPage() {
           <option value="">All Actions</option>
           {actions.map(a => <option key={a} value={a}>{a}</option>)}
         </select>
-        <input id="from" name="from" type="date" className="proc-date-input" value={from} onChange={e => { setFrom(e.target.value); setPage(1); }} title="From date" />
-        <input id="to"   name="to"   type="date" className="proc-date-input" value={to}   onChange={e => { setTo(e.target.value);   setPage(1); }} title="To date" />
+        {[
+          { field: 'from', label: 'From date', value: from },
+          { field: 'to', label: 'To date', value: to },
+        ].map(({ field, label, value }) => (
+          <div className="proc-date-field" key={field}>
+            <input
+              id={field}
+              name={field}
+              type="text"
+              inputMode="numeric"
+              className="proc-date-input"
+              placeholder="DD-MM-YYYY"
+              value={value}
+              onChange={e => updateDate(field, e.target.value)}
+              onBlur={() => {
+                const parsed = parseDateValue(value);
+                if (parsed.iso) updateDate(field, parsed.display);
+                else setDateErrors(errors => ({ ...errors, [field]: parsed.error }));
+              }}
+              title={`${label} (DD-MM-YYYY)`}
+              aria-invalid={Boolean(dateErrors[field])}
+              aria-describedby={`${field}-date-error`}
+            />
+            <input
+              type="date"
+              className="proc-date-picker"
+              ref={element => { datePickerRefs.current[field] = element; }}
+              value={toIsoDate(value)}
+              onChange={e => updateDate(field, e.target.value)}
+              aria-label={`Select ${label}`}
+              tabIndex="-1"
+            />
+            <button
+              type="button"
+              className="audit-date-picker-button"
+              onClick={() => {
+                const picker = datePickerRefs.current[field];
+                if (picker?.showPicker) picker.showPicker();
+                else picker?.click();
+              }}
+              aria-label={`Open ${label} calendar`}
+            >
+              <CalendarDays size={16} />
+            </button>
+            {dateErrors[field] && <span id={`${field}-date-error`} className="proc-date-error">{dateErrors[field]}</span>}
+          </div>
+        ))}
         {(search || action || from || to) && (
           <button className="proc-btn-clear" onClick={resetFilters}>Clear</button>
         )}
@@ -180,21 +277,20 @@ function AuditLogPage() {
                 <th style={{ width: '75px' }}>Role</th>
                 <th style={{ width: '160px' }}>Action</th>
                 <th>Details</th>
-                <th style={{ width: '90px' }}>IP Address</th>
                 <th style={{ width: '50px', textAlign: 'center' }}>View</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="8" className="proc-empty">Loading...</td></tr>
+                <tr><td colSpan="7" className="proc-empty">Loading...</td></tr>
               ) : logs.length === 0 ? (
-                <tr><td colSpan="8" className="proc-empty">No audit logs found</td></tr>
+                <tr><td colSpan="7" className="proc-empty">No audit logs found</td></tr>
               ) : logs.map(log => {
                 const style = getActionStyle(log.action);
                 return (
                   <tr key={log.log_id}>
                     <td><span className="proc-code-badge">#{log.log_id}</span></td>
-                    <td className="proc-mono" style={{ fontSize: '0.82rem' }}>{formatTime(log.time)}</td>
+                    <td>{formatTime(log.time)}</td>
                     <td><span className="proc-name-cell" style={{ fontSize: '0.85rem' }}>{getUserName(log)}</span></td>
                     <td>
                       <span className="proc-status-pill pending" style={{ fontSize: '0.72rem' }}>{log.role || '—'}</span>
@@ -207,7 +303,6 @@ function AuditLogPage() {
                     <td className="proc-cell-clamp" title={log.details} style={{ fontSize: '0.82rem', color: '#555' }}>
                       {log.details || '—'}
                     </td>
-                    <td className="proc-mono">{log.ip_address || '—'}</td>
                     <td style={{ textAlign: 'center' }}>
                       <button className="proc-icon-btn view" title="View details" onClick={() => setSelectedLog(log)}>
                         <Eye size={14} />
@@ -276,12 +371,6 @@ function AuditLogPage() {
                     <div style={{ fontSize: '0.875rem', color: '#2c2c2c', fontWeight: 500 }}>{val}</div>
                   </div>
                 ))}
-                <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
-                    <Globe size={13} /> IP Address
-                  </div>
-                  <div className="proc-mono" style={{ fontSize: '0.875rem' }}>{selectedLog.ip_address || '—'}</div>
-                </div>
               </div>
 
               <div style={{ background: '#fafafa', borderRadius: 8, padding: '0.85rem 1rem', border: '1px solid #f0f0f0' }}>

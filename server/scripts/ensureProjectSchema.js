@@ -65,6 +65,13 @@ async function ensureProjectSchema() {
       }));
     }
 
+    if (!table.owner_phone) {
+      changes.push(queryInterface.addColumn('projects', 'owner_phone', {
+        type: db.Sequelize.STRING(15),
+        allowNull: true,
+      }));
+    }
+
     // Ensure receiver_name in project_items table
     const itemTable = await queryInterface.describeTable('project_items');
     if (!itemTable.receiver_name) {

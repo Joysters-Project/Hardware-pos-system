@@ -87,6 +87,7 @@ export default function ProjectsTab() {
   const [cart, setCart] = useState([]);
   const [receiverName, setReceiverName] = useState('');
   const [receiverPhone, setReceiverPhone] = useState('');
+  const [receiverDirectory, setReceiverDirectory] = useState([]);
   const [phoneError, setPhoneError] = useState('');
   const [loading, setLoading] = useState(false);
   const [summaryProduct, setSummaryProduct] = useState(null);
@@ -169,6 +170,20 @@ export default function ProjectsTab() {
         api.get('/projects/report/daily', { params: { project_id: projectId } }),
       ]);
 
+      const receivers = (Array.isArray(itemsRes.data) ? itemsRes.data : [])
+        .filter((item) => item.receiver_name && item.receiver_phone)
+        .reduce((directory, item) => {
+          const key = item.receiver_name.trim().toLowerCase();
+          if (!directory.some((receiver) => receiver.key === key)) {
+            directory.push({
+              key,
+              name: item.receiver_name.trim(),
+              phone: item.receiver_phone,
+            });
+          }
+          return directory;
+        }, []);
+      setReceiverDirectory(receivers);
       setDailyReport(reportRes.data || null);
     } catch {
       toast.error('Failed to load project details');
@@ -260,7 +275,7 @@ export default function ProjectsTab() {
       if (existing) {
         return current.map((item) => (
           item.product_id === product.product_id
-            ? { ...item, quantity: Number(item.quantity) + 1 }
+            ? { ...item, quantity: Number(item.quantity) + 1, quantityInput: undefined }
             : item
         ));
       }
@@ -311,12 +326,16 @@ export default function ProjectsTab() {
     addToCart(product);
   };
 
-  const updateCartQuantity = (productId, quantity) => {
+  const updateCartQuantity = (productId, quantity, quantityInput = undefined) => {
     const nextQuantity = Number(quantity);
 
     setCart((current) => current.map((item) => {
       if (item.product_id !== productId) return item;
-      return { ...item, quantity: Math.max(0.01, nextQuantity || 0) };
+      return {
+        ...item,
+        quantity: Math.max(0, nextQuantity || 0),
+        quantityInput,
+      };
     }));
 
     setQuantityErrors((current) => {
@@ -345,6 +364,7 @@ export default function ProjectsTab() {
     setCart([]);
     setReceiverName('');
     setReceiverPhone('');
+    setReceiverDirectory([]);
     setPhoneError('');
     setQuantityErrors({});
     setSearchQ('');
@@ -695,12 +715,25 @@ export default function ProjectsTab() {
                                 <td className="pt-cart-price-cell" style={{ textAlign: 'center' }}>{currency(item.unit_price)}</td>
                                 <td style={{ textAlign: 'center' }}>
                                   <input id="quantity" name="quantity"
-                                    type="number"
+                                    type="text"
                                     className="pt-cart-qty-input"
-                                    value={item.quantity}
-                                    min="0.01"
-                                    step="0.01"
-                                    onChange={(event) => updateCartQuantity(item.product_id, event.target.value)}
+                                    inputMode="decimal"
+                                    value={item.quantityInput ?? item.quantity}
+                                    min="0"
+                                    onChange={(event) => {
+                                      const rawValue = event.target.value.replace(/[^\d.]/g, '');
+                                      const [wholePart, ...decimalParts] = rawValue.split('.');
+                                      const whole = (wholePart || '').replace(/^0+(?=\d)/, '') || '0';
+                                      const normalizedValue = rawValue === ''
+                                        ? '0'
+                                        : `${whole}${decimalParts.length ? `.${decimalParts.join('')}` : ''}`;
+                                      const numericValue = Number(normalizedValue);
+                                      updateCartQuantity(
+                                        item.product_id,
+                                        Number.isFinite(numericValue) ? numericValue : 0,
+                                        normalizedValue,
+                                      );
+                                    }}
                                     onKeyDown={handleFormKeyDown}
                                   />
                                   {quantityErrors[item.product_id] && (
@@ -740,7 +773,14 @@ export default function ProjectsTab() {
                             ref={receiverNameRef}
                             placeholder="e.g. John Silva"
                             value={receiverName}
-                            onChange={(event) => setReceiverName(event.target.value)}
+                            onChange={(event) => {
+                              const name = event.target.value;
+                              setReceiverName(name);
+                              const receiver = receiverDirectory.find(
+                                (entry) => entry.key === name.trim().toLowerCase(),
+                              );
+                              if (receiver) setReceiverPhone(receiver.phone);
+                            }}
                             onKeyDown={handleFormKeyDown}
                           />
                         </div>

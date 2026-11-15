@@ -53,6 +53,26 @@ exports.cashierActivity = async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 };
 
+exports.cashierActivityDetails = async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    const { start, end } = getRange(from, to);
+    const rows = await db.sequelize.query(`
+      SELECT b.bill_id, b.bill_no, b.bill_date, b.total_amount, b.status
+      FROM bills b
+      JOIN users u ON u.user_id = b.user_id
+      WHERE b.user_id = :userId
+        AND b.bill_date BETWEEN :start AND :end
+        AND LOWER(u.role) NOT IN ('admin','manager')
+      ORDER BY b.bill_date DESC
+    `, { replacements: { userId: req.params.userId, start, end }, type: db.Sequelize.QueryTypes.SELECT });
+    res.json(rows.map((row) => ({
+      ...row,
+      bill_time: new Date(row.bill_date).toLocaleTimeString('en-LK', { hour: '2-digit', minute: '2-digit' }),
+    })));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+};
+
 // 3. Regular customers by purchase frequency
 exports.regularCustomers = async (req, res) => {
   try {

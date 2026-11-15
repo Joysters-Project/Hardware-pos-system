@@ -7,6 +7,7 @@ import {
   BarChart2, TrendingUp, Package, ShoppingCart,
   ChevronDown, ChevronUp, Calendar, Printer, Briefcase, FileText
 } from 'lucide-react';
+import { validateSriLankanPhone, filterSriLankanPhoneInput } from '../utils/phoneValidation';
 import api from '../utils/axios';
 import { buildTableHtml, escapeHtml, printWithTemplate } from '../utils/printTemplate';
 import AdminDashboard from './AdminDashboard';
@@ -18,8 +19,12 @@ import '../styles/Projects.css';
 
 const STATUSES = ['Active', 'Completed', 'On Hold', 'Cancelled'];
 const MONTHS   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const toTitleCase = (value) => String(value || '')
+  .trim()
+  .toLowerCase()
+  .replace(/(^|[\s-])([a-z])/g, (_, separator, letter) => `${separator}${letter.toUpperCase()}`);
 const EMPTY_FORM = {
-  project_name: '', project_owner: '', location: '',
+  project_name: '', project_owner: '', owner_phone: '', location: '',
   description: '', start_date: '', deadline: '', end_date: '',
   status: 'Active', final_payment: '',
 };
@@ -32,8 +37,31 @@ const formatDateForInput = (value) => {
   return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
 };
 
+const normalizeDateOnBlur = (value) => {
+  if (!value) return value;
+  // Accept d/m/yyyy or dd/mm/yyyy typed with slashes
+  const parts = value.split('/');
+  if (parts.length === 3) {
+    const [d, m, y] = parts;
+    if (d && m && y) {
+      return `${d.padStart(2,'0')}/${m.padStart(2,'0')}/${y}`;
+    }
+  }
+  return value;
+};
+
+// Allow typing with or without slashes; auto-insert slashes for digit-only input
 const formatDateInputValue = (value) => {
-  const digits = value.replace(/\D/g, '').slice(0, 8);
+  const rawValue = String(value || '').replace(/[^\d/]/g, '');
+  if (rawValue.includes('/')) {
+    const parts = rawValue.split('/').slice(0, 3);
+    if (parts.length === 3 && parts[2].length === 4) {
+      return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`;
+    }
+    return parts.join('/');
+  }
+
+  const digits = rawValue.replace(/\D/g, '').slice(0, 8);
   if (digits.length <= 2) return digits;
   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
   return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
@@ -72,6 +100,7 @@ function ProjectsPage() {
   const [yearlyData, setYearlyData]           = useState(null);
   const [yearlyYear, setYearlyYear]           = useState(new Date().getFullYear());
   const [projectEstimate, setProjectEstimate] = useState(null);
+  const [dateErrors, setDateErrors]         = useState({});
 
   useEffect(() => {
     loadProjects();
@@ -86,6 +115,7 @@ function ProjectsPage() {
     setForm({ ...EMPTY_FORM, final_payment: '' });
     setEditId(null);
     setProjectEstimate(null);
+    setDateErrors({});
     setShowModal(true);
   };
 
@@ -93,6 +123,7 @@ function ProjectsPage() {
     const baseForm = {
       project_name:  p.project_name,
       project_owner: p.project_owner || '',
+      owner_phone:   p.owner_phone || '',
       location:      p.location || '',
       description:   p.description || '',
       status:        p.status,
@@ -104,6 +135,7 @@ function ProjectsPage() {
     setForm(baseForm);
     setEditId(p.project_id);
     setProjectEstimate(null);
+    setDateErrors({});
     setShowModal(true);
 
     try {
@@ -117,17 +149,32 @@ function ProjectsPage() {
     }
   };
 
-  const closeModal = () => { setShowModal(false); setForm(EMPTY_FORM); setEditId(null); setProjectEstimate(null); };
+  const closeModal = () => {
+    setShowModal(false);
+    setForm(EMPTY_FORM);
+    setEditId(null);
+    setProjectEstimate(null);
+    setDateErrors({});
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.project_name || !form.start_date) { toast.error('Name and start date required'); return; }
+    if (form.project_name.length > 100) {
+      toast.error('Project name must be 100 characters or fewer');
+      return;
+    }
 
     // Owner name must not contain digits
     if (form.project_owner && /\d/.test(form.project_owner)) {
       toast.error('Invalid Owner name');
       return;
     }
+
+    // Owner phone validation
+    if (!form.owner_phone) { toast.error('Owner Phone No is required'); return; }
+    const phoneResult = validateSriLankanPhone(form.owner_phone);
+    if (!phoneResult.isValid) { toast.error(`Invalid phone: ${phoneResult.message}`); return; }
 
     const startDate = parseDateInput(form.start_date);
     const deadline  = parseDateInput(form.deadline);
@@ -170,6 +217,9 @@ function ProjectsPage() {
     try {
       const payload = {
         ...form,
+        project_name: toTitleCase(form.project_name),
+        project_owner: toTitleCase(form.project_owner),
+        location: toTitleCase(form.location),
         start_date: startDate,
         deadline: deadline || '',
         end_date: endDate || '',
@@ -370,7 +420,39 @@ function ProjectsPage() {
 
   const fmtCurrency = (n) => `LKR ${Number(n || 0).toLocaleString('en-LK', { minimumFractionDigits: 2 })}`;
   const f = (key) => (e) => setForm({ ...form, [key]: e.target.value });
-  const dateField = (key) => (e) => setForm({ ...form, [key]: formatDateInputValue(e.target.value) });
+  const validateDateField = (key, value) => {
+    const error = value && !parseDateInput(value) ? 'Enter a valid date (dd/mm/yyyy)' : '';
+    setDateErrors(prev => ({ ...prev, [key]: error }));
+  };
+  const dateField = (key) => (e) => {
+    const value = formatDateInputValue(e.target.value);
+    setForm(prev => ({ ...prev, [key]: value }));
+    if (value.length === 10) validateDateField(key, value);
+    else setDateErrors(prev => ({ ...prev, [key]: '' }));
+  };
+  const dateBlur = (key) => (e) => {
+    const value = normalizeDateOnBlur(e.target.value);
+    setForm(prev => ({ ...prev, [key]: value }));
+    validateDateField(key, value);
+  };
+  const handleOwnerChange = (event) => {
+    const owner = event.target.value;
+    const ownerKey = owner.trim().toLowerCase().replace(/\s+/g, ' ');
+    const existingOwner = projects.find(
+      project => project.project_owner?.trim().toLowerCase().replace(/\s+/g, ' ') === ownerKey
+        && (project.owner_phone || project.location),
+    );
+    setForm(prev => ({
+      ...prev,
+      project_owner: owner,
+      ...(existingOwner
+        ? {
+          owner_phone: existingOwner.owner_phone || prev.owner_phone,
+          location: existingOwner.location || prev.location,
+        }
+        : {}),
+    }));
+  };
 
   // Derive years and months that are covered by at least one project's active span
   const projectYears = (() => {
@@ -579,7 +661,7 @@ function ProjectsPage() {
                               <td>{fmtCurrency(item.unit_price)}</td>
                               <td>{fmtCurrency(Number(item.quantity) * Number(item.unit_price))}</td>
                               <td>{item.receiver_name || (item.takenByUser ? `${item.takenByUser.first_name} ${item.takenByUser.last_name}` : '—')}</td>
-                              <td className="proc-mono">{fmtDateTime(item.taken_at)}</td>
+                              <td>{fmtDateTime(item.taken_at)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -637,7 +719,17 @@ function ProjectsPage() {
               ) : (
                 <div className="proj-yearly-grid">
                   {yearlyData.byMonth.filter(m => m.totalItems > 0).map(m => (
-                    <div key={m.month} className="proj-month-card has-data">
+                    <button
+                      key={m.month}
+                      type="button"
+                      className="proj-month-card has-data"
+                      onClick={() => {
+                        setReportYear(yearlyYear);
+                        setReportMonth(m.month);
+                        setActiveTab('monthly');
+                      }}
+                      style={{ width: '100%', textAlign: 'left', font: 'inherit', cursor: 'pointer' }}
+                    >
                       <div className="proj-month-name">{MONTHS[m.month - 1]}</div>
                       <div className="proj-month-value">{fmtCurrency(m.totalValue)}</div>
                       <div className="proj-month-items">{m.totalItems} items</div>
@@ -646,7 +738,7 @@ function ProjectsPage() {
                         <div className="proj-month-bar-fill"
                           style={{ width: yearlyData.totalValue > 0 ? `${(m.totalValue / yearlyData.totalValue) * 100}%` : '0%' }} />
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -674,13 +766,19 @@ function ProjectsPage() {
                   <div className="proc-field proc-field-full">
                     <label>Project Name *</label>
                     <input id="project_name" name="project_name" className="proc-input" value={form.project_name} onChange={f('project_name')}
-                      required placeholder="e.g. Welding Gate Project" />
+                      maxLength={100} required placeholder="e.g. Welding Gate Project" />
                   </div>
                   <div className="proc-field">
                     <label>Project Owner</label>
                     <input id="project_owner" name="project_owner" className="proc-input" value={form.project_owner}
-                      onChange={e => { if (/\d/.test(e.target.value)) return; setForm({ ...form, project_owner: e.target.value }); }}
+                      onChange={e => { if (/\d/.test(e.target.value)) return; handleOwnerChange(e); }}
                       placeholder="e.g. John Silva" />
+                  </div>
+                  <div className="proc-field">
+                    <label>Owner Phone No *</label>
+                    <input id="owner_phone" name="owner_phone" className="proc-input" value={form.owner_phone}
+                      onChange={e => setForm({ ...form, owner_phone: filterSriLankanPhoneInput(e.target.value) })}
+                      placeholder="e.g. 0771234567" maxLength={10} inputMode="numeric" required />
                   </div>
                   <div className="proc-field">
                     <label>Location</label>
@@ -695,15 +793,18 @@ function ProjectsPage() {
                   </div>
                   <div className="proc-field">
                     <label>Start Date *</label>
-                    <input id="start_date" name="start_date" type="text" inputMode="numeric" maxLength={10} className="proc-date-input" value={form.start_date} onChange={dateField('start_date')} placeholder="dd/mm/yyyy" required />
+                    <input id="start_date" name="start_date" type="text" inputMode="numeric" maxLength={10} className="proc-date-input" value={form.start_date} onChange={dateField('start_date')} onBlur={dateBlur('start_date')} placeholder="dd/mm/yyyy" required aria-invalid={Boolean(dateErrors.start_date)} />
+                    {dateErrors.start_date && <div className="proc-field-error">{dateErrors.start_date}</div>}
                   </div>
                   <div className="proc-field">
                     <label>Deadline</label>
-                    <input id="deadline" name="deadline" type="text" inputMode="numeric" maxLength={10} className="proc-date-input" value={form.deadline} onChange={dateField('deadline')} placeholder="dd/mm/yyyy" />
+                    <input id="deadline" name="deadline" type="text" inputMode="numeric" maxLength={10} className="proc-date-input" value={form.deadline} onChange={dateField('deadline')} onBlur={dateBlur('deadline')} placeholder="dd/mm/yyyy" aria-invalid={Boolean(dateErrors.deadline)} />
+                    {dateErrors.deadline && <div className="proc-field-error">{dateErrors.deadline}</div>}
                   </div>
                   <div className="proc-field">
                     <label>End Date (Actual)</label>
-                    <input id="end_date" name="end_date" type="text" inputMode="numeric" maxLength={10} className="proc-date-input" value={form.end_date} onChange={dateField('end_date')} placeholder="dd/mm/yyyy" />
+                    <input id="end_date" name="end_date" type="text" inputMode="numeric" maxLength={10} className="proc-date-input" value={form.end_date} onChange={dateField('end_date')} onBlur={dateBlur('end_date')} placeholder="dd/mm/yyyy" aria-invalid={Boolean(dateErrors.end_date)} />
+                    {dateErrors.end_date && <div className="proc-field-error">{dateErrors.end_date}</div>}
                   </div>
                   {editId && ['Completed', 'Cancelled'].includes(form.status) && (
                     <div className="proc-field proc-field-full">
@@ -749,6 +850,9 @@ function ProjectsPage() {
               <div className="proc-view-grid">
                 {viewProject.project_owner && (
                   <div className="proc-view-row"><span className="proc-view-label">Owner</span><span className="proc-view-value">{viewProject.project_owner}</span></div>
+                )}
+                {viewProject.owner_phone && (
+                  <div className="proc-view-row"><span className="proc-view-label">Owner Phone</span><span className="proc-view-value">{viewProject.owner_phone}</span></div>
                 )}
                 {viewProject.location && (
                   <div className="proc-view-row"><span className="proc-view-label">Location</span><span className="proc-view-value">{viewProject.location}</span></div>
@@ -825,7 +929,7 @@ function ProjectsPage() {
                                           <td>{fmtCurrency(item.unit_price)}</td>
                                           <td>{item.note || '—'}</td>
                                           <td>{item.receiver_name || (item.takenByUser ? `${item.takenByUser.first_name} ${item.takenByUser.last_name}` : '—')}</td>
-                                          <td className="proc-mono">{fmtDateTime(item.taken_at)}</td>
+                                          <td>{fmtDateTime(item.taken_at)}</td>
                                         </tr>
                                       ))}
                                     </tbody>

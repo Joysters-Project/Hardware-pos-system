@@ -6,6 +6,7 @@ const auth    = require('../middleware/authMiddleware');
 router.use(auth);
 router.get('/top-products',          ctrl.topProducts);
 router.get('/cashier-activity',      ctrl.cashierActivity);
+router.get('/cashier-activity/:userId', ctrl.cashierActivityDetails);
 router.get('/regular-customers',     ctrl.regularCustomers);
 router.get('/regular-suppliers',     ctrl.regularSuppliers);
 router.get('/supplier-returns',      ctrl.supplierReturnedProducts);

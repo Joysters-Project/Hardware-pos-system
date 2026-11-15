@@ -5,6 +5,10 @@ const { logActivity } = require('../services/auditService');
 const { normalizeDepartmentSelection, serializeDepartmentSelection } = require('../utils/projectDepartmentUtils');
 
 const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
+const toTitleCase = (value) => String(value || '')
+  .trim()
+  .toLowerCase()
+  .replace(/(^|[\s-])([a-z])/g, (_, separator, letter) => `${separator}${letter.toUpperCase()}`);
 
 const getDayBounds = (dateValue = new Date()) => {
   const targetDate = dateValue instanceof Date ? new Date(dateValue) : new Date(dateValue);
@@ -83,16 +87,20 @@ exports.getProjectById = async (req, res) => {
 exports.createProject = async (req, res) => {
   const ip = getIp(req);
   try {
-    const { project_name, project_owner, location, project_type, project_departments, description, status, start_date, deadline, end_date } = req.body;
+    const { project_name, project_owner, owner_phone, location, project_type, project_departments, description, status, start_date, deadline, end_date } = req.body;
 
     if (!project_name || !start_date) {
       return res.status(400).json({ message: 'Project name and start date are required' });
     }
+    if (String(project_name).trim().length > 100) {
+      return res.status(400).json({ message: 'Project name must be 100 characters or fewer' });
+    }
 
     const payload = {
-      project_name,
-      project_owner: project_owner || null,
-      location: location || null,
+      project_name: toTitleCase(project_name),
+      project_owner: project_owner ? toTitleCase(project_owner) : null,
+      owner_phone: owner_phone ? String(owner_phone).trim() : null,
+      location: location ? toTitleCase(location) : null,
       project_type: project_type || 'Hardware',
       project_departments: serializeDepartmentSelection(project_departments),
       description: description || null,
@@ -127,7 +135,10 @@ exports.updateProject = async (req, res) => {
     const project = await db.projects.findByPk(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
 
-    const { project_name, project_owner, location, project_type, project_departments, description, status, start_date, deadline, end_date, final_cost, final_payment } = req.body;
+    const { project_name, project_owner, owner_phone, location, project_type, project_departments, description, status, start_date, deadline, end_date, final_cost, final_payment } = req.body;
+    if (project_name !== undefined && String(project_name).trim().length > 100) {
+      return res.status(400).json({ message: 'Project name must be 100 characters or fewer' });
+    }
     const nextStatus = status !== undefined ? status : project.status;
     const isClosingStatus = ['Completed', 'Cancelled'].includes(nextStatus);
 
@@ -154,9 +165,10 @@ exports.updateProject = async (req, res) => {
       : (final_payment !== undefined && resolvedFinalPayment !== '' ? Number(resolvedFinalPayment) : project.final_cost);
 
     await project.update({
-      project_name:  project_name  || project.project_name,
-      project_owner: project_owner !== undefined ? project_owner : project.project_owner,
-      location:      location      !== undefined ? location      : project.location,
+      project_name:  project_name  ? toTitleCase(project_name) : project.project_name,
+      project_owner: project_owner !== undefined ? (project_owner ? toTitleCase(project_owner) : null) : project.project_owner,
+      owner_phone:   owner_phone   !== undefined ? (owner_phone ? String(owner_phone).trim() : null) : project.owner_phone,
+      location:      location      !== undefined ? (location ? toTitleCase(location) : null) : project.location,
       project_type:  project_type  || project.project_type,
       project_departments: project_departments !== undefined ? serializeDepartmentSelection(project_departments) : project.project_departments,
       description:   description   !== undefined ? description   : project.description,
