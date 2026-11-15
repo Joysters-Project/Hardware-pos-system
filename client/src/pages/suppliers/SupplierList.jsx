@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, FileDown, Eye, Pencil, ToggleLeft, ToggleRight, Trash2, X } from 'lucide-react';
+import { Plus, Download, Printer, Eye, Pencil, ToggleLeft, ToggleRight, Trash2, X } from 'lucide-react';
 import {
-  useSuppliers, useUpdateSupplierStatus, useDeleteSupplier, useDownloadSupplierReportPDF,
+  useSuppliers, useUpdateSupplierStatus, useDeleteSupplier, useDownloadSupplierReportPDF, usePrintSupplierReport,
 } from '../../services/procurementApi';
 import '../../styles/Procurement.css';
 import '../../styles/ProcurementPages.css';
@@ -52,7 +52,8 @@ export default function SupplierList() {
   const { data: suppliers = [], isLoading } = useSuppliers();
   const statusMutation = useUpdateSupplierStatus();
   const deleteMutation = useDeleteSupplier();
-  const supplierReportMutation = useDownloadSupplierReportPDF();
+  const downloadReportMutation = useDownloadSupplierReportPDF();
+  const printReportMutation    = usePrintSupplierReport();
 
   const filtered = useMemo(() =>
     suppliers.filter(s => {
@@ -91,9 +92,22 @@ export default function SupplierList() {
         </div>
         <div className="proc-header-actions">
           <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-            className="proc-btn-outline" onClick={() => supplierReportMutation.mutate()} disabled={supplierReportMutation.isPending}>
-            <FileDown size={14} className={supplierReportMutation.isPending ? 'proc-spin' : ''} />
-            {supplierReportMutation.isPending ? 'Exporting...' : 'Export PDF'}
+            className="proc-btn-outline" 
+            onClick={() => downloadReportMutation.mutate()} 
+            disabled={downloadReportMutation.isPending}
+            title="Download Supplier Report as PDF file"
+          >
+            <Download size={14} className={downloadReportMutation.isPending ? 'proc-spin' : ''} />
+            {downloadReportMutation.isPending ? 'Downloading...' : 'Export PDF'}
+          </motion.button>
+          <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+            className="proc-btn-outline" 
+            onClick={() => printReportMutation.mutate()} 
+            disabled={printReportMutation.isPending}
+            title="Print Supplier Document"
+          >
+            <Printer size={14} className={printReportMutation.isPending ? 'proc-spin' : ''} />
+            {printReportMutation.isPending ? 'Preparing...' : 'Print Document'}
           </motion.button>
           <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
             className="proc-btn-primary" onClick={() => navigate('/procurement/suppliers/add')}>
