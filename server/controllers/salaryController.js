@@ -3,6 +3,17 @@ const Op   = db.Sequelize.Op;
 const { sendPayslipEmail } = require('../services/salaryService');
 const { logActivity } = require('../services/auditService');
 const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
+const MAX_SALARY_AMOUNT = 9999999999.99;
+
+const parseSalaryAmount = (value) => {
+  if (value === null || value === undefined || value === '') return 0;
+  const normalized = String(value).replace(/,/g, '');
+  if (!/^(?:\d+(?:\.\d{0,2})?|\.\d{1,2})$/.test(normalized)) return NaN;
+  return Number(normalized);
+};
+
+const isValidSalaryAmount = (value) =>
+  Number.isFinite(value) && value >= 0 && value <= MAX_SALARY_AMOUNT;
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
@@ -116,9 +127,9 @@ const createPayment = async (req, res) => {
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found.' });
 
     const resolvedCategory = (salary_category || employee.salary_category || 'monthly').toLowerCase();
-    const parsedBasicSalary = parseFloat(basic_salary ?? employee.salary ?? 0);
-    const parsedBonus = parseFloat(bonus_amount || 0);
-    const parsedDeduction = parseFloat(deduction_amount || 0);
+    const parsedBasicSalary = parseSalaryAmount(basic_salary ?? employee.salary);
+    const parsedBonus = parseSalaryAmount(bonus_amount);
+    const parsedDeduction = parseSalaryAmount(deduction_amount);
     const final_salary = parsedBasicSalary + parsedBonus - parsedDeduction;
 
     const parsedPaymentDate = payment_date ? new Date(payment_date) : null;
@@ -126,15 +137,19 @@ const createPayment = async (req, res) => {
     const resolvedPaymentMonth = payment_month != null && payment_month !== '' ? Number(payment_month) : dateForPeriod.getMonth() + 1;
     const resolvedPaymentYear = payment_year != null && payment_year !== '' ? Number(payment_year) : dateForPeriod.getFullYear();
 
-    if (!employee_id || !parsedBasicSalary || !payment_date) {
+    if (!employee_id || !payment_date) {
       return res.status(400).json({ success: false, message: 'employee_id, basic_salary, and payment_date are required' });
     }
 
-    if (parsedBonus < 0 || parsedDeduction < 0) {
-      return res.status(400).json({ success: false, message: 'Bonus and deduction must be zero or greater.' });
+    if (
+      !isValidSalaryAmount(parsedBasicSalary) ||
+      parsedBasicSalary === 0 ||
+      !isValidSalaryAmount(parsedBonus) ||
+      !isValidSalaryAmount(parsedDeduction) ||
+      !isValidSalaryAmount(final_salary)
+    ) {
+      return res.status(400).json({ success: false, message: 'Salary amounts must be between 0 and 9,999,999,999.99, and basic salary must be greater than 0.' });
     }
-
-    if (final_salary < 0) return res.status(400).json({ success: false, message: 'Final salary cannot be negative.' });
 
     if (resolvedCategory === 'monthly') {
       if (!payment_month || !payment_year) {
@@ -226,10 +241,14 @@ const updatePayment = async (req, res) => {
     const record = await db.salary_payments.findByPk(req.params.id);
     if (!record) return res.status(404).json({ message: 'Salary record not found' });
     const { basic_salary, bonus_amount, deduction_amount, payment_method, remarks } = req.body;
-    const bs = parseFloat(basic_salary ?? record.basic_salary);
-    const bn = parseFloat(bonus_amount ?? record.bonus_amount);
-    const dd = parseFloat(deduction_amount ?? record.deduction_amount);
-    await record.update({ basic_salary: bs, bonus_amount: bn, deduction_amount: dd, final_salary: bs + bn - dd, payment_method: payment_method ?? record.payment_method, remarks: remarks ?? record.remarks });
+    const bs = parseSalaryAmount(basic_salary ?? record.basic_salary);
+    const bn = parseSalaryAmount(bonus_amount ?? record.bonus_amount);
+    const dd = parseSalaryAmount(deduction_amount ?? record.deduction_amount);
+    const finalSalary = bs + bn - dd;
+    if (!isValidSalaryAmount(bs) || bs === 0 || !isValidSalaryAmount(bn) || !isValidSalaryAmount(dd) || !isValidSalaryAmount(finalSalary)) {
+      return res.status(400).json({ message: 'Salary amounts must be between 0 and 9,999,999,999.99, and basic salary must be greater than 0.' });
+    }
+    await record.update({ basic_salary: bs, bonus_amount: bn, deduction_amount: dd, final_salary: finalSalary, payment_method: payment_method ?? record.payment_method, remarks: remarks ?? record.remarks });
     res.status(200).json({ message: 'Salary record updated', data: record });
   } catch (error) {
     res.status(500).json({ message: error.message });

@@ -18,6 +18,7 @@ import "../styles/Salary.css";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const METHODS = ["Cash", "Bank Transfer", "Cheque", "Online"];
+const MAX_SALARY_AMOUNT = 9999999999.99;
 
 const TODAY = new Date();
 const localDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -26,6 +27,12 @@ const CURRENT_MONTH_START = new Date(CURRENT_YEAR, TODAY.getMonth(), 1);
 const CURRENT_MONTH_END = new Date(CURRENT_YEAR, TODAY.getMonth() + 1, 0);
 const CURRENT_MONTH_MIN = localDate(CURRENT_MONTH_START);
 const CURRENT_MONTH_MAX = localDate(CURRENT_MONTH_END);
+
+const formatMoneyInput = (value) => {
+  const [whole, fraction] = String(value ?? "").split(".");
+  const groupedWhole = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return fraction === undefined ? groupedWhole : `${groupedWhole}.${fraction}`;
+};
 
 const getDefaultForm = () => ({
   employee_id: "", salary_category: "monthly",
@@ -168,6 +175,13 @@ function SalaryPage() {
     return (bs + bn - dd).toFixed(2);
   };
 
+  const handleAmountChange = (field, input) => {
+    const value = input.replace(/,/g, "");
+    if (!/^\d*\.?\d{0,2}$/.test(value)) return;
+    if (value !== "" && Number(value) > MAX_SALARY_AMOUNT) return;
+    setForm((current) => ({ ...current, [field]: value }));
+  };
+
   const getSalaryCategory = (payment) => {
     return payment?.salary_category || payment?.employee?.salary_category || "monthly";
   };
@@ -204,11 +218,23 @@ function SalaryPage() {
 
   const handleCreate = async (evt) => {
     evt.preventDefault();
-    const bonus = parseFloat(form.bonus_amount) || 0;
-    const deduction = parseFloat(form.deduction_amount) || 0;
+    const basicSalary = Number(form.basic_salary);
+    const bonus = form.bonus_amount === "" ? 0 : Number(form.bonus_amount);
+    const deduction = form.deduction_amount === "" ? 0 : Number(form.deduction_amount);
 
-    if (bonus < 0 || deduction < 0) {
-      toast.error("Bonus and deduction must be zero or greater.");
+    if (
+      !Number.isFinite(basicSalary) ||
+      basicSalary <= 0 ||
+      basicSalary > MAX_SALARY_AMOUNT ||
+      !Number.isFinite(bonus) ||
+      bonus < 0 ||
+      bonus > MAX_SALARY_AMOUNT ||
+      !Number.isFinite(deduction) ||
+      deduction < 0 ||
+      deduction > MAX_SALARY_AMOUNT ||
+      basicSalary + bonus - deduction > MAX_SALARY_AMOUNT
+    ) {
+      toast.error("Enter salary amounts from 0 to 9,999,999,999.99; basic salary must be greater than 0.");
       return;
     }
     if (parseFloat(finalSalary()) < 0) {
@@ -627,20 +653,25 @@ function SalaryPage() {
                 {/* Basic Salary label differs by category */}
                 <div className="sal-field">
                   <label>{isDaily ? "Daily Salary (LKR) *" : "Basic Salary (LKR) *"}</label>
-                  <input type="number" min="0" step="0.01" value={form.basic_salary}
-                    onChange={e => setForm({ ...form, basic_salary: e.target.value })} required />
+                  <input type="text" inputMode="decimal" maxLength={16} value={formatMoneyInput(form.basic_salary)}
+                    onChange={e => handleAmountChange("basic_salary", e.target.value)}
+                    placeholder="e.g. 1,000.00" title="Enter a non-negative amount up to 9,999,999,999.99" required />
                 </div>
 
                 <> 
                   <div className="sal-field">
                     <label>Bonus (LKR)</label>
-                    <input id="bonus_amount" name="bonus_amount" type="number" min="0" step="0.01" value={form.bonus_amount}
-                      onChange={e => setForm({ ...form, bonus_amount: e.target.value })} />
+                    <input id="bonus_amount" name="bonus_amount" type="text" inputMode="decimal" maxLength={16}
+                      value={formatMoneyInput(form.bonus_amount)}
+                      onChange={e => handleAmountChange("bonus_amount", e.target.value)}
+                      placeholder="e.g. 1,000.00" title="Enter a non-negative amount up to 9,999,999,999.99" />
                   </div>
                   <div className="sal-field">
                     <label>Deductions (LKR)</label>
-                    <input id="deduction_amount" name="deduction_amount" type="number" min="0" step="0.01" value={form.deduction_amount}
-                      onChange={e => setForm({ ...form, deduction_amount: e.target.value })} />
+                    <input id="deduction_amount" name="deduction_amount" type="text" inputMode="decimal" maxLength={16}
+                      value={formatMoneyInput(form.deduction_amount)}
+                      onChange={e => handleAmountChange("deduction_amount", e.target.value)}
+                      placeholder="e.g. 1,000.00" title="Enter a non-negative amount up to 9,999,999,999.99" />
                   </div>
                   <div className="sal-field">
                     <label>Payment Method *</label>
