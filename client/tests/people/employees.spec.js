@@ -76,6 +76,23 @@ test.describe('Employees — Page Structure', () => {
     await expect(page.getByRole('button', { name: /Add Employee/i })).toBeVisible();
   });
 
+  test('Add Employee position options exclude the signed-in role', async ({ page }) => {
+    await gotoEmployees(page);
+    await page.getByRole('button', { name: /Add Employee/i }).click();
+    const position = page.locator('.emp-field').filter({ hasText: 'Position' }).locator('select');
+    await expect(position.locator('option[value="Admin"]')).toHaveCount(0);
+    await page.locator('.emp-btn-cancel').click();
+  });
+
+  test('manager cannot select Manager as a new employee position', async ({ page }) => {
+    await page.addInitScript(() => sessionStorage.setItem('role', 'manager'));
+    await gotoEmployees(page, 'manager');
+    await page.getByRole('button', { name: /Add Employee/i }).click();
+    const position = page.locator('.emp-field').filter({ hasText: 'Position' }).locator('select');
+    await expect(position.locator('option[value="Manager"]')).toHaveCount(0);
+    await page.locator('.emp-btn-cancel').click();
+  });
+
 });
 
 // ─── Search & Filters ─────────────────────────────────────────────────────────
@@ -87,6 +104,18 @@ test.describe('Employees — Search and Filters', () => {
     await page.locator('#search').fill('zzz_nobody_xyz');
     await expect(page.locator('.emp-empty')).toContainText('No employees found');
     await page.locator('#search').clear();
+  });
+
+  test('reset filter clears employee search and selected filters', async ({ page }) => {
+    await gotoEmployees(page);
+    await page.locator('#search').fill('zzz_nobody_xyz');
+    await page.locator('#filterStatus').selectOption('Active');
+    await page.locator('#filterDept').selectOption('1');
+    await page.getByRole('button', { name: 'Reset Filter', exact: true }).click();
+    await expect(page.locator('#search')).toHaveValue('');
+    await expect(page.locator('#filterStatus')).toHaveValue('');
+    await expect(page.locator('#filterDept')).toHaveValue('');
+    await expect(page.locator('.emp-table tbody tr')).toHaveCount(10);
   });
 
   test('status filter — Active shows only Active rows', async ({ page }) => {

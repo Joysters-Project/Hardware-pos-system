@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate, useMatch } from "react-router-dom";
+import { createPortal } from "react-dom";
+import { useNavigate, useMatch, useLocation } from "react-router-dom";
 import { Search, CreditCard, Receipt, FolderOpen, Wallet } from "lucide-react";
 import api from "../api/axios";
 import toast from "react-hot-toast";
@@ -10,6 +11,7 @@ import "../styles/Procurement.css";
 
 const DueCollection = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const collectionMatch = useMatch('/cashier-panel/due-collection/collect');
   const activeView = collectionMatch ? 'collection' : 'checking';
   const [searchQuery, setSearchQuery] = useState("");
@@ -61,7 +63,7 @@ const DueCollection = () => {
     }, 300);
   };
 
-  const handleSearch = async () => {
+  const handleSearch = async (selectedBillId = null) => {
     if (!searchQuery.trim()) {
       return toast.error("Enter a phone number");
     }
@@ -90,11 +92,21 @@ const DueCollection = () => {
       const billRes = await api.get(`/bills?customer_id=${foundCus.customer_id}&status=PARTIAL`);
       const billList = Array.isArray(billRes.data) ? billRes.data : billRes.data?.data || [];
       setBills(billList);
-      setHighlightedBillIndex(billList.length ? 0 : -1);
-      setSelectedBill(null);
-      setSelectedBills([]);
-      setAmountInput("");
-      setNewExpectedDate("");
+      const selectedIndex = billList.findIndex((bill) => String(bill.bill_id) === String(selectedBillId));
+      const refreshedBill = selectedIndex >= 0 ? billList[selectedIndex] : null;
+      setHighlightedBillIndex(selectedIndex >= 0 ? selectedIndex : billList.length ? 0 : -1);
+      setSelectedBill(refreshedBill);
+      setSelectedBills(refreshedBill ? [refreshedBill] : []);
+      setAmountInput(refreshedBill ? String(refreshedBill.balance_due) : "");
+      setNewExpectedDate(refreshedBill?.expected_payment_date || "");
+      setPaymentHistory([]);
+      if (refreshedBill) {
+        api.get(`/payments?bill_id=${refreshedBill.bill_id}`).then((histRes) => {
+          setPaymentHistory(histRes.data || []);
+        }).catch(() => {
+          console.error("Failed to fetch payment history");
+        });
+      }
     } catch (error) {
       console.error(error);
       if (error.response?.status === 404) {
@@ -140,6 +152,61 @@ const DueCollection = () => {
       return next;
     });
   };
+
+  useEffect(() => {
+    const dueInvoice = location.state?.dueInvoice;
+    if (activeView !== "collection" || dueInvoice?.bill_id == null || dueInvoice?.customer_id == null) return;
+
+    let cancelled = false;
+    const loadDueInvoice = async () => {
+      setSearchQuery(filterSriLankanPhoneInput(dueInvoice.phone_no || ""));
+      setCustomer({
+        customer_id: dueInvoice.customer_id,
+        customer_name: dueInvoice.customer_name,
+        phone_no: dueInvoice.phone_no,
+      });
+      setBills([]);
+      setHighlightedBillIndex(-1);
+      setSelectedBills([]);
+      setSelectedBill(null);
+      setPaymentHistory([]);
+      setAmountInput("");
+      setNewExpectedDate("");
+
+      try {
+        const billRes = await api.get(`/bills?customer_id=${encodeURIComponent(dueInvoice.customer_id)}&status=PARTIAL`);
+        if (cancelled) return;
+
+        const billList = Array.isArray(billRes.data) ? billRes.data : billRes.data?.data || [];
+        const selectedIndex = billList.findIndex((bill) => String(bill.bill_id) === String(dueInvoice.bill_id));
+        setBills(billList);
+        setHighlightedBillIndex(selectedIndex >= 0 ? selectedIndex : billList.length ? 0 : -1);
+
+        if (selectedIndex < 0) {
+          toast.error("Selected invoice is no longer outstanding.");
+          return;
+        }
+
+        const selectedInvoice = billList[selectedIndex];
+        setSelectedBill(selectedInvoice);
+        setSelectedBills([selectedInvoice]);
+        setAmountInput(String(selectedInvoice.balance_due));
+        setNewExpectedDate(selectedInvoice.expected_payment_date || "");
+        api.get(`/payments?bill_id=${selectedInvoice.bill_id}`).then((histRes) => {
+          if (!cancelled) setPaymentHistory(histRes.data || []);
+        }).catch(() => {
+          console.error("Failed to fetch payment history");
+          if (!cancelled) setPaymentHistory([]);
+        });
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) toast.error("Failed to load the selected invoice.");
+      }
+    };
+
+    loadDueInvoice();
+    return () => { cancelled = true; };
+  }, [activeView, location.state]);
 
   const handleDueCheckSearch = async () => {
     if (!dueCheckQuery.trim()) {
@@ -289,7 +356,7 @@ const DueCollection = () => {
         requestAnimationFrame(() => setAnimSuccess(true));
       });
 
-      handleSearch();
+      await handleSearch(selectedBill.bill_id);
     } catch (err) {
       console.error(err);
       toast.error(err.response?.data?.error || "Payment collection failed.");
@@ -755,13 +822,16 @@ const DueCollection = () => {
         {activeView === "collection" ? renderCollectionView() : renderDueCheckingView()}
       </div>
 
-        <SuccessAnim
-          show={showSuccess}
-          animate={animSuccess}
-          onDismiss={handleSuccessDismiss}
-          message="Payment Received"
-          subMessage={`Successfully collected Rs. ${successAmount.toFixed(2)}`}
-        />
+        {showSuccess && createPortal(
+          <SuccessAnim
+            show={showSuccess}
+            animate={animSuccess}
+            onDismiss={handleSuccessDismiss}
+            message="Payment Received"
+            subMessage={`Successfully collected Rs. ${successAmount.toFixed(2)}`}
+          />,
+          document.body
+        )}
       </div>
     </>
   );

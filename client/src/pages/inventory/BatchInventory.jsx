@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
-import { RefreshCw, Trash2, Eye } from "lucide-react";
+import { Trash2, Eye } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../../api/axios";
 import { formatPurchaseOrderNumber } from "../../utils/purchaseOrderNumber";
@@ -76,10 +76,6 @@ function BatchInventoryPage() {
       <div className="products-header">
         <h1>Batch Inventory</h1>
         <div className="header-actions">
-          <button className="refresh-btn" onClick={load} disabled={loading}>
-            <RefreshCw size={15} />
-            {loading ? "Refreshing..." : "Refresh"}
-          </button>
         </div>
       </div>
 

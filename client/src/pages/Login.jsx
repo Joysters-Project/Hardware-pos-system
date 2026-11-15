@@ -16,13 +16,6 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // If already authenticated, redirect to dashboard
-  if (isAuthenticated) {
-    const normRole = (userRole || "admin").toLowerCase();
-    const dashPath = normRole === "manager" ? "/dashboard/manager" : normRole === "cashier" ? "/dashboard/cashier" : "/dashboard/admin";
-    return <Navigate to={dashPath} replace />;
-  }
-
   const roleParam = role || "User";
   const isAdmin = roleParam.toLowerCase() === "admin";
 
@@ -73,6 +66,13 @@ function Login() {
     draw();
     return () => { cancelAnimationFrame(animId); window.removeEventListener("resize", resize); };
   }, [isAdmin]);
+
+  // If already authenticated, redirect to dashboard
+  if (isAuthenticated) {
+    const normRole = (userRole || "admin").toLowerCase();
+    const dashPath = normRole === "manager" ? "/dashboard/manager" : normRole === "cashier" ? "/dashboard/cashier" : "/dashboard/admin";
+    return <Navigate to={dashPath} replace />;
+  }
 
   const handleBack = () => {
     navigate("/");

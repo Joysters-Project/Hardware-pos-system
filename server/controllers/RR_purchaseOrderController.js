@@ -161,7 +161,7 @@ exports.getAllPurchaseOrders = async (req, res) => {
         { model: suppliers, attributes: ['supplier_id', 'supplier_name', 'phone'] },
         { model: po_items,  include: [{ model: products, attributes: ['product_id', 'product_name', 'cost_price'] }] },
       ],
-      order: [['po_date', 'DESC']],
+      order: [['po_date', 'DESC'], ['po_id', 'DESC']],
     });
     res.status(200).json(pos.map(serializePurchaseOrder));
   } catch (error) {

@@ -5,6 +5,23 @@ const { logActivity } = require('../services/auditService');
 const { validateSriLankanPhone, normalizeSriLankanPhone } = require('../utils/phoneValidation');
 
 const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
+const EMPLOYEE_VARCHAR_LIMITS = {
+  first_name: 50,
+  last_name: 50,
+  nic: 12,
+  phone_no: 20,
+  email: 150,
+  position: 100,
+  salary_category: 20,
+};
+const getEmployeeVarcharError = (values) => {
+  for (const [field, limit] of Object.entries(EMPLOYEE_VARCHAR_LIMITS)) {
+    if (values[field] != null && String(values[field]).length > limit) {
+      return `${field} cannot exceed ${limit} characters`;
+    }
+  }
+  return null;
+};
 
 const getAllEmployees = async (req, res) => {
   try {
@@ -74,6 +91,8 @@ const createEmployee = async (req, res) => {
   try {
     const { first_name, last_name, nic, phone_no, email, address, position, salary, salary_category, join_date, status, department_id } = req.body;
     if (!first_name || !last_name) return res.status(400).json({ message: 'First name and last name are required' });
+    const varcharError = getEmployeeVarcharError(req.body);
+    if (varcharError) return res.status(400).json({ message: varcharError });
     if (email) { const ex = await db.employees.findOne({ where: { email } }); if (ex) return res.status(400).json({ message: 'Email already in use' }); }
     if (nic)   { const ex = await db.employees.findOne({ where: { nic   } }); if (ex) return res.status(400).json({ message: 'NIC already in use' }); }
 
@@ -146,6 +165,8 @@ const updateEmployee = async (req, res) => {
     const { first_name, last_name, nic, phone_no, email, address, position, salary, salary_category, join_date, status, department_id } = req.body;
     console.log('Employee Update Request Body:', req.body);
     if (!first_name || !last_name) return res.status(400).json({ message: 'First name and last name are required' });
+    const varcharError = getEmployeeVarcharError(req.body);
+    if (varcharError) return res.status(400).json({ message: varcharError });
 
     const deptId = department_id !== undefined ? parseInt(department_id, 10) : emp.department_id;
     if (!deptId) return res.status(400).json({ message: 'Department is required' });

@@ -5,6 +5,21 @@ const { syncAlertsForProduct } = require('../services/alertService');
 const { getProductBatchSummaries, getStoreLocalDate, syncProductFromBatches } = require('../services/batchService');
 const EXCLUDE = ['repair_quantity'];
 const getIp   = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
+const PRODUCT_VARCHAR_LIMITS = { product_name: 200, type: 50, batch_no: 100, barcode: 100 };
+const getProductVarcharError = (body) => {
+  for (const [field, limit] of Object.entries(PRODUCT_VARCHAR_LIMITS)) {
+    if (body[field] != null && String(body[field]).length > limit) {
+      return `${field} cannot exceed ${limit} characters`;
+    }
+  }
+  if (Array.isArray(body.alternative_units)) {
+    const hasLongBarcode = body.alternative_units.some(unit =>
+      unit?.barcode != null && String(unit.barcode).length > 100
+    );
+    if (hasLongBarcode) return 'Alternative unit barcode cannot exceed 100 characters';
+  }
+  return null;
+};
 
 // Helper to validate cross-table barcode uniqueness between products and product_units
 async function validateBarcodes({ baseBarcode, altUnits = [], excludeProductId = null }) {
@@ -79,6 +94,8 @@ exports.createProduct = async (req, res) => {
   let transaction;
   try {
     const safeBody = req.body;
+    const varcharError = getProductVarcharError(safeBody);
+    if (varcharError) return res.status(400).json({ error: varcharError });
 
     // Validate barcodes
     const { cleanBase, cleanAltUnits } = await validateBarcodes({
@@ -204,6 +221,8 @@ exports.updateProduct = async (req, res) => {
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
     const safeBody = req.body;
+    const varcharError = getProductVarcharError(safeBody);
+    if (varcharError) return res.status(400).json({ error: varcharError });
 
     // Barcode validation if barcode or alternative_units supplied
     let cleanAltUnits = undefined;

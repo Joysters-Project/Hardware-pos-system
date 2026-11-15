@@ -150,6 +150,7 @@ export function useUpdateSupplierRating() {
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['procurement-suppliers'] });
       qc.invalidateQueries({ queryKey: ['procurement-supplier', String(id)] });
+      qc.invalidateQueries({ queryKey: ['procurementDashboard'] });
       toast.success('Rating updated!');
     },
     onError: (e) => toast.error(e.response?.data?.error || 'Failed to update rating'),
@@ -784,6 +785,25 @@ export function useDownloadPerformanceReportPDF() {
 
 export function useDownloadSupplierReportPDF() {
   return useMutation({
+    mutationFn: () => reportsApi.supplierReportPDF(),
+    onSuccess: (response) => {
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Supplier_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Supplier report downloaded successfully!');
+    },
+    onError: (e) => toast.error(e.response?.data?.error || 'Failed to download supplier report PDF')
+  });
+}
+
+export function usePrintSupplierReport() {
+  return useMutation({
     mutationFn: () => supplierApi.getAll(),
     onSuccess: (response) => {
       const suppliers = Array.isArray(response.data) ? response.data : [];
@@ -794,10 +814,9 @@ export function useDownloadSupplierReportPDF() {
         escapeHtml(s.email || '—'),
         escapeHtml(s.phone || '—'),
         escapeHtml(s.status || '—'),
-        s.performance_rating ? `${s.performance_rating}/5` : '—',
       ]);
       const tableHtml = buildTableHtml({
-        columns: ['Code', 'Supplier Name', 'Contact', 'Email', 'Phone', 'Status', 'Rating'],
+        columns: ['Code', 'Supplier Name', 'Contact', 'Email', 'Phone', 'Status'],
         rows,
         emptyMessage: 'No suppliers found.',
       });
@@ -807,7 +826,7 @@ export function useDownloadSupplierReportPDF() {
         contentHtml: tableHtml,
       });
     },
-    onError: () => toast.error('Failed to download supplier report PDF')
+    onError: () => toast.error('Failed to open print dialog')
   });
 }
 

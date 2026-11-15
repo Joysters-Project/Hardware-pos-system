@@ -62,8 +62,22 @@ exports.getDashboardStats = async (req, res) => {
           status: { [Sequelize.Op.ne]: 'Cancelled' }
         }
       }),
-      // Auto-reorder suggestions count
-      auto_reorder_suggestions.count({ where: { status: 'Pending' } }),
+      // Auto-reorder suggestions count — only count suggestions where product stock is STILL below threshold
+      auto_reorder_suggestions.count({
+        where: { status: 'Pending' },
+        include: [{
+          model: products,
+          attributes: [],
+          where: {
+            [Sequelize.Op.or]: [
+              { stock_quantity: { [Sequelize.Op.lte]: 0 } },
+              sequelize.literal('`product`.`stock_quantity` < `product`.`reorder_level`'),
+              sequelize.literal('`product`.`stock_quantity` < `product`.`min_stock_quantity`')
+            ]
+          },
+          required: true
+        }]
+      }),
       
       // Delivery time calculation data
       purchase_orders.findAll({
@@ -130,7 +144,7 @@ exports.getDashboardStats = async (req, res) => {
 
       // Forecast Severity counts (we can aggregate using product table's avg_daily_sales & stock_quantity)
       products.findAll({
-        attributes: ['product_id', 'stock_quantity', 'avg_daily_sales'],
+        attributes: ['product_id', 'stock_quantity', 'min_stock_quantity', 'reorder_level', 'avg_daily_sales'],
         where: { status: 'active' },
         raw: true
       })
@@ -158,15 +172,22 @@ exports.getDashboardStats = async (req, res) => {
     let forecastSafe = 0;
 
     forecastCounts.forEach(p => {
-      const stock = p.stock_quantity;
-      const sales = parseFloat(p.avg_daily_sales);
-      if (sales > 0) {
+      const stock = parseFloat(p.stock_quantity || 0);
+      const sales = parseFloat(p.avg_daily_sales || 0);
+      const minStock = parseFloat(p.min_stock_quantity || 0);
+      const reorderLvl = parseFloat(p.reorder_level || 0);
+      const threshold = Math.max(reorderLvl, minStock);
+
+      if (stock <= 0) {
+        forecastCritical++;
+      } else if (sales > 0) {
         const days = stock / sales;
         if (days <= 7) forecastCritical++;
         else if (days <= 14) forecastLow++;
         else forecastSafe++;
+      } else if (threshold > 0 && stock <= threshold) {
+        forecastLow++;
       } else {
-        // avg_daily_sales = 0 means N/A — treat as Safe (no imminent stockout)
         forecastSafe++;
       }
     });

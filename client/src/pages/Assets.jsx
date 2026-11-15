@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
-import { Eye, Pencil, Trash2, Plus, Search, RefreshCw, FileDown, X, ChevronLeft, ChevronRight, Package, Archive } from "lucide-react";
+import { Eye, Pencil, Trash2, Plus, FileDown, X, ChevronLeft, ChevronRight, Package, Archive } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
 import { buildTableHtml, escapeHtml, printWithTemplate } from "../utils/printTemplate";
@@ -14,12 +14,19 @@ import "../styles/Procurement.css";
 const CONDITION_TYPES = ["New", "Good", "Fair", "Poor", "Damaged", "Other"];
 const ASSET_STATUSES = ["Active", "Maintenance", "Damaged", "Lost", "Disposed"];
 const EXPENSE_TYPES = ["Asset Purchase", "Salary", "Utility Bills", "Maintenance", "Transport", "Office Supplies", "Other"];
+const MAX_ASSET_NAME_LENGTH = 150;
 const EMPTY_FORM = {
   asset_name: "", department_id: "", cost: "", purchase_date: "", expiration_date: "", status: "Active",
   condition_type: "Good", custom_condition: "", add_as_expense: false, expense_type: "Asset Purchase", expense_amount: "", expense_description: ""
 };
 
 const STATUS_COLORS = { Active: "#2e7d32", Maintenance: "#e65100", Damaged: "#c62828", Lost: "#6a1b9a", Disposed: "#616161" };
+
+const formatCostInput = (value) => {
+  const [whole, fraction] = String(value).split(".");
+  const groupedWhole = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return fraction === undefined ? groupedWhole : `${groupedWhole}.${fraction}`;
+};
 
 function AssetsPage() {
   const [assets, setAssets] = useState([]);
@@ -47,6 +54,13 @@ function AssetsPage() {
     finally { setPageLoading(false); }
   };
 
+  const resetFilters = () => {
+    setSearch("");
+    setFilterStatus("");
+    setFilterDept("");
+    setPage(1);
+  };
+
   const openAdd = () => { setForm(EMPTY_FORM); setEditId(null); setShowModal(true); };
   const openEdit = (a) => {
     setForm({
@@ -62,6 +76,8 @@ function AssetsPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.asset_name || !form.department_id || !form.purchase_date) { toast.error("Name, department and date required"); return; }
+    if (form.asset_name.length > MAX_ASSET_NAME_LENGTH) { toast.error(`Asset name must be ${MAX_ASSET_NAME_LENGTH} characters or fewer`); return; }
+    if (!Number.isFinite(Number(form.cost)) || Number(form.cost) < 0) { toast.error("Enter a valid asset cost"); return; }
 
     const selectedDept = departments.find(d => String(d.department_id) === String(form.department_id));
     const budgetValue = Number(form.cost || 0);
@@ -188,7 +204,6 @@ function AssetsPage() {
 
       <div className="proc-filters-row">
         <div className="proc-search-wrap">
-          <Search size={14} className="proc-search-icon" />
           <input id="search" name="search" className="proc-search" placeholder="Search asset name..." value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
@@ -199,8 +214,8 @@ function AssetsPage() {
           <option value="">All Departments</option>
           {departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
         </select>
-        <button className="proc-refresh-btn" onClick={loadAll} disabled={pageLoading} title="Refresh">
-          <RefreshCw size={14} className={pageLoading ? "proc-spin-fast" : ""} />
+        <button type="button" className="proc-btn-outline" onClick={resetFilters} disabled={pageLoading}>
+          Reset Filter
         </button>
       </div>
 
@@ -260,14 +275,17 @@ function AssetsPage() {
               <div className="proc-modal-body">
                 <div className="proc-form-grid">
                   <div className="proc-field proc-field-full"><label>Asset Name *</label>
-                    <input id="asset_name" name="asset_name" className="proc-input" value={form.asset_name} onChange={e => setForm({ ...form, asset_name: e.target.value })} required /></div>
+                    <input id="asset_name" name="asset_name" className="proc-input" maxLength={MAX_ASSET_NAME_LENGTH} value={form.asset_name} onChange={e => setForm({ ...form, asset_name: e.target.value })} required /></div>
                   <div className="proc-field"><label>Department *</label>
                     <select className="proc-select" value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })} required>
                       <option value="">Select</option>{departments.filter(d => String(d.status || "").toLowerCase() === "active").map(d => <option key={d.department_id} value={d.department_id}>{getDeptLabel(d)}</option>)}
                     </select></div>
                   <div className="proc-field"><label>Cost (LKR) *</label>
-                    <input id="cost" name="cost" type="number" min="0" step="0.01" className="proc-input" value={form.cost}
-                      onChange={e => setForm({ ...form, cost: e.target.value, expense_amount: e.target.value })} required /></div>
+                    <input id="cost" name="cost" type="text" inputMode="decimal" className="proc-input" value={formatCostInput(form.cost)}
+                      onChange={e => {
+                        const value = e.target.value.replace(/,/g, "");
+                        if (/^\d*\.?\d{0,2}$/.test(value)) setForm({ ...form, cost: value, expense_amount: value });
+                      }} required /></div>
                   <div className="proc-field"><label>Purchase Date *</label>
                     <input id="purchase_date" name="purchase_date" type="date" className="proc-date-input" value={form.purchase_date} max={new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, purchase_date: e.target.value })} required /></div>
                   <div className="proc-field"><label>Expiration Date</label>

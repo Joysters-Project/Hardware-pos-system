@@ -1,79 +1,42 @@
-import { useState, useMemo } from 'react';
+import { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  ArrowLeft, Pencil, Building2, Phone, Mail, MapPin, Briefcase, DollarSign, Award, Star, FileText, ClipboardList, Wallet, FilePlus, Download, Send, Trash2, Calendar, ShieldAlert
+  ArrowLeft, Pencil, Building2, Phone, Mail, MapPin, Briefcase, DollarSign, FileText, ClipboardList, Wallet, FilePlus, Download, Trash2, UploadCloud, X
 } from 'lucide-react';
 import { 
   useSupplier, 
-  useUpdateSupplierRating, 
   useUpdateSupplierStatus,
   useSupplierDocuments,
   useUploadSupplierDocument,
   useDeleteSupplierDocument,
-  useSupplierStatement,
-  useDownloadStatementPDF,
-  useEmailSupplierStatement,
   useDownloadPaymentReceipt,
   useExportPurchaseOrderPDF
 } from '../../services/procurementApi';
 import { formatPurchaseOrderNumber } from '../../utils/purchaseOrderNumber';
 import '../../styles/Procurement.css';
 
-function StarRating({ value, onChange, disabled }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-      {[1,2,3,4,5].map(s => (
-        <motion.button 
-          key={s} 
-          type="button"
-          onClick={() => !disabled && onChange(s)}
-          whileHover={!disabled ? { scale: 1.3 } : {}} 
-          whileTap={!disabled ? { scale: 0.85 } : {}}
-          disabled={disabled}
-          style={{ 
-            background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', padding: '2px',
-            color: s <= value ? '#f59e0b' : '#d1d5db', fontSize: '24px', lineHeight: 1 
-          }}
-        >
-          ★
-        </motion.button>
-      ))}
-      {value > 0 && <span style={{ fontSize: '13px', color: '#888', marginLeft: '4px' }}>{value}/5</span>}
-    </div>
-  );
-}
-
 export default function SupplierDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('Overview');
-  
-  // Date filter for Statement
-  const [statementStart, setStatementStart] = useState('');
-  const [statementEnd, setStatementEnd] = useState('');
 
   // Document Upload State
   const [uploadType, setUploadType] = useState('Contract');
   const [selectedFile, setSelectedFile] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef(null);
 
   // Queries
   const { data: supplier, isLoading: supplierLoading } = useSupplier(id);
   const { data: documents = [], isLoading: docsLoading } = useSupplierDocuments(id);
-  const { data: statementData, isLoading: statementLoading } = useSupplierStatement(id, {
-    startDate: statementStart || undefined,
-    endDate: statementEnd || undefined
-  });
 
   // Mutations
-  const ratingMutation = useUpdateSupplierRating();
   const statusMutation = useUpdateSupplierStatus();
   const uploadDocMutation = useUploadSupplierDocument();
   const deleteDocMutation = useDeleteSupplierDocument();
-  const emailStatementMutation = useEmailSupplierStatement();
   
   // Downloads
-  const downloadStatement = useDownloadStatementPDF();
   const downloadReceipt = useDownloadPaymentReceipt();
   const downloadPO = useExportPurchaseOrderPDF();
 
@@ -94,7 +57,7 @@ export default function SupplierDetail() {
     uploadDocMutation.mutate({ id, formData }, {
       onSuccess: () => {
         setSelectedFile(null);
-        // Clear input file
+        if (fileInputRef.current) fileInputRef.current.value = '';
         e.target.reset();
       }
     });
@@ -122,16 +85,6 @@ export default function SupplierDetail() {
     link.remove();
   };
 
-  const handleEmailStatement = () => {
-    emailStatementMutation.mutate({
-      id,
-      params: {
-        startDate: statementStart || undefined,
-        endDate: statementEnd || undefined
-      }
-    });
-  };
-
   if (supplierLoading) return (
     <div className="proc-container">
       <div className="proc-loading-wrap">
@@ -156,47 +109,6 @@ export default function SupplierDetail() {
 
   const purchaseOrders = supplier.purchase_orders || [];
   const supplierPayments = supplier.supplier_payments || [];
-
-  // When a date filter is active, use the filtered statementData from the API.
-  // Otherwise fall back to the full supplier data so the ledger always has entries.
-  const filteredOrders   = (statementStart && statementEnd && statementData?.orders)   ? statementData.orders   : purchaseOrders;
-  const filteredPayments = (statementStart && statementEnd && statementData?.payments) ? statementData.payments : supplierPayments;
-
-  // Ledger statement entries formatting
-  const ledgerEntries = [];
-  filteredOrders.forEach(o => {
-    if (o.status !== 'Cancelled') {
-      ledgerEntries.push({
-        date: o.po_date,
-        ref: formatPurchaseOrderNumber(o.po_number, o.po_id),
-        type: 'Purchase Order',
-        debit: Number(o.total_amount),
-        credit: 0
-      });
-    }
-  });
-  filteredPayments.forEach(p => {
-    if (p.payment_status !== 'Cancelled') {
-      ledgerEntries.push({
-        date: p.paid_date || p.created_at?.split('T')[0] || 'N/A',
-        ref: p.invoice_number || `PAY-${p.payment_id}`,
-        type: p.paid_amount > 0 ? 'Payment Made' : 'Pending AP',
-        debit: 0,
-        credit: Number(p.paid_amount)
-      });
-    }
-  });
-  ledgerEntries.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-  // Compute running balance
-  let runningBalance = 0;
-  const computedLedger = ledgerEntries.map(entry => {
-    runningBalance += (entry.debit - entry.credit);
-    return {
-      ...entry,
-      balance: runningBalance
-    };
-  });
 
   return (
     <div className="proc-container">
@@ -223,9 +135,6 @@ export default function SupplierDetail() {
               <span className="proc-code-badge">{supplier.supplier_code}</span>
               <span className={`proc-status-pill ${supplier.status === 'Active' ? 'active' : 'inactive'}`}>
                 {supplier.status}
-              </span>
-              <span className={`badge-rank ${supplier.performance_tier?.toLowerCase()}`}>
-                {supplier.performance_tier === 'Gold' ? '🏆 Gold' : supplier.performance_tier === 'Silver' ? '🥈 Silver' : '🥉 Bronze'}
               </span>
             </p>
           </div>
@@ -254,7 +163,7 @@ export default function SupplierDetail() {
       {/* ── WORKSPACE TABS ── */}
       <div className="workspace-tabs-container">
         <div className="proc-tabs">
-          {['Overview', 'Purchase History', 'Payment History', 'Performance', 'Documents', 'Statements'].map((tabName) => (
+          {['Overview', 'Purchase History', 'Payment History', 'Documents'].map((tabName) => (
             <button
               key={tabName}
               className={`proc-tab-btn ${activeTab === tabName ? 'active' : ''}`}
@@ -343,23 +252,6 @@ export default function SupplierDetail() {
                           LKR {Number(supplier.total_purchase_volume || 0).toLocaleString()}
                         </span>
                       </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Rating Card */}
-                <div className="proc-card">
-                  <div className="proc-card-header">
-                    <h2>Performance Stars</h2>
-                  </div>
-                  <div className="proc-card-body">
-                    <StarRating 
-                      value={supplier.performance_rating || 0}
-                      onChange={(rating) => ratingMutation.mutate({ id, rating })}
-                      disabled={ratingMutation.isPending}
-                    />
-                    <div style={{ marginTop: '12px', borderTop: '1px solid #f0e0e0', paddingTop: '8px', fontSize: '11px', color: '#777' }}>
-                      Performance Rating: {supplier.performance_score ? `${supplier.performance_score}/100` : 'No audits run yet.'}
                     </div>
                   </div>
                 </div>
@@ -504,78 +396,7 @@ export default function SupplierDetail() {
             </motion.div>
           )}
 
-          {/* 4. PERFORMANCE TAB */}
-          {activeTab === 'Performance' && (
-            <motion.div 
-              key="Performance"
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
-              className="proc-detail-grid"
-            >
-              <div className="proc-detail-main">
-                {/* Scoring Details */}
-                <div className="proc-card">
-                  <div className="proc-card-header">
-                    <h2>Performance Scores Breakout</h2>
-                  </div>
-                  <div className="proc-card-body">
-                    <div className="performance-stat-grid">
-                      <div className="perf-box">
-                        <span className="perf-title">On-Time Delivery %</span>
-                        <span className="perf-num">{Number(supplier.on_time_delivery_pct || 0).toFixed(1)}%</span>
-                        <span className="perf-weight">Weight: 40%</span>
-                      </div>
-                      <div className="perf-box">
-                        <span className="perf-title">Average Delay (Days)</span>
-                        <span className="perf-num">{Number(supplier.avg_delay_days || 0).toFixed(1)} d</span>
-                        <span className="perf-weight">Weight: 25%</span>
-                      </div>
-                      <div className="perf-box">
-                        <span className="perf-title">Order Success Rate %</span>
-                        <span className="perf-num">{Number(supplier.order_success_rate || 0).toFixed(1)}%</span>
-                        <span className="perf-weight">Weight: 20%</span>
-                      </div>
-                      <div className="perf-box">
-                        <span className="perf-title">Purchase Volume</span>
-                        <span className="perf-num">LKR {Number(supplier.total_purchase_volume || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                        <span className="perf-weight">Weight: 10%</span>
-                      </div>
-                    </div>
-
-                    <div style={{ marginTop: '20px', padding: '16px', background: '#fcf8f8', borderRadius: '10px', border: '1px solid #efe0e0' }}>
-                      <h4 style={{ margin: '0 0 8px 0', color: '#8b3a3a' }}>Scoring Criteria Note</h4>
-                      <p style={{ margin: 0, fontSize: '13px', color: '#666', lineHeight: 1.4 }}>
-                        The final performance score out of 100 is automatically recalculated daily by weighting: On-Time Delivery (40%), Lead Delay Performance (25%), PO Success Rate (20%), Spend Volume (10%), and Stars Rating (5%).
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="proc-detail-sidebar">
-                {/* Audit Rating */}
-                <div className="proc-card">
-                  <div className="proc-card-header">
-                    <h2>Audit Summary</h2>
-                  </div>
-                  <div className="proc-card-body">
-                    <div className="health-indicator text-center p-20">
-                      <div className="health-score" style={{ fontSize: '3rem', color: '#8b3a3a' }}>
-                        {Number(supplier.performance_score || 0).toFixed(0)}
-                      </div>
-                      <div className="health-title" style={{ fontSize: '15px', fontWeight: 'bold' }}>Overall Audit Score</div>
-                      <span className={`badge-rank ${supplier.performance_tier?.toLowerCase()} mt-12`}>
-                        {supplier.performance_tier} Supplier
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* 5. DOCUMENTS TAB */}
+          {/* 4. DOCUMENTS TAB */}
           {activeTab === 'Documents' && (
             <motion.div 
               key="Documents"
@@ -671,12 +492,63 @@ export default function SupplierDetail() {
                     </div>
                     <div className="proc-field mb-12">
                       <label>Select File <span className="req">*</span></label>
-                      <input id="file_field" name="file_field" 
+                      <input 
+                        ref={fileInputRef}
+                        id="file_field" 
+                        name="file_field" 
                         type="file" 
-                        className="proc-input" 
+                        style={{ display: 'none' }}
                         onChange={handleFileChange}
-                        required
                       />
+                      {!selectedFile ? (
+                        <div 
+                          className={`proc-file-dropzone ${isDragging ? 'drag-active' : ''}`}
+                          onClick={() => fileInputRef.current?.click()}
+                          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                          onDragLeave={() => setIsDragging(false)}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            setIsDragging(false);
+                            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                              setSelectedFile(e.dataTransfer.files[0]);
+                            }
+                          }}
+                        >
+                          <div className="proc-file-dropzone-icon">
+                            <UploadCloud size={20} />
+                          </div>
+                          <span className="proc-file-dropzone-text">Click or drag file here</span>
+                          <span className="proc-file-dropzone-sub">PDF, Word, Excel, or images up to 10MB</span>
+                        </div>
+                      ) : (
+                        <div className="proc-file-selected">
+                          <div className="proc-file-selected-info">
+                            <div className="proc-file-selected-icon">
+                              <FileText size={18} />
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                              <div className="proc-file-selected-name" title={selectedFile.name}>
+                                {selectedFile.name}
+                              </div>
+                              <div className="proc-file-selected-size">
+                                {(selectedFile.size / 1024).toFixed(1)} KB
+                              </div>
+                            </div>
+                          </div>
+                          <button 
+                            type="button" 
+                            className="proc-file-clear-btn"
+                            title="Remove file"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedFile(null);
+                              if (fileInputRef.current) fileInputRef.current.value = '';
+                            }}
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <div style={{ marginTop: '16px' }}>
                       <button 
@@ -689,119 +561,6 @@ export default function SupplierDetail() {
                     </div>
                   </form>
                 </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* 6. STATEMENTS TAB */}
-          {activeTab === 'Statements' && (
-            <motion.div 
-              key="Statements"
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
-              className="proc-card"
-            >
-              <div className="proc-card-header flex-header">
-                <h2>Account Statement Ledger</h2>
-                <div className="header-actions">
-                  <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                    className="proc-btn-outline white"
-                    onClick={() => {
-                      const headers = ['Date', 'Ref / Description', 'Purchase (Debit)', 'Payment (Credit)', 'Running Balance'];
-                      const data = computedLedger.map(l => [l.date, l.ref, l.debit || '-', l.credit || '-', l.balance]);
-                      exportCSV(headers, data, `Statement_SUP-${id}.csv`);
-                    }}
-                  >
-                    <Download size={14} /> Export CSV
-                  </motion.button>
-                  <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                    className="proc-btn-outline white"
-                    disabled={downloadStatement.isPending}
-                    onClick={() => downloadStatement.mutate({
-                      id,
-                      params: {
-                        startDate: statementStart || undefined,
-                        endDate: statementEnd || undefined
-                      }
-                    })}
-                  >
-                    <FileText size={14} /> {downloadStatement.isPending ? 'Generating...' : 'Download PDF'}
-                  </motion.button>
-                  <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                    className="proc-btn-outline white warn"
-                    onClick={handleEmailStatement}
-                    disabled={emailStatementMutation.isPending}
-                  >
-                    <Send size={14} /> Email statement
-                  </motion.button>
-                </div>
-              </div>
-
-              {/* Date Filters */}
-              <div className="proc-toolbar" style={{ borderBottom: '1px solid #f0e0e0', borderRadius: '0' }}>
-                <div className="date-filter-row">
-                  <div className="date-input-wrap">
-                    <Calendar size={14} className="color-grey" />
-                    <input id="statementStart" name="statementStart" 
-                      type="date" 
-                      className="inline-date" 
-                      value={statementStart} 
-                      onChange={e => setStatementStart(e.target.value)}
-                    />
-                  </div>
-                  <span className="color-grey">to</span>
-                  <div className="date-input-wrap">
-                    <Calendar size={14} className="color-grey" />
-                    <input id="statementEnd" name="statementEnd" 
-                      type="date" 
-                      className="inline-date" 
-                      value={statementEnd} 
-                      onChange={e => setStatementEnd(e.target.value)}
-                    />
-                  </div>
-                  <button className="proc-btn-outline" onClick={() => {
-                    setStatementStart('');
-                    setStatementEnd('');
-                  }}>Reset</button>
-                </div>
-              </div>
-
-              <div className="proc-table-wrap">
-                <table className="proc-table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Ref / Description</th>
-                      <th style={{ textAlign: 'right' }}>Purchase (Debit Dr)</th>
-                      <th style={{ textAlign: 'right' }}>Payment (Credit Cr)</th>
-                      <th style={{ textAlign: 'right' }}>Balance (LKR)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {statementLoading ? (
-                      <tr><td colSpan="5" className="proc-empty">Running balance auditing...</td></tr>
-                    ) : computedLedger.length === 0 ? (
-                      <tr><td colSpan="5" className="proc-empty">No transaction history.</td></tr>
-                    ) : (
-                      computedLedger.map((entry, idx) => (
-                        <tr key={idx}>
-                          <td>{entry.date}</td>
-                          <td className="proc-name-cell">{entry.type} ({entry.ref})</td>
-                          <td style={{ textAlign: 'right', color: entry.debit > 0 ? '#8b3a3a' : '#777' }}>
-                            {entry.debit > 0 ? `LKR ${entry.debit.toFixed(2)}` : '—'}
-                          </td>
-                          <td style={{ textAlign: 'right', color: entry.credit > 0 ? 'green' : '#777' }}>
-                            {entry.credit > 0 ? `LKR ${entry.credit.toFixed(2)}` : '—'}
-                          </td>
-                          <td style={{ textAlign: 'right', fontWeight: 'bold', color: entry.balance > 0 ? '#8b3a3a' : 'green' }}>
-                            LKR {entry.balance.toFixed(2)}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
               </div>
             </motion.div>
           )}

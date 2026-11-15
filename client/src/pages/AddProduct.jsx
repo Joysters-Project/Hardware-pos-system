@@ -180,20 +180,20 @@ function AddProductPage() {
 					<div className="form-grid">
 						<div className="field-group">
 							<label>Product Name <span className="req">*</span></label>
-							<input name="product_name" placeholder="e.g. Steel Hammer" value={form.product_name} onChange={handleChange} />
+							<input name="product_name" maxLength={200} placeholder="e.g. Steel Hammer" value={form.product_name} onChange={handleChange} />
 						</div>
 						<div className="field-group">
 							<label>Type <span className="req">*</span></label>
-							<input name="type" placeholder="e.g. Tool, Hardware" value={form.type} onChange={handleChange} />
+							<input name="type" maxLength={50} placeholder="e.g. Tool, Hardware" value={form.type} onChange={handleChange} />
 						</div>
 						<div className="field-group">
 							<label>Batch No</label>
-							<input name="batch_no" placeholder="Optional" value={form.batch_no} onChange={handleChange} />
+							<input name="batch_no" maxLength={100} placeholder="Optional" value={form.batch_no} onChange={handleChange} />
 						</div>
 						<div className="field-group">
 							<label>Barcode (Optional)</label>
 							<div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-								<input name="barcode" placeholder="Optional" value={form.barcode} onChange={handleChange} style={{ flex: 1 }} />
+								<input name="barcode" maxLength={100} placeholder="Optional" value={form.barcode} onChange={handleChange} style={{ flex: 1 }} />
 								<button
 									type="button"
 									className="submit-btn"
@@ -348,7 +348,7 @@ function AddProductPage() {
 									</div>
 									<div className="field-group">
 										<label>Barcode (Optional)</label>
-										<input id="barcode" name="barcode" type="text" placeholder="e.g. 123456789" value={item.barcode} onChange={(e) => handleAltUnitChange(idx, "barcode", e.target.value)} />
+										<input id="barcode" name="barcode" type="text" maxLength={100} placeholder="e.g. 123456789" value={item.barcode} onChange={(e) => handleAltUnitChange(idx, "barcode", e.target.value)} />
 									</div>
 								</div>
 								<button type="button" onClick={() => removeAlternativeUnitRow(idx)} style={{ position: "absolute", right: "12px", top: "12px", background: "none", border: "none", color: "#dc2626", fontWeight: "600", cursor: "pointer", fontSize: "13px" }}>

@@ -70,6 +70,10 @@
   margin-bottom: 16px;
   align-items: center;
 }
+.cce-date-filters { align-items: flex-end; }
+.cce-date-field { flex: 0 1 180px; }
+.cce-date-field input { box-sizing: border-box; }
+.cce-date-label { font-size: 0.72rem; color: #888; }
 .cce-search-wrap { position: relative; flex: 1; min-width: 200px; }
 .cce-search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #aaa; }
 .cce-search {

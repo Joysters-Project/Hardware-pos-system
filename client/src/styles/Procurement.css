@@ -998,3 +998,110 @@
   color: #fff;
 }
 
+
+/* ── File Upload Dropzone ── */
+.proc-file-dropzone {
+  border: 2px dashed #dcb8b8;
+  border-radius: 10px;
+  background: #fffbfa;
+  padding: 1.3rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.22s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  user-select: none;
+}
+.proc-file-dropzone:hover, .proc-file-dropzone.drag-active {
+  border-color: #8b3a3a;
+  background: #fff4f2;
+  box-shadow: 0 4px 14px rgba(139, 58, 58, 0.1);
+  transform: translateY(-1px);
+}
+.proc-file-dropzone-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(139, 58, 58, 0.08);
+  color: #8b3a3a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2px;
+  transition: transform 0.2s ease;
+}
+.proc-file-dropzone:hover .proc-file-dropzone-icon {
+  transform: scale(1.1);
+  background: rgba(139, 58, 58, 0.14);
+}
+.proc-file-dropzone-text {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #444;
+}
+.proc-file-dropzone-sub {
+  font-size: 0.74rem;
+  color: #888;
+}
+.proc-file-selected {
+  border: 1.5px solid #2e7d32;
+  border-radius: 10px;
+  background: #f6fbf6;
+  padding: 0.85rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  box-shadow: 0 2px 8px rgba(46, 125, 50, 0.08);
+}
+.proc-file-selected-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+.proc-file-selected-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.proc-file-selected-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 175px;
+}
+.proc-file-selected-size {
+  font-size: 0.72rem;
+  color: #64748b;
+  margin-top: 1px;
+}
+.proc-file-clear-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.proc-file-clear-btn:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}

@@ -42,10 +42,10 @@ const EMPTY_ALT_UNIT = { unit_id: "", conversion_factor: "", unit_price: "", cos
 const generateBarcode = () => generateEAN13("479");
 
 const EDIT_FIELDS = [
-  { name: "product_name", placeholder: "Product Name *", type: "text" },
-  { name: "type",         placeholder: "Type *",         type: "text" },
-  { name: "batch_no",     placeholder: "Batch No",        type: "text" },
-  { name: "barcode",      placeholder: "Barcode (Optional)", type: "text" },
+  { name: "product_name", placeholder: "Product Name *", type: "text", maxLength: 200 },
+  { name: "type",         placeholder: "Type *",         type: "text", maxLength: 50 },
+  { name: "batch_no",     placeholder: "Batch No",        type: "text", maxLength: 100 },
+  { name: "barcode",      placeholder: "Barcode (Optional)", type: "text", maxLength: 100 },
   { name: "expiry_date",  placeholder: "Expiry Date",     type: "date" },
   { name: "unit_price",   placeholder: "Unit Price *",    type: "number", step: "0.01" },
   { name: "cost_price",   placeholder: "Cost Price *",    type: "number", step: "0.01" },
@@ -120,8 +120,8 @@ function UnitsManagerModal({ units, onClose, onRefresh }) {
     }
   };
 
-  return (
-    <div className="modal-overlay" onDoubleClick={(event) => {
+  return createPortal(
+    <div className="modal-overlay product-modal-overlay" onDoubleClick={(event) => {
       if (event.target === event.currentTarget) onClose();
     }}>
       <div className="modal-box units-modal" onClick={(e) => e.stopPropagation()}>
@@ -134,6 +134,7 @@ function UnitsManagerModal({ units, onClose, onRefresh }) {
         <div className="units-add-row">
           <input id="newName" name="newName"
             type="text"
+            maxLength={50}
             placeholder="New unit name (e.g. Box, Roll, Kg)…"
             value={newName}
             onChange={(e) => { setNewName(e.target.value); setUnitError(""); }}
@@ -159,6 +160,7 @@ function UnitsManagerModal({ units, onClose, onRefresh }) {
                 {editingId === u.unit_id ? (
                   <input id="editName" name="editName"
                     className="unit-item-edit-input"
+                    maxLength={50}
                     value={editName}
                     autoFocus
                     onChange={(e) => setEditName(e.target.value)}
@@ -211,7 +213,8 @@ function UnitsManagerModal({ units, onClose, onRefresh }) {
           <button onClick={onClose}>Close</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -313,9 +316,7 @@ function ProductsPage() {
     return [...products]
       .sort((a, b) => Number(a.product_id) - Number(b.product_id))
       .filter((p) => !q || (
-        String(p.product_id).includes(q) ||
         String(p.product_name || "").toLowerCase().includes(q) ||
-        String(p.type || "").toLowerCase().includes(q) ||
         String(p.batch_no || "").toLowerCase().includes(q) ||
         String(p.barcode || "").toLowerCase().includes(q)
       ));
@@ -523,7 +524,7 @@ function ProductsPage() {
       <div className="search-bar-wrap">
         <input id="search" name="search"
           className="search"
-          placeholder="Search by ID, name, type, batch, or barcode…"
+          placeholder="Search by name, batch no, or barcode…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -628,6 +629,7 @@ function ProductsPage() {
                           name={f.name}
                           type={f.type}
                           step={f.step}
+                          maxLength={f.maxLength}
                           value={editForm[f.name] ?? ""}
                           onChange={handleEditFieldChange}
                           style={{ flex: 1 }}
@@ -662,6 +664,7 @@ function ProductsPage() {
                       type={f.type}
                       min={f.type === "number" ? 0 : undefined}
                       step={f.step}
+                      maxLength={f.maxLength}
                       value={editForm[f.name] ?? ""}
                       onChange={handleEditFieldChange}
                     />
@@ -810,6 +813,7 @@ function ProductsPage() {
                       <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                         <input
                           type="text"
+                          maxLength={100}
                           placeholder="Barcode (optional)"
                           value={au.barcode}
                           onChange={(e) => handleAltUnitChange(idx, "barcode", e.target.value)}

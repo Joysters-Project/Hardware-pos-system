@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import {
+  AlertCircle,
   AlertTriangle,
   CalendarDays,
   CheckCircle,
@@ -23,6 +24,7 @@ import toast from 'react-hot-toast';
 import '../styles/CustomerChequeExchange.css';
 import '../styles/Procurement.css';
 import { chequeExchangeApi } from '../services/chequeExchangeApi';
+import { filterSriLankanPhoneInput, validateSriLankanPhone } from '../utils/phoneValidation';
 
 const tabs = ['customers', 'cheques', 'reports'];
 
@@ -31,6 +33,12 @@ const currency = new Intl.NumberFormat('en-LK', {
   currency: 'LKR',
   maximumFractionDigits: 0,
 });
+
+const formatChequeAmountInput = (value) => {
+  const [whole, fraction] = String(value ?? '').split('.');
+  const groupedWhole = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return fraction === undefined ? groupedWhole : `${groupedWhole}.${fraction}`;
+};
 
 const fmtDate = (value) => {
   if (!value) return '—';
@@ -83,7 +91,10 @@ export default function CustomerChequeExchange() {
   const [cheques, setCheques] = useState([]);
   const [dashboard, setDashboard] = useState(null);
   const [banks, setBanks] = useState([]);
-  const [search, setSearch] = useState('');
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [dataReloadKey, setDataReloadKey] = useState(0);
+  const [customersLoaded, setCustomersLoaded] = useState(false);
+  const [chequeSearch, setChequeSearch] = useState('');
   const [chequeFilter, setChequeFilter] = useState('all');
   const [repaymentFilter, setRepaymentFilter] = useState('all');
   const [bankFilter, setBankFilter] = useState('all');
@@ -102,6 +113,7 @@ export default function CustomerChequeExchange() {
     phone_number: '',
     address: '',
   });
+  const [customerPhoneError, setCustomerPhoneError] = useState('');
   const [chequeForm, setChequeForm] = useState({
     customer_id: '',
     cheque_number: '',
@@ -122,35 +134,28 @@ export default function CustomerChequeExchange() {
   const [reportRows, setReportRows] = useState([]);
   const [reportMeta, setReportMeta] = useState({ monthly_summary: [], bank_summary: [] });
   const [loading, setLoading] = useState(true);
+  const customerRequestId = useRef(0);
+  const chequeRequestId = useRef(0);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [dashboardRes, customersRes, chequesRes, banksRes] = await Promise.all([
+      const [dashboardRes, banksRes] = await Promise.all([
         chequeExchangeApi.getDashboard(),
-        chequeExchangeApi.getCustomers({ search }),
-        chequeExchangeApi.getCheques({
-          search,
-          cheque_status: chequeFilter === 'all' ? undefined : chequeFilter,
-          repayment_status: repaymentFilter === 'all' ? undefined : repaymentFilter,
-          bank_name: bankFilter === 'all' ? undefined : bankFilter,
-          customer_id: customerIdFilter === 'all' ? undefined : customerIdFilter,
-          date_from: dateFrom || undefined,
-          date_to: dateTo || undefined,
-        }),
         chequeExchangeApi.getBanks(),
       ]);
       setDashboard(dashboardRes.data?.data || null);
-      setCustomers([...(customersRes.data?.data || [])]
-        .sort((left, right) => Number(left.customer_id) - Number(right.customer_id)));
-      setCheques([...(chequesRes.data?.data || [])]
-        .sort((left, right) => Number(left.cheque_id) - Number(right.cheque_id)));
       setBanks(banksRes.data?.data || []);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to load cheque exchange data');
     } finally {
       setLoading(false);
     }
+  };
+
+  const refreshAllData = async () => {
+    setDataReloadKey((key) => key + 1);
+    await loadData();
   };
 
   const loadReports = async (type = reportType) => {
@@ -299,7 +304,57 @@ export default function CustomerChequeExchange() {
 
   useEffect(() => {
     loadData();
-  }, [search, chequeFilter, repaymentFilter, bankFilter, customerIdFilter, dateFrom, dateTo]);
+  }, []);
+
+  useEffect(() => {
+    const requestId = ++customerRequestId.current;
+    const timeoutId = setTimeout(async () => {
+      try {
+        const response = await chequeExchangeApi.getCustomers({ search: customerSearch });
+        if (requestId !== customerRequestId.current) return;
+        setCustomers([...(response.data?.data || [])]
+          .sort((left, right) => Number(left.customer_id) - Number(right.customer_id)));
+        setCustomersLoaded(true);
+      } catch (error) {
+        if (requestId !== customerRequestId.current) return;
+        setCustomersLoaded(true);
+        toast.error(error.response?.data?.message || 'Failed to load customers');
+      }
+    }, 250);
+
+    return () => {
+      clearTimeout(timeoutId);
+      customerRequestId.current += 1;
+    };
+  }, [customerSearch, dataReloadKey]);
+
+  useEffect(() => {
+    const requestId = ++chequeRequestId.current;
+    const timeoutId = setTimeout(async () => {
+      try {
+        const response = await chequeExchangeApi.getCheques({
+          search: chequeSearch,
+          cheque_status: chequeFilter === 'all' ? undefined : chequeFilter,
+          repayment_status: repaymentFilter === 'all' ? undefined : repaymentFilter,
+          bank_name: bankFilter === 'all' ? undefined : bankFilter,
+          customer_id: customerIdFilter === 'all' ? undefined : customerIdFilter,
+          date_from: dateFrom || undefined,
+          date_to: dateTo || undefined,
+        });
+        if (requestId !== chequeRequestId.current) return;
+        setCheques([...(response.data?.data || [])]
+          .sort((left, right) => Number(left.cheque_id) - Number(right.cheque_id)));
+      } catch (error) {
+        if (requestId !== chequeRequestId.current) return;
+        toast.error(error.response?.data?.message || 'Failed to load cheques');
+      }
+    }, 250);
+
+    return () => {
+      clearTimeout(timeoutId);
+      chequeRequestId.current += 1;
+    };
+  }, [chequeSearch, chequeFilter, repaymentFilter, bankFilter, customerIdFilter, dateFrom, dateTo, dataReloadKey]);
 
   useEffect(() => {
     if (activeTab === 'reports') {
@@ -364,14 +419,10 @@ export default function CustomerChequeExchange() {
     return /^\d{12}$/.test(value) || /^\d{9}[VvXx]$/.test(value);
   };
 
-  const isValidPhoneNumber = (phone) => {
-    const value = phone.replace(/\s+/g, '').trim();
-    return /^(?:\+94|0)?[1-9]\d{8,9}$/.test(value);
-  };
-
   const clearCustomerForm = () => {
     setCustomerForm({ customer_name: '', nic_number: '', phone_number: '', address: '' });
     setEditingCustomerId(null);
+    setCustomerPhoneError('');
   };
 
   const openAddCustomer = () => {
@@ -380,12 +431,17 @@ export default function CustomerChequeExchange() {
   };
 
   const openCustomerEdit = (customer) => {
+    const storedPhone = String(customer.phone_number || '').trim().replace(/\s/g, '');
+    const phoneNumber = storedPhone.startsWith('+94')
+      ? `0${storedPhone.slice(3)}`
+      : /^[1-9]\d{8}$/.test(storedPhone) ? `0${storedPhone}` : storedPhone;
     setCustomerForm({
       customer_name: customer.customer_name || '',
       nic_number: customer.nic_number || '',
-      phone_number: customer.phone_number || '',
+      phone_number: phoneNumber,
       address: customer.address || '',
     });
+    setCustomerPhoneError('');
     setEditingCustomerId(customer.customer_id);
     setCustomerModalOpen(true);
   };
@@ -398,8 +454,13 @@ export default function CustomerChequeExchange() {
     const phoneNumber = customerForm.phone_number.trim();
     const address = customerForm.address.trim();
 
-    if (!customerName || !nicNumber || !phoneNumber || !address) {
-      toast.error('Customer name, NIC, phone, and address are required');
+    if (!customerName || !address) {
+      toast.error('Customer name and address are required');
+      return;
+    }
+
+    if (!nicNumber) {
+      toast.error('NIC is required');
       return;
     }
 
@@ -409,21 +470,24 @@ export default function CustomerChequeExchange() {
     }
 
     if (!isValidNicNumber(nicNumber)) {
-      toast.error('NIC number must be 9 digits + V/X or 12 digits');
+      toast.error('Please enter a valid NIC (9 digits + V/X or 12 digits)');
       return;
     }
 
-    if (!isValidPhoneNumber(phoneNumber)) {
-      toast.error('Phone number must be valid, e.g. 0771234567 or +94771234567');
+    const phoneValidation = validateSriLankanPhone(phoneNumber);
+    if (!phoneValidation.isValid) {
+      setCustomerPhoneError(phoneValidation.message);
+      toast.error(phoneValidation.message);
       return;
     }
+    setCustomerPhoneError('');
 
     try {
       const payload = {
         ...customerForm,
         customer_name: customerName,
         nic_number: nicNumber,
-        phone_number: phoneNumber,
+        phone_number: phoneValidation.formatted,
         address,
       };
 
@@ -436,7 +500,7 @@ export default function CustomerChequeExchange() {
       }
       clearCustomerForm();
       setCustomerModalOpen(false);
-      await loadData();
+      await refreshAllData();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Unable to save customer');
     }
@@ -449,7 +513,7 @@ export default function CustomerChequeExchange() {
     try {
       await chequeExchangeApi.deleteCustomer(customer_id);
       toast.success('Customer deleted successfully');
-      await loadData();
+      await refreshAllData();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Unable to delete customer');
     }
@@ -457,8 +521,20 @@ export default function CustomerChequeExchange() {
 
   const handleChequeSubmit = async (event) => {
     event.preventDefault();
-    if (!chequeForm.customer_id || !chequeForm.cheque_number || !chequeForm.bank_name || !chequeForm.account_holder_name || !chequeForm.cheque_date || !chequeForm.expected_clearance_date || !chequeForm.cheque_amount || !chequeForm.received_date) {
+    if (!chequeForm.customer_id || !chequeForm.cheque_number || !chequeForm.bank_name || !chequeForm.account_holder_name || !chequeForm.cheque_date || !chequeForm.expected_clearance_date || !chequeForm.cheque_amount || !chequeForm.discount_percentage || !chequeForm.received_date) {
       toast.error('Please complete all required cheque fields');
+      return;
+    }
+
+    const chequeAmount = Number(chequeForm.cheque_amount);
+    if (!Number.isFinite(chequeAmount) || chequeAmount <= 0) {
+      toast.error('Cheque amount must be greater than 0');
+      return;
+    }
+
+    const discountPercentage = Number(chequeForm.discount_percentage);
+    if (!Number.isInteger(discountPercentage) || discountPercentage < 1 || discountPercentage > 100) {
+      toast.error('Discount percentage must be a whole number from 1 to 100');
       return;
     }
 
@@ -471,8 +547,8 @@ export default function CustomerChequeExchange() {
     try {
       const payload = {
         ...chequeForm,
-        cheque_amount: Number(chequeForm.cheque_amount),
-        discount_percentage: Number(chequeForm.discount_percentage || 0),
+        cheque_amount: chequeAmount,
+        discount_percentage: discountPercentage,
       };
 
       if (editingChequeId) {
@@ -498,7 +574,7 @@ export default function CustomerChequeExchange() {
       setChequeCustomerDisplay('');
       setEditingChequeId(null);
       setChequeModalOpen(false);
-      await loadData();
+      await refreshAllData();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Unable to record cheque');
     }
@@ -511,7 +587,7 @@ export default function CustomerChequeExchange() {
     try {
       await chequeExchangeApi.deleteCheque(id);
       toast.success('Cheque deleted successfully');
-      await loadData();
+      await refreshAllData();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Unable to delete cheque');
     }
@@ -570,7 +646,7 @@ export default function CustomerChequeExchange() {
     try {
       await chequeExchangeApi.updateChequeStatus(id, { cheque_status: status });
       toast.success(`Cheque marked as ${status}`);
-      await loadData();
+      await refreshAllData();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Unable to update cheque status');
     }
@@ -580,7 +656,7 @@ export default function CustomerChequeExchange() {
     try {
       await chequeExchangeApi.depositCheque(id);
       toast.success('Cheque marked as deposited');
-      await loadData();
+      await refreshAllData();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Unable to deposit cheque');
     }
@@ -590,7 +666,7 @@ export default function CustomerChequeExchange() {
     try {
       await chequeExchangeApi.recordRepayment(id);
       toast.success('Repayment recorded');
-      await loadData();
+      await refreshAllData();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Unable to record repayment');
     }
@@ -607,7 +683,8 @@ export default function CustomerChequeExchange() {
   };
 
   const resetFilters = () => {
-    setSearch('');
+    setCustomerSearch('');
+    setChequeSearch('');
     setChequeFilter('all');
     setRepaymentFilter('all');
     setBankFilter('all');
@@ -639,7 +716,7 @@ export default function CustomerChequeExchange() {
       <div className="cce-filters">
         <div className="cce-search-wrap">
           <Search size={15} className="cce-search-icon" />
-          <input id="search" name="search" className="cce-search" placeholder="Search by name, phone or NIC" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <input id="customerSearch" name="customerSearch" className="cce-search" placeholder="Search by name, phone or NIC" value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} />
         </div>
         <button className="cce-refresh-btn" onClick={resetFilters}>
           <RefreshCw size={14} /> Reset
@@ -663,7 +740,7 @@ export default function CustomerChequeExchange() {
           </thead>
           <tbody>
             {customers.length === 0 ? (
-              <tr><td colSpan="9" className="cce-empty">No customers found.</td></tr>
+              <tr><td colSpan="9" className="cce-empty">{customersLoaded ? 'No customers found.' : 'Loading customers…'}</td></tr>
             ) : (
               customers.map((customer) => (
                 <tr key={customer.customer_id}>
@@ -717,7 +794,7 @@ export default function CustomerChequeExchange() {
       <div className="cce-filters">
         <div className="cce-search-wrap">
           <Search size={15} className="cce-search-icon" />
-          <input id="search" name="search" className="cce-search" placeholder="Search by customer, cheque, bank or account holder" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <input id="chequeSearch" name="chequeSearch" className="cce-search" placeholder="Search by customer, cheque, bank or account holder" value={chequeSearch} onChange={(event) => setChequeSearch(event.target.value)} />
         </div>
         <select id="chequeFilter" name="chequeFilter" className="cce-select" value={chequeFilter} onChange={(event) => setChequeFilter(event.target.value)}>
           <option value="all">All statuses</option>
@@ -742,17 +819,17 @@ export default function CustomerChequeExchange() {
         </select>
       </div>
 
-      <div className="cce-filters">
-        <label className="cce-field" style={{ minWidth: 180 }}>
-          <span style={{ fontSize: '0.72rem', color: '#888' }}>From</span>
+      <div className="cce-filters cce-date-filters">
+        <label className="cce-field cce-date-field">
+          <span className="cce-date-label">From</span>
           <input id="dateFrom" name="dateFrom" type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
         </label>
-        <label className="cce-field" style={{ minWidth: 180 }}>
-          <span style={{ fontSize: '0.72rem', color: '#888' }}>To</span>
+        <label className="cce-field cce-date-field">
+          <span className="cce-date-label">To</span>
           <input id="dateTo" name="dateTo" type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
         </label>
         <button className="cce-refresh-btn" onClick={resetFilters}>
-          <RefreshCw size={14} /> Clear filters
+          <RefreshCw size={14} /> Reset Filter
         </button>
       </div>
 
@@ -1090,15 +1167,40 @@ export default function CustomerChequeExchange() {
               <div className="cce-form-grid">
                 <div className="cce-field">
                   <label>Customer name</label>
-                  <input id="customer_name" name="customer_name" value={customerForm.customer_name} onChange={(event) => setCustomerForm((prev) => ({ ...prev, customer_name: event.target.value }))} placeholder="e.g. Ayesha Jayasekara" required />
+                  <input id="customer_name" name="customer_name" maxLength={150} value={customerForm.customer_name} onChange={(event) => setCustomerForm((prev) => ({ ...prev, customer_name: event.target.value }))} placeholder="e.g. Ayesha Jayasekara" required />
                 </div>
                 <div className="cce-field">
                   <label>NIC number</label>
-                  <input id="nic_number" name="nic_number" value={customerForm.nic_number} onChange={(event) => setCustomerForm((prev) => ({ ...prev, nic_number: event.target.value }))} placeholder="200012345678" required />
+                  <input id="nic_number" name="nic_number" maxLength={20} value={customerForm.nic_number} onChange={(event) => setCustomerForm((prev) => ({ ...prev, nic_number: event.target.value }))} placeholder="e.g. 200012345678 or 123456789V" title="NIC must be 9 digits + V/X or 12 digits" />
                 </div>
                 <div className="cce-field">
                   <label>Phone number</label>
-                  <input id="phone_number" name="phone_number" value={customerForm.phone_number} onChange={(event) => setCustomerForm((prev) => ({ ...prev, phone_number: event.target.value }))} placeholder="077 000 0000" required />
+                  <input
+                    id="phone_number"
+                    name="phone_number"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={10}
+                    value={customerForm.phone_number}
+                    onChange={(event) => {
+                      const phoneNumber = filterSriLankanPhoneInput(event.target.value);
+                      setCustomerForm((prev) => ({ ...prev, phone_number: phoneNumber }));
+                      if (customerPhoneError) setCustomerPhoneError('');
+                    }}
+                    style={customerPhoneError ? { borderColor: '#ef4444', borderWidth: '2px' } : {}}
+                    placeholder="e.g. 0712345678"
+                  />
+                  {customerForm.phone_number && (
+                    <span style={{ fontSize: '11px', color: '#666', marginTop: '2px', display: 'block' }}>
+                      {customerForm.phone_number.length}/10 digits
+                    </span>
+                  )}
+                  {customerPhoneError && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', color: '#ef4444', fontSize: '12px' }}>
+                      <AlertCircle size={14} />
+                      {customerPhoneError}
+                    </div>
+                  )}
                 </div>
                 <div className="cce-field cce-field-full">
                   <label>Address</label>
@@ -1139,6 +1241,7 @@ export default function CustomerChequeExchange() {
                   <div style={{ position: 'relative' }}>
                     <input
                       value={chequeCustomerDisplay}
+                      maxLength={150}
                       onChange={handleChequeCustomerInputChange}
                       onKeyDown={handleCustomerKeyDown}
                       onFocus={() => { if (filteredCustomers.length > 0) setShowCustomerSuggestions(true); }}
@@ -1165,23 +1268,53 @@ export default function CustomerChequeExchange() {
                 </div>
                 <div className="cce-field">
                   <label>Cheque number</label>
-                  <input id="cheque_number" name="cheque_number" value={chequeForm.cheque_number} onChange={(event) => setChequeForm((prev) => ({ ...prev, cheque_number: event.target.value }))} placeholder="CHQ-1001" required />
+                  <input id="cheque_number" name="cheque_number" maxLength={100} value={chequeForm.cheque_number} onChange={(event) => setChequeForm((prev) => ({ ...prev, cheque_number: event.target.value }))} placeholder="CHQ-1001" required />
                 </div>
                 <div className="cce-field">
                   <label>Bank name</label>
-                  <input id="bank_name" name="bank_name" value={chequeForm.bank_name} onChange={(event) => setChequeForm((prev) => ({ ...prev, bank_name: event.target.value }))} placeholder="Sampath Bank" required />
+                  <input id="bank_name" name="bank_name" maxLength={100} value={chequeForm.bank_name} onChange={(event) => setChequeForm((prev) => ({ ...prev, bank_name: event.target.value }))} placeholder="Sampath Bank" required />
                 </div>
                 <div className="cce-field">
                   <label>Account holder name</label>
-                  <input id="account_holder_name" name="account_holder_name" value={chequeForm.account_holder_name} onChange={(event) => setChequeForm((prev) => ({ ...prev, account_holder_name: event.target.value }))} placeholder="John Doe" required />
+                  <input id="account_holder_name" name="account_holder_name" maxLength={150} value={chequeForm.account_holder_name} onChange={(event) => setChequeForm((prev) => ({ ...prev, account_holder_name: event.target.value }))} placeholder="John Doe" required />
                 </div>
                 <div className="cce-field">
                   <label>Cheque amount</label>
-                  <input id="cheque_amount" name="cheque_amount" type="number" value={chequeForm.cheque_amount} onChange={(event) => setChequeForm((prev) => ({ ...prev, cheque_amount: event.target.value }))} placeholder="100000" required />
+                  <input
+                    id="cheque_amount"
+                    name="cheque_amount"
+                    type="text"
+                    inputMode="decimal"
+                    value={formatChequeAmountInput(chequeForm.cheque_amount)}
+                    onChange={(event) => {
+                      const value = event.target.value.replace(/,/g, '');
+                      if (/^\d*\.?\d{0,2}$/.test(value)) {
+                        setChequeForm((prev) => ({ ...prev, cheque_amount: value }));
+                      }
+                    }}
+                    placeholder="1,000"
+                    required
+                  />
                 </div>
                 <div className="cce-field">
                   <label>Discount %</label>
-                  <input id="discount_percentage" name="discount_percentage" type="number" value={chequeForm.discount_percentage} onChange={(event) => setChequeForm((prev) => ({ ...prev, discount_percentage: event.target.value }))} placeholder="5" />
+                  <input
+                    id="discount_percentage"
+                    name="discount_percentage"
+                    type="number"
+                    min="1"
+                    max="100"
+                    step="1"
+                    value={chequeForm.discount_percentage}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (value === '' || (/^\d{1,3}$/.test(value) && Number(value) >= 1 && Number(value) <= 100)) {
+                        setChequeForm((prev) => ({ ...prev, discount_percentage: value }));
+                      }
+                    }}
+                    placeholder="5"
+                    required
+                  />
                 </div>
                 <div className="cce-field">
                   <label>Cheque date</label>

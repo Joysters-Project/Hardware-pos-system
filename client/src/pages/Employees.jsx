@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
-import { Eye, Pencil, Trash2, Plus, Search, RefreshCw, FileDown, X, ChevronLeft, ChevronRight, Users, AlertCircle } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { Eye, Pencil, Trash2, Plus, Search, FileDown, X, ChevronLeft, ChevronRight, ChevronDown, Users, AlertCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from "../utils/phoneValidation";
@@ -13,17 +14,25 @@ import PeopleTopNav from "../components/navigation/PeopleTopNav";
 import "../styles/Employees.css";
 
 const BASE_URL = import.meta.env.VITE_API_URL;
-const POSITIONS = ["Admin", "Manager", "Cashier", "Supervisor", "Sales", "Warehouse", "IT", "HR", "Accountant", "Other"];
+const POSITIONS = ["Manager", "Admin", "Cashier"];
 const MAX_PHOTO_SIZE = 1 * 1024 * 1024; // 1 MB
 const EMPTY_FORM = { first_name: "", last_name: "", nic: "", phone_no: "", email: "", address: "", position: "", salary: "", salary_category: "monthly", join_date: "", status: "Active", department_id: "" };
 
+const formatSalaryInput = (value) => {
+  const [whole, fraction] = String(value ?? "").split(".");
+  const groupedWhole = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return fraction === undefined ? groupedWhole : `${groupedWhole}.${fraction}`;
+};
+
 function EmployeesPage() {
+  const { role } = useAuth();
   const [employees, setEmployees] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterDept, setFilterDept] = useState("");
   const [form, setForm] = useState(EMPTY_FORM);
+  const [customPosition, setCustomPosition] = useState("");
   const [phoneError, setPhoneError] = useState("");
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
@@ -35,6 +44,9 @@ function EmployeesPage() {
   const [page, setPage] = useState(1);
   const fileRef = useRef();
   const PER_PAGE = 10;
+  const availablePositions = editId
+    ? POSITIONS
+    : POSITIONS.filter(position => position.toLowerCase() !== role?.toLowerCase());
 
   useEffect(() => { loadAll(); }, []);
 
@@ -48,27 +60,37 @@ function EmployeesPage() {
     finally { setPageLoading(false); }
   };
 
+  const resetFilters = () => {
+    setSearch("");
+    setFilterStatus("");
+    setFilterDept("");
+    setPage(1);
+  };
+
   const openAdd = () => {
     const today = new Date().toISOString().split("T")[0];
     setForm({ ...EMPTY_FORM, join_date: today });
+    setCustomPosition("");
     setEditId(null);
     setPhotoFile(null);
     setPhotoPreview(null);
     setShowModal(true);
   };
   const openEdit = (e) => {
+    const positionIsStandard = POSITIONS.includes(e.position);
     setForm({
       first_name: e.first_name || "", last_name: e.last_name || "", nic: e.nic || "", phone_no: e.phone_no || "",
-      email: e.email || "", address: e.address || "", position: e.position || "", salary: e.salary || "",
+      email: e.email || "", address: e.address || "", position: positionIsStandard ? e.position : e.position ? "Other" : "", salary: e.salary || "",
       salary_category: e.salary_category || "monthly",
       join_date: e.join_date || e.hire_date || "", status: e.status || "Active", department_id: e.department_id || ""
     });
+    setCustomPosition(positionIsStandard ? "" : e.position || "");
     setEditId(e.employee_id);
     setPhotoFile(null);
     setPhotoPreview(e.profile_photo ? `${BASE_URL}/${e.profile_photo}` : null);
     setShowModal(true);
   };
-  const closeModal = () => { setShowModal(false); setForm(EMPTY_FORM); setEditId(null); setPhotoFile(null); setPhotoPreview(null); setPhoneError(""); };
+  const closeModal = () => { setShowModal(false); setForm(EMPTY_FORM); setCustomPosition(""); setEditId(null); setPhotoFile(null); setPhotoPreview(null); setPhoneError(""); };
 
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
@@ -103,12 +125,13 @@ function EmployeesPage() {
       return;
     }
     form.nic = nicVal;
-    if (!form.position || !form.position.trim()) {
+    const positionValue = form.position === "Other" ? customPosition.trim() : form.position.trim();
+    if (!positionValue) {
       toast.error("Position is required");
       return;
     }
     const positionRegex = /^[A-Za-z ]+$/;
-    if (!positionRegex.test(form.position.trim())) {
+    if (!positionRegex.test(positionValue)) {
       toast.error("Position may only contain letters and spaces");
       return;
     }
@@ -184,7 +207,10 @@ function EmployeesPage() {
     try {
       if (photoFile && photoFile.size > MAX_PHOTO_SIZE) { toast.error("Photo must be 1 MB or smaller"); setLoading(false); return; }
       const fd = new FormData();
-      Object.entries(form).forEach(([k, v]) => { if (v !== "") fd.append(k, v); });
+      Object.entries(form).forEach(([k, v]) => {
+        const value = k === "position" ? positionValue : v;
+        if (value !== "") fd.append(k, value);
+      });
       if (photoFile) fd.append("profile_photo", photoFile);
       const headers = { "Content-Type": "multipart/form-data" };
       if (editId) { await api.put(`/employees/${editId}`, fd, { headers }); toast.success("Employee updated"); }
@@ -320,7 +346,9 @@ function EmployeesPage() {
           <option value="">All Departments</option>
           {departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
         </select>
-        <button className="emp-refresh-btn" onClick={loadAll} disabled={pageLoading}><RefreshCw size={14} className={pageLoading ? "spin" : ""} /></button>
+        <button type="button" className="emp-btn-outline" onClick={resetFilters} disabled={pageLoading}>
+          Reset Filter
+        </button>
       </div>
 
       {/* Table */}
@@ -392,6 +420,7 @@ function EmployeesPage() {
                     <input
                       type={type}
                       value={form[key]}
+                      maxLength={{ first_name: 50, last_name: 50, nic: 12, email: 150 }[key]}
                       onChange={e => setForm({ ...form, [key]: e.target.value })}
                       title={key === "nic" ? "NIC must be 9 digits + V/X or 12 digits" : key === "first_name" || key === "last_name" ? "Name may only contain letters and spaces" : undefined}
                     />
@@ -427,16 +456,56 @@ function EmployeesPage() {
                   </div>
                 </div>
                 <div className="emp-field"><label>Position *</label>
-                  <input
-                    type="text"
-                    value={form.position}
-                    onChange={e => setForm({ ...form, position: e.target.value })}
-                    title="Position may only contain letters and spaces"
-                    placeholder="e.g. Manager"
-                  />
+                  {form.position === "Other" ? (
+                    <div style={{ position: "relative" }}>
+                      <input
+                        type="text"
+                        value={customPosition}
+                        maxLength={100}
+                        onChange={e => setCustomPosition(e.target.value)}
+                        title="Position may only contain letters and spaces"
+                        placeholder="Enter position"
+                        style={{ paddingRight: "36px" }}
+                      />
+                      <button
+                        type="button"
+                        aria-label="Choose a listed position"
+                        title="Choose a listed position"
+                        onClick={() => {
+                          setForm({ ...form, position: "" });
+                          setCustomPosition("");
+                        }}
+                        style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", border: 0, background: "transparent", padding: "4px", cursor: "pointer", color: "#666", display: "flex", alignItems: "center" }}
+                      >
+                        <ChevronDown size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      value={form.position}
+                      onChange={e => {
+                        const position = e.target.value;
+                        setForm({ ...form, position });
+                        if (position !== "Other") setCustomPosition("");
+                      }}
+                    >
+                      <option value="">Select position</option>
+                      {availablePositions.map(position => <option key={position} value={position}>{position}</option>)}
+                      <option value="Other">Other</option>
+                    </select>
+                  )}
                 </div>
                 <div className="emp-field"><label>Salary (LKR) *</label>
-                  <input type="number" value={form.salary} onChange={e => setForm({ ...form, salary: e.target.value })} /></div>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={formatSalaryInput(form.salary)}
+                    onChange={e => {
+                      const value = e.target.value.replace(/,/g, "");
+                      if (/^\d*\.?\d{0,2}$/.test(value)) setForm({ ...form, salary: value });
+                    }}
+                    placeholder="e.g. 1,000"
+                  /></div>
                 <div className="emp-field"><label>Salary Category *</label>
                   <select id="salary_category" name="salary_category" value={form.salary_category} onChange={e => setForm({ ...form, salary_category: e.target.value })}>
                     <option value="monthly">Monthly Worker</option>
