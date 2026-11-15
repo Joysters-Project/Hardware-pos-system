@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
-import { Eye, Pencil, Trash2, Plus, Search, RefreshCw, FileDown, X, ChevronLeft, ChevronRight, Users, AlertCircle } from "lucide-react";
+import { Eye, Pencil, Trash2, Plus, Search, FileDown, X, ChevronLeft, ChevronRight, Users, AlertCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
 import { validateSriLankanPhone, filterSriLankanPhoneInput } from "../utils/phoneValidation";
@@ -46,6 +46,13 @@ function EmployeesPage() {
       setDepartments(deptRes.data);
     } catch { toast.error("Failed to load data"); }
     finally { setPageLoading(false); }
+  };
+
+  const resetFilters = () => {
+    setSearch("");
+    setFilterStatus("");
+    setFilterDept("");
+    setPage(1);
   };
 
   const openAdd = () => {
@@ -320,7 +327,9 @@ function EmployeesPage() {
           <option value="">All Departments</option>
           {departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
         </select>
-        <button className="emp-refresh-btn" onClick={loadAll} disabled={pageLoading}><RefreshCw size={14} className={pageLoading ? "spin" : ""} /></button>
+        <button type="button" className="emp-btn-outline" onClick={resetFilters} disabled={pageLoading}>
+          Reset Filter
+        </button>
       </div>
 
       {/* Table */}

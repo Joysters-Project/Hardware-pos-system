@@ -83,7 +83,8 @@ export default function CustomerChequeExchange() {
   const [cheques, setCheques] = useState([]);
   const [dashboard, setDashboard] = useState(null);
   const [banks, setBanks] = useState([]);
-  const [search, setSearch] = useState('');
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [chequeSearch, setChequeSearch] = useState('');
   const [chequeFilter, setChequeFilter] = useState('all');
   const [repaymentFilter, setRepaymentFilter] = useState('all');
   const [bankFilter, setBankFilter] = useState('all');
@@ -128,9 +129,9 @@ export default function CustomerChequeExchange() {
       setLoading(true);
       const [dashboardRes, customersRes, chequesRes, banksRes] = await Promise.all([
         chequeExchangeApi.getDashboard(),
-        chequeExchangeApi.getCustomers({ search }),
+        chequeExchangeApi.getCustomers({ search: customerSearch }),
         chequeExchangeApi.getCheques({
-          search,
+          search: chequeSearch,
           cheque_status: chequeFilter === 'all' ? undefined : chequeFilter,
           repayment_status: repaymentFilter === 'all' ? undefined : repaymentFilter,
           bank_name: bankFilter === 'all' ? undefined : bankFilter,
@@ -299,7 +300,7 @@ export default function CustomerChequeExchange() {
 
   useEffect(() => {
     loadData();
-  }, [search, chequeFilter, repaymentFilter, bankFilter, customerIdFilter, dateFrom, dateTo]);
+  }, [customerSearch, chequeSearch, chequeFilter, repaymentFilter, bankFilter, customerIdFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     if (activeTab === 'reports') {
@@ -607,7 +608,8 @@ export default function CustomerChequeExchange() {
   };
 
   const resetFilters = () => {
-    setSearch('');
+    setCustomerSearch('');
+    setChequeSearch('');
     setChequeFilter('all');
     setRepaymentFilter('all');
     setBankFilter('all');
@@ -639,7 +641,7 @@ export default function CustomerChequeExchange() {
       <div className="cce-filters">
         <div className="cce-search-wrap">
           <Search size={15} className="cce-search-icon" />
-          <input id="search" name="search" className="cce-search" placeholder="Search by name, phone or NIC" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <input id="customerSearch" name="customerSearch" className="cce-search" placeholder="Search by name, phone or NIC" value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} />
         </div>
         <button className="cce-refresh-btn" onClick={resetFilters}>
           <RefreshCw size={14} /> Reset
@@ -717,7 +719,7 @@ export default function CustomerChequeExchange() {
       <div className="cce-filters">
         <div className="cce-search-wrap">
           <Search size={15} className="cce-search-icon" />
-          <input id="search" name="search" className="cce-search" placeholder="Search by customer, cheque, bank or account holder" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <input id="chequeSearch" name="chequeSearch" className="cce-search" placeholder="Search by customer, cheque, bank or account holder" value={chequeSearch} onChange={(event) => setChequeSearch(event.target.value)} />
         </div>
         <select id="chequeFilter" name="chequeFilter" className="cce-select" value={chequeFilter} onChange={(event) => setChequeFilter(event.target.value)}>
           <option value="all">All statuses</option>
@@ -742,17 +744,17 @@ export default function CustomerChequeExchange() {
         </select>
       </div>
 
-      <div className="cce-filters">
-        <label className="cce-field" style={{ minWidth: 180 }}>
-          <span style={{ fontSize: '0.72rem', color: '#888' }}>From</span>
+      <div className="cce-filters cce-date-filters">
+        <label className="cce-field cce-date-field">
+          <span className="cce-date-label">From</span>
           <input id="dateFrom" name="dateFrom" type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
         </label>
-        <label className="cce-field" style={{ minWidth: 180 }}>
-          <span style={{ fontSize: '0.72rem', color: '#888' }}>To</span>
+        <label className="cce-field cce-date-field">
+          <span className="cce-date-label">To</span>
           <input id="dateTo" name="dateTo" type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
         </label>
         <button className="cce-refresh-btn" onClick={resetFilters}>
-          <RefreshCw size={14} /> Clear filters
+          <RefreshCw size={14} /> Reset Filter
         </button>
       </div>
 
