@@ -1195,7 +1195,7 @@ function AlertCenterPage() {
                                   Dispose
                                 </button>
                                 <button className="proc-btn-outline" style={{ padding: "0.3rem 0.65rem", fontSize: "0.8rem" }} onClick={viewBatch}>
-                                  Batch
+                                  View
                                 </button>
                               </div>
                             );

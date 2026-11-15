@@ -125,30 +125,68 @@ function ItemCommentCell({ item, poId, supplierHasEmail }) {
   );
 }
 
-const now = new Date();
-const TODAY = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+function getTodayDate() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+function getNextDate(dateString) {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
+}
 
 function ReceiveItemModal({ item, po, onClose }) {
   const receiveMutation = useReceiveOrderItem();
+  const orderedQuantity = Number(item.quantity);
   const [form, setForm] = useState({
     supplier_batch_number: '',
     expiry_date: '',
-    received_date: TODAY,
-    received_quantity: item.quantity,
+    received_date: getTodayDate(),
+    received_quantity: Number.isFinite(orderedQuantity) && Math.floor(orderedQuantity) >= 1
+      ? String(Math.floor(orderedQuantity))
+      : '',
   });
   const [error, setError] = useState('');
+  const today = getTodayDate();
+  const purchaseOrderDate = po.po_date ? String(po.po_date).slice(0, 10) : '';
 
   const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
+
+  const setReceivedQuantity = (value) => {
+    set('received_quantity', value);
+    if (value !== '' && !Number.isInteger(Number(value))) {
+      setError('Received Quantity must be a whole number.');
+    } else if (error === 'Received Quantity must be a whole number.') {
+      setError('');
+    }
+  };
+
+  const getDateValidationError = (receivedDate, expiryDate) => {
+    if (!receivedDate) return 'Received Date is required.';
+    if (receivedDate > getTodayDate()) return 'Received Date cannot be in the future.';
+    if (purchaseOrderDate && receivedDate < purchaseOrderDate) {
+      return 'Received Date cannot be earlier than Purchase Order Date.';
+    }
+    if (!expiryDate) return 'Expiry Date is required.';
+    if (expiryDate <= receivedDate) return 'Expiry Date must be later than Received Date.';
+    return '';
+  };
+
+  const setDate = (field, value) => {
+    const nextForm = { ...form, [field]: value };
+    setForm(nextForm);
+    setError(getDateValidationError(nextForm.received_date, nextForm.expiry_date));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     if (!form.supplier_batch_number.trim()) return setError('Supplier Batch Number is required.');
     if (!form.received_quantity || Number(form.received_quantity) <= 0) return setError('Received Quantity must be greater than zero.');
+    if (!Number.isInteger(Number(form.received_quantity))) return setError('Received Quantity must be a whole number.');
     if (Number(form.received_quantity) > item.quantity) return setError(`Received Quantity cannot exceed ordered quantity (${item.quantity}).`);
-    if (!form.received_date) return setError('Received Date is required.');
-    if (!form.expiry_date) return setError('Expiry Date is required.');
-    if (form.expiry_date < form.received_date) return setError('Expiry Date cannot be earlier than Received Date.');
+    const dateError = getDateValidationError(form.received_date, form.expiry_date);
+    if (dateError) return setError(dateError);
 
     try {
       await receiveMutation.mutateAsync({
@@ -156,7 +194,7 @@ function ReceiveItemModal({ item, po, onClose }) {
         product_id:            item.product_id,
         supplier_batch_number: form.supplier_batch_number.trim(),
         expiry_date:           form.expiry_date,
-        received_date:         form.received_date || TODAY,
+        received_date:         form.received_date,
         received_quantity:     Number(form.received_quantity),
       });
       onClose();
@@ -221,9 +259,9 @@ function ReceiveItemModal({ item, po, onClose }) {
                 <label>Received Quantity <span className="req">*</span></label>
                 <input id="received_quantity" name="received_quantity"
                   className="proc-input"
-                  type="number" min="1" max={item.quantity}
+                  type="number" min="1" max={item.quantity} step="1"
                   value={form.received_quantity}
-                  onChange={e => set('received_quantity', e.target.value)}
+                  onChange={e => setReceivedQuantity(e.target.value)}
                 />
               </div>
 
@@ -232,8 +270,9 @@ function ReceiveItemModal({ item, po, onClose }) {
                 <input id="received_date" name="received_date"
                   className="proc-input"
                   type="date"
+                  max={today}
                   value={form.received_date}
-                  onChange={e => set('received_date', e.target.value)}
+                  onChange={e => setDate('received_date', e.target.value)}
                 />
               </div>
 
@@ -242,9 +281,9 @@ function ReceiveItemModal({ item, po, onClose }) {
                 <input id="expiry_date" name="expiry_date"
                   className="proc-input"
                   type="date"
-                  min={form.received_date || undefined}
+                  min={form.received_date ? getNextDate(form.received_date) : undefined}
                   value={form.expiry_date}
-                  onChange={e => set('expiry_date', e.target.value)}
+                  onChange={e => setDate('expiry_date', e.target.value)}
                 />
               </div>
             </div>
