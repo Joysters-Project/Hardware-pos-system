@@ -53,12 +53,12 @@ function DisposeModal({ target, onClose, onConfirm, disposing }) {
   const available = Number(target?.batch?.remaining_quantity ?? 0);
   const today = getTodayDate();
   const [disposalDate, setDisposalDate] = useState(getTodayDate);
-  const [reason, setReason] = useState("");
+  const reason = "Reason not provided";
 
   if (!target) return null;
 
   const { product } = target;
-  const invalid = available < 1 || !disposalDate || disposalDate > today || !reason.trim();
+  const invalid = available < 1 || !disposalDate || disposalDate > today;
 
   return (
     <div className="proc-modal-overlay" onClick={onClose}>
@@ -109,20 +109,9 @@ function DisposeModal({ target, onClose, onConfirm, disposing }) {
               disabled={disposing}
             />
           </div>
-          <div className="proc-field" style={{ marginTop: "0.75rem" }}>
-            <label htmlFor="disposal-reason">Disposal Reason</label>
-            <textarea
-              id="disposal-reason"
-              value={reason}
-              onChange={e => setReason(e.target.value)}
-              className="proc-input"
-              rows={3}
-              disabled={disposing}
-            />
-          </div>
           {invalid && (
             <p style={{ color: "#c62828", fontSize: "0.85rem", marginTop: "0.5rem" }}>
-              A positive expired quantity, a disposal date on or before today, and a reason are required.
+              A positive expired quantity and a disposal date on or before today are required.
             </p>
           )}
         </div>
