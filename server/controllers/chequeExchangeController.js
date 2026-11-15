@@ -1,6 +1,16 @@
 const db = require('../models');
 const { createChequeNotification, NOTIF_TYPES } = require('../services/chequeExchangeNotificationService');
+const { validateSriLankanPhone } = require('../utils/phoneValidation');
 const Op = db.Sequelize.Op;
+const isValidSriLankanNic = (nic) => /^\d{12}$/.test(nic) || /^\d{9}[vVxX]$/.test(nic);
+const getVarcharLengthError = (values, limits) => {
+  for (const [field, limit] of Object.entries(limits)) {
+    if (values[field] != null && String(values[field]).length > limit) {
+      return `${field} cannot exceed ${limit} characters`;
+    }
+  }
+  return null;
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const calcFinancials = (cheque_amount, discount_percentage) => {
@@ -9,6 +19,12 @@ const calcFinancials = (cheque_amount, discount_percentage) => {
   const service_charge          = parseFloat((amount * pct / 100).toFixed(2));
   const amount_paid_to_customer = parseFloat((amount - service_charge).toFixed(2));
   return { service_charge, amount_paid_to_customer };
+};
+
+const parseChequeAmount = (value) => {
+  const amount = String(value ?? '').trim();
+  if (!/^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d{1,2})?$/.test(amount)) return NaN;
+  return Number(amount.replace(/,/g, ''));
 };
 
 const getIo = (req) => req.app.get('io');
@@ -98,13 +114,24 @@ const createCustomer = async (req, res) => {
     if (!customer_name || !nic_number || !phone_number || !address) {
       return res.status(400).json({ success: false, message: 'All customer fields are required' });
     }
+    const varcharError = getVarcharLengthError(req.body, { customer_name: 150, nic_number: 20, phone_number: 20 });
+    if (varcharError) return res.status(400).json({ success: false, message: varcharError });
+    const normalizedNic = String(nic_number).trim();
+    if (!isValidSriLankanNic(normalizedNic)) {
+      return res.status(400).json({ success: false, message: 'NIC number must be 9 digits + V/X or 12 digits' });
+    }
+    const phoneValidation = validateSriLankanPhone(phone_number);
+    if (!phoneValidation.isValid) {
+      return res.status(400).json({ success: false, message: phoneValidation.message });
+    }
+    const validatedPhone = phoneValidation.formatted;
 
     const existing = await db.cheque_customers.findOne({
       where: {
         [Op.or]: [
           { customer_name },
-          { nic_number },
-          { phone_number },
+          { nic_number: normalizedNic },
+          { phone_number: validatedPhone },
         ],
       },
     });
@@ -116,7 +143,7 @@ const createCustomer = async (req, res) => {
       });
     }
 
-    const customer = await db.cheque_customers.create({ customer_name, nic_number, phone_number, address });
+    const customer = await db.cheque_customers.create({ customer_name, nic_number: normalizedNic, phone_number: validatedPhone, address });
     res.status(201).json({ success: true, data: customer });
   } catch (e) {
     if (e.name === 'SequelizeUniqueConstraintError') {
@@ -135,6 +162,17 @@ const updateCustomer = async (req, res) => {
     if (!customer_name || !nic_number || !phone_number || !address) {
       return res.status(400).json({ success: false, message: 'All customer fields are required' });
     }
+    const varcharError = getVarcharLengthError(req.body, { customer_name: 150, nic_number: 20, phone_number: 20 });
+    if (varcharError) return res.status(400).json({ success: false, message: varcharError });
+    const normalizedNic = String(nic_number).trim();
+    if (!isValidSriLankanNic(normalizedNic)) {
+      return res.status(400).json({ success: false, message: 'NIC number must be 9 digits + V/X or 12 digits' });
+    }
+    const phoneValidation = validateSriLankanPhone(phone_number);
+    if (!phoneValidation.isValid) {
+      return res.status(400).json({ success: false, message: phoneValidation.message });
+    }
+    const validatedPhone = phoneValidation.formatted;
 
     // Check uniqueness for name, NIC and phone (exclude self)
     const dup = await db.cheque_customers.findOne({
@@ -144,8 +182,8 @@ const updateCustomer = async (req, res) => {
         },
         [Op.or]: [
           { customer_name },
-          { nic_number },
-          { phone_number },
+          { nic_number: normalizedNic },
+          { phone_number: validatedPhone },
         ],
       },
     });
@@ -156,7 +194,7 @@ const updateCustomer = async (req, res) => {
       });
     }
 
-    await customer.update({ customer_name, nic_number, phone_number, address });
+    await customer.update({ customer_name, nic_number: normalizedNic, phone_number: validatedPhone, address });
     res.json({ success: true, data: customer });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
@@ -272,12 +310,18 @@ const createCheque = async (req, res) => {
     if (!customer_id || !cheque_number || !bank_name || !account_holder_name || !cheque_date || !expected_clearance_date || !cheque_amount || !received_date) {
       return res.status(400).json({ success: false, message: 'Required fields missing' });
     }
-    if (parseFloat(cheque_amount) <= 0) {
+    const varcharError = getVarcharLengthError(req.body, { cheque_number: 100, bank_name: 100, account_holder_name: 150 });
+    if (varcharError) return res.status(400).json({ success: false, message: varcharError });
+    const amount = parseChequeAmount(cheque_amount);
+    if (!Number.isFinite(amount)) {
+      return res.status(400).json({ success: false, message: 'Cheque amount must be a valid number with up to 2 decimal places' });
+    }
+    if (amount <= 0) {
       return res.status(400).json({ success: false, message: 'Cheque amount must be greater than 0' });
     }
-    const pct = parseFloat(discount_percentage) || 0;
-    if (pct < 0 || pct > 100) {
-      return res.status(400).json({ success: false, message: 'Discount percentage must be between 0 and 100' });
+    const pct = Number(discount_percentage);
+    if (!Number.isInteger(pct) || pct < 1 || pct > 100) {
+      return res.status(400).json({ success: false, message: 'Discount percentage must be a whole number from 1 to 100' });
     }
     if (new Date(expected_clearance_date) < new Date(cheque_date)) {
       return res.status(400).json({ success: false, message: 'Expected clearance date cannot be earlier than cheque date' });
@@ -299,7 +343,7 @@ const createCheque = async (req, res) => {
     const customer = await db.cheque_customers.findByPk(customer_id);
     if (!customer) return res.status(404).json({ success: false, message: 'Customer not found' });
 
-    const { service_charge, amount_paid_to_customer } = calcFinancials(cheque_amount, discount_percentage);
+    const { service_charge, amount_paid_to_customer } = calcFinancials(amount, pct);
 
     const cheque = await db.customer_cheques.create({
       customer_id,
@@ -308,7 +352,7 @@ const createCheque = async (req, res) => {
       account_holder_name,
       cheque_date,
       expected_clearance_date,
-      cheque_amount,
+      cheque_amount: amount,
       discount_percentage: pct,
       service_charge,
       amount_paid_to_customer,
@@ -347,12 +391,19 @@ const updateCheque = async (req, res) => {
       received_date, remarks,
     } = req.body;
 
-    if (parseFloat(cheque_amount) <= 0) {
+    const varcharError = getVarcharLengthError(req.body, { cheque_number: 100, bank_name: 100, account_holder_name: 150 });
+    if (varcharError) return res.status(400).json({ success: false, message: varcharError });
+
+    const amount = parseChequeAmount(cheque_amount);
+    if (!Number.isFinite(amount)) {
+      return res.status(400).json({ success: false, message: 'Cheque amount must be a valid number with up to 2 decimal places' });
+    }
+    if (amount <= 0) {
       return res.status(400).json({ success: false, message: 'Cheque amount must be greater than 0' });
     }
-    const pct = parseFloat(discount_percentage) || 0;
-    if (pct < 0 || pct > 100) {
-      return res.status(400).json({ success: false, message: 'Discount percentage must be between 0 and 100' });
+    const pct = Number(discount_percentage);
+    if (!Number.isInteger(pct) || pct < 1 || pct > 100) {
+      return res.status(400).json({ success: false, message: 'Discount percentage must be a whole number from 1 to 100' });
     }
     if (new Date(expected_clearance_date) < new Date(cheque_date)) {
       return res.status(400).json({ success: false, message: 'Expected clearance date cannot be earlier than cheque date' });
@@ -372,11 +423,11 @@ const updateCheque = async (req, res) => {
     });
     if (dup) return res.status(409).json({ success: false, message: 'Cheque number already exists' });
 
-    const { service_charge, amount_paid_to_customer } = calcFinancials(cheque_amount, discount_percentage);
+    const { service_charge, amount_paid_to_customer } = calcFinancials(amount, pct);
 
     await cheque.update({
       cheque_number, bank_name, account_holder_name, cheque_date,
-      expected_clearance_date, cheque_amount, discount_percentage: pct,
+      expected_clearance_date, cheque_amount: amount, discount_percentage: pct,
       service_charge, amount_paid_to_customer, received_date,
       remarks: remarks || null,
       updated_by: req.user?.user_id || null,

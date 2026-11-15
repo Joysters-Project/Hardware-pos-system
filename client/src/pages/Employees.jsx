@@ -401,6 +401,7 @@ function EmployeesPage() {
                     <input
                       type={type}
                       value={form[key]}
+                      maxLength={{ first_name: 50, last_name: 50, nic: 20, email: 150 }[key]}
                       onChange={e => setForm({ ...form, [key]: e.target.value })}
                       title={key === "nic" ? "NIC must be 9 digits + V/X or 12 digits" : key === "first_name" || key === "last_name" ? "Name may only contain letters and spaces" : undefined}
                     />
@@ -439,6 +440,7 @@ function EmployeesPage() {
                   <input
                     type="text"
                     value={form.position}
+                    maxLength={100}
                     onChange={e => setForm({ ...form, position: e.target.value })}
                     title="Position may only contain letters and spaces"
                     placeholder="e.g. Manager"

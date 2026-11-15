@@ -381,6 +381,7 @@ function DepartmentsPage() {
                 <label>Department Name <span className="req">*</span></label>
                 <input id="department_name" name="department_name"
                   value={form.department_name}
+                  maxLength={100}
                   onChange={e => setForm({ ...form, department_name: e.target.value })}
                   placeholder="e.g. Sales, IT, Warehouse"
                   autoFocus
