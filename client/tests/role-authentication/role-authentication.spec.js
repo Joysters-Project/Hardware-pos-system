@@ -174,6 +174,45 @@ test.describe('Protected Routes and Role Authorization', () => {
     await expect(page.getByRole('heading', { name: /Welcome, cashier-user!/ })).toBeVisible();
   });
 
+  test('cashier can view all Out of Stock alerts even when their status is Purchase Ordered', async ({ page }) => {
+    const outOfStockAlerts = [501, 502].map((alertId) => ({
+      alert_id: alertId,
+      alert_type: 'Out of Stock',
+      status: 'Purchase Ordered',
+      product_id: alertId,
+      product: {
+        product_id: alertId,
+        product_name: `Zero Stock Product ${alertId}`,
+        stock_quantity: 0,
+        min_stock_quantity: 5,
+        reorder_level: 3,
+      },
+    }));
+    await setupAuthApi(page);
+    await page.route('**/api/alerts/summary', route => route.fulfill({
+      json: {
+        'Out of Stock': 2,
+        'Low Stock': 0,
+        Reorder: 0,
+        'Near Expiry': 0,
+        Expired: 0,
+        total: 2,
+      },
+    }));
+    await page.route(/\/api\/alerts(?:\?.*)?$/, route => route.fulfill({
+      json: outOfStockAlerts,
+    }));
+    await seedSession(page, 'cashier');
+    await page.goto('/alerts');
+
+    const outOfStockFilter = page.locator('.alert-chip').filter({ hasText: 'Out Of Stock' });
+    await expect(outOfStockFilter).toContainText('2');
+    await outOfStockFilter.click();
+    await expect(page.getByRole('row').filter({ hasText: 'Zero Stock Product 501' })).toBeVisible();
+    await expect(page.getByRole('row').filter({ hasText: 'Zero Stock Product 502' })).toBeVisible();
+    await expect(page.getByText('No alerts found.')).toHaveCount(0);
+  });
+
   test('cashier can open payment alerts read-only without being redirected', async ({ page }) => {
     await setupAuthApi(page, {
       chequeAlerts: {
@@ -227,22 +266,71 @@ test.describe('Protected Routes and Role Authorization', () => {
     await expect(page.getByRole('button', { name: /Mark Cleared|Resolve Bounced|Confirm Payment/ })).toHaveCount(0);
   });
 
-  test('cashier can open Collect Due from Customer Due Alerts', async ({ page }) => {
-    await setupAuthApi(page, {
-      customerDueAlerts: {
-        summary: { total: 1, dueSoon: 0, dueToday: 1, overdue: 0 },
-        alerts: [{
-          bill_id: 7,
-          invoice_number: 'INV-7',
-          customer_name: 'Due Customer',
-          phone_no: '0771234567',
-          expected_payment_date: '2026-11-14',
-          total_amount: 1000,
-          due_amount: 500,
-          alert_type: 'Due Today',
-          days_remaining: 0,
-        }],
-      },
+  test('cashier can collect partial and full dues from Customer Due Alerts', async ({ page }) => {
+    await setupAuthApi(page);
+    let remainingDue = 1500;
+    let requestedCustomerId;
+    let submittedPayment;
+    const paymentHistory = [];
+    await page.route('**/api/alerts/customer-due-alerts', async route => {
+      return route.fulfill({
+        json: remainingDue > 0 ? {
+          summary: { total: 1, dueSoon: 0, dueToday: 0, overdue: 1 },
+          alerts: [{
+            bill_id: 7,
+            customer_id: 42,
+            invoice_number: 'INV-7',
+            customer_name: 'Due Customer',
+            phone_no: '0771234567',
+            expected_payment_date: '2026-11-14',
+            total_amount: 1500,
+            due_amount: remainingDue,
+            alert_type: 'Overdue',
+            days_remaining: -1,
+          }],
+        } : {
+          summary: { total: 0, dueSoon: 0, dueToday: 0, overdue: 0 },
+          alerts: [],
+        },
+      });
+    });
+    await page.route('**/api/customers*', route => route.fulfill({
+      json: { customer_id: 42, customer_name: 'Due Customer', phone_no: '0771234567' },
+    }));
+    await page.route('**/api/bills*', async route => {
+      const url = new URL(route.request().url());
+      requestedCustomerId = url.searchParams.get('customer_id');
+      return route.fulfill({
+        json: [
+          { bill_id: 8, bill_no: 'INV-8', total_amount: '2000.00', balance_due: '1500.00', bill_date: '2026-11-10' },
+          ...(remainingDue > 0 ? [{
+            bill_id: 7,
+            bill_no: 'INV-7',
+            total_amount: '1500.00',
+            balance_due: remainingDue.toFixed(2),
+            bill_date: '2026-11-11',
+          }] : []),
+        ],
+      });
+    });
+    await page.route('**/api/payments*', async route => {
+      const request = route.request();
+      if (request.method() === 'POST') {
+        submittedPayment = request.postDataJSON();
+        remainingDue = Math.max(0, remainingDue - Number(submittedPayment.amount_paid));
+        paymentHistory.push({
+          payment_id: paymentHistory.length + 1,
+          bill_id: submittedPayment.bill_id,
+          amount_paid: submittedPayment.amount_paid,
+          payment_method: submittedPayment.payment_method,
+          payment_date: '2026-11-15',
+        });
+        return route.fulfill({ status: 201, json: { message: 'Payment collected' } });
+      }
+      const billId = new URL(request.url()).searchParams.get('bill_id');
+      return route.fulfill({
+        json: paymentHistory.filter(payment => String(payment.bill_id) === billId),
+      });
     });
     await page.goto('/');
     await page.evaluate(() => {
@@ -258,7 +346,114 @@ test.describe('Protected Routes and Role Authorization', () => {
     await expect(page.getByRole('row').filter({ hasText: 'INV-7' })).toContainText('Due Customer');
     await page.getByRole('button', { name: 'Collect Due' }).click();
     await expect(page).toHaveURL('/cashier-panel/due-collection/collect');
-    await expect(page.locator('#due-collection-search')).toBeVisible();
+    await expect(page.locator('#due-collection-search')).toHaveValue('0771234567');
+    await expect(page.locator('.customer-summary')).toContainText('Due Customer');
+    await expect(page.locator('.customer-summary')).toContainText('0771234567');
+    await expect(page.getByRole('row').filter({ hasText: 'INV-7' }).locator('input[type="checkbox"]')).toBeChecked();
+    await expect(page.getByRole('row').filter({ hasText: 'INV-8' }).locator('input[type="checkbox"]')).not.toBeChecked();
+    await expect(page.locator('.due-right .collection-summary')).toContainText('INV-7');
+    await expect(page.locator('.due-right .collection-summary')).toContainText('1500.00');
+    await expect(page.locator('#due-amount')).toHaveValue('1500.00');
+    expect(requestedCustomerId).toBe('42');
+
+    await page.locator('#due-amount').fill('500');
+    await page.locator('.collect-btn').click();
+    await expect(page.locator('#due-amount')).toHaveValue('1000.00');
+    await expect(page.getByRole('row').filter({ hasText: 'INV-7' })).toContainText('1000.00');
+    await expect(page.locator('.due-right .collection-summary')).toContainText('Paid so far');
+    await expect(page.locator('.due-right .collection-summary')).toContainText('500.00');
+    await expect(page.locator('.due-right .collection-summary')).toContainText('Balance due');
+    expect(submittedPayment.amount_paid).toBe(500);
+
+    await page.goto('/alerts?tab=customer-due');
+    await page.reload();
+    const updatedDueAlert = page.getByRole('row').filter({ hasText: 'INV-7' });
+    await expect(updatedDueAlert).toContainText('LKR 1,000.00');
+    await updatedDueAlert.getByRole('button', { name: 'Collect Due' }).click();
+    await expect(page.locator('#due-amount')).toHaveValue('1000.00');
+    await page.locator('.collect-btn').click();
+    await expect(page.getByRole('row').filter({ hasText: 'INV-7' })).toHaveCount(0);
+    expect(submittedPayment.amount_paid).toBe(1000);
+
+    await page.goto('/alerts?tab=customer-due');
+    await page.reload();
+    await expect(page.getByRole('row').filter({ hasText: 'INV-7' })).toHaveCount(0);
+  });
+
+  test('manager can view customer due details without collection controls', async ({ page }) => {
+    await setupAuthApi(page, {
+      customerDueAlerts: {
+        summary: { total: 1, dueSoon: 0, dueToday: 0, overdue: 1 },
+        alerts: [{
+          bill_id: 7,
+          customer_id: 42,
+          invoice_number: 'INV-7',
+          customer_name: 'Due Customer',
+          phone_no: '0771234567',
+          address: '12 Main Street',
+          expected_payment_date: '2026-11-14',
+          total_amount: 1500,
+          due_amount: 750,
+          bill_status: 'PARTIAL',
+          alert_type: 'Overdue',
+          days_remaining: -1,
+        }],
+      },
+    });
+    await seedSession(page, 'manager');
+    await page.goto('/manager/alerts?tab=customer-due');
+
+    await expect(page.getByRole('button', { name: 'View', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Collect Due' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'View', exact: true }).click();
+
+    const details = page.locator('.dm-box');
+    await expect(details.getByRole('heading', { name: 'Customer Due Details' })).toBeVisible();
+    for (const value of [
+      'INV-7', '7', '42', 'Due Customer', '0771234567', '12 Main Street',
+      '14/11/2026', 'LKR 1,500.00', 'LKR 750.00', 'PARTIAL', 'Overdue', '1 day overdue',
+    ]) {
+      await expect(details).toContainText(value);
+    }
+    await expect(details.getByRole('button', { name: /collect|confirm|edit|save/i })).toHaveCount(0);
+    await expect(details.locator('input, select, textarea')).toHaveCount(0);
+  });
+
+  test('admin retains the existing Customer Due collection action', async ({ page }) => {
+    await setupAuthApi(page, {
+      customerDueAlerts: {
+        summary: { total: 1, dueSoon: 0, dueToday: 0, overdue: 1 },
+        alerts: [{
+          bill_id: 7,
+          customer_id: 42,
+          invoice_number: 'INV-7',
+          customer_name: 'Due Customer',
+          phone_no: '0771234567',
+          expected_payment_date: '2026-11-14',
+          total_amount: 1500,
+          due_amount: 750,
+          bill_status: 'PARTIAL',
+          alert_type: 'Overdue',
+          days_remaining: -1,
+        }],
+      },
+    });
+    await page.route('**/api/bills*', route => route.fulfill({
+      json: [{
+        bill_id: 7,
+        bill_no: 'INV-7',
+        total_amount: '1500.00',
+        balance_due: '750.00',
+        bill_date: '2026-11-11',
+      }],
+    }));
+    await page.route('**/api/payments*', route => route.fulfill({ json: [] }));
+    await seedSession(page, 'admin');
+    await page.goto('/alerts?tab=customer-due');
+
+    await page.getByRole('button', { name: 'Collect Due' }).click();
+    await expect(page).toHaveURL('/cashier-panel/due-collection/collect');
+    await expect(page.locator('#due-amount')).toHaveValue('750.00');
   });
 
   test('an authenticated session is restored after a page reload', async ({ page }) => {

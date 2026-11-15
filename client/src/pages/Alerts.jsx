@@ -620,11 +620,51 @@ const CUSTOMER_DUE_COLORS = {
   "Due Soon": "#d97706",
 };
 
-function CustomerDueAlertsTab({ isCashier }) {
+function CustomerDueDetailContent({ alert }) {
+  const formatDate = (date) => date ? new Date(date).toLocaleDateString("en-GB") : "—";
+  const formatAmount = (amount) => amount == null || amount === ""
+    ? "—"
+    : `LKR ${Number(amount).toLocaleString("en-LK", { minimumFractionDigits: 2 })}`;
+  const daysLabel = alert.days_remaining == null
+    ? "—"
+    : alert.days_remaining < 0
+      ? `${Math.abs(alert.days_remaining)} day${Math.abs(alert.days_remaining) === 1 ? "" : "s"} overdue`
+      : alert.days_remaining === 0
+        ? "Due today"
+        : `${alert.days_remaining} day${alert.days_remaining === 1 ? "" : "s"} remaining`;
+  const details = [
+    ["Invoice No.", alert.invoice_number],
+    ["Bill ID", alert.bill_id],
+    ["Customer ID", alert.customer_id],
+    ["Customer Name", alert.customer_name],
+    ["Phone No.", alert.phone_no],
+    ["Address", alert.address],
+    ["Expected Payment Date", formatDate(alert.expected_payment_date)],
+    ["Total Amount", formatAmount(alert.total_amount)],
+    ["Due Amount", formatAmount(alert.due_amount)],
+    ["Bill Status", alert.bill_status],
+    ["Alert", alert.alert_type],
+    ["Days Remaining", daysLabel],
+  ];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", fontSize: "0.9rem" }}>
+      {details.map(([label, value]) => (
+        <div key={label} style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f1e7e5", paddingBottom: "0.4rem" }}>
+          <span style={{ color: "#5e4a48", fontWeight: 600 }}>{label}</span>
+          <span style={{ fontWeight: 700, color: "#2b2b2b" }}>{value ?? "—"}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CustomerDueAlertsTab({ isManager }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const activeType = searchParams.get("type") || "";
   const [dueSearch, setDueSearch] = useState("");
+  const [viewDue, setViewDue] = useState(null);
 
   const { data, isLoading } = useCustomerDueAlerts();
   const allAlerts = data?.alerts || [];
@@ -671,6 +711,11 @@ function CustomerDueAlertsTab({ isCashier }) {
 
   return (
     <>
+      {viewDue && (
+        <DetailModal title="Customer Due Details" onClose={() => setViewDue(null)}>
+          <CustomerDueDetailContent alert={viewDue} />
+        </DetailModal>
+      )}
       <div className="alert-chips">
         {CUSTOMER_DUE_FILTERS.map(({ key, label }) => {
           const isActive = activeType === key;
@@ -752,9 +797,11 @@ function CustomerDueAlertsTab({ isCashier }) {
                       <button
                         className="proc-btn-outline"
                         style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem", whiteSpace: "nowrap" }}
-                        onClick={() => navigate('/cashier-panel/due-collection/collect')}
+                        onClick={() => isManager
+                          ? setViewDue(a)
+                          : navigate('/cashier-panel/due-collection/collect', { state: { dueInvoice: a } })}
                       >
-                        Collect Due
+                        {isManager ? "View" : "Collect Due"}
                       </button>
                     </td>
                   </tr>
@@ -771,6 +818,7 @@ function CustomerDueAlertsTab({ isCashier }) {
 function AlertCenterPage() {
   const { role } = useAuth();
   const isCashier = (role || "").toLowerCase() === "cashier";
+  const isManager = (role || "").toLowerCase() === "manager";
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [alerts, setAlerts] = useState([]);
@@ -848,7 +896,9 @@ function AlertCenterPage() {
       }
       const res = await api.get("/alerts", { params });
       let data = Array.isArray(res.data) ? res.data : res.data?.alerts || [];
-      if (isCashier) data = data.filter(a => a.status !== "Purchase Ordered");
+      if (isCashier && activeFilter !== "out-of-stock") {
+        data = data.filter(a => a.status !== "Purchase Ordered");
+      }
       setAlerts(data);
     } catch (err) {
       toast.error("Unable to load alerts.");
@@ -1008,7 +1058,7 @@ function AlertCenterPage() {
       </div>
 
       {activeTab === "customer-due" ? (
-        <CustomerDueAlertsTab isCashier={isCashier} />
+        <CustomerDueAlertsTab isManager={isManager} />
       ) : activeTab === "payment" ? (
         <PaymentAlertsTab readOnly={isCashier} />
       ) : (
