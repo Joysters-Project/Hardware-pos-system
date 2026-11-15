@@ -76,6 +76,23 @@ test.describe('Employees — Page Structure', () => {
     await expect(page.getByRole('button', { name: /Add Employee/i })).toBeVisible();
   });
 
+  test('Add Employee position options exclude the signed-in role', async ({ page }) => {
+    await gotoEmployees(page);
+    await page.getByRole('button', { name: /Add Employee/i }).click();
+    const position = page.locator('.emp-field').filter({ hasText: 'Position' }).locator('select');
+    await expect(position.locator('option[value="Admin"]')).toHaveCount(0);
+    await page.locator('.emp-btn-cancel').click();
+  });
+
+  test('manager cannot select Manager as a new employee position', async ({ page }) => {
+    await page.addInitScript(() => sessionStorage.setItem('role', 'manager'));
+    await gotoEmployees(page, 'manager');
+    await page.getByRole('button', { name: /Add Employee/i }).click();
+    const position = page.locator('.emp-field').filter({ hasText: 'Position' }).locator('select');
+    await expect(position.locator('option[value="Manager"]')).toHaveCount(0);
+    await page.locator('.emp-btn-cancel').click();
+  });
+
 });
 
 // ─── Search & Filters ─────────────────────────────────────────────────────────
