@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
 import { RefreshCw, Trash2, Eye } from "lucide-react";
 import toast from "react-hot-toast";
@@ -41,14 +42,14 @@ function BatchInventoryPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return batches.filter((b) =>
-      !q ||
-      String(b.batch_number).toLowerCase().includes(q) ||
-      String(b.product?.product_name || "").toLowerCase().includes(q) ||
-      formatPurchaseOrderNumber(b.purchase_order?.po_number, b.purchase_order?.po_id).toLowerCase().includes(q) ||
-      String(b.supplier?.supplier_name || "").toLowerCase().includes(q) ||
-      String(b.status).toLowerCase().includes(q)
-    );
+    if (!q) return batches;
+    return batches.filter((batch) => [
+      batch.batch_number,
+      batch.product?.product_name,
+      formatPurchaseOrderNumber(batch.purchase_order?.po_number, batch.purchase_order?.po_id),
+      batch.supplier?.supplier_name,
+      batch.status,
+    ].some((value) => String(value ?? "").toLowerCase().includes(q)));
   }, [batches, search]);
 
   const handleDispose = async (batch) => {
@@ -152,11 +153,11 @@ function BatchInventoryPage() {
         </table>
       </div>
 
-      {viewBatch && (
-        <div className="modal-overlay" onDoubleClick={(event) => {
+      {viewBatch && createPortal(
+        <div className="modal-overlay batch-details-overlay" onDoubleClick={(event) => {
           if (event.target === event.currentTarget) setViewBatch(null);
         }}>
-          <div className="modal-box view-modal" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-box view-modal batch-details-modal" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Batch Details</h2>
               <button className="modal-close" onClick={() => setViewBatch(null)}>✕</button>
@@ -185,7 +186,8 @@ function BatchInventoryPage() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

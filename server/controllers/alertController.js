@@ -84,7 +84,7 @@ exports.getAllAlerts = async (req, res) => {
       include: [{
         model: products,
         attributes: ['product_id', 'product_name', 'stock_quantity', 'min_stock_quantity',
-                     'reorder_level', 'batch_no', 'expiry_date', 'status'],
+                     'reorder_level', 'batch_no', 'barcode', 'expiry_date', 'status'],
       }],
       order: [['alert_id', 'DESC']],
       ...(search ? { subQuery: false } : {}),
