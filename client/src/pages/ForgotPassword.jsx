@@ -263,9 +263,7 @@ function ForgotPassword() {
                   disabled={loading}
                   autoFocus
                 />
-                <span className="fp-pw-toggle" onClick={() => setShowPw(!showPw)}>
-                  {showPw ? "🙈" : "👁️"}
-                </span>
+               
               </div>
             </div>
             <div className="input-box">
