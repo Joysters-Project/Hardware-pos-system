@@ -39,7 +39,8 @@ function makeAlerts() {
     },
     {
       alert_id: 5, product_id: 14, alert_type: 'Expired', status: 'Active',
-      is_resolved: false, batch_number: 'BATCH-002', alert_label: 'Expired Stock – Disposal Required',
+      is_resolved: false, batch_id: 14, batch_number: 'BATCH-002', alert_label: 'Expired Stock – Disposal Required',
+      batch: { remaining_quantity: 4, batch_number: 'BATCH-002', expiry_date: '2024-01-01' },
       product: { product_id: 14, product_name: 'Rust Remover', barcode: 'SKU-RUST-14', stock_quantity: 4, min_stock_quantity: 2, reorder_level: 3, expiry_date: '2024-01-01', batch_no: 'BATCH-002', status: 'active' },
     },
     {
@@ -536,11 +537,25 @@ test.describe('Alerts - Expired Batch Actions', () => {
   test('Dispose modal opens with correct product info', async ({ page }) => {
     await setupAlertsApi(page);
     await gotoAlerts(page);
+    let disposalPayload;
+    await page.route('**/api/batch-inventory/14/dispose', async route => {
+      disposalPayload = route.request().postDataJSON();
+      return route.fulfill({ json: { message: 'Disposed' } });
+    });
     const row = page.locator('tbody tr').filter({ hasText: 'Rust Remover' });
     await row.getByRole('button', { name: 'Dispose' }).click();
-    await expect(page.locator('.proc-modal')).toBeVisible();
-    await expect(page.locator('.proc-modal')).toContainText('Rust Remover');
-    await page.locator('.proc-modal-close').click();
-    await expect(page.locator('.proc-modal')).toHaveCount(0);
+    const modal = page.locator('.proc-modal');
+    await expect(modal).toBeVisible();
+    await expect(modal).toContainText('Rust Remover');
+    await expect(modal.getByLabel('Disposal Reason')).toHaveCount(0);
+    await expect(modal.locator('textarea')).toHaveCount(0);
+    const footer = modal.locator('.proc-modal-footer');
+    await expect(footer.getByRole('button')).toHaveText(['Cancel', 'Confirm Dispose']);
+    await expect(footer.getByRole('button', { name: 'Confirm Dispose' })).toBeEnabled();
+    await footer.getByRole('button', { name: 'Confirm Dispose' }).click();
+    await expect.poll(() => disposalPayload).toMatchObject({
+      quantity: 4,
+      disposal_reason: 'Reason not provided',
+    });
   });
 });
