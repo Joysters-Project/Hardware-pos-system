@@ -25,7 +25,8 @@ const calculateSupplierScore = async (supplierId) => {
         order_success_rate: 100.00,
         total_purchase_volume: 0.00
       });
-      return supplier;
+      const freshSupplier = await suppliers.findByPk(supplierId);
+      return freshSupplier;
     }
 
     const receivedOrders = orders.filter(o => o.status === 'Received');
@@ -97,7 +98,11 @@ const calculateSupplierScore = async (supplierId) => {
       total_purchase_volume: parseFloat(totalPurchaseVolume.toFixed(2))
     });
 
-    return supplier;
+    // Reload to get the freshly saved values (Sequelize .update() on an instance
+    // mutates it in-memory but the returned reference may still reflect old data
+    // in some Sequelize versions — a fresh findByPk guarantees accuracy).
+    const freshSupplier = await suppliers.findByPk(supplierId);
+    return freshSupplier;
   } catch (err) {
     console.error(`[SupplierPerformanceService] Error calculating supplier score: ${err.message}`);
     throw err;

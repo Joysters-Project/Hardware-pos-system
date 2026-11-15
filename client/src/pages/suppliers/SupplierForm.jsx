@@ -119,12 +119,12 @@ export default function SupplierForm() {
   const FIELDS = [
     { label: 'Supplier Name', name: 'supplier_name', placeholder: 'Enter supplier name', required: true, full: true },
     { label: 'Contact Person', name: 'contact_person', placeholder: 'Contact person name' },
-    { label: 'Phone', name: 'phone', placeholder: '+94 71 234 5678' },
+    { label: 'Phone', name: 'phone', placeholder: '071 234 5678' },
     { label: 'Email', name: 'email', type: 'email', placeholder: 'supplier@example.com' },
     { label: 'Status', name: 'status', type: 'select', options: ['Active', 'Inactive'] },
     { label: 'Address', name: 'address', type: 'textarea', placeholder: 'Full address', full: true },
     { label: 'Company Registration No.', name: 'company_reg', placeholder: 'e.g. PV00012345' },
-    { label: 'Tax ID / VAT No.', name: 'tax_id', placeholder: 'e.g. 123456789V' },
+    { label: 'NIC', name: 'tax_id', placeholder: 'e.g. 123456789V' },
     {
       label: 'Payment Terms',
       name: 'payment_terms',

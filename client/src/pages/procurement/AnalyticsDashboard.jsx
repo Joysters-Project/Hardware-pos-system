@@ -34,7 +34,7 @@ function KpiCard({ icon: Icon, label, value, color, delay }) {
 export default function AnalyticsDashboard() {
   const { data } = useProcurementDashboard();
   const { data: performance = [] } = useSupplierPerformanceReport();
-  const { data: purchases = [], isLoading: ql } = usePurchaseSummaryReport();
+  const { data: purchases = [] } = usePurchaseSummaryReport();
 
   const { cards = {}, statusChart, monthlyVolume, topSuppliers } = useMemo(() => {
     if (!data) return { cards: {}, statusChart: [], monthlyVolume: [], topSuppliers: [] };
@@ -172,63 +172,6 @@ export default function AnalyticsDashboard() {
           </div>
         </motion.div>
       </div>
-
-      {/* Spend by Supplier table */}
-      <motion.div className="proc-card"
-        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-        <div className="proc-card-header">
-          <h2>Purchase Summary by Supplier</h2>
-          <span className="proc-badge-count">{purchases.length} suppliers</span>
-        </div>
-        <div className="proc-table-wrap">
-          <table className="proc-table">
-            <thead>
-              <tr>
-                <th>Supplier</th>
-                <th style={{ textAlign: 'center' }}>Orders</th>
-                <th style={{ textAlign: 'right' }}>Total Value</th>
-                <th style={{ textAlign: 'right' }}>Received</th>
-                <th style={{ textAlign: 'center' }}>On-Time %</th>
-                <th>Rating</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ql ? (
-                <tr><td colSpan="6" className="proc-empty">Loading...</td></tr>
-              ) : purchases.length === 0 ? (
-                <tr><td colSpan="6" className="proc-empty">No data available</td></tr>
-              ) : purchases.map((row, i) => {
-                const perf = performance.find(p => p.supplier_id === row.supplier_id);
-                return (
-                  <motion.tr key={row.supplier_id}
-                    initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.03 }}>
-                    <td>
-                      <div className="proc-name-cell">{row.supplier_name}</div>
-                      <div style={{ fontSize: '11px', color: '#888', fontFamily: 'monospace' }}>{row.supplier_code}</div>
-                    </td>
-                    <td style={{ textAlign: 'center' }}>{row.total_orders}</td>
-                    <td style={{ textAlign: 'right' }}><span className="proc-amount">{fmt(row.total_value)}</span></td>
-                    <td style={{ textAlign: 'right' }}><span className="proc-amount" style={{ color: '#1d7e42' }}>{fmt(row.received_value)}</span></td>
-                    <td style={{ textAlign: 'center' }}>
-                      {perf ? (
-                        <span style={{ fontWeight: 700, color: perf.on_time_pct >= 80 ? '#1d7e42' : perf.on_time_pct >= 50 ? '#e65100' : '#c62828' }}>
-                          {perf.on_time_pct}%
-                        </span>
-                      ) : '—'}
-                    </td>
-                    <td>
-                      {[1,2,3,4,5].map(s => (
-                        <span key={s} style={{ color: s <= (row.performance_rating || 0) ? '#f59e0b' : '#d1d5db', fontSize: '12px' }}>★</span>
-                      ))}
-                    </td>
-                  </motion.tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </motion.div>
     </div>
   );
 }

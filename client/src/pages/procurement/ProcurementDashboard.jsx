@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import {
   useProcurementDashboard, useReorderSuggestions,
-  useConvertSuggestionToPO, useForecasts, useSuppliers, usePayments,
+  useConvertSuggestionToPO, useForecasts, usePayments,
 } from '../../services/procurementApi';
 import '../../styles/Procurement.css';
 import '../../styles/ProcurementPages.css';
@@ -49,7 +49,6 @@ export default function ProcurementDashboard() {
   const { data } = useProcurementDashboard();
   const { data: suggestions = [], isLoading: sl } = useReorderSuggestions();
   const { data: forecasts = [], isLoading: fl }   = useForecasts();
-  const { data: suppliers = [], isLoading: spl }  = useSuppliers();
   const { data: payments = [], isLoading: pl }    = usePayments();
   const convertMutation = useConvertSuggestionToPO();
 
@@ -71,17 +70,22 @@ export default function ProcurementDashboard() {
     [forecasts]);
 
   const pendingSuggestions = useMemo(() =>
-    suggestions.filter(s => !s.status || s.status === 'Pending').slice(0, 4),
+    suggestions.filter(s => {
+      if (!s) return false;
+      const status = s.status || 'Pending';
+      if (status === 'Pending' || status === 'Approved') return true;
+      // If converted but stock is still 0 or below reorder level, show as in-progress reorder
+      if (status === 'Converted' && Number(s.product?.stock_quantity ?? s.current_stock ?? 0) <= 0) return true;
+      return false;
+    }).slice(0, 4),
     [suggestions]);
 
-  const overduePayments = useMemo(() =>
-    payments.filter(p => p.payment_status !== 'Paid')
-      .sort((a, b) => new Date(a.due_date) - new Date(b.due_date)).slice(0, 4),
+  const paymentRows = useMemo(() =>
+    [...(payments || [])]
+      .filter(p => p && p.payment_status !== 'Cancelled')
+      .sort((a, b) => new Date(b.paid_date || b.due_date || b.created_at || 0) - new Date(a.paid_date || a.due_date || a.created_at || 0))
+      .slice(0, 4),
     [payments]);
-
-  const topLeaderboard = useMemo(() =>
-    [...suppliers].sort((a, b) => (b.performance_score || 0) - (a.performance_score || 0)).slice(0, 5),
-    [suppliers]);
 
   return (
     <div className="proc-container">
@@ -100,7 +104,7 @@ export default function ProcurementDashboard() {
           </motion.button>
           <motion.button className="proc-btn-primary" whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
             onClick={() => navigate('/procurement/orders/create')}>
-            <Plus size={15} /> Create
+            <Plus size={15} /> Create Purchase Order
           </motion.button>
         </div>
       </motion.div>
@@ -142,7 +146,7 @@ export default function ProcurementDashboard() {
                   <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                   <YAxis tickFormatter={v => `LKR${(v/1000).toFixed(0)}k`} tick={{ fontSize: 10 }} />
                   <Tooltip formatter={v => [`LKR ${Number(v).toLocaleString()}`, 'Purchase Value']} />
-                  <Area type="monotone" dataKey="total" stroke="#8b3a3a" strokeWidth={2} fill="url(#grad)" />
+                  <Area type="monotone" dataKey="purchaseValue" stroke="#8b3a3a" strokeWidth={2} fill="url(#grad)" />
                 </AreaChart>
               </ResponsiveContainer>
             )}
@@ -217,13 +221,19 @@ export default function ProcurementDashboard() {
                         <td style={{ fontSize: '0.82rem', color: '#666' }}>{s.supplier?.supplier_name || '—'}</td>
                         <td style={{ textAlign: 'center', fontWeight: 700 }}>{s.suggested_quantity}</td>
                         <td>
-                          <motion.button className="proc-btn-approve"
-                            style={{ fontSize: '0.75rem', padding: '0.3rem 0.7rem' }}
-                            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                            onClick={() => convertMutation.mutate(s.suggestion_id)}
-                            disabled={convertMutation.isPending}>
-                            Convert to PO
-                          </motion.button>
+                          {s.status === 'Converted' ? (
+                            <span className="proc-status-pill approved" style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}>
+                              PO Generated
+                            </span>
+                          ) : (
+                            <motion.button className="proc-btn-approve"
+                              style={{ fontSize: '0.75rem', padding: '0.3rem 0.7rem' }}
+                              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                              onClick={() => convertMutation.mutate(s.suggestion_id)}
+                              disabled={convertMutation.isPending}>
+                              Convert to PO
+                            </motion.button>
+                          )}
                         </td>
                       </motion.tr>
                     ))}
@@ -266,11 +276,15 @@ export default function ProcurementDashboard() {
                         </span>
                       </div>
                       <div className="pd-forecast-right">
-                        {days !== null && (
+                        {Number(f.stock_quantity || 0) <= 0 ? (
+                          <span style={{ fontSize: '0.8rem', color: '#c62828', fontWeight: 700 }}>
+                            Out of stock
+                          </span>
+                        ) : days !== null ? (
                           <span style={{ fontSize: '0.8rem', color: SEV_COLOR[f.severity], fontWeight: 700 }}>
                             {days}d left
                           </span>
-                        )}
+                        ) : null}
                         <span className="pd-sev-badge"
                           style={{ background: SEV_BG[f.severity], color: SEV_COLOR[f.severity] }}>
                           {f.severity}
@@ -283,20 +297,20 @@ export default function ProcurementDashboard() {
             )}
           </motion.div>
 
-          {/* Outstanding Payments */}
+          {/* Payment Activity */}
           <motion.div className="proc-card"
             initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.36 }}>
             <div className="proc-card-header">
-              <h2>Outstanding Payments</h2>
+              <h2>Payment Details</h2>
               <button className="proc-link-btn" onClick={() => navigate('/procurement/payments')}>
                 View All <ChevronRight size={13} />
               </button>
             </div>
-            {overduePayments.length === 0 ? (
+            {paymentRows.length === 0 ? (
               <div className="proc-card-body">
                 <div className="pd-empty-state">
                   <CheckCircle size={28} style={{ color: '#1d7e42' }} />
-                  <p>All accounts are settled</p>
+                  <p>No payment activity yet</p>
                 </div>
               </div>
             ) : (
@@ -305,31 +319,34 @@ export default function ProcurementDashboard() {
                   <thead>
                     <tr>
                       <th>Supplier</th>
-                      <th>Due</th>
-                      <th style={{ textAlign: 'right' }}>Balance</th>
+                      <th>{payments?.[0]?.paid_date ? 'Paid / Due' : 'Due'}</th>
+                      <th style={{ textAlign: 'right' }}>Amount</th>
                       <th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {pl ? (
                       <tr><td colSpan="4" className="proc-empty">Loading...</td></tr>
-                    ) : overduePayments.map((p, i) => {
-                      const isOverdue = p.due_date && new Date(p.due_date) < new Date();
+                    ) : paymentRows.map((p, i) => {
+                      const isPaid = String(p.payment_status || '').toLowerCase() === 'paid';
+                      const amount = isPaid ? (Number(p.paid_amount) || Number(p.amount) || Number(p.balance_amount) || 0) : (Number(p.balance_amount) || Number(p.amount) || 0);
+                      const date = isPaid ? (p.paid_date || p.due_date) : p.due_date;
+                      const isOverdue = date && new Date(date) < new Date() && !isPaid;
                       return (
-                        <motion.tr key={p.payment_id}
+                        <motion.tr key={p.payment_id || i}
                           initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }}>
                           <td className="proc-name-cell">{p.supplier?.supplier_name || '—'}</td>
                           <td style={{ fontSize: '0.82rem', color: isOverdue ? '#c62828' : '#333' }}>
-                            {fmtD(p.due_date)}
+                            {fmtD(date)}
                           </td>
                           <td style={{ textAlign: 'right' }}>
-                            <span className="proc-amount" style={{ color: '#c62828' }}>
-                              {fmt(p.balance_amount)}
+                            <span className="proc-amount" style={{ color: isPaid ? '#1d7e42' : '#c62828' }}>
+                              {fmt(amount)}
                             </span>
                           </td>
                           <td>
-                            <span className={`proc-status-pill ${isOverdue ? 'cancelled' : 'pending'}`}>
-                              {isOverdue ? 'Overdue' : p.payment_status}
+                            <span className={`proc-status-pill ${isOverdue ? 'cancelled' : isPaid ? 'approved' : 'pending'}`}>
+                              {isOverdue ? 'Overdue' : p.payment_status || 'Pending'}
                             </span>
                           </td>
                         </motion.tr>
@@ -368,44 +385,6 @@ export default function ProcurementDashboard() {
                   </BarChart>
                 </ResponsiveContainer>
               )}
-            </div>
-          </motion.div>
-
-          {/* Supplier Leaderboard */}
-          <motion.div className="proc-card"
-            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.34 }}>
-            <div className="proc-card-header">
-              <h2>Supplier Leaderboard</h2>
-              <button className="proc-link-btn" onClick={() => navigate('/procurement/suppliers')}>
-                View All <ChevronRight size={13} />
-              </button>
-            </div>
-            <div className="proc-card-body" style={{ padding: '0.5rem 1.25rem' }}>
-              {spl ? (
-                <div className="proc-empty">Loading...</div>
-              ) : topLeaderboard.length === 0 ? (
-                <div className="pd-empty-state"><Users size={24} /><p>No suppliers yet</p></div>
-              ) : topLeaderboard.map((s, i) => (
-                <motion.div key={s.supplier_id} className="pd-leader-row"
-                  initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  onClick={() => navigate(`/procurement/suppliers/${s.supplier_id}`)}>
-                  <div className="pd-leader-rank"
-                    style={{ color: i === 0 ? '#f59e0b' : i === 1 ? '#94a3b8' : i === 2 ? '#b45309' : '#8b3a3a' }}>
-                    {i === 0 ? '🏆' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
-                  </div>
-                  <div className="pd-leader-info">
-                    <span className="pd-leader-name">{s.supplier_name}</span>
-                    <span className="pd-leader-score">Score: {Number(s.performance_score || 0).toFixed(1)}</span>
-                  </div>
-                  <span className="pd-tier-badge" style={{
-                    background: s.performance_tier === 'Gold' ? '#fef3c7' : s.performance_tier === 'Silver' ? '#f1f5f9' : '#fdf4ee',
-                    color:      s.performance_tier === 'Gold' ? '#b45309' : s.performance_tier === 'Silver' ? '#475569' : '#92400e',
-                  }}>
-                    {s.performance_tier || 'Bronze'}
-                  </span>
-                </motion.div>
-              ))}
             </div>
           </motion.div>
 

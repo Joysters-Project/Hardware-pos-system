@@ -32,13 +32,21 @@ const getProductForecast = async (productId) => {
     // Update cached average daily sales in product table
     await product.update({ avg_daily_sales: avgDailySales });
 
+    const currentStock = parseFloat(product.stock_quantity || 0);
+    const reorderLevel = parseFloat(product.reorder_level || 0);
+    const minStock = parseFloat(product.min_stock_quantity || 0);
+    const threshold = Math.max(reorderLevel, minStock);
+
     let daysRemaining = null;
     let stockoutDate = null;
     let severity = 'Safe';
 
-    if (avgDailySales > 0) {
-      daysRemaining = parseFloat((product.stock_quantity / avgDailySales).toFixed(2));
-      
+    if (currentStock <= 0) {
+      daysRemaining = 0;
+      stockoutDate = new Date().toISOString().split('T')[0];
+      severity = 'Critical';
+    } else if (avgDailySales > 0) {
+      daysRemaining = parseFloat((currentStock / avgDailySales).toFixed(2));
       const msRemaining = daysRemaining * 24 * 60 * 60 * 1000;
       stockoutDate = new Date(Date.now() + msRemaining).toISOString().split('T')[0];
 
@@ -46,7 +54,12 @@ const getProductForecast = async (productId) => {
         severity = 'Critical';
       } else if (daysRemaining <= 14) {
         severity = 'Low';
+      } else if (threshold > 0 && currentStock <= threshold) {
+        severity = 'Low';
       }
+    } else if (threshold > 0 && currentStock <= threshold) {
+      daysRemaining = 0;
+      severity = 'Low';
     }
 
     return {

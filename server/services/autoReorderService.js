@@ -44,7 +44,13 @@ const checkProductReorder = async (productId) => {
     const product = await products.findByPk(productId);
     if (!product || product.status !== 'active') return null;
 
-    if (product.stock_quantity >= product.reorder_level) return null;
+    const currentStock = parseFloat(product.stock_quantity || 0);
+    const reorderLevel = parseFloat(product.reorder_level || 0);
+    const minStock = parseFloat(product.min_stock_quantity || 0);
+    const threshold = Math.max(reorderLevel, minStock);
+
+    if (threshold > 0 && currentStock >= threshold) return null;
+    if (threshold === 0 && currentStock > 0) return null;
 
     // Check if there's already an active suggestion (Pending or Approved)
     const existing = await auto_reorder_suggestions.findOne({
@@ -62,9 +68,10 @@ const checkProductReorder = async (productId) => {
       return null;
     }
 
+    const effectiveThreshold = threshold > 0 ? threshold : 10;
     const suggestedQty = product.reorder_quantity > 0 
       ? product.reorder_quantity 
-      : Math.max(10, product.reorder_level * 2);
+      : Math.max(10, effectiveThreshold * 2);
     
     const cost = parseFloat((suggestedQty * Number(product.cost_price)).toFixed(2));
 
@@ -98,17 +105,61 @@ const checkProductReorder = async (productId) => {
 };
 
 /**
+ * dismissStaleSuggestions
+ * Auto-dismisses Pending/Approved suggestions whose product stock is now
+ * at or above the reorder level (stock was replenished since suggestion was created).
+ */
+const dismissStaleSuggestions = async () => {
+  try {
+    // Find all Pending/Approved suggestions
+    const activeSuggestions = await auto_reorder_suggestions.findAll({
+      where: { status: { [Op.in]: ['Pending', 'Approved'] } },
+      include: [{ model: products, attributes: ['product_id', 'stock_quantity', 'reorder_level', 'status'] }]
+    });
+
+    let dismissed = 0;
+    for (const s of activeSuggestions) {
+      const prod = s.product;
+      // Dismiss if product is inactive, or stock is now >= reorder_level
+      const currentStock = parseFloat(prod?.stock_quantity || 0);
+      const reorderLvl = parseFloat(prod?.reorder_level || 0);
+      const minStock = parseFloat(prod?.min_stock_quantity || 0);
+      const threshold = Math.max(reorderLvl, minStock);
+
+      const isStale = (threshold > 0 && currentStock >= threshold) || (threshold === 0 && currentStock > 0);
+      if (!prod || prod.status !== 'active' || isStale) {
+        await s.update({ status: 'Dismissed' });
+        dismissed++;
+        console.log(`[AutoReorderService] Dismissed stale suggestion #${s.suggestion_id} for product_id=${s.product_id} (stock=${prod?.stock_quantity}, threshold=${threshold})`);
+      }
+    }
+    return dismissed;
+  } catch (err) {
+    console.error(`[AutoReorderService] Error dismissing stale suggestions: ${err.message}`);
+    // Don't throw — this is a housekeeping step; failures should not block new suggestions
+    return 0;
+  }
+};
+
+/**
  * checkAndGenerateSuggestions
  * Scans all products and generates suggestions for low stock.
+ * Also dismisses stale suggestions for products that have been restocked.
  */
 const checkAndGenerateSuggestions = async () => {
   try {
+    // Step 1: Dismiss suggestions that are no longer valid (stock replenished)
+    await dismissStaleSuggestions();
+
+    // Step 2: Find currently low-stock products
     const lowStockProducts = await products.findAll({
       where: {
         status: 'active',
-        stock_quantity: {
-          [Op.lt]: products.sequelize.col('reorder_level')
-        }
+        [Op.or]: [
+          { stock_quantity: { [Op.lte]: 0 } },
+          { stock_quantity: { [Op.lt]: products.sequelize.col('reorder_level') } },
+          { stock_quantity: { [Op.lt]: products.sequelize.col('min_stock_quantity') } }
+        ]
       }
     });
 
@@ -126,5 +177,6 @@ const checkAndGenerateSuggestions = async () => {
 
 module.exports = {
   checkProductReorder,
-  checkAndGenerateSuggestions
+  checkAndGenerateSuggestions,
+  dismissStaleSuggestions
 };

@@ -150,6 +150,7 @@ export function useUpdateSupplierRating() {
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['procurement-suppliers'] });
       qc.invalidateQueries({ queryKey: ['procurement-supplier', String(id)] });
+      qc.invalidateQueries({ queryKey: ['procurementDashboard'] });
       toast.success('Rating updated!');
     },
     onError: (e) => toast.error(e.response?.data?.error || 'Failed to update rating'),
