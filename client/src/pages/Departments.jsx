@@ -11,6 +11,8 @@ import PeopleTopNav from "../components/navigation/PeopleTopNav";
 import "../styles/Departments.css";
 
 const EMPTY_FORM = { department_name: "", budget: "", description: "", status: "Active" };
+const MAX_DEPARTMENT_BUDGET = 100000000;
+const formatBudgetInput = (value) => String(value ?? "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
 const DEPT_COLORS = [
   { bg: "linear-gradient(135deg,#8b3a3a,#c0504d)", light: "#fff0f0", accent: "#8b3a3a" },
@@ -68,7 +70,7 @@ function DepartmentsPage() {
   const openEdit = (d) => {
     setForm({
       department_name: d.department_name,
-      budget: d.budget ?? "",
+      budget: d.budget == null ? "" : String(Math.trunc(Number(d.budget))),
       description: d.description || "",
       status: d.status || "Active"
     });
@@ -81,7 +83,8 @@ function DepartmentsPage() {
     e.preventDefault();
     if (!form.department_name.trim()) { toast.error("Department name is required"); return; }
     const budgetValue = form.budget === "" ? 0 : Number(form.budget);
-    if (Number.isNaN(budgetValue) || budgetValue <= 0) { toast.error("Budget must be greater than 0"); return; }
+    if (!Number.isInteger(budgetValue) || budgetValue <= 0) { toast.error("Budget must be a whole number greater than 0"); return; }
+    if (budgetValue > MAX_DEPARTMENT_BUDGET) { toast.error("Budget cannot exceed 100,000,000"); return; }
 
     if (String(form.status).toLowerCase() === "inactive" && editId) {
       try {
@@ -388,14 +391,19 @@ function DepartmentsPage() {
                 />
               </div>
               <div className="dept-field">
-                <label>Budget <span className="req">*</span></label>
+                <label>Budget (LKR) <span className="req">*</span></label>
                 <input id="budget" name="budget"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.budget}
-                  onChange={e => setForm({ ...form, budget: e.target.value })}
-                  placeholder="e.g. 500000"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={11}
+                  value={formatBudgetInput(form.budget)}
+                  onChange={e => {
+                    const value = e.target.value.replace(/,/g, "");
+                    if (/^\d*$/.test(value) && (value === "" || Number(value) <= MAX_DEPARTMENT_BUDGET)) {
+                      setForm({ ...form, budget: value });
+                    }
+                  }}
+                  placeholder="e.g. 1,000"
                 />
               </div>
               <div className="dept-field">

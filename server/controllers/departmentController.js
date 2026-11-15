@@ -43,6 +43,10 @@ const getAllDepartments = async (req, res) => {
 };
 
 const MAX_DEPARTMENT_BUDGET = 100000000; // 10 crore
+const parseIntegerBudget = (value) => {
+  const normalized = String(value ?? '').trim();
+  return /^\d+$/.test(normalized) ? Number(normalized) : NaN;
+};
 
 const getDepartmentById = async (req, res) => {
   try {
@@ -102,9 +106,9 @@ const createDepartment = async (req, res) => {
     const exists = await db.departments.findOne({ where: { department_name } });
     if (exists) return res.status(400).json({ message: 'Department name already exists' });
 
-    const parsedBudget = parseFloat(budget || 0);
-    if (!Number.isFinite(parsedBudget) || parsedBudget < 0) {
-      return res.status(400).json({ message: 'Invalid budget value' });
+    const parsedBudget = budget == null || budget === '' ? 0 : parseIntegerBudget(budget);
+    if (!Number.isSafeInteger(parsedBudget) || parsedBudget < 0) {
+      return res.status(400).json({ message: 'Budget must be a whole number' });
     }
 
     if (parsedBudget > MAX_DEPARTMENT_BUDGET) {
@@ -158,9 +162,9 @@ const updateDepartment = async (req, res) => {
     const updatePayload = {};
     if (department_name !== undefined) updatePayload.department_name = department_name;
     if (budget !== undefined) {
-      const parsedBudget = parseFloat(budget);
-      if (!Number.isFinite(parsedBudget) || parsedBudget < 0) {
-        return res.status(400).json({ success: false, message: 'Invalid budget value' });
+      const parsedBudget = parseIntegerBudget(budget);
+      if (!Number.isSafeInteger(parsedBudget) || parsedBudget < 0) {
+        return res.status(400).json({ success: false, message: 'Budget must be a whole number' });
       }
       if (parsedBudget > MAX_DEPARTMENT_BUDGET) {
         return res.status(400).json({ success: false, message: `Budget cannot exceed ${MAX_DEPARTMENT_BUDGET}` });

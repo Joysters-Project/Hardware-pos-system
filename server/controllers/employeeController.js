@@ -8,7 +8,7 @@ const getIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
 const EMPLOYEE_VARCHAR_LIMITS = {
   first_name: 50,
   last_name: 50,
-  nic: 20,
+  nic: 12,
   phone_no: 20,
   email: 150,
   position: 100,
