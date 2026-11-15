@@ -315,9 +315,7 @@ function ProductsPage() {
     return [...products]
       .sort((a, b) => Number(a.product_id) - Number(b.product_id))
       .filter((p) => !q || (
-        String(p.product_id).includes(q) ||
         String(p.product_name || "").toLowerCase().includes(q) ||
-        String(p.type || "").toLowerCase().includes(q) ||
         String(p.batch_no || "").toLowerCase().includes(q) ||
         String(p.barcode || "").toLowerCase().includes(q)
       ));
@@ -525,7 +523,7 @@ function ProductsPage() {
       <div className="search-bar-wrap">
         <input id="search" name="search"
           className="search"
-          placeholder="Search by ID, name, type, batch, or barcode…"
+          placeholder="Search by name, batch no, or barcode…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />

@@ -26,7 +26,20 @@ class DueCollectionService {
         throw new Error("Bill not found");
       }
 
-      const currentBalance = parseFloat(bill.balance_due);
+      const totalAmount = Number(bill.total_amount);
+      if (!Number.isFinite(totalAmount) || totalAmount < 0) {
+        throw new Error("Invalid bill total");
+      }
+
+      const totalPaidBefore = Number(await db.payments.sum('amount_paid', {
+        where: { bill_id },
+        transaction: t
+      }) || 0);
+      if (!Number.isFinite(totalPaidBefore)) {
+        throw new Error("Invalid payment history");
+      }
+
+      const currentBalance = Math.max(0, Number((totalAmount - totalPaidBefore).toFixed(2)));
       if (currentBalance <= 0) {
         throw new Error("This bill has already been fully paid.");
       }
@@ -44,7 +57,15 @@ class DueCollectionService {
       }, { transaction: t });
 
       // 3. Update the bills state
-      const newBalance = currentBalance - payAmount;
+      const totalPaidAfter = Number(await db.payments.sum('amount_paid', {
+        where: { bill_id },
+        transaction: t
+      }) || 0);
+      if (!Number.isFinite(totalPaidAfter)) {
+        throw new Error("Invalid payment history");
+      }
+
+      const newBalance = Math.max(0, Number((totalAmount - totalPaidAfter).toFixed(2)));
       const newStatus = (newBalance <= 0) ? 'PAID' : 'PARTIAL';
 
       const updateData = {

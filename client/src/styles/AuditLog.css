@@ -257,6 +257,18 @@
   animation: audit-modal-fadeIn 0.2s ease-out both;
 }
 
+body:has(.audit-date-picker-button) > .proc-modal-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  box-sizing: border-box;
+  z-index: 999999 !important;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+
 @keyframes audit-modal-fadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }
