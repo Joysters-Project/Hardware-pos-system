@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import {
   AlertCircle,
@@ -92,6 +92,8 @@ export default function CustomerChequeExchange() {
   const [dashboard, setDashboard] = useState(null);
   const [banks, setBanks] = useState([]);
   const [customerSearch, setCustomerSearch] = useState('');
+  const [dataReloadKey, setDataReloadKey] = useState(0);
+  const [customersLoaded, setCustomersLoaded] = useState(false);
   const [chequeSearch, setChequeSearch] = useState('');
   const [chequeFilter, setChequeFilter] = useState('all');
   const [repaymentFilter, setRepaymentFilter] = useState('all');
@@ -132,35 +134,28 @@ export default function CustomerChequeExchange() {
   const [reportRows, setReportRows] = useState([]);
   const [reportMeta, setReportMeta] = useState({ monthly_summary: [], bank_summary: [] });
   const [loading, setLoading] = useState(true);
+  const customerRequestId = useRef(0);
+  const chequeRequestId = useRef(0);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [dashboardRes, customersRes, chequesRes, banksRes] = await Promise.all([
+      const [dashboardRes, banksRes] = await Promise.all([
         chequeExchangeApi.getDashboard(),
-        chequeExchangeApi.getCustomers({ search: customerSearch }),
-        chequeExchangeApi.getCheques({
-          search: chequeSearch,
-          cheque_status: chequeFilter === 'all' ? undefined : chequeFilter,
-          repayment_status: repaymentFilter === 'all' ? undefined : repaymentFilter,
-          bank_name: bankFilter === 'all' ? undefined : bankFilter,
-          customer_id: customerIdFilter === 'all' ? undefined : customerIdFilter,
-          date_from: dateFrom || undefined,
-          date_to: dateTo || undefined,
-        }),
         chequeExchangeApi.getBanks(),
       ]);
       setDashboard(dashboardRes.data?.data || null);
-      setCustomers([...(customersRes.data?.data || [])]
-        .sort((left, right) => Number(left.customer_id) - Number(right.customer_id)));
-      setCheques([...(chequesRes.data?.data || [])]
-        .sort((left, right) => Number(left.cheque_id) - Number(right.cheque_id)));
       setBanks(banksRes.data?.data || []);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to load cheque exchange data');
     } finally {
       setLoading(false);
     }
+  };
+
+  const refreshAllData = async () => {
+    setDataReloadKey((key) => key + 1);
+    await loadData();
   };
 
   const loadReports = async (type = reportType) => {
@@ -309,7 +304,57 @@ export default function CustomerChequeExchange() {
 
   useEffect(() => {
     loadData();
-  }, [customerSearch, chequeSearch, chequeFilter, repaymentFilter, bankFilter, customerIdFilter, dateFrom, dateTo]);
+  }, []);
+
+  useEffect(() => {
+    const requestId = ++customerRequestId.current;
+    const timeoutId = setTimeout(async () => {
+      try {
+        const response = await chequeExchangeApi.getCustomers({ search: customerSearch });
+        if (requestId !== customerRequestId.current) return;
+        setCustomers([...(response.data?.data || [])]
+          .sort((left, right) => Number(left.customer_id) - Number(right.customer_id)));
+        setCustomersLoaded(true);
+      } catch (error) {
+        if (requestId !== customerRequestId.current) return;
+        setCustomersLoaded(true);
+        toast.error(error.response?.data?.message || 'Failed to load customers');
+      }
+    }, 250);
+
+    return () => {
+      clearTimeout(timeoutId);
+      customerRequestId.current += 1;
+    };
+  }, [customerSearch, dataReloadKey]);
+
+  useEffect(() => {
+    const requestId = ++chequeRequestId.current;
+    const timeoutId = setTimeout(async () => {
+      try {
+        const response = await chequeExchangeApi.getCheques({
+          search: chequeSearch,
+          cheque_status: chequeFilter === 'all' ? undefined : chequeFilter,
+          repayment_status: repaymentFilter === 'all' ? undefined : repaymentFilter,
+          bank_name: bankFilter === 'all' ? undefined : bankFilter,
+          customer_id: customerIdFilter === 'all' ? undefined : customerIdFilter,
+          date_from: dateFrom || undefined,
+          date_to: dateTo || undefined,
+        });
+        if (requestId !== chequeRequestId.current) return;
+        setCheques([...(response.data?.data || [])]
+          .sort((left, right) => Number(left.cheque_id) - Number(right.cheque_id)));
+      } catch (error) {
+        if (requestId !== chequeRequestId.current) return;
+        toast.error(error.response?.data?.message || 'Failed to load cheques');
+      }
+    }, 250);
+
+    return () => {
+      clearTimeout(timeoutId);
+      chequeRequestId.current += 1;
+    };
+  }, [chequeSearch, chequeFilter, repaymentFilter, bankFilter, customerIdFilter, dateFrom, dateTo, dataReloadKey]);
 
   useEffect(() => {
     if (activeTab === 'reports') {
@@ -455,7 +500,7 @@ export default function CustomerChequeExchange() {
       }
       clearCustomerForm();
       setCustomerModalOpen(false);
-      await loadData();
+      await refreshAllData();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Unable to save customer');
     }
@@ -468,7 +513,7 @@ export default function CustomerChequeExchange() {
     try {
       await chequeExchangeApi.deleteCustomer(customer_id);
       toast.success('Customer deleted successfully');
-      await loadData();
+      await refreshAllData();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Unable to delete customer');
     }
@@ -529,7 +574,7 @@ export default function CustomerChequeExchange() {
       setChequeCustomerDisplay('');
       setEditingChequeId(null);
       setChequeModalOpen(false);
-      await loadData();
+      await refreshAllData();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Unable to record cheque');
     }
@@ -542,7 +587,7 @@ export default function CustomerChequeExchange() {
     try {
       await chequeExchangeApi.deleteCheque(id);
       toast.success('Cheque deleted successfully');
-      await loadData();
+      await refreshAllData();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Unable to delete cheque');
     }
@@ -601,7 +646,7 @@ export default function CustomerChequeExchange() {
     try {
       await chequeExchangeApi.updateChequeStatus(id, { cheque_status: status });
       toast.success(`Cheque marked as ${status}`);
-      await loadData();
+      await refreshAllData();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Unable to update cheque status');
     }
@@ -611,7 +656,7 @@ export default function CustomerChequeExchange() {
     try {
       await chequeExchangeApi.depositCheque(id);
       toast.success('Cheque marked as deposited');
-      await loadData();
+      await refreshAllData();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Unable to deposit cheque');
     }
@@ -621,7 +666,7 @@ export default function CustomerChequeExchange() {
     try {
       await chequeExchangeApi.recordRepayment(id);
       toast.success('Repayment recorded');
-      await loadData();
+      await refreshAllData();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Unable to record repayment');
     }
@@ -695,7 +740,7 @@ export default function CustomerChequeExchange() {
           </thead>
           <tbody>
             {customers.length === 0 ? (
-              <tr><td colSpan="9" className="cce-empty">No customers found.</td></tr>
+              <tr><td colSpan="9" className="cce-empty">{customersLoaded ? 'No customers found.' : 'Loading customers…'}</td></tr>
             ) : (
               customers.map((customer) => (
                 <tr key={customer.customer_id}>
