@@ -82,6 +82,11 @@ test.describe('Assets - Search, Details and Pagination', () => {
     await page.locator('#filterStatus').selectOption('Maintenance');
     await expect(page.locator('tbody tr')).toHaveCount(1);
     await expect(page.locator('tbody')).toContainText('Spare Drill');
+    await page.getByRole('button', { name: 'Reset Filter', exact: true }).click();
+    await expect(page.locator('#search')).toHaveValue('');
+    await expect(page.locator('#filterStatus')).toHaveValue('');
+    await expect(page.locator('#filterDept')).toHaveValue('');
+    await expect(page.locator('tbody tr')).toHaveCount(2);
   });
   test('department filter excludes other departments', async ({ page }) => {
     inventory.data.departments.push({ department_id: 2, department_name: 'Office', status: 'Active' });

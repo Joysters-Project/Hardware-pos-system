@@ -89,6 +89,18 @@ test.describe('Employees — Search and Filters', () => {
     await page.locator('#search').clear();
   });
 
+  test('reset filter clears employee search and selected filters', async ({ page }) => {
+    await gotoEmployees(page);
+    await page.locator('#search').fill('zzz_nobody_xyz');
+    await page.locator('#filterStatus').selectOption('Active');
+    await page.locator('#filterDept').selectOption('1');
+    await page.getByRole('button', { name: 'Reset Filter', exact: true }).click();
+    await expect(page.locator('#search')).toHaveValue('');
+    await expect(page.locator('#filterStatus')).toHaveValue('');
+    await expect(page.locator('#filterDept')).toHaveValue('');
+    await expect(page.locator('.emp-table tbody tr')).toHaveCount(10);
+  });
+
   test('status filter — Active shows only Active rows', async ({ page }) => {
     await gotoEmployees(page);
     await page.locator('#filterStatus').selectOption('Active');

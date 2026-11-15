@@ -48,6 +48,13 @@ function ExpensesPage() {
     finally { setPageLoading(false); }
   };
 
+  const resetFilters = () => {
+    setSearch("");
+    setFilterType("");
+    setFilterDept("");
+    setPage(1);
+  };
+
   const openAdd = () => { setForm(EMPTY_FORM); setEditId(null); setShowModal(true); };
   const openEdit = (exp) => {
     setForm({
@@ -190,6 +197,9 @@ function ExpensesPage() {
               <option value="">All Departments</option>
               {departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
             </select>
+            <button type="button" className="proc-btn-outline" onClick={resetFilters} disabled={pageLoading}>
+              Reset Filter
+            </button>
           </div>
 
           {/* Table */}
