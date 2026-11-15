@@ -69,20 +69,54 @@ test.describe('Batch Inventory - Disposal and API Errors', () => {
 
 
 test.describe('Batch Inventory - Search and Empty State', () => {
-  for (const query of ['BATCH-2', 'Steel Hammer', 'Tool Supplier', '21', 'Expired']) {
-    test('search matches ' + query, async ({ page }) => {
+  test.beforeEach(() => {
+    inventory.data['batch-inventory'][1] = {
+      ...inventory.data['batch-inventory'][1],
+      product: { ...inventory.data['batch-inventory'][1].product, product_name: 'Iron Wrench' },
+      supplier: { supplier_name: 'Tool Supplier East' },
+      purchase_order: { po_id: 22, po_number: '22' },
+    };
+  });
+
+  for (const [query, expectedCount] of [
+    ['BATCH-2', 1],
+    ['atch-2', 1],
+    ['STEEL', 1],
+    ['  Steel Hammer  ', 1],
+    ['22', 1],
+    ['supplier east', 1],
+    ['Expired', 1],
+  ]) {
+    test(`search "${query}" shows ${expectedCount} matching row(s)`, async ({ page }) => {
       await gotoBatchInventory(page);
       await expect(page.locator('tbody tr')).toHaveCount(2);
       await page.locator('#search').fill(query);
-      await expect(page.locator('tbody tr')).toHaveCount(['BATCH-2', 'Expired'].includes(query) ? 1 : 2);
-      await expect(page.locator('tbody')).toContainText('BATCH-2');
+      await expect(page.locator('tbody tr')).toHaveCount(expectedCount);
     });
   }
+
+  test('partial product name and supplier searches return matching batches', async ({ page }) => {
+    await gotoBatchInventory(page);
+    await page.locator('#search').fill('hammer');
+    await expect(page.locator('tbody tr')).toHaveCount(1);
+    await expect(page.locator('tbody')).toContainText('BATCH-1');
+    await page.locator('#search').fill('supplier');
+    await expect(page.locator('tbody tr')).toHaveCount(2);
+  });
+
   test('unmatched search shows empty state and clearing restores rows', async ({ page }) => {
     await gotoBatchInventory(page);
-    await page.locator('#search').fill('no-such-batch');
+    await page.locator('#search').fill('undefined');
     await expect(page.getByText('No batches found.', { exact: true })).toBeVisible();
     await page.locator('#search').fill('');
+    await expect(page.locator('tbody tr')).toHaveCount(2);
+  });
+
+  test('search remains available after refreshing the page', async ({ page }) => {
+    await gotoBatchInventory(page);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.locator('tbody tr')).toHaveCount(2);
+    await page.locator('#search').fill('tool supplier');
     await expect(page.locator('tbody tr')).toHaveCount(2);
   });
 });

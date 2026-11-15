@@ -44,19 +44,21 @@ const ALERT_TYPE_MAP = {
   "purchase-ordered": "Purchase Ordered",
 };
 
+const getTodayDate = () => {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+};
+
 function DisposeModal({ target, onClose, onConfirm, disposing }) {
   const available = Number(target?.batch?.remaining_quantity ?? 0);
-  const [qty, setQty] = useState(available);
-  const [disposalDate, setDisposalDate] = useState(() => {
-    const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  });
+  const today = getTodayDate();
+  const [disposalDate, setDisposalDate] = useState(getTodayDate);
   const [reason, setReason] = useState("");
 
   if (!target) return null;
 
   const { product } = target;
-  const invalid = qty < 1 || qty > available || !disposalDate || !reason.trim();
+  const invalid = available < 1 || !disposalDate || disposalDate > today || !reason.trim();
 
   return (
     <div className="proc-modal-overlay" onClick={onClose}>
@@ -89,8 +91,8 @@ function DisposeModal({ target, onClose, onConfirm, disposing }) {
               type="number"
               min={1}
               max={available}
-              value={qty}
-              onChange={e => setQty(Math.min(available, Math.max(1, parseInt(e.target.value) || 1)))}
+              value={available}
+              readOnly
               className="proc-input"
               disabled={disposing}
             />
@@ -101,6 +103,7 @@ function DisposeModal({ target, onClose, onConfirm, disposing }) {
               id="disposal-date"
               type="date"
               value={disposalDate}
+              max={today}
               onChange={e => setDisposalDate(e.target.value)}
               className="proc-input"
               disabled={disposing}
@@ -119,7 +122,7 @@ function DisposeModal({ target, onClose, onConfirm, disposing }) {
           </div>
           {invalid && (
             <p style={{ color: "#c62828", fontSize: "0.85rem", marginTop: "0.5rem" }}>
-              Enter a quantity between 1 and {available}, a disposal date, and a reason.
+              A positive expired quantity, a disposal date on or before today, and a reason are required.
             </p>
           )}
         </div>
@@ -128,7 +131,7 @@ function DisposeModal({ target, onClose, onConfirm, disposing }) {
           <button
             className="proc-btn-primary"
             style={{ background: "#c62828" }}
-            onClick={() => onConfirm({ quantity: qty, disposal_date: disposalDate, disposal_reason: reason.trim() })}
+            onClick={() => onConfirm({ quantity: available, disposal_date: disposalDate, disposal_reason: reason.trim() })}
             disabled={invalid || disposing}
           >
             {disposing ? "Disposing…" : "Confirm Dispose"}
@@ -776,7 +779,7 @@ function AlertCenterPage() {
   const [search, setSearch] = useState("");
   const [disposeTarget, setDisposeTarget] = useState(null);
   const [disposing, setDisposing] = useState(false);
-  const [viewProductId, setViewProductId] = useState(null);
+  const [productDetails, setProductDetails] = useState(null);
   const [viewPoId, setViewPoId] = useState(null);
 
   const activeTab    = searchParams.get("tab") || "inventory";
@@ -806,13 +809,13 @@ function AlertCenterPage() {
 
   useEffect(() => {
     fetchAlerts();
-  }, [activeFilter, search]);
+  }, [activeFilter]);
 
   useEffect(() => {
     const onVisible = () => { if (document.visibilityState === "visible") { fetchAlerts(); fetchSummary(); } };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [activeFilter, search]);
+  }, [activeFilter]);
 
   // Auto-refresh: socket event + 30s polling fallback
   useEffect(() => {
@@ -820,7 +823,7 @@ function AlertCenterPage() {
     const unsub = subscribeToEvent("alerts:updated", refresh);
     const timer = setInterval(refresh, 30000);
     return () => { unsub(); clearInterval(timer); };
-  }, [activeFilter, search]);
+  }, [activeFilter]);
 
   const fetchSummary = async () => {
     try {
@@ -843,8 +846,6 @@ function AlertCenterPage() {
           params.alert_type = alertType;
         }
       }
-      if (search.trim()) params.search = search.trim();
-
       const res = await api.get("/alerts", { params });
       let data = Array.isArray(res.data) ? res.data : res.data?.alerts || [];
       if (isCashier) data = data.filter(a => a.status !== "Purchase Ordered");
@@ -855,6 +856,27 @@ function AlertCenterPage() {
       setLoading(false);
     }
   };
+
+  const filteredAlerts = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return alerts;
+    if (query === "active" || query === "purchase ordered") {
+      return alerts.filter((alert) => String(alert.status || "Active").trim().toLowerCase() === query);
+    }
+
+    return alerts.filter((alert) => {
+      const product = alert.product || {};
+      const alertId = alert.alert_id == null ? "" : String(alert.alert_id);
+      return [
+        alertId,
+        alertId ? `#${alertId}` : "",
+        product.product_name,
+        product.barcode,
+        alert.alert_label || alert.alert_type,
+        alert.batch_number,
+      ].some((value) => String(value ?? "").toLowerCase().includes(query));
+    });
+  }, [alerts, search]);
 
   const setFilter = (key) => {
     if (key) {
@@ -927,9 +949,12 @@ function AlertCenterPage() {
         onConfirm={handleDispose}
         disposing={disposing}
       />
-      {viewProductId && (
-        <DetailModal title="Product Details" onClose={() => setViewProductId(null)}>
-          <ProductDetailContent productId={viewProductId} />
+      {productDetails && (
+        <DetailModal title="Product Details" onClose={() => setProductDetails(null)}>
+          <ProductDetailContent
+            productId={productDetails.productId}
+            batchDetails={productDetails.batchDetails}
+          />
         </DetailModal>
       )}
       {viewPoId && (
@@ -1069,21 +1094,30 @@ function AlertCenterPage() {
                 <tr>
                   <td colSpan={isCashier ? 10 : 11} className="proc-empty">Loading alerts...</td>
                 </tr>
-              ) : alerts.length === 0 ? (
+              ) : filteredAlerts.length === 0 ? (
                 <tr>
                   <td colSpan={isCashier ? 10 : 11} className="proc-empty">No alerts found.</td>
                 </tr>
               ) : (
-                alerts.map((alert) => {
+                filteredAlerts.map((alert) => {
                   const product = alert.product || {};
                   const type = alert.alert_type;
                   const color = statusColor(type);
+                  const openProductDetails = () => {
+                    if (!product.product_id) return;
+                    setProductDetails({
+                      productId: product.product_id,
+                      batchDetails: alert.batch_id
+                        ? alert.batch || {}
+                        : { batch_number: alert.batch_number, expiry_date: alert.expiry_date },
+                    });
+                  };
                   return (
                     <tr key={alert.alert_id}>
                       <td><span className="proc-code-badge">#{alert.alert_id}</span></td>
                       <td>
                         <button
-                          onClick={() => setViewProductId(product.product_id)}
+                          onClick={openProductDetails}
                           style={{
                             background: "transparent",
                             border: "none",
@@ -1139,8 +1173,8 @@ function AlertCenterPage() {
                           const status   = alert.status || "Active";
                           const poId     = alert.purchase_order_id;
                           const returnTo = encodeURIComponent(`/alerts${activeFilter ? `?type=${activeFilter}&` : "?"}poCreated=1`);
-                          const viewProduct = () => setViewProductId(product.product_id);
-                          const viewBatch   = () => setViewProductId(product.product_id);
+                          const viewProduct = openProductDetails;
+                          const viewBatch   = openProductDetails;
                           const viewPO      = () => setViewPoId(poId);
                           const createPO    = () => navigate(`/procurement/orders/create?productId=${product.product_id}&returnTo=${returnTo}`);
 
@@ -1161,7 +1195,7 @@ function AlertCenterPage() {
                                   Dispose
                                 </button>
                                 <button className="proc-btn-outline" style={{ padding: "0.3rem 0.65rem", fontSize: "0.8rem" }} onClick={viewBatch}>
-                                  Batch
+                                  View
                                 </button>
                               </div>
                             );
@@ -1171,7 +1205,7 @@ function AlertCenterPage() {
                             return (
                               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                                 <button className="proc-btn-outline" style={{ padding: "0.3rem 0.65rem", fontSize: "0.8rem" }} onClick={viewBatch}>
-                                  Batch
+                                  View
                                 </button>
                               </div>
                             );

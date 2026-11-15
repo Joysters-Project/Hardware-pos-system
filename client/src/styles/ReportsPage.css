@@ -288,9 +288,9 @@
 }
 
 .an-range-actions .rp-reset-btn:hover {
-  background: #8b3a3a;
-  border-color: #8b3a3a;
-  color: #fff;
+  background: #fff0f0;
+  border-color: #c99a9a;
+  color: #7d5050;
 }
 
 .an-range-actions .rp-reset-btn.active,
@@ -374,6 +374,12 @@
 .rp-table td.muted {
   color: #aaa;
   font-size: 12px;
+}
+
+.an-analytics-tab .rp-table,
+.an-analytics-tab .rp-table th,
+.an-analytics-tab .rp-table td {
+  font-family: Inter, Arial, sans-serif;
 }
 
 .rp-empty {
@@ -1093,8 +1099,119 @@
   letter-spacing: -0.01em;
 }
 
+.an-cashier-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 360px));
+  justify-content: start;
+  gap: 16px;
+}
+
+.an-cashier-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 210px;
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--cashier-accent) 20%, #eee);
+  border-top: 4px solid var(--cashier-accent);
+  border-radius: 16px;
+  background: linear-gradient(145deg, #fff 0%, #fff8f5 100%);
+  box-shadow: 0 8px 20px rgba(64, 24, 24, 0.07);
+  color: #2c2c2c;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.an-cashier-card:hover,
+.an-cashier-card.selected {
+  border-color: var(--cashier-accent);
+  box-shadow: 0 14px 28px rgba(64, 24, 24, 0.13);
+  transform: translateY(-3px);
+}
+
+.an-cashier-card.selected {
+  background: linear-gradient(145deg, #fff8f5 0%, #fcebea 100%);
+}
+
+.an-cashier-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.an-cashier-avatar {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  flex: 0 0 42px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--cashier-accent) 14%, #fff);
+  color: var(--cashier-accent);
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.an-cashier-card-heading strong,
+.an-cashier-card-heading small {
+  display: block;
+}
+
+.an-cashier-card-heading strong { font-size: 1rem; }
+.an-cashier-card-heading small { margin-top: 2px; color: #876f6f; font-size: 0.78rem; }
+
+.an-cashier-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.an-cashier-metrics span {
+  padding: 9px;
+  border-radius: 10px;
+  background: rgba(139, 58, 58, 0.06);
+  color: #806f69;
+  font-size: 0.78rem;
+}
+
+.an-cashier-metrics b {
+  display: block;
+  margin-bottom: 2px;
+  color: #542727;
+  font-size: 0.95rem;
+}
+
+.an-cashier-dates {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: auto;
+  color: #806f69;
+  font-size: 0.76rem;
+}
+
+.an-cashier-activity-panel {
+  padding: 18px;
+  border: 1px solid #eee4e4;
+  border-radius: 14px;
+  background: #fffdfa;
+  box-shadow: 0 6px 16px rgba(64, 24, 24, 0.06);
+}
+
+.an-cashier-activity-panel h3 {
+  margin: 0 0 14px;
+  color: #542727;
+  font-size: 1rem;
+}
+
 @media screen and (max-width: 900px) {
   .an-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .an-cashier-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -1106,6 +1223,10 @@
 
   .an-sq-card {
     min-height: 96px;
+  }
+
+  .an-cashier-grid {
+    grid-template-columns: 1fr;
   }
 }
 

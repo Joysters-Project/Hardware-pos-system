@@ -274,6 +274,44 @@
 	animation: prod-modal-fade-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+.modal-overlay.batch-details-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.35);
+	backdrop-filter: none;
+	-webkit-backdrop-filter: none;
+	z-index: 1050;
+	display: block;
+	padding: 0;
+	animation: batch-details-fade-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.modal-box.batch-details-modal {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	z-index: 1;
+	width: calc(100vw - 32px);
+	animation: batch-details-modal-pop-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes batch-details-fade-in {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+@keyframes batch-details-modal-pop-in {
+	from {
+		opacity: 0;
+		transform: translate(-50%, -50%) scale(0.96) translateY(10px);
+	}
+	to {
+		opacity: 1;
+		transform: translate(-50%, -50%) scale(1) translateY(0);
+	}
+}
+
 .modal-overlay.product-modal-overlay {
 	inset: 0;
 	background: rgba(0, 0, 0, 0.5);
@@ -293,6 +331,10 @@
 	.admin-shell.sidebar-collapsed .modal-overlay {
 		left: 0;
 		padding: 24px 16px;
+		z-index: 1200;
+	}
+
+	.modal-overlay.batch-details-overlay {
 		z-index: 1200;
 	}
 }

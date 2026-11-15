@@ -20,32 +20,32 @@ function makeAlerts() {
     {
       alert_id: 1, product_id: 10, alert_type: 'Out of Stock', status: 'Active',
       is_resolved: false, batch_number: null,
-      product: { product_id: 10, product_name: 'Steel Hammer', stock_quantity: 0, min_stock_quantity: 5, reorder_level: 3, expiry_date: null, batch_no: null, status: 'active' },
+      product: { product_id: 10, product_name: 'Steel Hammer', barcode: 'SKU-HAMMER-10', stock_quantity: 0, min_stock_quantity: 5, reorder_level: 3, expiry_date: null, batch_no: null, status: 'active' },
     },
     {
       alert_id: 2, product_id: 11, alert_type: 'Low Stock', status: 'Active',
       is_resolved: false, batch_number: null,
-      product: { product_id: 11, product_name: 'Iron Wrench', stock_quantity: 2, min_stock_quantity: 5, reorder_level: 3, expiry_date: null, batch_no: null, status: 'active' },
+      product: { product_id: 11, product_name: 'Iron Wrench', barcode: 'SKU-WRENCH-11', stock_quantity: 2, min_stock_quantity: 5, reorder_level: 3, expiry_date: null, batch_no: null, status: 'active' },
     },
     {
       alert_id: 3, product_id: 12, alert_type: 'Reorder', status: 'Active',
       is_resolved: false, batch_number: null,
-      product: { product_id: 12, product_name: 'Copper Wire', stock_quantity: 3, min_stock_quantity: 2, reorder_level: 3, expiry_date: null, batch_no: null, status: 'active' },
+      product: { product_id: 12, product_name: 'Copper Wire', barcode: 'SKU-COPPER-12', stock_quantity: 3, min_stock_quantity: 2, reorder_level: 3, expiry_date: null, batch_no: null, status: 'active' },
     },
     {
       alert_id: 4, product_id: 13, alert_type: 'Near Expiry', status: 'Active',
       is_resolved: false, batch_number: 'BATCH-001',
-      product: { product_id: 13, product_name: 'Lubricant Oil', stock_quantity: 10, min_stock_quantity: 2, reorder_level: 3, expiry_date: '2025-08-10', batch_no: 'BATCH-001', status: 'active' },
+      product: { product_id: 13, product_name: 'Lubricant Oil', barcode: 'SKU-OIL-13', stock_quantity: 10, min_stock_quantity: 2, reorder_level: 3, expiry_date: '2025-08-10', batch_no: 'BATCH-001', status: 'active' },
     },
     {
       alert_id: 5, product_id: 14, alert_type: 'Expired', status: 'Active',
-      is_resolved: false, batch_number: 'BATCH-002',
-      product: { product_id: 14, product_name: 'Rust Remover', stock_quantity: 4, min_stock_quantity: 2, reorder_level: 3, expiry_date: '2024-01-01', batch_no: 'BATCH-002', status: 'active' },
+      is_resolved: false, batch_number: 'BATCH-002', alert_label: 'Expired Stock – Disposal Required',
+      product: { product_id: 14, product_name: 'Rust Remover', barcode: 'SKU-RUST-14', stock_quantity: 4, min_stock_quantity: 2, reorder_level: 3, expiry_date: '2024-01-01', batch_no: 'BATCH-002', status: 'active' },
     },
     {
       alert_id: 6, product_id: 15, alert_type: 'Low Stock', status: 'Purchase Ordered',
       is_resolved: false, purchase_order_id: 99, batch_number: null,
-      product: { product_id: 15, product_name: 'Drill Bit Set', stock_quantity: 1, min_stock_quantity: 5, reorder_level: 3, expiry_date: null, batch_no: null, status: 'active' },
+      product: { product_id: 15, product_name: 'Drill Bit Set', barcode: 'SKU-DRILL', stock_quantity: 1, min_stock_quantity: 5, reorder_level: 3, expiry_date: null, batch_no: null, status: 'active' },
     },
   ];
 }
@@ -87,17 +87,9 @@ async function setupAlertsApi(page) {
     if (/\/api\/alerts\/?$/.test(path) && method === 'GET') {
       const alertType = url.searchParams.get('alert_type');
       const status = url.searchParams.get('status');
-      const search = (url.searchParams.get('search') || '').toLowerCase();
       let result = [...alertsData];
       if (alertType) result = result.filter(a => a.alert_type === alertType);
       if (status) result = result.filter(a => a.status === status);
-      if (search) {
-        result = result.filter(a =>
-          a.product?.product_name?.toLowerCase().includes(search) ||
-          a.alert_type?.toLowerCase().includes(search) ||
-          (a.batch_number || '').toLowerCase().includes(search)
-        );
-      }
       return route.fulfill({ json: result });
     }
 
@@ -268,15 +260,31 @@ test.describe('Alerts - Filter by Status', () => {
 test.describe('Alerts - Search', () => {
   for (const [query, expectedCount] of [
     ['Steel Hammer', 1],
+    ['hammer', 1],
+    ['STEEL', 1],
+    ['  Steel Hammer  ', 1],
     ['Lubricant Oil', 1],
     ['Near Expiry', 1],
+    ['SKU-DRILL', 1],
+    ['A', 3],
+    ['act', 0],
+    ['#6', 1],
+    ['6', 1],
+    ['15', 0],
+    ['Expired Stock', 1],
+    ['active', 5],
+    ['Purchase Ordered', 1],
     ['BATCH-001', 1],
   ]) {
     test(`search "${query}" shows matching rows`, async ({ page }) => {
       await setupAlertsApi(page);
       await gotoAlerts(page);
       await page.locator('#search').fill(query);
-      await expect(page.locator('tbody tr')).toHaveCount(expectedCount);
+      if (expectedCount === 0) {
+        await expect(page.getByText('No alerts found.', { exact: true })).toBeVisible();
+      } else {
+        await expect(page.locator('tbody tr')).toHaveCount(expectedCount);
+      }
     });
   }
 
@@ -288,6 +296,23 @@ test.describe('Alerts - Search', () => {
     await expect(page.locator('tbody')).toContainText('Steel Hammer');
   });
 
+  test('search combines with the selected alert type filter', async ({ page }) => {
+    await setupAlertsApi(page);
+    await gotoAlerts(page);
+    await page.locator('.alert-chip').filter({ hasText: 'Low Stock' }).click();
+    await expect(page.locator('tbody tr')).toHaveCount(2);
+    await page.locator('#search').fill('A');
+    await expect(page.getByText('No alerts found.', { exact: true })).toBeVisible();
+    await expect(page.locator('.alert-chip').filter({ hasText: 'Low Stock' })).toHaveClass(/active/);
+    await page.locator('#search').fill('');
+    await expect(page.locator('tbody tr')).toHaveCount(2);
+    await page.locator('#search').fill('drill');
+    await expect(page.locator('tbody tr')).toHaveCount(1);
+    await expect(page.locator('tbody')).toContainText('Drill Bit Set');
+    await page.locator('#search').fill('');
+    await expect(page.locator('tbody tr')).toHaveCount(2);
+  });
+
   test('clearing search restores all rows', async ({ page }) => {
     await setupAlertsApi(page);
     await gotoAlerts(page);
@@ -295,6 +320,27 @@ test.describe('Alerts - Search', () => {
     await expect(page.locator('tbody tr')).toHaveCount(1);
     await page.locator('#search').fill('');
     await expect(page.locator('tbody tr')).toHaveCount(6);
+  });
+
+  test('search works after refreshing without issuing requests per keystroke', async ({ page }) => {
+    await setupAlertsApi(page);
+    const alertRequests = [];
+    page.on('request', request => {
+      const url = new URL(request.url());
+      if (url.pathname === '/api/alerts' && request.method() === 'GET') alertRequests.push(url);
+    });
+
+    await gotoAlerts(page);
+    await expect(page.locator('tbody tr')).toHaveCount(6);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.locator('tbody tr')).toHaveCount(6);
+    const requestCount = alertRequests.length;
+    await page.locator('#search').fill('rust');
+    await expect(page.locator('tbody tr')).toHaveCount(1);
+    await page.locator('#search').fill('SKU-');
+    await expect(page.locator('tbody tr')).toHaveCount(6);
+    expect(alertRequests).toHaveLength(requestCount);
+    expect(alertRequests.every(url => !url.searchParams.has('search'))).toBe(true);
   });
 });
 
@@ -304,7 +350,7 @@ test.describe('Alerts - Empty State', () => {
   test('unmatched search shows empty state', async ({ page }) => {
     await setupAlertsApi(page);
     await gotoAlerts(page);
-    await page.locator('#search').fill('no-such-product-xyz');
+    await page.locator('#search').fill('undefined');
     await expect(page.getByText('No alerts found.', { exact: true })).toBeVisible();
   });
 
@@ -455,19 +501,19 @@ test.describe('Alerts - Alert Type Priority Display', () => {
 // ── K. Expired Batch Actions ─────────────────────────────────────────────────
 
 test.describe('Alerts - Expired Batch Actions', () => {
-  test('Expired alert row shows Dispose and Batch buttons', async ({ page }) => {
+  test('Expired alert row shows Dispose and View buttons', async ({ page }) => {
     await setupAlertsApi(page);
     await gotoAlerts(page);
     const row = page.locator('tbody tr').filter({ hasText: 'Rust Remover' });
     await expect(row.getByRole('button', { name: 'Dispose' })).toBeVisible();
-    await expect(row.getByRole('button', { name: 'Batch' })).toBeVisible();
+    await expect(row.getByRole('button', { name: 'View' })).toBeVisible();
   });
 
-  test('Near Expiry alert row shows Batch button but not Dispose', async ({ page }) => {
+  test('Near Expiry alert row shows View button but not Dispose', async ({ page }) => {
     await setupAlertsApi(page);
     await gotoAlerts(page);
     const row = page.locator('tbody tr').filter({ hasText: 'Lubricant Oil' });
-    await expect(row.getByRole('button', { name: 'Batch' })).toBeVisible();
+    await expect(row.getByRole('button', { name: 'View' })).toBeVisible();
     await expect(row.getByRole('button', { name: 'Dispose' })).toHaveCount(0);
   });
 

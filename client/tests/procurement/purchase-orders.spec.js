@@ -4,6 +4,54 @@ import {
   gotoProcurement, restoreSession, assertNumericPONumber,
 } from '../helpers/procurement.helpers.js';
 
+function dateOffset(dateString, days) {
+  const date = new Date(`${dateString}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+async function openMockedReceiveModal(page, { poDate, expectedDelivery, orderedQuantity = 5 }) {
+  const receiveRequests = [];
+  const purchaseOrder = {
+    po_id: 1,
+    po_number: 1,
+    po_date: poDate,
+    expected_delivery: expectedDelivery,
+    status: 'Shipped',
+    supplier_id: 1,
+    supplier: { supplier_id: 1, supplier_name: 'Test Supplier' },
+    po_items: [{
+      po_item_id: 1,
+      po_id: 1,
+      product_id: 10,
+      quantity: orderedQuantity,
+      unit_price: 2,
+      total_price: 10,
+      product: { product_id: 10, product_name: 'Test Product' },
+    }],
+  };
+
+  await page.route('**/api/procurement/purchase-orders/1', (route) => (
+    route.fulfill({ json: purchaseOrder })
+  ));
+  await page.route('**/api/procurement/suppliers', (route) => (
+    route.fulfill({ json: [] })
+  ));
+  await page.route('**/api/batch-inventory/receive', async (route) => {
+    if (route.request().method() !== 'POST') return route.continue();
+    receiveRequests.push(route.request().postDataJSON());
+    return route.fulfill({ json: { message: 'Received' } });
+  });
+
+  await gotoProcurement(page, '/orders/1');
+  await page.locator('.proc-table tbody tr').getByRole('button', { name: 'Receive', exact: true }).click();
+  const modal = page.locator('.proc-modal');
+  await modal.getByRole('heading', { name: 'Receive Order Item' }).waitFor();
+  await modal.locator('#supplier_batch_number').fill('TEST-BATCH');
+
+  return { modal, receiveRequests };
+}
+
 test.beforeEach(async ({ page }) => {
   await restoreSession(page);
 });
@@ -300,4 +348,160 @@ test.describe('Automatic UI Updates (no manual Refresh)', () => {
     await expect(page.locator('.proc-table')).toBeVisible();
   });
 
+});
+
+test.describe('Receive Order Item — Date Validation', () => {
+  test('date picker allows past dates through today and disables future dates', async ({ page }) => {
+    await page.clock.setFixedTime(new Date('2026-11-15T12:00:00'));
+    const { modal } = await openMockedReceiveModal(page, {
+      poDate: '2026-11-10',
+      expectedDelivery: '2026-11-20',
+    });
+
+    const receivedDate = modal.locator('#received_date');
+
+    await expect(receivedDate).not.toHaveAttribute('min');
+    await expect(receivedDate).toHaveAttribute('max', '2026-11-15');
+
+    await receivedDate.fill('2026-11-09');
+    await expect(receivedDate).toHaveValue('2026-11-09');
+    await expect(modal.locator('.proc-error-banner')).toHaveText('Received Date cannot be earlier than Purchase Order Date.');
+
+    for (const date of ['2026-11-10', '2026-11-14', '2026-11-15']) {
+      await receivedDate.fill(date);
+      await expect(receivedDate).toHaveValue(date);
+      await expect(modal.locator('.proc-error-banner')).not.toContainText('Received Date');
+    }
+
+    await receivedDate.fill('2026-11-16');
+    await expect(modal.locator('.proc-error-banner')).toHaveText('Received Date cannot be in the future.');
+    expect(await receivedDate.evaluate(input => input.validity.rangeOverflow)).toBe(true);
+  });
+
+  test('validates required dates and date order without checking Expected Date', async ({ page }) => {
+    const todayInput = new Date();
+    const today = `${todayInput.getFullYear()}-${String(todayInput.getMonth() + 1).padStart(2, '0')}-${String(todayInput.getDate()).padStart(2, '0')}`;
+    const poDate = dateOffset(today, -2);
+    const { modal, receiveRequests } = await openMockedReceiveModal(page, {
+      poDate,
+      expectedDelivery: dateOffset(today, -1),
+    });
+    const receivedDate = modal.locator('#received_date');
+    const expiryDate = modal.locator('#expiry_date');
+    const submit = modal.getByRole('button', { name: 'Receive', exact: true });
+    const error = modal.locator('.proc-error-banner');
+
+    await expect(receivedDate).not.toHaveAttribute('min');
+    await expect(receivedDate).toHaveAttribute('max', today);
+
+    await receivedDate.fill('');
+    await submit.click();
+    await expect(error).toHaveText('Received Date is required.');
+
+    await receivedDate.fill(today);
+    await expect(error).toHaveText('Expiry Date is required.');
+    await expect(expiryDate).toHaveAttribute('min', dateOffset(today, 1));
+    await expiryDate.fill('');
+    await submit.click();
+    await expect(error).toHaveText('Expiry Date is required.');
+
+    await receivedDate.fill(dateOffset(today, 1));
+    await expect(error).toHaveText('Received Date cannot be in the future.');
+    await submit.click();
+    await expect(error).toHaveText('Received Date cannot be in the future.');
+
+    await receivedDate.fill(dateOffset(poDate, -1));
+    await expect(error).toHaveText('Received Date cannot be earlier than Purchase Order Date.');
+    await expiryDate.fill(poDate);
+    await submit.click();
+    await expect(error).toHaveText('Received Date cannot be earlier than Purchase Order Date.');
+
+    await receivedDate.fill(today);
+    await expiryDate.fill(today);
+    await expect(error).toHaveText('Expiry Date must be later than Received Date.');
+    await expiryDate.fill(dateOffset(today, -1));
+    await expect(error).toHaveText('Expiry Date must be later than Received Date.');
+    await submit.click();
+    await expect(error).toHaveText('Expiry Date must be later than Received Date.');
+    expect(receiveRequests).toHaveLength(0);
+
+    await expiryDate.fill(dateOffset(today, 1));
+    await submit.click();
+    await expect(modal).toBeHidden();
+    expect(receiveRequests).toHaveLength(1);
+    expect(receiveRequests[0]).toMatchObject({
+      received_date: today,
+      expiry_date: dateOffset(today, 1),
+    });
+  });
+
+  test.describe('Receive Order Item — Quantity Validation', () => {
+    test('displays and accepts whole-number quantities only', async ({ page }) => {
+      const todayInput = new Date();
+      const today = `${todayInput.getFullYear()}-${String(todayInput.getMonth() + 1).padStart(2, '0')}-${String(todayInput.getDate()).padStart(2, '0')}`;
+      const { modal, receiveRequests } = await openMockedReceiveModal(page, {
+        poDate: dateOffset(today, -1),
+        expectedDelivery: null,
+        orderedQuantity: '10.000',
+      });
+      const receivedQuantity = modal.locator('#received_quantity');
+      const error = modal.locator('.proc-error-banner');
+
+      await expect(receivedQuantity).toHaveValue('10');
+      await expect(receivedQuantity).toHaveAttribute('step', '1');
+      await expect(receivedQuantity).toBeEditable();
+
+      await receivedQuantity.fill('10.5');
+      expect(await receivedQuantity.evaluate(input => input.validity.stepMismatch)).toBe(true);
+      await expect(error).toHaveText('Received Quantity must be a whole number.');
+      await modal.getByRole('button', { name: 'Receive', exact: true }).click();
+      expect(receiveRequests).toHaveLength(0);
+
+      await receivedQuantity.fill('10');
+      await expect(error).toHaveCount(0);
+      await modal.locator('#expiry_date').fill(dateOffset(today, 1));
+      await modal.getByRole('button', { name: 'Receive', exact: true }).click();
+
+      await expect(modal).toBeHidden();
+      expect(receiveRequests).toHaveLength(1);
+      expect(receiveRequests[0].received_quantity).toBe(10);
+    });
+  });
+
+  test('allows Received Date equal to the Purchase Order date', async ({ page }) => {
+    const todayInput = new Date();
+    const today = `${todayInput.getFullYear()}-${String(todayInput.getMonth() + 1).padStart(2, '0')}-${String(todayInput.getDate()).padStart(2, '0')}`;
+    const poDate = dateOffset(today, -2);
+    const { modal, receiveRequests } = await openMockedReceiveModal(page, {
+      poDate,
+      expectedDelivery: dateOffset(today, 1),
+    });
+
+    await modal.locator('#received_date').fill(poDate);
+    await modal.locator('#expiry_date').fill(dateOffset(poDate, 1));
+    await expect(modal.locator('.proc-error-banner')).toHaveCount(0);
+    await modal.getByRole('button', { name: 'Receive', exact: true }).click();
+
+    await expect(modal).toBeHidden();
+    expect(receiveRequests).toHaveLength(1);
+    expect(receiveRequests[0].received_date).toBe(poDate);
+  });
+
+  test('does not require a Purchase Order date to receive an older batch', async ({ page }) => {
+    const todayInput = new Date();
+    const today = `${todayInput.getFullYear()}-${String(todayInput.getMonth() + 1).padStart(2, '0')}-${String(todayInput.getDate()).padStart(2, '0')}`;
+    const received = dateOffset(today, -5);
+    const { modal, receiveRequests } = await openMockedReceiveModal(page, {
+      poDate: null,
+      expectedDelivery: dateOffset(today, 1),
+    });
+
+    await modal.locator('#received_date').fill(received);
+    await modal.locator('#expiry_date').fill(dateOffset(received, 1));
+    await modal.getByRole('button', { name: 'Receive', exact: true }).click();
+
+    await expect(modal).toBeHidden();
+    expect(receiveRequests).toHaveLength(1);
+    expect(receiveRequests[0].received_date).toBe(received);
+  });
 });

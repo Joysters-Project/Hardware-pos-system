@@ -107,27 +107,6 @@ exports.createProduct = async (req, res) => {
       await product_units.bulkCreate(altUnits, { transaction });
     }
 
-    // Keep initial stock in the same batch ledger used by receiving and sales.
-    const initQty = parseFloat(safeBody.stock_quantity) || 0;
-    if (initQty > 0) {
-      const batchNumber = typeof safeBody.batch_no === 'string' && safeBody.batch_no.trim()
-        ? safeBody.batch_no.trim()
-        : `OPENING-${product.product_id}`;
-      await batch_inventory.create({
-        batch_number:       batchNumber,
-        product_id:         product.product_id,
-        purchase_order_id:  null,
-        supplier_id:        null,
-        purchase_price:     parseFloat(safeBody.cost_price) || 0,
-        received_quantity:  initQty,
-        remaining_quantity: initQty,
-        received_date:      getStoreLocalDate(),
-        expiry_date:        safeBody.expiry_date || null,
-        status: safeBody.expiry_date && safeBody.expiry_date < getStoreLocalDate() ? 'Expired' : 'Active',
-      }, { transaction });
-      await syncProductFromBatches(product.product_id, transaction);
-    }
-
     await transaction.commit();
     await product.reload();
     await syncAlertsForProduct(product);

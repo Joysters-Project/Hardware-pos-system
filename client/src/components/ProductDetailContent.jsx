@@ -9,12 +9,12 @@ function Field({ label, icon: Icon, children }) {
         {Icon && <Icon size={13} />}
         {label}
       </span>
-      <div className="dm-value">{children ?? "—"}</div>
+      <div className="dm-value">{children === null || children === undefined || children === "" ? "—" : children}</div>
     </div>
   );
 }
 
-export default function ProductDetailContent({ productId }) {
+export default function ProductDetailContent({ productId, batchDetails }) {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -41,11 +41,17 @@ export default function ProductDetailContent({ productId }) {
     return <p style={{ color: "#888", margin: 0 }}>Product could not be loaded.</p>;
   }
 
-  const expiryDisplay = product.expiry_date
-    ? new Date(product.expiry_date).toLocaleDateString()
+  const batchNumber = batchDetails
+    ? batchDetails.batch_number
+    : product.batch_number ?? product.batch_no;
+  const expiryDate = batchDetails ? batchDetails.expiry_date : product.expiry_date;
+  const expiryDisplay = expiryDate
+    ? new Date(expiryDate).toLocaleDateString()
     : null;
 
-  const statusDisplay = String(product.status).toLowerCase() === 'inactive' ? 'Inactive' : 'Active';
+  const statusDisplay = product.status == null || product.status === ""
+    ? null
+    : String(product.status).toLowerCase() === 'inactive' ? 'Inactive' : 'Active';
 
   return (
     <div className="dm-section">
@@ -53,7 +59,7 @@ export default function ProductDetailContent({ productId }) {
 
       <div className="dm-grid-3">
         <Field label="Product Type"  icon={Package}>{product.type}</Field>
-        <Field label="Batch Number"  icon={Hash}>{product.batch_number}</Field>
+        <Field label="Batch Number"  icon={Hash}>{batchNumber}</Field>
         <Field label="Expiry Date"   icon={Calendar}>{expiryDisplay}</Field>
       </div>
 

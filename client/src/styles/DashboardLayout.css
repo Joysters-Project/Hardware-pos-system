@@ -32,7 +32,8 @@ body:has(
   .pf-crop-overlay,
   .schema-panel-overlay,
   .success-backdrop,
-  .scan-modal-overlay
+  .scan-modal-overlay,
+  .nbell-dropdown
 ) {
   overflow: hidden;
 }
@@ -57,7 +58,8 @@ body:has(
   .pf-crop-overlay,
   .schema-panel-overlay,
   .success-backdrop,
-  .scan-modal-overlay
+  .scan-modal-overlay,
+  .nbell-dropdown
 ) .admin-content {
   overflow: hidden;
 }

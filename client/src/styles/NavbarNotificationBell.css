@@ -82,7 +82,7 @@
 
 .nbell-dropdown {
   position: absolute;
-  top: calc(100% + 10px);
+  top: 0;
   right: 0;
   width: 348px;
   background: #ffffff;
@@ -92,7 +92,9 @@
     0 20px 60px rgba(0, 0, 0, 0.14);
   border: 1px solid #e5e7eb;
   z-index: 999;
-  overflow: hidden;
+  max-height: calc(100vh - 80px);
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* ── Dropdown Header ── */
