@@ -905,7 +905,12 @@ const BillingSystem = () => {
     if (existingItem) {
       setCart(cart.map(item =>
         item.product_id === product.product_id && item.selected_unit_id === chosenUnit.unit_id
-          ? { ...item, quantity: item.quantity + 1, stock_quantity: Number(product.stock_quantity ?? item.stock_quantity ?? 0) }
+          ? {
+              ...item,
+              quantity: item.quantity + 1,
+              quantityInput: undefined,
+              stock_quantity: Number(product.stock_quantity ?? item.stock_quantity ?? 0)
+            }
           : item
       ));
     } else {
@@ -1039,11 +1044,14 @@ const BillingSystem = () => {
 
   // Update quantity — caps at available stock and shows a warning toast if exceeded
   const handleUpdateQty = (index, newQty) => {
-    const qty = parseFloat(newQty);
-    if (!Number.isFinite(qty) || qty <= 0) {
-      handleRemoveFromCart(index);
+    const qty = Number(newQty);
+    if (!/^\d+$/.test(newQty) || !Number.isInteger(qty) || qty <= 0) {
+      setCart(cart.map((item, i) =>
+        i === index ? { ...item, quantityInput: newQty } : item
+      ));
       return;
     }
+
     const item = cart[index];
     const catalogItem = catalogProducts.find(p => p.product_id === item.product_id);
     const stockQty = Number(catalogItem?.stock_quantity ?? item.stock_quantity ?? 0);
@@ -1055,7 +1063,7 @@ const BillingSystem = () => {
       .reduce((sum, cItem) => sum + ((Number(cItem.quantity) || 0) * (Number(cItem.conversion_factor) || 1.0)), 0);
 
     const remainingBaseStock = Math.max(0, stockQty - otherLinesBaseQty);
-    const maxInUnit = factor > 1 ? Math.floor(remainingBaseStock / factor) : remainingBaseStock;
+    const maxInUnit = Math.floor(remainingBaseStock / factor);
 
     if (qty > maxInUnit) {
       toast.error(
@@ -1068,15 +1076,30 @@ const BillingSystem = () => {
         { duration: 3500 }
       );
       // Cap at max available so the cart is still usable
+      const cappedQty = maxInUnit > 0 ? maxInUnit : 1;
       setCart(cart.map((cartItem, i) =>
-        i === index ? { ...cartItem, quantity: maxInUnit > 0 ? maxInUnit : 1, stock_quantity: stockQty } : cartItem
+        i === index ? { ...cartItem, quantity: cappedQty, quantityInput: String(cappedQty), stock_quantity: stockQty } : cartItem
       ));
       return;
     }
 
     setCart(cart.map((cartItem, i) =>
-      i === index ? { ...cartItem, quantity: qty, stock_quantity: stockQty } : cartItem
+      i === index ? { ...cartItem, quantity: qty, quantityInput: newQty, stock_quantity: stockQty } : cartItem
     ));
+  };
+
+  const handleBlurQty = (index) => {
+    setCart(cart.map((item, i) => {
+      if (i !== index || item.quantityInput === undefined) return item;
+
+      const qty = Number(item.quantityInput);
+      const isValid = /^\d+$/.test(item.quantityInput) && Number.isInteger(qty) && qty > 0;
+      return {
+        ...item,
+        quantity: isValid ? item.quantity : 1,
+        quantityInput: undefined
+      };
+    }));
   };
 
   const handleUpdateDiscount = (index, value) => {
@@ -1540,14 +1563,14 @@ const BillingSystem = () => {
 
                             <td style={{ textAlign: 'center' }}>
                               <input id="quantity" name="quantity"
-                                type="number"
+                                type="text"
+                                inputMode="numeric"
                                 className="qty-input-table"
                                 data-cart-row={idx}
                                 data-cart-field="quantity"
-                                value={item.quantity}
-                                onChange={(e) => handleUpdateQty(idx, parseFloat(e.target.value) || 0)}
-                                min="0.01"
-                                step="0.01"
+                                value={item.quantityInput ?? item.quantity}
+                                onChange={(e) => handleUpdateQty(idx, e.target.value)}
+                                onBlur={() => handleBlurQty(idx)}
                               />
                             </td>
                             <td style={{ textAlign: 'center' }}>
