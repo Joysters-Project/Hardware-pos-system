@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import { Eye, Pencil, Trash2, Plus, Search, FileDown, X, ChevronLeft, ChevronRight, ChevronDown, Users, AlertCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
@@ -24,6 +25,7 @@ const formatSalaryInput = (value) => {
 };
 
 function EmployeesPage() {
+  const { role } = useAuth();
   const [employees, setEmployees] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [search, setSearch] = useState("");
@@ -42,6 +44,9 @@ function EmployeesPage() {
   const [page, setPage] = useState(1);
   const fileRef = useRef();
   const PER_PAGE = 10;
+  const availablePositions = editId
+    ? POSITIONS
+    : POSITIONS.filter(position => position.toLowerCase() !== role?.toLowerCase());
 
   useEffect(() => { loadAll(); }, []);
 
@@ -485,7 +490,7 @@ function EmployeesPage() {
                       }}
                     >
                       <option value="">Select position</option>
-                      {POSITIONS.map(position => <option key={position} value={position}>{position}</option>)}
+                      {availablePositions.map(position => <option key={position} value={position}>{position}</option>)}
                       <option value="Other">Other</option>
                     </select>
                   )}

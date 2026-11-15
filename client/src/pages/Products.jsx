@@ -120,8 +120,8 @@ function UnitsManagerModal({ units, onClose, onRefresh }) {
     }
   };
 
-  return (
-    <div className="modal-overlay" onDoubleClick={(event) => {
+  return createPortal(
+    <div className="modal-overlay product-modal-overlay" onDoubleClick={(event) => {
       if (event.target === event.currentTarget) onClose();
     }}>
       <div className="modal-box units-modal" onClick={(e) => e.stopPropagation()}>
@@ -213,7 +213,8 @@ function UnitsManagerModal({ units, onClose, onRefresh }) {
           <button onClick={onClose}>Close</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
