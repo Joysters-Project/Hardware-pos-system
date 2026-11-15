@@ -8,6 +8,12 @@
     "test": "npx playwright test",
     "pretest": "npm run test:setup",
     "test:setup": "node -e \"require('./server/seeders/20230910-insert-test-invoice').up()\""
+    "build": "cd client && npm install && npm run build && cd ../server && npm install",
+
+    "build": "cd client && npm install && npm run build && cd ../server && npm install",
+    "test": "npx playwright test",
+    "pretest": "npm run test:setup",
+    "test:setup": "node -e \"require('./server/seeders/20230910-insert-test-invoice').up()\""
     "test": "npx playwright test",
     "pretest": "npm run test:setup",
     "test:setup": "node -e \"require('./server/seeders/20230910-insert-test-invoice').up()\""
