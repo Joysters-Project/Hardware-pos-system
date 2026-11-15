@@ -79,6 +79,15 @@ function SalaryPage() {
     finally { setPageLoading(false); }
   }, [filterMonth, filterYear, filterStatus, filterCat, search]);
 
+  const resetFilters = () => {
+    setFilterMonth("");
+    setFilterYear("");
+    setFilterStatus("");
+    setFilterCat("");
+    setSearch("");
+    setPage(1);
+  };
+
   useEffect(() => { loadAll(); }, [loadAll]);
 
   // When employee selected, auto-fill salary and category
@@ -428,8 +437,8 @@ function SalaryPage() {
           <option value="Pending">Pending</option>
           <option value="Paid">Paid</option>
         </select>
-        <button className="sal-refresh-btn" onClick={loadAll} disabled={pageLoading}>
-          <RefreshCw size={14} className={pageLoading ? "spin" : ""} />
+        <button type="button" className="sal-btn-outline" onClick={resetFilters} disabled={pageLoading}>
+          Reset Filter
         </button>
       </div>
 

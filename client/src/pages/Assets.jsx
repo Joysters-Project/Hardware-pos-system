@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
-import { Eye, Pencil, Trash2, Plus, Search, RefreshCw, FileDown, X, ChevronLeft, ChevronRight, Package, Archive } from "lucide-react";
+import { Eye, Pencil, Trash2, Plus, FileDown, X, ChevronLeft, ChevronRight, Package, Archive } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../utils/axios";
 import { buildTableHtml, escapeHtml, printWithTemplate } from "../utils/printTemplate";
@@ -45,6 +45,13 @@ function AssetsPage() {
       setAssets(assetRes.data); setDepartments(deptRes.data);
     } catch { toast.error("Failed to load assets", { id: "assets-load-error" }); }
     finally { setPageLoading(false); }
+  };
+
+  const resetFilters = () => {
+    setSearch("");
+    setFilterStatus("");
+    setFilterDept("");
+    setPage(1);
   };
 
   const openAdd = () => { setForm(EMPTY_FORM); setEditId(null); setShowModal(true); };
@@ -188,7 +195,6 @@ function AssetsPage() {
 
       <div className="proc-filters-row">
         <div className="proc-search-wrap">
-          <Search size={14} className="proc-search-icon" />
           <input id="search" name="search" className="proc-search" placeholder="Search asset name..." value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
@@ -199,8 +205,8 @@ function AssetsPage() {
           <option value="">All Departments</option>
           {departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
         </select>
-        <button className="proc-refresh-btn" onClick={loadAll} disabled={pageLoading} title="Refresh">
-          <RefreshCw size={14} className={pageLoading ? "proc-spin-fast" : ""} />
+        <button type="button" className="proc-btn-outline" onClick={resetFilters} disabled={pageLoading}>
+          Reset Filter
         </button>
       </div>
 

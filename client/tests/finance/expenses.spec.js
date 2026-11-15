@@ -15,6 +15,11 @@ test('expenses search, filters and pagination', async ({ page }) => {
   await expect(page.locator('.proc-table')).toContainText('Expense 10');
   await page.locator('#search').fill('missing');
   await expect(page.getByText('No expenses found')).toBeVisible();
+  await page.getByRole('button', { name: 'Reset Filter', exact: true }).click();
+  await expect(page.locator('#search')).toHaveValue('');
+  await expect(page.locator('#filterType')).toHaveValue('');
+  await expect(page.locator('#filterDept')).toHaveValue('');
+  await expect(page.locator('.proc-table tbody tr')).toHaveCount(10);
 });
 
 test('expense create, view, edit and delete persist across reload', async ({ page, finance }) => {
