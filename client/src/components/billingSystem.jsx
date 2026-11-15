@@ -1305,12 +1305,6 @@ const BillingSystem = () => {
 
     if (!Number.isInteger(sourceRow) || fieldIndex < 0) return;
 
-    if (event.key === 'Backspace') {
-      event.preventDefault();
-      handleRemoveFromCart(sourceRow);
-      return;
-    }
-
     const table = event.currentTarget.querySelector('.cart-table-modern');
     if (!table) return;
 

@@ -128,8 +128,18 @@ test.describe('Cashier Billing Counter - Cart & Quantity Operations', () => {
     await expect(page.locator('.summary-total-value')).toContainText('Rs.0.00');
   });
 
+  test('TC-BC-08: Backspace in a cart field does not remove the product', async ({ page }) => {
+    await addProduct(page, 'Riller');
+
+    const row = page.locator('.cart-table-modern tbody tr').first();
+    await row.locator('input.discount-input-table').press('Backspace');
+
+    await expect(page.locator('.cart-table-modern tbody tr')).toHaveCount(1);
+    await expect(row).toContainText('Riller');
+  });
+
   // ──────────────────────────────────────────────────────────────────────────
-  test('TC-BC-08: Clear all products from cart using Clear All button', async ({ page }) => {
+  test('TC-BC-09: Clear all products from cart using Clear All button', async ({ page }) => {
     await addProduct(page, 'Riller');
     await addProduct(page, 'Grainder');
 
