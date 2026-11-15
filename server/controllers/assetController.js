@@ -54,6 +54,9 @@ const createAsset = async (req, res) => {
     if (!asset_name || !department_id || !purchase_date) {
       return res.status(400).json({ message: 'asset_name, department_id, purchase_date are required' });
     }
+    if (typeof asset_name !== 'string' || asset_name.length > 150) {
+      return res.status(400).json({ message: 'asset_name must be 150 characters or fewer' });
+    }
 
     const parsedDepartmentId = parseInt(department_id, 10);
     if (!Number.isInteger(parsedDepartmentId)) {
@@ -130,6 +133,10 @@ const updateAsset = async (req, res) => {
       asset_name, department_id, cost, purchase_date, expiration_date,
       status, condition_type, custom_condition
     } = req.body;
+
+    if (asset_name !== undefined && (typeof asset_name !== 'string' || asset_name.length > 150)) {
+      return res.status(400).json({ message: 'asset_name must be 150 characters or fewer' });
+    }
 
     const newCost   = parseFloat(cost !== undefined ? cost : oldCost);
     const newStatus = status || asset.status;
