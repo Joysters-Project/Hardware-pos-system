@@ -24,6 +24,7 @@ function SeverityBadge({ severity }) {
 }
 
 function DaysBar({ days }) {
+  if (days === 0) return <span style={{ color: '#c62828', fontWeight: 700 }}>0d (Out of stock)</span>;
   if (days === null || days === undefined) return <span style={{ color: '#888', fontWeight: 700 }}>N/A</span>;
   const pct = Math.min((days / 60) * 100, 100);
   const color = days <= 7 ? '#c62828' : days <= 14 ? '#e65100' : '#1d7e42';

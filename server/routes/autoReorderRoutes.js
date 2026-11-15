@@ -10,5 +10,6 @@ router.put('/suggestions/:id/approve', ctrl.approveSuggestion);
 router.put('/suggestions/:id/reject', ctrl.rejectSuggestion);
 router.post('/suggestions/:id/convert', ctrl.convertToPO);
 router.post('/trigger', ctrl.triggerCheck);
+router.post('/dismiss-stale', ctrl.dismissStale);
 
 module.exports = router;

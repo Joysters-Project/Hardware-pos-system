@@ -1,6 +1,7 @@
 const { suppliers, purchase_orders, supplier_payments, supplier_documents } = require('../models');
 const { fn, col, Op } = require('sequelize');
 const { logActivity } = require('../services/auditService');
+const supplierPerformanceService = require('../services/supplierPerformanceService');
 const pdfService = require('../services/pdfService');
 
 // ── helpers ─────────────────────────────────────────────────────────────────
@@ -12,12 +13,13 @@ exports.createSupplier = async (req, res) => {
     const maxId = (await suppliers.max('supplier_id')) || 0;
     const supplierCode = 'SUP-' + String(maxId + 1).padStart(3, '0');
 
-    const supplier = await suppliers.create({
+    const createdSupplier = await suppliers.create({
       ...req.body,
       contact: req.body.contact || '',
       supplier_code: supplierCode,
       status: req.body.status || 'Active',
     });
+    const supplier = await supplierPerformanceService.calculateSupplierScore(createdSupplier.supplier_id);
 
     await logActivity(
       req.user?.user_id, req.user?.role,
@@ -150,6 +152,7 @@ exports.updateSupplierRating = async (req, res) => {
     }
 
     await supplier.update({ performance_rating: rating });
+    const updatedSupplier = await supplierPerformanceService.calculateSupplierScore(supplier.supplier_id);
 
     await logActivity(
       req.user?.user_id, req.user?.role,
@@ -158,7 +161,7 @@ exports.updateSupplierRating = async (req, res) => {
       getIp(req)
     );
 
-    res.status(200).json({ message: 'Supplier rating updated', data: supplier });
+    res.status(200).json({ message: 'Supplier rating updated', data: updatedSupplier });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
