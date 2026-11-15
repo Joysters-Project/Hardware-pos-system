@@ -103,6 +103,49 @@
 }
 .audit-clear-btn:hover { border-color: #c62828; color: #c62828; }
 
+.proc-container .proc-date-field {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.proc-container .proc-date-field .proc-date-input {
+  padding-right: 2.4rem;
+}
+
+.proc-container .proc-date-picker {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.proc-container .audit-date-picker-button {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #6f5555;
+  cursor: pointer;
+}
+
+.proc-container .audit-date-picker-button:hover {
+  color: #8b3a3a;
+}
+
+.proc-container .proc-date-error {
+  margin-top: 3px;
+  color: #c62828;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
 /* ── Table ── */
 .audit-table-wrap {
   overflow-x: hidden;

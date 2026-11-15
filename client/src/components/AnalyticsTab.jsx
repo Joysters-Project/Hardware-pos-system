@@ -29,7 +29,7 @@ const getDateRange = (monthsBack) => {
 const CARDS = [
   { key: 'top-products',      label: 'Top-Selling Products',          color: '#8b3a3a', icon: '📦' },
   { key: 'cashier-activity',  label: 'Cashier Sales Activity',        color: '#1565c0', icon: '🧾' },
-  { key: 'regular-customers', label: 'Regular Customers',             color: '#2e7d32', icon: '👥' },
+  { key: 'regular-customers', label: 'Borrowing Customers',            color: '#2e7d32', icon: '👥' },
   { key: 'regular-suppliers', label: 'Regular Suppliers',             color: '#6a1b9a', icon: '🏭' },
   { key: 'supplier-returns',  label: 'Products Returned to Suppliers',color: '#e65100', icon: '↩️' },
   { key: 'borrow-balances',   label: 'Outstanding Borrow Balances',   color: '#b71c1c', icon: '💳' },
@@ -55,23 +55,85 @@ function TopProductsDetail({ rows }) {
   );
 }
 
-function CashierDetail({ rows }) {
+function CashierDetail({ rows, from, to }) {
+  const [selectedCashier, setSelectedCashier] = useState(null);
+  const [activityRows, setActivityRows] = useState([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityError, setActivityError] = useState('');
+
+  const selectCashier = async (cashier) => {
+    setSelectedCashier(cashier);
+    setActivityLoading(true);
+    setActivityError('');
+    try {
+      const res = await api.get(`/analytics/cashier-activity/${cashier.user_id}`, { params: { from, to } });
+      setActivityRows(Array.isArray(res.data) ? res.data : []);
+    } catch (e) {
+      setActivityRows([]);
+      setActivityError(e.response?.data?.error || 'Failed to load cashier activity');
+    } finally {
+      setActivityLoading(false);
+    }
+  };
+
   return (
-    <table className="rp-table">
-      <thead><tr><th>Name</th><th>Role</th><th className="right">Transactions</th><th className="right">Total Billed</th><th>First</th><th>Last</th></tr></thead>
-      <tbody>
-        {rows.map((r) => (
-          <tr key={r.user_id}>
-            <td className="bold">{r.first_name} {r.last_name}</td>
-            <td>{r.role}</td>
-            <td className="right">{r.transaction_count}</td>
-            <td className="right green">{fmt(r.total_billed)}</td>
-            <td>{fmtDate(r.first_txn)}</td>
-            <td>{fmtDate(r.last_txn)}</td>
-          </tr>
+    <div className="an-cashier-report">
+      <div className="an-cashier-grid">
+        {rows.map((r, index) => (
+          <button
+            type="button"
+            key={r.user_id}
+            className={`an-cashier-card${selectedCashier?.user_id === r.user_id ? ' selected' : ''}`}
+            style={{ '--cashier-accent': ['#1565c0', '#2e7d32', '#8b3a3a'][index % 3] }}
+            onClick={() => selectCashier(r)}
+          >
+            <div className="an-cashier-card-heading">
+              <span className="an-cashier-avatar">{(r.first_name || '?').charAt(0).toUpperCase()}</span>
+              <span>
+                <strong>{r.first_name} {r.last_name}</strong>
+                <small>{r.role || 'Cashier'}</small>
+              </span>
+            </div>
+            <div className="an-cashier-metrics">
+              <span><b>{r.transaction_count}</b> transactions</span>
+              <span><b>{fmt(r.total_billed)}</b> billed</span>
+            </div>
+            <div className="an-cashier-dates">
+              <span>First: {fmtDate(r.first_txn)}</span>
+              <span>Last: {fmtDate(r.last_txn)}</span>
+            </div>
+          </button>
         ))}
-      </tbody>
-    </table>
+      </div>
+
+      {selectedCashier && (
+        <div className="an-cashier-activity-panel">
+          <h3>{selectedCashier.first_name} {selectedCashier.last_name} Activity</h3>
+          {activityLoading && <div className="rp-status">Loading activity…</div>}
+          {activityError && <div className="rp-status error">{activityError}</div>}
+          {!activityLoading && !activityError && activityRows.length === 0 && (
+            <div className="rp-empty">No activity found for this cashier in the selected period.</div>
+          )}
+          {!activityLoading && !activityError && activityRows.length > 0 && (
+            <div className="rp-table-wrap">
+              <table className="rp-table">
+                <thead><tr><th>Date and Time</th><th>Bill / Receipt</th><th>Status</th><th className="right">Amount Billed</th></tr></thead>
+                <tbody>
+                  {activityRows.map((activity) => (
+                    <tr key={activity.bill_id}>
+                      <td>{fmtDate(activity.bill_date)} {activity.bill_time}</td>
+                      <td className="bold">{activity.bill_no}</td>
+                      <td>{activity.status || '–'}</td>
+                      <td className="right green">{fmt(activity.total_amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -202,7 +264,7 @@ function DetailView({ card, from, to, onBack }) {
       )}
       {!loading && !error && rows.length > 0 && (
         <div className="rp-table-wrap" style={{ marginTop: 0 }}>
-          <Detail rows={rows} />
+          <Detail rows={rows} from={from} to={to} />
         </div>
       )}
     </div>
@@ -215,6 +277,33 @@ export default function AnalyticsTab() {
   const [to,         setTo]         = useState(DEFAULT_TO);
   const [activeRange, setActiveRange] = useState(null);
   const [activeCard, setActiveCard] = useState(null);
+
+  useEffect(() => {
+    if (!activeCard) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key !== 'Backspace') return;
+
+      const target = event.target;
+      const tagName = target?.tagName?.toLowerCase();
+      if (
+        tagName === 'input' ||
+        tagName === 'textarea' ||
+        tagName === 'select' ||
+        target?.isContentEditable ||
+        target?.closest?.('[contenteditable="true"]')
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      setActiveCard(null);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeCard]);
+
   const applyDateRange = (monthsBack) => {
     const range = getDateRange(monthsBack);
     setFrom(range.from);
@@ -223,7 +312,7 @@ export default function AnalyticsTab() {
   };
 
   return (
-    <div className="rp-section">
+    <div className="rp-section an-analytics-tab">
       {/* Date filter bar */}
       <div className="rp-filters" style={{ marginBottom: 0 }}>
         <div className="rp-date-group">

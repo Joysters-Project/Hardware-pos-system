@@ -543,6 +543,48 @@
 
 /* ── Report section ── */
 .proj-report-section { display: flex; flex-direction: column; gap: 1.25rem; }
+.proj-report-section .proc-stats {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1rem;
+}
+.proj-report-section .proc-stat-card {
+  position: relative;
+  min-height: 118px;
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: 1.2rem 1.3rem;
+  border: 1px solid rgba(139, 58, 58, 0.14);
+  border-radius: 16px;
+  background: linear-gradient(145deg, #fffdfa 0%, #fff5f1 100%);
+  box-shadow: 0 10px 24px rgba(104, 57, 43, 0.08), 0 2px 6px rgba(104, 57, 43, 0.05);
+}
+.proj-report-section .proc-stat-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 5px;
+  height: 100%;
+  background: #8b3a3a;
+}
+.proj-report-section .proc-stat-card:nth-child(2)::after { background: #b87942; }
+.proj-report-section .proc-stat-card:nth-child(3)::after { background: #5d8a78; }
+.proj-report-section .proc-stat-card:nth-child(4)::after { background: #6d79a8; }
+.proj-report-section .proc-stat-value {
+  position: relative;
+  z-index: 1;
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: #542727;
+}
+.proj-report-section .proc-stat-label {
+  position: relative;
+  z-index: 1;
+  margin-top: 0.35rem;
+  color: #866f69;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
 
 .proj-report-controls {
   display: flex; gap: 0.65rem; align-items: center; flex-wrap: wrap;
@@ -609,19 +651,24 @@
   display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 0.85rem;
 }
 .proj-month-card {
-  background: #fff; border-radius: 12px; padding: 1rem 1.1rem;
-  border: 1px solid #efefef; box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  display: flex; flex-direction: column; align-items: stretch;
+  min-height: 150px; box-sizing: border-box;
+  background: linear-gradient(145deg, #fffdfa 0%, #fff5f1 100%);
+  color: #333; border-radius: 14px; padding: 1rem 1.1rem;
+  border: 1px solid rgba(139,58,58,0.2);
+  box-shadow: 0 8px 18px rgba(104,57,43,0.08), 0 2px 5px rgba(104,57,43,0.04);
   transition: transform 0.2s, box-shadow 0.2s;
+  appearance: none;
 }
 .proj-month-card.has-data { border-color: rgba(139,58,58,0.25); }
 .proj-month-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.08); }
-.proj-month-name  { font-size: 0.78rem; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
-.proj-month-value { font-size: 1rem; font-weight: 700; color: #8b3a3a; }
-.proj-month-items { font-size: 0.75rem; color: #bbb; margin-top: 2px; }
-.proj-month-bar   { height: 4px; background: #f0f0f0; border-radius: 2px; margin-top: 8px; overflow: hidden; }
+.proj-month-name  { font-size: 0.78rem; font-weight: 800; color: #8b3a3a; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+.proj-month-value { font-size: 1.08rem; font-weight: 800; color: #542727; }
+.proj-month-items { font-size: 0.75rem; color: #806f69; margin-top: 3px; }
+.proj-month-bar   { height: 6px; background: #f0e5e1; border-radius: 999px; margin-top: auto; overflow: hidden; }
 .proj-month-bar-fill {
-  height: 100%; background: linear-gradient(90deg, #8b3a3a, #a84545);
-  border-radius: 2px; transition: width 0.4s ease;
+  height: 100%; background: linear-gradient(90deg, #8b3a3a, #d07a68);
+  border-radius: 999px; transition: width 0.4s ease;
 }
 
 /* ── Responsive ── */

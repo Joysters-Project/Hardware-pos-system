@@ -43,7 +43,7 @@ export const validateSriLankanPhone = (phoneNumber) => {
     return { isValid: true, message: 'Valid landline number', formatted: cleaned, type: 'landline' };
   }
 
-  return { isValid: false, message: 'Invalid phone prefix. Use 07X for mobile or a valid area code for landline', formatted: '' };
+  return { isValid: false, message: 'Invalid phone prefix.', formatted: '' };
 };
 
 export const formatSriLankanPhone = (phoneNumber) => {

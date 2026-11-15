@@ -23,6 +23,7 @@ module.exports = (sequelize) => {
     start_date:   { type: DataTypes.DATEONLY, allowNull: false },
     deadline:     { type: DataTypes.DATEONLY, allowNull: true },
     end_date:     { type: DataTypes.DATEONLY, allowNull: true },
+    owner_phone:   { type: DataTypes.STRING(15),     allowNull: true },
     final_cost:   { type: DataTypes.DECIMAL(12, 2), allowNull: true, defaultValue: null },
     amount_paid:  { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
     created_by:   { type: DataTypes.INTEGER, allowNull: false }, // user_id
