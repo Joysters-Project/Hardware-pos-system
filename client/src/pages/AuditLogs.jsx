@@ -184,17 +184,7 @@ function AuditLogPage() {
       {/* Header */}
       <div className="proc-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-          {view === 'archived' && (
-            <button
-              type="button"
-              className="proc-back-btn"
-              onClick={handleBackToAuditLogs}
-              aria-label="Back to audit logs"
-              title="Back to audit logs"
-            >
-              <ArrowLeft size={16} />
-            </button>
-          )}
+          
           <div className="proc-header-icon"><ShieldAlert size={20} /></div>
           <div>
             <h1>Audit Logs</h1>
