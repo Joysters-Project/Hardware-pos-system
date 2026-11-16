@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, ChevronLeft, ChevronRight, ShieldAlert, Eye, X, Clock, User, Shield, Activity, FileText, Archive, CalendarDays } from 'lucide-react';
+import { RefreshCw, ChevronLeft, ChevronRight, ShieldAlert, Eye, X, Clock, User, Shield, Activity, FileText, Archive, CalendarDays, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../utils/axios';
 import AdminDashboard from './AdminDashboard';
@@ -145,6 +145,11 @@ function AuditLogPage() {
     setPage(1);
   };
 
+  const handleBackToAuditLogs = () => {
+    switchView('recent');
+    navigate('/audit-logs');
+  };
+
   const updateDate = (field, value) => {
     const display = formatDateSearchValue(value);
     const parsed = parseDateValue(display);
@@ -179,6 +184,17 @@ function AuditLogPage() {
       {/* Header */}
       <div className="proc-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+          {view === 'archived' && (
+            <button
+              type="button"
+              className="proc-back-btn"
+              onClick={handleBackToAuditLogs}
+              aria-label="Back to audit logs"
+              title="Back to audit logs"
+            >
+              <ArrowLeft size={16} />
+            </button>
+          )}
           <div className="proc-header-icon"><ShieldAlert size={20} /></div>
           <div>
             <h1>Audit Logs</h1>

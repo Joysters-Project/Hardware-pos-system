@@ -42,7 +42,7 @@ const sendOtpEmail = async (toEmail, toName, otp) => {
 </td></tr></table></body></html>`;
   await transporter.sendMail({
     from: `"${process.env.EMAIL_FROM_NAME || 'Mathumithan Hardware'}" <${process.env.SMTP_EMAIL}>`,
-    to: toEmail, subject: '🔑 Your Password Reset OTP - Mathumithan Hardware POS', html,
+    to: toEmail, subject: '🔑 Your Password Reset OTP - Mathumithan Business Management System', html,
   });
 };
 
