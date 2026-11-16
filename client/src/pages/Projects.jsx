@@ -18,7 +18,10 @@ import '../styles/ProcurementWorkspace.css';
 import '../styles/Projects.css';
 
 const STATUSES = ['Active', 'Completed', 'On Hold', 'Cancelled'];
+const STATUSES_REQUIRING_END_DATE = ['On Hold', 'Completed', 'Cancelled'];
 const MONTHS   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MIN_PROJECT_YEAR = 1900;
+const MAX_PROJECT_YEAR = 2100;
 const toTitleCase = (value) => String(value || '')
   .trim()
   .toLowerCase()
@@ -73,9 +76,12 @@ const parseDateInput = (value) => {
   if (!match) return null;
 
   const [, day, month, year] = match;
-  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  const numericYear = Number(year);
+  if (numericYear < MIN_PROJECT_YEAR || numericYear > MAX_PROJECT_YEAR) return null;
+
+  const date = new Date(Date.UTC(numericYear, Number(month) - 1, Number(day)));
   if (
-    date.getUTCFullYear() !== Number(year) ||
+    date.getUTCFullYear() !== numericYear ||
     date.getUTCMonth() !== Number(month) - 1 ||
     date.getUTCDate() !== Number(day)
   ) return null;
@@ -176,25 +182,16 @@ function ProjectsPage() {
     const phoneResult = validateSriLankanPhone(form.owner_phone);
     if (!phoneResult.isValid) { toast.error(`Invalid phone: ${phoneResult.message}`); return; }
 
+    const currentDateErrors = getDateErrors(form);
+    if (Object.keys(currentDateErrors).length > 0) {
+      setDateErrors(currentDateErrors);
+      toast.error(Object.values(currentDateErrors)[0]);
+      return;
+    }
+
     const startDate = parseDateInput(form.start_date);
     const deadline  = parseDateInput(form.deadline);
     const endDate   = parseDateInput(form.end_date);
-    if (!startDate || (form.deadline && !deadline) || (form.end_date && !endDate)) {
-      toast.error('Invalid date format');
-      return;
-    }
-
-    // Start date must be before deadline
-    if (deadline && startDate >= deadline) {
-      toast.error('Invalid date range');
-      return;
-    }
-
-    // Start date must be before actual end date
-    if (endDate && startDate >= endDate) {
-      toast.error('Invalid date range');
-      return;
-    }
 
     // If actual end date is in the past, status cannot be Active
     if (endDate) {
@@ -420,20 +417,51 @@ function ProjectsPage() {
 
   const fmtCurrency = (n) => `LKR ${Number(n || 0).toLocaleString('en-LK', { minimumFractionDigits: 2 })}`;
   const f = (key) => (e) => setForm({ ...form, [key]: e.target.value });
-  const validateDateField = (key, value) => {
-    const error = value && !parseDateInput(value) ? 'Enter a valid date (dd/mm/yyyy)' : '';
-    setDateErrors(prev => ({ ...prev, [key]: error }));
+  const getDateErrors = (values) => {
+    const errors = {};
+    const dates = {
+      start_date: parseDateInput(values.start_date),
+      deadline: parseDateInput(values.deadline),
+      end_date: parseDateInput(values.end_date),
+    };
+
+    Object.entries(dates).forEach(([key, parsedDate]) => {
+      if (values[key]?.length === 10 && !parsedDate) {
+        errors[key] = 'Enter a valid date (dd/mm/yyyy)';
+      }
+    });
+
+    if (STATUSES_REQUIRING_END_DATE.includes(values.status) && !values.end_date) {
+      errors.end_date = 'Actual end date is required';
+    }
+    if (dates.start_date && dates.deadline && dates.start_date >= dates.deadline) {
+      errors.deadline = 'Deadline must be after the start date';
+    }
+    if (dates.start_date && dates.end_date && dates.start_date >= dates.end_date) {
+      errors.end_date = 'Actual end date must be after the start date';
+    }
+
+    return errors;
   };
+
   const dateField = (key) => (e) => {
     const value = formatDateInputValue(e.target.value);
-    setForm(prev => ({ ...prev, [key]: value }));
-    if (value.length === 10) validateDateField(key, value);
-    else setDateErrors(prev => ({ ...prev, [key]: '' }));
+    const nextForm = { ...form, [key]: value };
+    setForm(nextForm);
+    setDateErrors(getDateErrors(nextForm));
   };
+
   const dateBlur = (key) => (e) => {
     const value = normalizeDateOnBlur(e.target.value);
-    setForm(prev => ({ ...prev, [key]: value }));
-    validateDateField(key, value);
+    const nextForm = { ...form, [key]: value };
+    setForm(nextForm);
+    setDateErrors(getDateErrors(nextForm));
+  };
+
+  const statusField = (e) => {
+    const nextForm = { ...form, status: e.target.value };
+    setForm(nextForm);
+    setDateErrors(getDateErrors(nextForm));
   };
   const handleOwnerChange = (event) => {
     const owner = event.target.value;
@@ -779,6 +807,9 @@ function ProjectsPage() {
                     <input id="owner_phone" name="owner_phone" className="proc-input" value={form.owner_phone}
                       onChange={e => setForm({ ...form, owner_phone: filterSriLankanPhoneInput(e.target.value) })}
                       placeholder="e.g. 0771234567" maxLength={10} inputMode="numeric" required />
+                    <div style={{ marginTop: 6, color: '#6b7280', fontSize: '0.85rem' }}>
+                      {form.owner_phone.length}/10 digits
+                    </div>
                   </div>
                   <div className="proc-field">
                     <label>Location</label>
@@ -787,7 +818,7 @@ function ProjectsPage() {
                   </div>
                   <div className="proc-field">
                     <label>Status</label>
-                    <select id="status" name="status" className="proc-select" value={form.status} onChange={f('status')}>
+                    <select id="status" name="status" className="proc-select" value={form.status} onChange={statusField}>
                       {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
@@ -802,8 +833,8 @@ function ProjectsPage() {
                     {dateErrors.deadline && <div className="proc-field-error">{dateErrors.deadline}</div>}
                   </div>
                   <div className="proc-field">
-                    <label>End Date (Actual)</label>
-                    <input id="end_date" name="end_date" type="text" inputMode="numeric" maxLength={10} className="proc-date-input" value={form.end_date} onChange={dateField('end_date')} onBlur={dateBlur('end_date')} placeholder="dd/mm/yyyy" aria-invalid={Boolean(dateErrors.end_date)} />
+                    <label>End Date (Actual){STATUSES_REQUIRING_END_DATE.includes(form.status) ? ' *' : ''}</label>
+                    <input id="end_date" name="end_date" type="text" inputMode="numeric" maxLength={10} className="proc-date-input" value={form.end_date} onChange={dateField('end_date')} onBlur={dateBlur('end_date')} placeholder="dd/mm/yyyy" required={STATUSES_REQUIRING_END_DATE.includes(form.status)} aria-invalid={Boolean(dateErrors.end_date)} />
                     {dateErrors.end_date && <div className="proc-field-error">{dateErrors.end_date}</div>}
                   </div>
                   {editId && ['Completed', 'Cancelled'].includes(form.status) && (

@@ -106,6 +106,68 @@ exports.getAnalyticalStats = async (req, res) => {
 
     const conversionRate = totalOrdersCount > 0 ? Math.min((totalOrdersCount / 100) * 100, 100).toFixed(2) : "0.00";
 
+    const getPeriodStats = async (start, end) => {
+      const periodBills = await db.bills.findAll({
+        attributes: ['total_amount'],
+        where: { bill_date: { [Op.gte]: start, [Op.lt]: end } }
+      });
+      const revenue = periodBills.reduce((sum, bill) => sum + (parseFloat(bill.total_amount) || 0), 0);
+      const orders = periodBills.length;
+      return { revenue, orders, aov: orders > 0 ? revenue / orders : 0 };
+    };
+
+    const getTrend = (current, previous) => {
+      if (previous === 0) return current === 0 ? 0 : 100;
+      return ((current - previous) / previous) * 100;
+    };
+
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    const startOfTomorrow = new Date(startOfToday);
+    startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+    const startOfYesterday = new Date(startOfToday);
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+
+    const startOfCurrentWeek = new Date(startOfToday);
+    startOfCurrentWeek.setDate(startOfCurrentWeek.getDate() - 6);
+    const startOfPreviousWeek = new Date(startOfCurrentWeek);
+    startOfPreviousWeek.setDate(startOfPreviousWeek.getDate() - 7);
+
+    const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const startOfPreviousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+    const periodRanges = {
+      daily: [
+        [startOfToday, startOfTomorrow],
+        [startOfYesterday, startOfToday]
+      ],
+      weekly: [
+        [startOfCurrentWeek, startOfTomorrow],
+        [startOfPreviousWeek, startOfCurrentWeek]
+      ],
+      monthly: [
+        [startOfCurrentMonth, startOfNextMonth],
+        [startOfPreviousMonth, startOfCurrentMonth]
+      ]
+    };
+
+    const kpiTrends = {};
+    const periodKpis = {};
+    for (const [period, ranges] of Object.entries(periodRanges)) {
+      const [current, previous] = await Promise.all(ranges.map(([start, end]) => getPeriodStats(start, end)));
+      const currentConversion = Math.min(current.orders, 100);
+      const previousConversion = Math.min(previous.orders, 100);
+      periodKpis[period] = current;
+      kpiTrends[period] = {
+        revenue: getTrend(current.revenue, previous.revenue),
+        orders: getTrend(current.orders, previous.orders),
+        aov: getTrend(current.aov, previous.aov),
+        conversion: getTrend(currentConversion, previousConversion)
+      };
+    }
+
     // 2. Fetch Recent Ledger (real bills + customer associations)
     const recentBills = await db.bills.findAll({
       attributes: ['bill_id', 'bill_date', 'total_amount', 'customer_id', 'status'],
@@ -134,8 +196,6 @@ exports.getAnalyticalStats = async (req, res) => {
     });
 
     // 3. Time Series Dynamic Aggregations
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
     const todayBillsList = await db.bills.findAll({
       attributes: ['bill_id', 'bill_date', 'total_amount'],
       where: {
@@ -281,6 +341,8 @@ exports.getAnalyticalStats = async (req, res) => {
         aov: `LKR ${avgAOV.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
         conversionRate: `${conversionRate}%`
       },
+      kpiTrends,
+      periodKpis,
       recentTransactions: formattedTransactions,
       timeSeries: {
         daily: {

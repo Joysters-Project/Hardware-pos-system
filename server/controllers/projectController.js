@@ -95,6 +95,9 @@ exports.createProject = async (req, res) => {
     if (String(project_name).trim().length > 100) {
       return res.status(400).json({ message: 'Project name must be 100 characters or fewer' });
     }
+    if (['On Hold', 'Completed', 'Cancelled'].includes(status) && !end_date) {
+      return res.status(400).json({ message: 'Actual end date is required ' });
+    }
 
     const payload = {
       project_name: toTitleCase(project_name),
@@ -141,6 +144,11 @@ exports.updateProject = async (req, res) => {
     }
     const nextStatus = status !== undefined ? status : project.status;
     const isClosingStatus = ['Completed', 'Cancelled'].includes(nextStatus);
+    const nextEndDate = end_date !== undefined ? (end_date === '' ? null : end_date) : project.end_date;
+
+    if (['On Hold', 'Completed', 'Cancelled'].includes(nextStatus) && !nextEndDate) {
+      return res.status(400).json({ message: 'Actual end date is required' });
+    }
 
     let resolvedFinalPayment = final_payment !== undefined
       ? final_payment
@@ -159,7 +167,6 @@ exports.updateProject = async (req, res) => {
       }
     }
 
-    const nextEndDate = end_date !== undefined ? (end_date === '' ? null : end_date) : project.end_date;
     const nextFinalCost = isClosingStatus
       ? (resolvedFinalPayment === '' ? null : Number(resolvedFinalPayment))
       : (final_payment !== undefined && resolvedFinalPayment !== '' ? Number(resolvedFinalPayment) : project.final_cost);

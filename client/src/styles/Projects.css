@@ -197,6 +197,12 @@
 .proj-name-text { font-weight: 600; color: #1a1a1a; }
 .proj-desc-sub  { font-size: 0.75rem; color: #aaa; margin-top: 1px; }
 
+.proc-field-error {
+  margin-top: 6px;
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
 /* ID badge */
 .proj-id-badge {
   background: #f5f0f0; color: #8b3a3a;

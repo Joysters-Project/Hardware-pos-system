@@ -34,8 +34,44 @@ import "../styles/AnalyticalDashboard.css";
 
 
 export default function AnalyticalDashboard() {
-  const [timeframe, setTimeframe] = useState("daily"); // daily, weekly, monthly
+  const [timeframe, setTimeframe] = useState("daily");
+
   const [searchQuery, setSearchQuery] = useState("");
+// -------------------------------------------------------------------
+// Example: How conversion rate (CR) is calculated in this POS system
+// -------------------------------------------------------------------
+// Suppose the backend returns the following snapshot for the *daily* period:
+//
+// {
+//   "timeSeries": {
+//     "daily": {
+//       "revenue": [ { "name": "09:00", "revenue": 1200 }, ... ],
+//       "efficiency": [ { "name": "09:00", "conversion": 0.08 }, ... ]
+//     }
+//   },
+//   "kpis": {
+//     "totalRevenue": "LKR 15,340.00",
+//     "salesVolume": "12 orders",
+//     "aov": "LKR 1,278.33",
+//     "conversionRate": "8.00%"   // <-- pre‑computed, may be placeholder
+//   }
+// }
+//
+// If the `conversion` field inside `efficiency` is a **fraction** (0‑1),
+// the UI can compute the average CR for the selected period:
+//
+//   const periodConversion = useMemo(() => {
+//     const points = activeData.efficiency ?? [];
+//     const sum = points.reduce((a, p) => a + (Number(p.conversion) || 0), 0);
+//     const avg = points.length ? sum / points.length : 0;
+//     return `${(avg * 100).toFixed(2)}%`;
+//   }, [activeData]);
+//
+// With the mock data above (average conversion ≈ 0.08), the KPI card will
+// display **8.00 %** instead of the static “100 %”.  The same logic works
+// for weekly and monthly windows because `activeData` changes when the
+// user clicks the timeframe buttons.
+// -------------------------------------------------------------------
   const [loading, setLoading] = useState(true);
 
   // API Data States
@@ -45,6 +81,8 @@ export default function AnalyticalDashboard() {
     aov: "LKR 0.00",
     conversionRate: "0.00%"
   });
+  const [kpiTrends, setKpiTrends] = useState({});
+  const [periodKpis, setPeriodKpis] = useState({});
   const [transactions, setTransactions] = useState([]);
   const [timeSeries, setTimeSeries] = useState({
     daily: { revenue: [], efficiency: [], categories: [] },
@@ -63,6 +101,8 @@ export default function AnalyticalDashboard() {
       const res = await api.get(`/dashboard/analytical`);
       if (res.data) {
         setKpis(res.data.kpis || {});
+        setKpiTrends(res.data.kpiTrends || {});
+        setPeriodKpis(res.data.periodKpis || {});
         setTransactions(res.data.recentTransactions || []);
         setTimeSeries(res.data.timeSeries || {});
       }
@@ -155,6 +195,18 @@ export default function AnalyticalDashboard() {
     return <div className="kpi-value">{value}</div>;
   };
 
+  const formatTrend = (value) => {
+    const trend = Number(value) || 0;
+    return `${trend >= 0 ? "+" : ""}${trend.toFixed(2)}%`;
+  };
+
+  const formatCurrency = (value) => (
+    `LKR ${Number(value || 0).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })}`
+  );
+
   if (loading) {
     return (
       <div className="loading-spinner-wrapper" style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -163,12 +215,27 @@ export default function AnalyticalDashboard() {
     );
   }
 
+  const activeTrends = kpiTrends[timeframe] || {};
+  const activePeriodKpis = periodKpis[timeframe];
+  const activeKpis = activePeriodKpis ? {
+    totalRevenue: formatCurrency(activePeriodKpis.revenue),
+    salesVolume: `${activePeriodKpis.orders} orders`,
+    aov: formatCurrency(activePeriodKpis.aov),
+    conversionRate: `${Math.min(Number(activePeriodKpis.orders) || 0, 100).toFixed(2)}%`
+  } : kpis;
   const kpiList = [
-    { id: 1, title: "Total Revenue", value: kpis?.totalRevenue || "LKR 0.00", trend: "+12.4%", isPositive: true, label: "vs last period" },
-    { id: 2, title: "Sales Volume", value: kpis?.salesVolume || "0 orders", trend: "+8.2%", isPositive: true, label: "vs last period" },
-    { id: 3, title: "Average Order Value", value: kpis?.aov || "LKR 0.00", trend: "+3.1%", isPositive: true, label: "vs last period" },
-    { id: 4, title: "Conversion Rate", value: kpis?.conversionRate || "0.00%", trend: "+0.45%", isPositive: true, label: "vs last period" }
-  ];
+    { id: 1, title: "Total Revenue", value: activeKpis?.totalRevenue || "LKR 0.00", trend: activeTrends.revenue, label: "vs last period" },
+    { id: 2, title: "Sales Volume", value: activeKpis?.salesVolume || "0 orders", trend: activeTrends.orders, label: "vs last period" },
+    { id: 3, title: "Average Order Value", value: activeKpis?.aov || "LKR 0.00", trend: activeTrends.aov, label: "vs last period" },
+    { id: 4, title: "Conversion Rate", value: activeKpis?.conversionRate || "0.00%", trend: activeTrends.conversion, label: "vs last period" }
+  ].map((kpi) => {
+    const numericTrend = Number(kpi.trend) || 0;
+    return {
+      ...kpi,
+      trend: formatTrend(numericTrend),
+      isPositive: numericTrend >= 0
+    };
+  });
 
   return (
     <div className="analytics-container">
@@ -442,12 +509,12 @@ export default function AnalyticalDashboard() {
                   </span>
                 </div>
               </div>
-              
+
             ))
           )}
         </div>
       </div>
-      
+
     </div>
   );
 }
